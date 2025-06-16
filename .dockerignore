@@ -1,0 +1,11 @@
+# Ignore macOS metadata files
+.DS_Store
+._*
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore virtual environment folders
+.venv
+venv

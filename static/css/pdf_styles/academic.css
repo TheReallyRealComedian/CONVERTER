@@ -1,0 +1,35 @@
+/* Academic Theme */
+@page {
+    size: A4;
+    margin: 2.5cm;
+}
+body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #333;
+    max-width: 15cm;
+    margin: 0 auto;
+}
+h1, h2, h3 {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #000;
+    line-height: 1.2;
+    text-align: center;
+}
+h1 { font-size: 24pt; }
+h2 { font-size: 18pt; }
+h3 { font-size: 14pt; }
+
+code {
+    font-family: "Courier New", Courier, monospace;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    padding: 1px 3px;
+}
+pre {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    padding: 10px;
+    overflow-x: auto;
+}

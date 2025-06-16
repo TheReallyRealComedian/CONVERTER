@@ -1,0 +1,12 @@
+services:
+  markdown-converter:
+    build: .
+    container_name: markdown-converter
+    ports:
+      # Map port 5656 on your host to port 5000 inside the container
+      - "5656:5000"
+    volumes:
+      # Map our local output folder to the app's output folder inside the container
+      # This makes the generated PDFs persist on your server's filesystem.
+      - ./output_pdfs:/app/output
+    restart: unless-stopped
