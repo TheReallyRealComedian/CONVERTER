@@ -6,97 +6,9 @@
     <title>Markdown to PDF Converter</title>
     <link rel="icon" href="data:,">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- This link will be dynamically updated by our script for the preview style -->
     <link id="preview-style" rel="stylesheet" href="">
-    <style>
-        /* Main app styles - these should NOT be affected by theme changes */
-        body { background-color: #f8f9fa !important; }
-        .main-container {
-            display: flex;
-            height: calc(100vh - 58px); /* Full height minus header */
-        }
-        .editor-pane, .preview-pane {
-            height: 100%;
-            overflow-y: auto;
-            padding: 1.5rem;
-        }
-        .editor-pane { 
-            width: 50%; 
-            border-right: 1px solid #dee2e6;
-            background-color: #f8f9fa !important;
-        }
-        .preview-pane { 
-            width: 50%; 
-            background-color: #fff !important;
-            position: relative;
-        }
-        .card-header { 
-            border-radius: 0 !important;
-            background-color: #343a40 !important;
-            color: white !important;
-        }
-        #markdown_text {
-            height: calc(100vh - 400px); /* Adjust as needed */
-            min-height: 200px;
-            font-family: monospace !important;
-            resize: vertical;
-            background-color: white !important;
-        }
-        
-        /* Create an isolated container for the preview that mimics the PDF */
-        .preview-container {
-            background: #e5e5e5; /* Gray background to show page boundaries */
-            min-height: 100%;
-            padding: 20px;
-            position: relative;
-        }
-        
-        /* Simulate A4 page with visible margins */
-        .preview-page {
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin: 0 auto 20px auto;
-            position: relative;
-            /* A4 proportions at a reasonable scale */
-            width: 21cm;
-            min-height: 29.7cm;
-            max-width: 100%;
-        }
-        
-        /* Page margin indicators */
-        .preview-page::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border: 1px dashed #ccc;
-            margin: 2cm; /* Same as PDF margins */
-            pointer-events: none;
-            z-index: 1;
-        }
-        
-        /* Content area with proper margins */
-        .preview-content-area {
-            padding: 2cm; /* Same as PDF margins: top, right, bottom, left */
-            position: relative;
-            z-index: 2;
-            min-height: calc(29.7cm - 4cm); /* Full height minus top and bottom margins */
-        }
-        
-        /* Reset any theme styles that might affect the UI elements */
-        .editor-pane * {
-            font-family: inherit !important;
-        }
-        
-        .editor-pane .form-label,
-        .editor-pane .form-control,
-        .editor-pane .form-select,
-        .editor-pane .btn {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-        }
-    </style>
 </head>
 <body>
     <div class="card-header text-center bg-dark text-white">

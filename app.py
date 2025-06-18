@@ -1,7 +1,8 @@
 import os
 import asyncio
+import tempfile
 from pathlib import Path
-from flask import Flask, render_template, request, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for, send_file
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
 from werkzeug.utils import secure_filename
@@ -9,15 +10,12 @@ from werkzeug.utils import secure_filename
 # --- Configuration ---
 # Use an environment variable for the secret key in a real production app
 SECRET_KEY = os.urandom(24)
-# Directory where PDFs will be saved INSIDE the container
-OUTPUT_DIR = Path('/app/output')
 # Directory where CSS themes are located INSIDE the container
 STYLE_DIR = Path('/app/static/css/pdf_styles')
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
-OUTPUT_DIR.mkdir(exist_ok=True) # Ensure the output directory exists
 
 # --- Markdown Parser Initialization ---
 from pygments import highlight
@@ -63,15 +61,12 @@ async def convert():
         flash('Error: No Markdown content provided. Please paste text or upload a file.', 'danger')
         return redirect(url_for('index'))
 
-    # --- Filename and Path Sanitization ---
+    # --- Filename Sanitization ---
     output_filename = request.form.get('output_filename')
     safe_filename = secure_filename(output_filename)
     if not safe_filename:
         flash('Error: Invalid filename provided.', 'danger')
         return redirect(url_for('index'))
-
-    # Construct a safe, absolute path inside the container
-    output_path = OUTPUT_DIR / f"{safe_filename}.pdf"
 
     # --- Style Selection ---
     style_theme = request.form.get('style_theme', 'default')
@@ -84,7 +79,6 @@ async def convert():
         except FileNotFoundError:
             flash(f'Warning: Style "{style_theme}" not found. Using no style.', 'warning')
             style_content = '' # Ensure it's empty if file not found
-
 
     # --- Conversion Logic ---
     html_content = md.render(markdown_text)
@@ -103,27 +97,42 @@ async def convert():
     """
 
     try:
+        # Create a temporary file for the PDF
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+            temp_pdf_path = temp_pdf.name
+
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             page = await browser.new_page()
             await page.set_content(full_html)
             await page.pdf(
-                path=str(output_path), # Ensure path is a string
+                path=temp_pdf_path,
                 format='A4',
                 print_background=True,
                 margin={'top': '2cm', 'right': '2cm', 'bottom': '2cm', 'left': '2cm'}
             )
             await browser.close()
+
+        # Send the file to the user for download
+        return send_file(
+            temp_pdf_path,
+            as_attachment=True,
+            download_name=f"{safe_filename}.pdf",
+            mimetype='application/pdf'
+        )
+
     except Exception as e:
         app.logger.error(f"PDF generation failed: {e}")
         flash(f'Error: Could not generate PDF. {e}', 'danger')
         # Return the user's text on error so they don't lose their work
         return render_template('index.html', markdown_text=markdown_text)
-
-
-    flash(f"Success! Saved PDF as '{output_path.name}' on the server.", 'success')
-    return redirect(url_for('index'))
-
+    finally:
+        # Clean up the temporary file after sending
+        try:
+            if 'temp_pdf_path' in locals():
+                os.unlink(temp_pdf_path)
+        except:
+            pass  # Ignore cleanup errors
 
 from asgiref.wsgi import WsgiToAsgi
 asgi_app = WsgiToAsgi(app)
