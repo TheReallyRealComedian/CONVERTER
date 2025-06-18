@@ -20,7 +20,6 @@ app.config['SECRET_KEY'] = SECRET_KEY
 OUTPUT_DIR.mkdir(exist_ok=True) # Ensure the output directory exists
 
 # --- Markdown Parser Initialization ---
-# ALTERNATIVE APPROACH: Use markdown-it-py built-in table support
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
@@ -42,8 +41,13 @@ md = MarkdownIt(
 
 @app.route('/')
 def index():
-    """Renders the main page with the form."""
-    return render_template('index.html')
+    """Renders the main page with the form and available themes."""
+    # Dynamically find available themes
+    themes = []
+    if STYLE_DIR.exists():
+        for f in STYLE_DIR.glob('*.css'):
+            themes.append(f.stem) # f.stem gets the filename without extension
+    return render_template('index.html', themes=sorted(themes))
 
 @app.route('/convert', methods=['POST'])
 async def convert():
@@ -53,6 +57,7 @@ async def convert():
 
     # --- Input Validation ---
     if markdown_file and markdown_file.filename:
+        # Save the uploaded file's content to the textarea's value
         markdown_text = markdown_file.read().decode('utf-8')
     elif not markdown_text or not markdown_text.strip():
         flash('Error: No Markdown content provided. Please paste text or upload a file.', 'danger')
@@ -112,7 +117,9 @@ async def convert():
     except Exception as e:
         app.logger.error(f"PDF generation failed: {e}")
         flash(f'Error: Could not generate PDF. {e}', 'danger')
-        return redirect(url_for('index'))
+        # Return the user's text on error so they don't lose their work
+        return render_template('index.html', markdown_text=markdown_text)
+
 
     flash(f"Success! Saved PDF as '{output_path.name}' on the server.", 'success')
     return redirect(url_for('index'))

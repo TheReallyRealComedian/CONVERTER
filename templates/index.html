@@ -5,65 +5,146 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown to PDF Converter</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- This link will be dynamically updated by our script for the preview style -->
+    <link id="preview-style" rel="stylesheet" href="">
     <style>
         body { background-color: #f8f9fa; }
-        .container { max-width: 960px; }
-        .card { margin-top: 2rem; }
-        .form-label { font-weight: 500; }
+        .main-container {
+            display: flex;
+            height: calc(100vh - 58px); /* Full height minus header */
+        }
+        .editor-pane, .preview-pane {
+            height: 100%;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        .editor-pane { width: 50%; border-right: 1px solid #dee2e6; }
+        .preview-pane { width: 50%; background-color: #fff; }
+        .card-header { border-radius: 0 !important; }
+        #markdown_text {
+            height: calc(100vh - 400px); /* Adjust as needed */
+            min-height: 200px;
+            font-family: monospace;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <div class="card-header text-center bg-dark text-white">
-                <h2>Markdown to PDF Converter</h2>
-            </div>
-            <div class="card-body">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+    <div class="card-header text-center bg-dark text-white">
+        <h2>Markdown to PDF Converter</h2>
+    </div>
 
-                <form action="/convert" method="post" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="markdown_text" class="form-label">Paste Markdown</label>
-                        <textarea class="form-control" id="markdown_text" name="markdown_text" rows="15" placeholder="Paste your Markdown content here..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="markdown_file" class="form-label">Or Upload a Markdown File</label>
-                        <input class="form-control" type="file" id="markdown_file" name="markdown_file" accept=".md,.markdown">
-                    </div>
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="output_filename" class="form-label">Output Filename</label>
-                            <input type="text" class="form-control" id="output_filename" name="output_filename" placeholder="my-document" required>
-                            <div class="form-text">`.pdf` will be added automatically.</div>
+    <div class="main-container">
+        <!-- LEFT PANE: EDITOR AND CONTROLS -->
+        <div class="editor-pane">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="style_theme" class="form-label">PDF Style</label>
-                            <select class="form-select" id="style_theme" name="style_theme">
-                                <option value="default">Default</option>
-                                <option value="academic">Academic</option>
-                            </select>
-                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form action="/convert" method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="markdown_text" class="form-label">Paste or Upload Markdown</label>
+                    <textarea class="form-control" id="markdown_text" name="markdown_text" placeholder="Your Markdown content here... Start typing to see the preview.">{{ markdown_text or '' }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="markdown_file" class="form-label">Or Upload a File</label>
+                    <input class="form-control" type="file" id="markdown_file" name="markdown_file" accept=".md,.markdown">
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="output_filename" class="form-label">Output Filename</label>
+                        <input type="text" class="form-control" id="output_filename" name="output_filename" placeholder="my-document" required>
+                        <div class="form-text">`.pdf` will be added automatically.</div>
                     </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">Convert to PDF</button>
+                    <div class="col-md-6 mb-3">
+                        <label for="style_theme" class="form-label">PDF & Preview Style</label>
+                        <select class="form-select" id="style_theme" name="style_theme">
+                            {% for theme in themes %}
+                                <option value="{{ theme }}" {% if theme == 'default' %}selected{% endif %}>{{ theme.replace('_', ' ').title() }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                </form>
-            </div>
-            <div class="card-footer text-muted text-center">
-                PDFs are saved to the server in the `output_pdfs` directory.
-            </div>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">Convert to PDF</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- RIGHT PANE: LIVE PREVIEW -->
+        <div class="preview-pane">
+            <div id="preview-content"></div>
         </div>
     </div>
+
+    <!-- JavaScript Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- markdown-it library for client-side rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/14.1.0/markdown-it.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- DOM Element References ---
+            const markdownInput = document.getElementById('markdown_text');
+            const fileInput = document.getElementById('markdown_file');
+            const styleSelector = document.getElementById('style_theme');
+            const previewContent = document.getElementById('preview-content');
+            const previewStyleLink = document.getElementById('preview-style');
+
+            // --- Initialize markdown-it ---
+            // Using window.markdownit() because we loaded it from a CDN
+            const md = window.markdownit({
+                html: true,
+                breaks: true,
+                linkify: true,
+            });
+
+            // --- Core Functions ---
+            function updatePreview() {
+                const markdownText = markdownInput.value;
+                previewContent.innerHTML = md.render(markdownText);
+            }
+
+            function updateStyle() {
+                const selectedTheme = styleSelector.value;
+                // Construct the path to the CSS file served by Flask
+                const cssPath = `/static/css/pdf_styles/${selectedTheme}.css`;
+                previewStyleLink.href = cssPath;
+            }
+
+            function handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Put file content into the textarea
+                    markdownInput.value = e.target.result;
+                    // Manually trigger the update
+                    updatePreview();
+                };
+                reader.readAsText(file);
+            }
+
+            // --- Event Listeners ---
+            markdownInput.addEventListener('input', updatePreview);
+            styleSelector.addEventListener('change', updateStyle);
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // --- Initial Load ---
+            // Trigger both functions on page load to set the initial state
+            updateStyle();
+            updatePreview();
+        });
+    </script>
 </body>
 </html>
