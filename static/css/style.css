@@ -45,7 +45,6 @@
     --shadow-focus-strong: 0 0 0 2px rgba(26, 115, 232, 0.3);
     
     /* Dimensions */
-    --header-height: 58px;
     --page-width: 21cm;
     --page-height: 29.7cm;
     --page-margin: 2cm;
@@ -75,45 +74,55 @@ body {
 /* ===== LAYOUT STRUCTURE ===== */
 .main-container {
     display: flex;
-    height: calc(100vh - var(--header-height));
+    height: 100vh;
 }
 
 /* ===== EDITOR PANE ===== */
 .editor-pane {
     width: 50%;
-    height: 100%;
-    overflow-y: auto;
-    padding: var(--spacing-2xl);
+    height: 100vh;
+    overflow: hidden; /* Prevent parent from scrolling */
+    padding: 0;
     border-right: 1px solid var(--border-light);
     background-color: var(--bg-editor-pane);
+    display: flex;
+    flex-direction: column;
 }
 
-.editor-pane * {
-    font-family: inherit;
+.editor-form {
+    flex-grow: 1; /* Key to make it fill space */
+    min-height: 0; /* Key for child scrolling */
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-md) var(--spacing-xl) var(--spacing-xl) var(--spacing-xl);
 }
 
-.editor-pane .form-label,
-.editor-pane .form-control,
-.editor-pane .form-select,
-.editor-pane .btn {
-    font-family: var(--font-system);
+.markdown-textarea-wrapper {
+    flex-grow: 1;
+    min-height: 0; /* allows textarea to scroll */
+    display: flex;
+    flex-direction: column;
 }
 
 /* ===== PREVIEW PANE ===== */
 .preview-pane {
     width: 50%;
-    height: 100%;
-    overflow-y: auto;
-    padding: var(--spacing-2xl);
+    height: 100vh;
+    overflow-y: hidden;
+    padding: 0;
     background-color: var(--bg-preview-pane);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .preview-container {
     background: var(--bg-preview-container);
-    min-height: 100%;
+    flex-grow: 1;
+    overflow-y: auto;
     padding: var(--spacing-lg);
     position: relative;
+    min-height: initial; /* Override min-height: 100% */
 }
 
 .preview-page {
@@ -147,27 +156,29 @@ body {
     min-height: calc(var(--page-height) - calc(var(--page-margin) * 2));
 }
 
-/* ===== HEADER ===== */
-.card-header {
-    border-radius: 0;
-    background-color: var(--bg-primary);
-    color: var(--text-white);
-    border: none;
-    padding: 1rem;
+/* ===== HEADERS ===== */
+.pane-header {
+    background-color: #e8eaed;
+    border-bottom: 1px solid var(--border-light);
+    padding: var(--spacing-sm) var(--spacing-xl);
+    flex-shrink: 0;
 }
 
-.card-header h2 {
+.pane-header h4 {
     margin: 0;
-    font-weight: 500;
-    font-size: 1.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* ===== FORM ELEMENTS ===== */
 #markdown_text {
-    height: calc(100vh - 400px);
-    min-height: 200px;
+    height: 100%;
+    min-height: 150px;
     font-family: var(--font-mono);
-    resize: vertical;
+    resize: none;
     background-color: var(--bg-page);
     border: 1px solid var(--border-light);
     border-radius: var(--border-radius);
@@ -249,6 +260,14 @@ body {
 }
 
 /* ===== ALERTS ===== */
+.alerts-wrapper {
+    padding: var(--spacing-xl) var(--spacing-xl) 0;
+}
+
+.alerts-wrapper .alert:last-child {
+    margin-bottom: 0;
+}
+
 .alert {
     border-radius: var(--border-radius);
     border: none;

@@ -11,26 +11,30 @@
     <link id="preview-style" rel="stylesheet" href="">
 </head>
 <body>
-    <div class="card-header text-center bg-dark text-white">
-        <h2>Markdown to PDF Converter</h2>
-    </div>
+    <!-- The main top bar has been removed -->
 
     <div class="main-container">
         <!-- LEFT PANE: EDITOR AND CONTROLS -->
         <div class="editor-pane">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+            <div class="pane-header">
+                <h4>Markdown</h4>
+            </div>
 
-            <form action="/convert" method="post" enctype="multipart/form-data">
-                <div class="mb-3">
+            <div class="alerts-wrapper">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <form action="/convert" method="post" enctype="multipart/form-data" class="editor-form">
+                <div class="mb-3 markdown-textarea-wrapper">
                     <label for="markdown_text" class="form-label">Paste or Upload Markdown</label>
                     <textarea class="form-control" id="markdown_text" name="markdown_text" placeholder="Your Markdown content here... Start typing to see the preview."># Sample Document
 
@@ -56,9 +60,10 @@ def hello_world():
 | Row 1    | Data     | More     |
 | Row 2    | Info     | Data     |
 
-> This is a blockquote to demonstrate styling.
 
-{{ markdown_text or '' }}</textarea>
+This is a blockquote to demonstrate styling.
+{{ markdown_text or '' }}
+</textarea>
                 </div>
                 <div class="mb-3">
                     <label for="markdown_file" class="form-label">Or Upload a File</label>
@@ -69,7 +74,7 @@ def hello_world():
                     <div class="col-md-6 mb-3">
                         <label for="output_filename" class="form-label">Output Filename</label>
                         <input type="text" class="form-control" id="output_filename" name="output_filename" placeholder="my-document" required>
-                        <div class="form-text">`.pdf` will be added automatically.</div>
+                        <div class="form-text">.pdf will be added automatically.</div>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label for="style_theme" class="form-label">PDF & Preview Style</label>
@@ -88,6 +93,9 @@ def hello_world():
 
         <!-- RIGHT PANE: LIVE PREVIEW -->
         <div class="preview-pane">
+            <div class="pane-header">
+                <h4>PDF Preview</h4>
+            </div>
             <div class="preview-container">
                 <div class="preview-page">
                     <div class="preview-content-area">
@@ -165,7 +173,7 @@ def hello_world():
                                 // Don't scope @page and other @ rules
                                 if (selector.trim().startsWith('@')) {
                                     return match;
-                                }
+                                 }
                                 // Scope all other selectors to the preview content area
                                 const scopedSelector = selector.split(',')
                                     .map(s => `.preview-content-area ${s.trim()}`)
