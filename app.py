@@ -1,6 +1,8 @@
 import os
 import asyncio
 import tempfile
+import logging
+import sys
 from pathlib import Path
 from io import BytesIO
 from flask import Flask, render_template, request, flash, redirect, url_for, send_file
@@ -12,6 +14,20 @@ from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
+
+# ==========================================================
+# ===== LOGGING CONFIGURATION =====
+# ==========================================================
+# Configure logging to output to stdout, which is standard for containers
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+# ==========================================================
+
 
 # --- Configuration ---
 SECRET_KEY = os.urandom(24)
@@ -151,7 +167,7 @@ def transform_document():
         flash('No file selected.', 'danger')
         return redirect(url_for('document_converter'))
 
-    if not file: # This check is somewhat redundant due to the above, but kept for safety.
+    if not file:
         return redirect(url_for('document_converter'))
 
     original_filename = secure_filename(file.filename)
@@ -159,7 +175,6 @@ def transform_document():
     try:
         # Create a temporary file to save the upload
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(original_filename).suffix) as temp_f:
-            # Save the uploaded file object to the temporary file
             file.save(temp_f.name)
             temp_file_path = temp_f.name
 
@@ -187,7 +202,7 @@ def transform_document():
         flash(f'Error processing file: {e}', 'danger')
         return redirect(url_for('document_converter'))
     finally:
-        # IMPORTANT: Clean up the temporary file after we're done
+        # Clean up the temporary file after we're done
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 

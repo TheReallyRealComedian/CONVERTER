@@ -28,7 +28,8 @@
                 {% endwith %}
             </div>
 
-            <form action="/convert" method="post" enctype="multipart/form-data" class="editor-form">
+            <form action="{{ url_for('convert_markdown') }}" method="post" enctype="multipart/form-data" class="editor-form">
+
                 <div class="mb-3 markdown-textarea-wrapper">
                     <label for="markdown_text" class="form-label">Paste or Upload Markdown</label>
                     <textarea class="form-control" id="markdown_text" name="markdown_text" placeholder="Your Markdown content here... Start typing to see the preview."># Sample Document

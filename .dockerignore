@@ -1,11 +1,30 @@
-# Ignore macOS metadata files
+# .dockerignore
+
+# Docker-specific files
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Git and version control
+.git
+.gitignore
+
+# Python virtual environments and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+env/
+
+# macOS metadata files (This is very important for you!)
 .DS_Store
 ._*
 
-# Ignore Python cache
-__pycache__/
-*.pyc
+# Generated output files (These are handled by volumes in docker-compose)
+output_pdfs/
 
-# Ignore virtual environment folders
-.venv
-venv
+# IDE / Editor specific configs
+.vscode/
+.idea/
