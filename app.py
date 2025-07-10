@@ -36,7 +36,7 @@ STYLE_DIR = Path('/app/static/css/pdf_styles')
 # --- Flask App Initialization ---
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
 
 # --- Markdown Parser Initialization ---
 def highlight_code(code, lang, _):

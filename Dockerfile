@@ -1,65 +1,69 @@
-# Dockerfile - OPTIMIZED
+# Dockerfile
+FROM python:3.10-slim
 
-# Use a specific version for more reproducible builds
-FROM python:3.10.13-slim
-
-# Set the working directory
 WORKDIR /app
 
-# Set environment variables to prevent __pycache__ and buffer issues
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
-# Tell Playwright where its browsers are stored inside the container
-ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
-# --- STAGE 1: INSTALL DEPENDENCIES ---
-# Copy only the requirements file first. The layer below will only be
-# re-run if this specific file changes.
-COPY requirements.txt .
-
-# Install system dependencies and Python packages in a single, efficient RUN command.
-# This creates one cached layer for all our dependencies.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Dependencies for unstructured.io
+# Install system dependencies required by unstructured.io
+RUN apt-get update && apt-get install -y \
     libmagic-dev \
     poppler-utils \
     tesseract-ocr \
     libreoffice \
     pandoc \
-    # Dependencies needed by Playwright's browser
-    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 \
-    # Now, install python packages
-    && pip install --no-cache-dir -r requirements.txt \
-    # Clean up apt cache to keep the image smaller
-    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# --- STAGE 2: DOWNLOAD HEAVY ASSETS ---
-# These assets depend on the packages installed above.
-# We run them as separate layers so they can be cached individually.
+COPY requirements.txt .
 
-# Download NLTK data. This command is idempotent and will be cached.
-RUN python -m nltk.downloader punkt averaged_perceptron_tagger stopwords wordnet
+# This single command will now install everything correctly
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers. This is a very heavy step, so we cache it here.
-RUN playwright install chromium
+# --------------------------------------------------------------------
+# Download all NLTK assets that `unstructured` (and other libs) expect.
+# We perform an existence-check first so the build cache isn't invalidated
+# unless something is actually missing.
+# --------------------------------------------------------------------
+RUN python - <<'PY'
+import nltk
+import ssl
 
-# --- STAGE 3: COPY APPLICATION CODE ---
-# Now, with all heavy dependencies installed and cached, copy the application code.
-# If you only change your Python/HTML/CSS files, only this layer will be re-built,
-# which is extremely fast.
+# Handle SSL issues if they occur
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+# Download all resources that unstructured commonly needs
+# NOTE: 'punkt_tab' from the error message is not a standard NLTK package.
+# We download 'punkt' instead, which unstructured will use as a fallback.
+resources_to_download = [
+    'punkt',
+    'averaged_perceptron_tagger',
+    'stopwords',
+    'wordnet',
+]
+
+print("Downloading NLTK resources...")
+for resource in resources_to_download:
+    try:
+        # Set quiet=False to see download progress and potential errors
+        nltk.download(resource, quiet=False)
+        print(f"✓ Successfully downloaded {resource}")
+    except Exception as e:
+        print(f"⚠ Failed to download {resource}: {e}")
+        # Depending on the resource, you might want to exit if it's critical
+        # import sys
+        # if resource == 'punkt': sys.exit(1)
+print("NLTK resource download complete.")
+PY
+
+# Install the browser binaries for Playwright
+RUN playwright install --with-deps chromium
+
 COPY . .
 
-# --- FINAL CONFIGURATION ---
-# Expose the port the app runs on
-EXPOSE 5000
-
-# Command to run the application
-CMD ["gunicorn", \
-    "--bind", "0.0.0.0:5000", \
-    "--workers", "2", \
-    "--worker-class", "uvicorn.workers.UvicornWorker", \
-    "--log-level", "info", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-", \
-    "app:asgi_app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]
