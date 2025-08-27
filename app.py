@@ -173,36 +173,68 @@ def transform_document():
     original_filename = secure_filename(file.filename)
     temp_file_path = None
     try:
-        # Create a temporary file to save the upload
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(original_filename).suffix) as temp_f:
             file.save(temp_f.name)
             temp_file_path = temp_f.name
 
-        # Partition the document using the temporary file's PATH
-        elements = partition(filename=temp_file_path)
+        # Partition the document using unstructured
+        # Using strategy="hi_res" can improve link detection in some PDFs
+        elements = partition(filename=temp_file_path, strategy="hi_res")
 
-        # Process the results
-        output_text = "\n\n".join([str(el) for el in elements])
+        # ==========================================================
+        # ===== NEW LOGIC TO PROCESS LINKS AND CREATE MARKDOWN =====
+        # ==========================================================
+        markdown_parts = []
+        for el in elements:
+            # Start with the plain text of the element
+            text = el.text
+
+            # Check if the element's metadata has link information
+            # getattr is used for safety in case .metadata.links doesn't exist
+            links = getattr(el.metadata, 'links', [])
+            
+            if links:
+                # If there are links, iterate through them
+                for link in links:
+                    # The link object has .text and .url attributes
+                    link_text = link.get('text')
+                    link_url = link.get('url')
+
+                    # To avoid errors, only proceed if we have both text and a URL
+                    if link_text and link_url:
+                        # Replace the plain text of the link with Markdown format
+                        # This preserves text around the link in the same element
+                        markdown_link = f"[{link_text.strip()}]({link_url})"
+                        text = text.replace(link_text, markdown_link)
+            
+            markdown_parts.append(text)
+
+        # Join the processed parts into a single Markdown string
+        output_markdown = "\n\n".join(markdown_parts)
+        
+        # Change the output filename to .md
         output_path_obj = Path(original_filename)
-        output_filename = f"{output_path_obj.stem}.txt"
+        output_filename = f"{output_path_obj.stem}.md"
 
         buffer = BytesIO()
-        buffer.write(output_text.encode('utf-8'))
+        buffer.write(output_markdown.encode('utf-8'))
         buffer.seek(0)
 
         return send_file(
             buffer,
             as_attachment=True,
             download_name=output_filename,
-            mimetype='text/plain'
+            # Set the correct mimetype for Markdown files
+            mimetype='text/markdown'
         )
+        # ===== END OF NEW LOGIC =====
+        # ============================
 
     except Exception as e:
         app.logger.error(f"Unstructured processing failed: {e}")
         flash(f'Error processing file: {e}', 'danger')
         return redirect(url_for('document_converter'))
     finally:
-        # Clean up the temporary file after we're done
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
