@@ -14,6 +14,9 @@ from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
+import fitz  # PyMuPDF
+import traceback
+
 
 # ==========================================================
 # ===== LOGGING CONFIGURATION =====
@@ -157,7 +160,7 @@ def document_converter():
 
 @app.route('/transform-document', methods=['POST'])
 def transform_document():
-    """Handles file upload and transformation using unstructured."""
+    """Handles file upload and transformation using a robust hybrid approach."""
     if 'document_file' not in request.files:
         flash('No file part in the request.', 'danger')
         return redirect(url_for('document_converter'))
@@ -177,42 +180,59 @@ def transform_document():
             file.save(temp_f.name)
             temp_file_path = temp_f.name
 
-        # Partition the document using unstructured
-        # Using strategy="hi_res" can improve link detection in some PDFs
-        elements = partition(filename=temp_file_path, strategy="hi_res")
-
         # ==========================================================
-        # ===== NEW LOGIC TO PROCESS LINKS AND CREATE MARKDOWN =====
+        # ===== NEW HYBRID LOGIC: PyMuPDF + Unstructured
         # ==========================================================
-        markdown_parts = []
-        for el in elements:
-            # Start with the plain text of the element
-            text = el.text
-
-            # Check if the element's metadata has link information
-            # getattr is used for safety in case .metadata.links doesn't exist
-            links = getattr(el.metadata, 'links', [])
-            
-            if links:
-                # If there are links, iterate through them
-                for link in links:
-                    # The link object has .text and .url attributes
-                    link_text = link.get('text')
-                    link_url = link.get('url')
-
-                    # To avoid errors, only proceed if we have both text and a URL
-                    if link_text and link_url:
-                        # Replace the plain text of the link with Markdown format
-                        # This preserves text around the link in the same element
-                        markdown_link = f"[{link_text.strip()}]({link_url})"
-                        text = text.replace(link_text, markdown_link)
-            
-            markdown_parts.append(text)
-
-        # Join the processed parts into a single Markdown string
-        output_markdown = "\n\n".join(markdown_parts)
         
-        # Change the output filename to .md
+        # --- Part 1: Use PyMuPDF to build a definitive link map ---
+        link_map = {}
+        try:
+            app.logger.info("Starting PyMuPDF link extraction...")
+            doc = fitz.open(temp_file_path)
+            for page_num, page in enumerate(doc):
+                links = page.get_links()
+                for link in links:
+                    if link.get('kind') == fitz.LINK_URI:
+                        # The 'from' key is a Rect object defining the clickable area
+                        clickable_area = link['from']
+                        # Extract the text that falls inside that clickable area
+                        link_text = page.get_textbox(clickable_area).strip().replace('\n', ' ')
+                        link_url = link.get('uri')
+                        
+                        if link_text and link_url:
+                            # Store the text and URL. We use the text as a key.
+                            # This handles cases where the same text links to the same URL multiple times.
+                            link_map[link_text] = link_url
+                            app.logger.info(f"PyMuPDF found link: '{link_text}' -> '{link_url}'")
+            doc.close()
+            app.logger.info(f"PyMuPDF finished. Found {len(link_map)} unique links.")
+        except Exception as e:
+            app.logger.error(f"PyMuPDF failed to process links: {e}", exc_info=True)
+            # We can still proceed without links if this fails
+            link_map = {}
+
+        # --- Part 2: Use unstructured for the main text body ---
+        app.logger.info("Partitioning document with unstructured (strategy='fast')...")
+        elements = partition(filename=temp_file_path, strategy="fast")
+        # Get the full plain text output from unstructured
+        full_text = "\n\n".join([el.text for el in elements])
+        
+        # --- Part 3: Merge the results ---
+        app.logger.info("Merging unstructured text with PyMuPDF link map...")
+        output_markdown = full_text
+        if link_map:
+            # Sort keys by length, longest first, to avoid partial replacements
+            # e.g., replace "McKinsey & Company" before "McKinsey"
+            for link_text in sorted(link_map.keys(), key=len, reverse=True):
+                link_url = link_map[link_text]
+                markdown_link = f"[{link_text}]({link_url})"
+                # Perform a simple but effective replacement on the entire text block
+                output_markdown = output_markdown.replace(link_text, markdown_link)
+        
+        # ==========================================================
+        # ===== END OF NEW HYBRID LOGIC
+        # ==========================================================
+
         output_path_obj = Path(original_filename)
         output_filename = f"{output_path_obj.stem}.md"
 
@@ -224,20 +244,16 @@ def transform_document():
             buffer,
             as_attachment=True,
             download_name=output_filename,
-            # Set the correct mimetype for Markdown files
             mimetype='text/markdown'
         )
-        # ===== END OF NEW LOGIC =====
-        # ============================
 
     except Exception as e:
-        app.logger.error(f"Unstructured processing failed: {e}")
+        app.logger.error(f"Unstructured processing failed: {e}", exc_info=True)
         flash(f'Error processing file: {e}', 'danger')
         return redirect(url_for('document_converter'))
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-
 
 # --- ASGI Wrapper ---
 asgi_app = WsgiToAsgi(app)

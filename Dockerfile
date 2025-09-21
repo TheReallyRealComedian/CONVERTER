@@ -1,5 +1,5 @@
-# Dockerfile
-FROM python:3.10-slim
+# Use the official Playwright Python image that has browsers pre-installed
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
 
 WORKDIR /app
 
@@ -17,14 +17,10 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 
-# This single command will now install everything correctly
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --------------------------------------------------------------------
-# Download all NLTK assets that `unstructured` (and other libs) expect.
-# We perform an existence-check first so the build cache isn't invalidated
-# unless something is actually missing.
-# --------------------------------------------------------------------
+# Download NLTK assets
 RUN python - <<'PY'
 import nltk
 import ssl
@@ -38,31 +34,26 @@ else:
     ssl._create_default_https_context = _create_unverified_https_context
 
 # Download all resources that unstructured commonly needs
-# NOTE: 'punkt_tab' from the error message is not a standard NLTK package.
-# We download 'punkt' instead, which unstructured will use as a fallback.
 resources_to_download = [
-    'punkt',
+    'punkt',                    
+    'punkt_tab',                 
     'averaged_perceptron_tagger',
-    'stopwords',
-    'wordnet',
+    'averaged_perceptron_tagger_eng',
+    'stopwords', 
+    'wordnet', 
+    'maxent_ne_chunker',
+    'words',
 ]
 
 print("Downloading NLTK resources...")
 for resource in resources_to_download:
     try:
-        # Set quiet=False to see download progress and potential errors
         nltk.download(resource, quiet=False)
         print(f"✓ Successfully downloaded {resource}")
     except Exception as e:
         print(f"⚠ Failed to download {resource}: {e}")
-        # Depending on the resource, you might want to exit if it's critical
-        # import sys
-        # if resource == 'punkt': sys.exit(1)
 print("NLTK resource download complete.")
 PY
-
-# Install the browser binaries for Playwright
-RUN playwright install --with-deps chromium
 
 COPY . .
 
