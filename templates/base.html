@@ -24,6 +24,9 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('document_converter') %}active{% endif %}" href="{{ url_for('document_converter') }}">Document Converter</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == url_for('mermaid_converter') %}active{% endif %}" href="{{ url_for('mermaid_converter') }}">Mermaid Converter</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -33,5 +36,47 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     {% block scripts %}{% endblock %}
+
+    <script>
+        /**
+         * Pane Resizing Logic
+         * This script finds the editor and preview panes and makes them resizable.
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            const editorPane = document.querySelector('.editor-pane');
+            const previewPane = document.querySelector('.preview-pane');
+
+            // Only run if the split-pane layout is present on the page
+            if (editorPane && previewPane) {
+                // Create and insert the resizer handle between the panes
+                const resizer = document.createElement('div');
+                resizer.className = 'resizer';
+                editorPane.parentNode.insertBefore(resizer, previewPane);
+
+                let isResizing = false;
+
+                resizer.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    isResizing = true;
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', stopResize);
+                });
+
+                function handleMouseMove(e) {
+                    if (!isResizing) return;
+                    const totalWidth = editorPane.parentNode.offsetWidth;
+                    const newEditorWidth = e.clientX;
+                    editorPane.style.flexBasis = `${(newEditorWidth / totalWidth) * 100}%`;
+                    previewPane.style.flexBasis = `${((totalWidth - newEditorWidth) / totalWidth) * 100}%`;
+                }
+
+                function stopResize() {
+                    isResizing = false;
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', stopResize);
+                }
+            }
+        });
+    </script>
 </body>
 </html>

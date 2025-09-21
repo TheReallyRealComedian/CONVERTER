@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Mermaid Diagram Renderer{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    <!-- LEFT PANE: MERMAID CODE EDITOR -->
+    <div class="editor-pane">
+        <div class="pane-header">
+            <h4>Mermaid Code</h4>
+        </div>
+        <div class="editor-form">
+            <div class="mb-3 markdown-textarea-wrapper">
+                <label for="mermaid_code" class="form-label">Paste your Mermaid code below</label>
+                <textarea class="form-control" id="mermaid_code" name="mermaid_code" placeholder="graph TD;&#10;    A[Start] --> B{Is it?};&#10;    B -->|Yes| C[OK];&#10;    C --> D[End];&#10;    B -->|No| E[Resolve];&#10;    E --> D[End];">graph TD
+    %% === USER INTERFACE ===
+    subgraph UI[User Interface]
+        A[User Input: "Forecast our top 3 manufacturing challenges for biologics launching in the next 5 years."]
+        I[Formatted Output]
+    end
+
+    %% === AGENT SYSTEM ===
+    subgraph AI[Agent System (PipelineIntelligence AI Core)]
+        B(Lead Researcher) -->|Decomposes Task| C{Task Queue}
+
+        C -->|Task 1: Identify relevant products| D(Database Query Specialist)
+        C -->|Task 2: Find associated challenges| D
+        C -->|Task 3: Analyze challenge patterns| E(Pharma Process Analyst)
+        C -->|Task 4: Synthesize strategic impact| F(Risk & Strategy Synthesizer)
+
+        D -->|Raw Data (Products, Challenges)| G{Shared Scratchpad}
+        E -->|Analyzed Patterns (e.g., BSL-2+ is common)| G
+        F -->|Strategic Insights (e.g., Need to invest in viral vector handling)| G
+
+        G -->|Final Briefing| H(Report Writer)
+    end
+
+    %% === EXISTING APP ===
+    subgraph APP[Your Existing Application]
+        T(Toolbelt: Service Functions)
+        DB[(PostgreSQL Database)]
+        RAG(Knowledge Base: DATABASE_SCHEME.md)
+    end
+
+    %% === CONNECTIONS ===
+    D -->|Uses| T
+    E -->|Uses| T
+    T -->|Executes Logic Against| DB
+    B -->|Consults| RAG
+    D -->|Consults| RAG
+    E -->|Consults| RAG
+
+    H -->|Final Report| I
+    A --> B
+    I --> A
+</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANE: RENDERED DIAGRAM -->
+    <div class="preview-pane">
+        <div class="pane-header">
+            <h4>Rendered Diagram</h4>
+        </div>
+        <div class="preview-container" style="display: flex; align-items: center; justify-content: center;">
+            <div id="mermaid-preview" class="mermaid" style="width: 100%;">
+                <!-- Mermaid diagram will be rendered here -->
+            </div>
+            <div id="error-container" class="alert alert-danger" style="display: none; margin: 20px;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Mermaid.js via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Initialize Mermaid ---
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+
+        // --- DOM Element References ---
+        const mermaidCodeInput = document.getElementById('mermaid_code');
+        const previewContainer = document.getElementById('mermaid-preview');
+        const errorContainer = document.getElementById('error-container');
+
+        /**
+         * Pre-processes Mermaid code to fix common syntax issues automatically.
+         * @param {string} code - The raw Mermaid code from the user.
+         * @returns {string} - The sanitized code ready for rendering.
+         */
+        function sanitizeMermaidCode(code) {
+            let sanitizedCode = code;
+
+            // Rule 1: Quote subgraph titles containing special characters like '()'
+            // Finds 'subgraph ID[...]' where the content does not start with a quote
+            sanitizedCode = sanitizedCode.replace(
+                /(subgraph\s+\w+\[)([^"\]\n][^\]\n]*)(\])/g,
+                (match, start, content, end) => {
+                    if (/[()\[\]{},]/.test(content)) {
+                        return `${start}"${content}"${end}`;
+                    }
+                    return match; // Return original if no special chars
+                }
+            );
+            
+            // Rule 2: Quote link text containing special characters
+            // Finds '-->|...|' where the content does not start with a quote
+            sanitizedCode = sanitizedCode.replace(
+                /(--(?:>|o|x)?|==(?:>)?|-?-\.(?:->)?|-?-o(?:->)?)\s*\|([^"|\n][^|\n]*?)(\|)/g,
+                 (match, arrow, content, endPipe) => {
+                    if (/[()\[\]{},]/.test(content)) {
+                        return `${arrow}|"${content}"${endPipe}`;
+                    }
+                    return match;
+                }
+            );
+
+            // Rule 3: Escape quotes inside node text content
+            // Finds node definitions like A[...] and replaces internal quotes.
+            sanitizedCode = sanitizedCode.replace(
+                /(\w+\[)(.*?)(\])/g,
+                (match, start, content, end) => {
+                    // Only apply if the content is not already a quoted title
+                    if (content.startsWith('"') && content.endsWith('"')) {
+                        return match;
+                    }
+                    const sanitizedContent = content.replace(/"/g, '&quot;');
+                    return `${start}${sanitizedContent}${end}`;
+                }
+            );
+
+            return sanitizedCode;
+        }
+
+
+        // --- Core Render Function ---
+        async function renderMermaid() {
+            const rawCode = mermaidCodeInput.value;
+
+            // Don't render empty code
+            if (!rawCode.trim()) {
+                previewContainer.innerHTML = '';
+                errorContainer.style.display = 'none';
+                return;
+            }
+            
+            // SANITIZE the code before rendering
+            const mermaidCode = sanitizeMermaidCode(rawCode);
+
+            try {
+                // The render function takes the container ID, the code, and the container element
+                const { svg } = await mermaid.render('mermaid-graph', mermaidCode);
+                previewContainer.innerHTML = svg;
+                errorContainer.style.display = 'none'; // Hide error on success
+            } catch (error) {
+                console.error("Mermaid rendering error:", error);
+                // Display a user-friendly error message
+                errorContainer.innerText = "Error rendering diagram: \n" + error.message;
+                errorContainer.style.display = 'block';
+                previewContainer.innerHTML = ''; // Clear the previous diagram
+            }
+        }
+
+        // --- Event Listener ---
+        mermaidCodeInput.addEventListener('input', renderMermaid);
+
+        // --- Initial Render on Page Load ---
+        renderMermaid();
+    });
+</script>
+{% endblock %}

@@ -149,6 +149,15 @@ async def convert_markdown():
             app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}")
 
 
+# ==========================================================
+# ===== ROUTES FOR MERMAID DIAGRAMS =====
+# ==========================================================
+@app.route('/mermaid-converter')
+def mermaid_converter():
+    """Renders the UI for the Mermaid diagram converter."""
+    return render_template('mermaid_converter.html')
+
+
 # ========================================================
 # ===== ROUTES FOR UNSTRUCTURED CONVERTER (NEW) =====
 # ========================================================
