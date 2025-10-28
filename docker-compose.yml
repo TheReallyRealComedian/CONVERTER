@@ -9,4 +9,6 @@ services:
       # Map our local output folder to the app's output folder inside the container
       # This makes the generated PDFs persist on your server's filesystem.
       - ./output_pdfs:/app/output
+    environment:
+      - DEEPGRAM_API_KEY=798c9446aa29e00f1b7dc8babbd421d7f6247773
     restart: unless-stopped

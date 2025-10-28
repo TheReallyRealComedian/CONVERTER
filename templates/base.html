@@ -25,6 +25,9 @@
                         <a class="nav-link {% if request.path == url_for('document_converter') %}active{% endif %}" href="{{ url_for('document_converter') }}">Document Converter</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.path == url_for('audio_converter') %}active{% endif %}" href="{{ url_for('audio_converter') }}">Audio Converter</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.path == url_for('mermaid_converter') %}active{% endif %}" href="{{ url_for('mermaid_converter') }}">Mermaid Converter</a>
                     </li>
                 </ul>

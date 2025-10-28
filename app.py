@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 from io import BytesIO
-from flask import Flask, render_template, request, flash, redirect, url_for, send_file
+from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
 from werkzeug.utils import secure_filename
@@ -14,6 +14,7 @@ from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
+from deepgram import DeepgramClient, PrerecordedOptions
 import fitz  # PyMuPDF
 import traceback
 
@@ -34,6 +35,7 @@ logging.basicConfig(
 
 # --- Configuration ---
 SECRET_KEY = os.urandom(24)
+DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
 STYLE_DIR = Path('/app/static/css/pdf_styles')
 
 # --- Flask App Initialization ---
@@ -263,6 +265,71 @@ def transform_document():
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
+
+# ==========================================================
+# ===== ROUTES FOR AUDIO TRANSCRIPTION (DEEPGRAM) =====
+# ==========================================================
+
+@app.route('/audio-converter')
+def audio_converter():
+    """Renders the UI for the audio converter."""
+    return render_template('audio_converter.html', deepgram_api_key_set=bool(DEEPGRAM_API_KEY))
+
+@app.route('/api/get-deepgram-token', methods=['GET'])
+def get_deepgram_token():
+    """Provides the Deepgram API Key to the frontend for live transcription."""
+    if not DEEPGRAM_API_KEY:
+        app.logger.error("DEEPGRAM_API_KEY not configured on the server.")
+        return jsonify({"error": "Audio transcription service is not configured."}), 503
+    
+    # For a production app with user accounts, you might generate a short-lived key here.
+    # For this application, we provide the main key as the app is self-contained.
+    return jsonify({"deepgram_token": DEEPGRAM_API_KEY})
+
+@app.route('/transcribe-audio-file', methods=['POST'])
+def transcribe_audio_file():
+    """Handles audio file upload and transcription via Deepgram."""
+    if not DEEPGRAM_API_KEY:
+        return jsonify({"error": "Audio transcription service is not configured."}), 503
+
+    if 'audio_file' not in request.files:
+        return jsonify({"error": "No audio file part in the request."}), 400
+
+    file = request.files['audio_file']
+    language = request.form.get('language', 'en') # Default to English
+
+    if file.filename == '':
+        return jsonify({"error": "No file selected."}), 400
+
+    try:
+        # Initialize Deepgram client
+        deepgram = DeepgramClient(DEEPGRAM_API_KEY)
+
+        # Read file into a buffer
+        buffer_data = file.read()
+        payload = { "buffer": buffer_data }
+
+        # Configure transcription options
+        options = PrerecordedOptions(
+            model="nova-2",
+            smart_format=True,
+            utterances=True,
+            puncutation=True,
+            language=language
+        )
+
+        # Send the request to Deepgram
+        response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options)
+        
+        # Extract the transcript
+        transcript = response.results.channels[0].alternatives[0].transcript
+        
+        return jsonify({"transcript": transcript})
+
+    except Exception as e:
+        app.logger.error(f"Deepgram transcription failed: {e}", exc_info=True)
+        return jsonify({"error": f"An error occurred during transcription: {str(e)}"}), 500
 
 # --- ASGI Wrapper ---
 asgi_app = WsgiToAsgi(app)

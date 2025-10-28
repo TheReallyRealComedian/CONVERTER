@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Audio Transcription{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Styles adapted from the dossier for the microphone button */
+    #mic-button {
+        background: none;
+        border: 1px solid var(--border-light);
+        padding: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        border-radius: 50%;
+        transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    #mic-button:hover {
+        background-color: var(--bg-editor-pane);
+    }
+    #mic-button.recording {
+        color: var(--text-white);
+        background-color: var(--border-danger);
+        border-color: var(--border-danger);
+    }
+    .file-upload-wrapper {
+        border: 2px dashed var(--border-dashed);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .file-upload-wrapper:hover {
+        background-color: var(--bg-editor-pane);
+    }
+    .file-upload-wrapper p {
+        margin: 0;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    #file-upload-input {
+        display: none;
+    }
+    #transcription-result-container {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: var(--bg-editor-pane);
+        border: 1px solid var(--border-light);
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        min-height: 150px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Audio Transcription with Deepgram</h4>
+                </div>
+                <div class="card-body">
+                    {% if not deepgram_api_key_set %}
+                    <div class="alert alert-danger">
+                        <strong>Configuration Error:</strong> The `DEEPGRAM_API_KEY` is not set on the server. This service is disabled.
+                    </div>
+                    {% else %}
+                    <!-- TABS -->
+                    <ul class="nav nav-tabs" id="transcriptionTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="live-tab" data-bs-toggle="tab" data-bs-target="#live-tab-pane" type="button" role="tab">Live Transcription</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-tab-pane" type="button" role="tab">Transcribe File</button>
+                        </li>
+                    </ul>
+
+                    <!-- SHARED CONTROLS -->
+                    <div class="my-3">
+                        <label for="language-select" class="form-label">Transcription Language</label>
+                        <select id="language-select" class="form-select" style="max-width: 200px;">
+                            <option value="en" selected>English</option>
+                            <option value="de">German</option>
+                        </select>
+                    </div>
+
+                    <!-- TAB CONTENT -->
+                    <div class="tab-content" id="transcriptionTabsContent">
+                        <!-- LIVE TRANSCRIPTION PANE -->
+                        <div class="tab-pane fade show active" id="live-tab-pane" role="tabpanel">
+                            <p>Click the microphone button to start and stop real-time transcription.</p>
+                            <div class="d-flex align-items-start gap-3">
+                                <button id="mic-button" title="Click to Start Recording">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                </button>
+                                <textarea id="live-transcript-output" class="form-control" rows="8" placeholder="Live transcription will appear here..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- FILE UPLOAD PANE -->
+                        <div class="tab-pane fade" id="file-tab-pane" role="tabpanel">
+                            <form id="audio-upload-form">
+                                <div class="mb-3">
+                                    <label for="file-upload-input" class="file-upload-wrapper">
+                                        <p id="file-upload-text">Click to select an audio file or drag and drop</p>
+                                    </label>
+                                    <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required>
+                                </div>
+                                <div class="d-grid mb-3">
+                                    <button type="submit" class="btn btn-primary" id="transcribe-file-btn">Transcribe File</button>
+                                </div>
+                            </form>
+                            <h5>Transcription Result:</h5>
+                            <div id="transcription-result-container">
+                                <span class="text-muted">The transcription will appear here after processing.</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if deepgram_api_key_set %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ==========================================================
+    // ===== LIVE TRANSCRIPTION LOGIC (from Dossier) =====
+    // ==========================================================
+    const micButton = document.getElementById('mic-button');
+    const transcriptOutput = document.getElementById('live-transcript-output');
+    const languageSelect = document.getElementById('language-select');
+
+    let mediaRecorder;
+    let socket;
+    let isRecording = false;
+    let baseText = '';
+    let keepAliveInterval;
+
+    async function getDeepgramToken() {
+        try {
+            const response = await fetch('/api/get-deepgram-token');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to get token');
+            }
+            const data = await response.json();
+            return data.deepgram_token;
+        } catch (error) {
+            console.error("Failed to get Deepgram token:", error);
+            alert("Error: " + error.message);
+            throw error;
+        }
+    }
+
+    const connectToDeepgram = async () => {
+        let deepgramToken;
+        try {
+            deepgramToken = await getDeepgramToken();
+        } catch (error) { return; }
+        
+        const selectedLanguage = languageSelect.value;
+        const params = new URLSearchParams({
+            model: 'nova-2',
+            smart_format: 'true',
+            interim_results: 'true',
+            language: selectedLanguage,
+            encoding: 'opus'
+        });
+        const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+
+        socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
+
+        socket.onopen = async () => {
+            console.log("Deepgram socket opened.");
+            baseText = transcriptOutput.value;
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm; codecs=opus' });
+
+            mediaRecorder.addEventListener('dataavailable', event => {
+                if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                    socket.send(event.data);
+                }
+            });
+
+            mediaRecorder.start(250);
+            isRecording = true;
+            micButton.classList.add('recording');
+            micButton.title = "Click to Stop Recording";
+            languageSelect.disabled = true;
+
+            keepAliveInterval = setInterval(() => {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'KeepAlive' }));
+                }
+            }, 5000);
+        };
+
+        socket.onmessage = (message) => {
+            const received = JSON.parse(message.data);
+            const transcript = received.channel?.alternatives[0]?.transcript;
+            if (transcript) {
+                if (received.is_final) {
+                    transcriptOutput.value = baseText + transcript + ' ';
+                    baseText = transcriptOutput.value;
+                } else {
+                    transcriptOutput.value = baseText + transcript;
+                }
+            }
+        };
+
+        socket.onclose = () => {
+            console.log("Deepgram socket closed.");
+            if (isRecording) stopRecording(false);
+        };
+        socket.onerror = (error) => console.error("Deepgram socket error:", error);
+    };
+
+    const stopRecording = (shouldCloseSocket = true) => {
+        if (!isRecording && shouldCloseSocket) return;
+
+        clearInterval(keepAliveInterval);
+
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+        if (socket && socket.readyState === WebSocket.OPEN && shouldCloseSocket) {
+            socket.close();
+        }
+
+        mediaRecorder = null;
+        if (shouldCloseSocket) socket = null;
+        isRecording = false;
+
+        micButton.classList.remove('recording');
+        micButton.title = "Click to Start Recording";
+        languageSelect.disabled = false;
+        transcriptOutput.focus();
+    };
+
+    micButton.addEventListener('click', () => {
+        if (isRecording) stopRecording();
+        else connectToDeepgram();
+    });
+
+    // ==========================================================
+    // ===== FILE UPLOAD TRANSCRIPTION LOGIC =====
+    // ==========================================================
+    const uploadForm = document.getElementById('audio-upload-form');
+    const fileInput = document.getElementById('file-upload-input');
+    const fileUploadText = document.getElementById('file-upload-text');
+    const resultContainer = document.getElementById('transcription-result-container');
+    const transcribeBtn = document.getElementById('transcribe-file-btn');
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            fileUploadText.textContent = fileInput.files[0].name;
+        } else {
+            fileUploadText.textContent = 'Click to select an audio file or drag and drop';
+        }
+    });
+    
+    uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        if (!fileInput.files[0]) {
+            alert("Please select an audio file first.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('audio_file', fileInput.files[0]);
+        formData.append('language', languageSelect.value);
+
+        transcribeBtn.disabled = true;
+        transcribeBtn.textContent = 'Transcribing...';
+        resultContainer.innerHTML = '<span class="text-muted">Processing your file...</span>';
+
+        try {
+            const response = await fetch('/transcribe-audio-file', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || `HTTP error! Status: ${response.status}`);
+            }
+            
+            resultContainer.textContent = result.transcript || 'No transcript was returned.';
+
+        } catch (error) {
+            console.error('Transcription error:', error);
+            resultContainer.innerHTML = `<span class="text-danger"><strong>Error:</strong> ${error.message}</span>`;
+        } finally {
+            transcribeBtn.disabled = false;
+            transcribeBtn.textContent = 'Transcribe File';
+        }
+    });
+
+});
+</script>
+{% endif %}
+{% endblock %}
