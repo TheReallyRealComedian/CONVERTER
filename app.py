@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 from io import BytesIO
-from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
+from flask import Flask, render_template, request, flash, redirect, url_for, send_file
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
 from werkzeug.utils import secure_filename
@@ -14,8 +14,9 @@ from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
-from deepgram import DeepgramClient, PrerecordedOptions
 import fitz  # PyMuPDF
+from deepgram import DeepgramClient, PrerecordedOptions
+from flask import jsonify
 import traceback
 
 
@@ -315,7 +316,7 @@ def transcribe_audio_file():
             model="nova-2",
             smart_format=True,
             utterances=True,
-            puncutation=True,
+            punctuate=True,
             language=language
         )
 
