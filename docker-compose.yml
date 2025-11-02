@@ -12,6 +12,7 @@ services:
       # Mount Google Cloud credentials (optional, for Cloud TTS)
       - ./google-credentials.json:/app/google-credentials.json
     environment:
-
+      - DEEPGRAM_API_KEY=798c9446aa29e00f1b7dc8babbd421d7f6247773
+      - GEMINI_API_KEY=AIzaSyDdy6vyzXtEm-y57tYKNowzlFqa4LHMa0Y
       - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
     restart: unless-stopped
