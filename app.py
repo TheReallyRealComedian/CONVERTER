@@ -20,7 +20,10 @@ import fitz  # PyMuPDF
 from deepgram import DeepgramClient, PrerecordedOptions
 from flask import jsonify
 import traceback
-import google.generativeai as genai
+# ===== UPDATED IMPORT FOR NEW LIBRARY =====
+from google import genai
+from google.genai import types
+# ==========================================
 
 
 # ==========================================================
@@ -447,7 +450,7 @@ def get_google_voices():
 
 @app.route('/generate-gemini-podcast', methods=['POST'])
 def generate_gemini_podcast():
-    """Handles multi-speaker podcast generation using Gemini-TTS (WORKING VERSION)."""
+    """Handles multi-speaker podcast generation using Gemini-TTS (UPDATED VERSION)."""
     if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API Key is not configured."}), 503
 
@@ -459,8 +462,8 @@ def generate_gemini_podcast():
         if not dialogue or len(dialogue) == 0:
             return jsonify({"error": "No dialogue provided."}), 400
 
-        # Configure Gemini API
-        genai.configure(api_key=GEMINI_API_KEY)
+        # ===== UPDATED: Use new library =====
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
         # Build multi-speaker configuration
         speaker_voice_configs = []
@@ -478,14 +481,16 @@ def generate_gemini_podcast():
             
             # Add to speaker configs if not seen
             if speaker not in seen_speakers:
-                speaker_voice_configs.append({
-                    "speaker": speaker,
-                    "voiceConfig": {
-                        "prebuiltVoiceConfig": {
-                            "voiceName": speaker
-                        }
-                    }
-                })
+                speaker_voice_configs.append(
+                    types.SpeakerVoiceConfig(
+                        speaker=speaker,
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name=speaker
+                            )
+                        )
+                    )
+                )
                 seen_speakers.add(speaker)
             
             # Format: "Speaker: [style] Text"
@@ -499,86 +504,60 @@ def generate_gemini_podcast():
         app.logger.info(f"Gemini-TTS dialogue:\n{full_dialogue}")
         app.logger.info(f"Speakers: {list(seen_speakers)}")
 
-        # Use the CORRECT model name: gemini-2.5-flash-preview-tts
-        model = genai.GenerativeModel("gemini-2.5-flash-preview-tts")
-        
-        # Generate with CORRECT API structure
-        response = model.generate_content(
-            full_dialogue,
-            generation_config={
-                "responseModalities": ["AUDIO"],
-                "speechConfig": {
-                    "multiSpeakerVoiceConfig": {
-                        "speakerVoiceConfigs": speaker_voice_configs
-                    }
-                }
-            }
+        # ===== UPDATED: Use new API structure =====
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-tts",
+            contents=full_dialogue,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
+                        speaker_voice_configs=speaker_voice_configs
+                    )
+                )
+            )
         )
 
         app.logger.info("Gemini-TTS response received")
 
-        # Extract audio from response
-        if not response or not hasattr(response, 'parts'):
+        # ===== UPDATED: Extract audio from response =====
+        if not response or not response.candidates:
             app.logger.error(f"Invalid response: {response}")
             return jsonify({"error": "Invalid response from Gemini-TTS."}), 500
         
-        # Find audio data
-        audio_data = None
-        mime_type = None
-        
-        for part in response.parts:
-            if hasattr(part, 'inline_data'):
-                inline = part.inline_data
-                if hasattr(inline, 'mime_type') and inline.mime_type.startswith('audio/'):
-                    audio_data = inline.data
-                    mime_type = inline.mime_type
-                    app.logger.info(f"Found audio: {len(audio_data)} bytes, type: {mime_type}")
-                    break
+        # Access inline_data correctly with new library
+        audio_data = response.candidates[0].content.parts[0].inline_data.data
+        mime_type = response.candidates[0].content.parts[0].inline_data.mime_type
         
         if not audio_data:
             app.logger.error(f"No audio found in response")
             return jsonify({"error": "No audio data in response."}), 500
 
-        # Gemini-TTS returns audio/L16;codec=pcm;rate=24000
-        # We need to convert this to WAV format
-        if 'L16' in mime_type or 'pcm' in mime_type:
-            # Convert PCM to WAV
-            import wave
-            import struct
+        app.logger.info(f"Found audio: {len(audio_data)} bytes, type: {mime_type}")
+
+        # Convert PCM to WAV
+        import wave
+        
+        temp_audio_path = None
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
+            temp_audio_path = temp_audio.name
             
-            temp_audio_path = None
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
-                temp_audio_path = temp_audio.name
-                
-                # Create WAV file
-                with wave.open(temp_audio_path, 'wb') as wav_file:
-                    wav_file.setnchannels(1)  # Mono
-                    wav_file.setsampwidth(2)  # 16-bit
-                    wav_file.setframerate(24000)  # 24kHz
-                    wav_file.writeframes(audio_data)
-            
-            app.logger.info(f"Audio converted and saved to: {temp_audio_path}")
-            
-            # Send to user
-            return send_file(
-                temp_audio_path,
-                as_attachment=True,
-                download_name='gemini_podcast.wav',
-                mimetype='audio/wav'
-            )
-        else:
-            # If already in a playable format, send directly
-            temp_audio_path = None
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
-                temp_audio.write(audio_data)
-                temp_audio_path = temp_audio.name
-            
-            return send_file(
-                temp_audio_path,
-                as_attachment=True,
-                download_name='gemini_podcast.wav',
-                mimetype='audio/wav'
-            )
+            # Create WAV file
+            with wave.open(temp_audio_path, 'wb') as wav_file:
+                wav_file.setnchannels(1)  # Mono
+                wav_file.setsampwidth(2)  # 16-bit
+                wav_file.setframerate(24000)  # 24kHz
+                wav_file.writeframes(audio_data)
+        
+        app.logger.info(f"Audio converted and saved to: {temp_audio_path}")
+        
+        # Send to user
+        return send_file(
+            temp_audio_path,
+            as_attachment=True,
+            download_name='gemini_podcast.wav',
+            mimetype='audio/wav'
+        )
 
     except Exception as e:
         app.logger.error(f"Gemini-TTS failed: {e}", exc_info=True)
@@ -701,12 +680,14 @@ Anna [curiously]: What makes it so revolutionary?
 
 Now convert the raw text above into this format. Output ONLY the formatted dialogue, nothing else."""
 
-        # Configure Gemini for text generation
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        # ===== UPDATED: Use new library =====
+        client = genai.Client(api_key=GEMINI_API_KEY)
         
         # Generate the formatted dialogue
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-exp",
+            contents=prompt
+        )
         
         if not response.text:
             return jsonify({"error": "LLM did not generate any output."}), 500
