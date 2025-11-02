@@ -109,6 +109,97 @@
         cursor: not-allowed;
     }
 </style>
+<style>
+.dialogue-line {
+    background-color: var(--bg-editor-pane);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+}
+
+.dialogue-line-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.dialogue-line-number {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.dialogue-line-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.dialogue-line-btn {
+    background: none;
+    border: 1px solid var(--border-light);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.dialogue-line-btn:hover {
+    background-color: var(--bg-preview-pane);
+    border-color: var(--border-focus);
+}
+
+.dialogue-line-btn.delete {
+    color: var(--text-danger);
+    border-color: var(--border-danger);
+}
+
+.dialogue-line-btn.delete:hover {
+    background-color: var(--bg-alert-danger);
+}
+
+.dialogue-line-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.dialogue-line-row > * {
+    flex: 1;
+}
+
+.dialogue-line textarea {
+    min-height: 80px;
+}
+</style>
+<style>
+.speaker-config {
+    background-color: var(--bg-page);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.speaker-config-header {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.speaker-config-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.speaker-config-row > div {
+    flex: 1;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -132,6 +223,9 @@
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-tab-pane" type="button" role="tab">Transcribe File</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="gemini-podcast-tab" data-bs-toggle="tab" data-bs-target="#gemini-podcast-tab-pane" type="button" role="tab">Gemini Podcast (Multi-Speaker)</button>
                         </li>
                     </ul>
 
@@ -195,6 +289,105 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                                     Clear
                                 </button>
+                            </div>
+                        </div>
+                        
+                        <!-- GEMINI PODCAST PANE -->
+                        <div class="tab-pane fade" id="gemini-podcast-tab-pane" role="tabpanel">
+                            <p>Paste your text, describe your speakers, and let AI format it into a multi-speaker podcast.</p>
+                            
+                            <!-- Step 1: Configure Speakers -->
+                            <div class="card mb-3" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light);">
+                                <div class="card-body">
+                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 1: Configure Speakers</h5>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label for="num-speakers" class="form-label">Number of Speakers</label>
+                                            <select class="form-select" id="num-speakers">
+                                                <option value="1">1 (Monologue)</option>
+                                                <option value="2" selected>2 (Dialogue)</option>
+                                                <option value="3">3 (Panel)</option>
+                                                <option value="4">4 (Group)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="podcast-language" class="form-label">Language</label>
+                                            <select class="form-select" id="podcast-language">
+                                                <option value="en">English</option>
+                                                <option value="de" selected>German (Deutsch)</option>
+                                                <option value="es">Spanish (Español)</option>
+                                                <option value="fr">French (Français)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="podcast-tone" class="form-label">Overall Tone</label>
+                                            <select class="form-select" id="podcast-tone">
+                                                <option value="professional and informative" selected>Professional & Informative</option>
+                                                <option value="casual and friendly">Casual & Friendly</option>
+                                                <option value="enthusiastic and energetic">Enthusiastic & Energetic</option>
+                                                <option value="serious and thoughtful">Serious & Thoughtful</option>
+                                                <option value="humorous and entertaining">Humorous & Entertaining</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="speakers-config-container">
+                                        <!-- Speaker configs will be added here dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 2: Enter Raw Text -->
+                            <div class="card mb-3" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light);">
+                                <div class="card-body">
+                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 2: Enter Your Text</h5>
+                                    <div class="mb-3">
+                                        <label for="raw-podcast-text" class="form-label">Raw Content (just paste your text, AI will format it)</label>
+                                        <textarea class="form-control" id="raw-podcast-text" rows="8" placeholder="Paste your podcast content here. No special formatting needed - just write naturally!
+
+Example:
+Today we're discussing artificial intelligence and its impact on society. AI has been developing rapidly in recent years. We've seen major breakthroughs in language models, computer vision, and robotics. But what does this mean for the average person? Well, AI is already in your smartphone, your car, and even your refrigerator..."></textarea>
+                                    </div>
+                                    <div class="d-grid">
+                                        <button type="button" class="btn btn-secondary" id="format-with-ai-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                                            ✨ Format with AI
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 3: Preview & Adjust -->
+                            <div class="card mb-3" id="formatted-preview-card" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light); display: none;">
+                                <div class="card-body">
+                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 3: Preview & Adjust</h5>
+                                    <div class="mb-3">
+                                        <label for="formatted-dialogue-preview" class="form-label">Formatted Dialogue (you can edit if needed)</label>
+                                        <textarea class="form-control" id="formatted-dialogue-preview" rows="12" style="font-family: var(--font-mono); font-size: 0.9rem;"></textarea>
+                                        <div class="form-text">Format: SpeakerName [style]: Text</div>
+                                    </div>
+                                    <div class="d-grid">
+                                        <button type="button" class="btn btn-primary" id="generate-from-formatted-btn">
+                                            🎙️ Generate Podcast
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Result Container -->
+                            <div id="llm-podcast-result-container" style="display: none;">
+                                <h5>Generated Podcast:</h5>
+                                <audio id="llm-podcast-audio" controls style="width: 100%; margin-bottom: 1rem;">
+                                    <source id="llm-podcast-audio-source" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                <div class="action-buttons">
+                                    <a id="download-llm-podcast-btn" class="action-btn" download="podcast.wav">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                        Download
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -463,6 +656,255 @@ document.addEventListener('DOMContentLoaded', function() {
         copyToClipboard(text, copyFileBtn);
     });
 
+});
+</script>
+<script>
+// ==========================================================
+// ===== LLM-POWERED PODCAST GENERATOR =====
+// ==========================================================
+
+const numSpeakersSelect = document.getElementById('num-speakers');
+const speakersConfigContainer = document.getElementById('speakers-config-container');
+const podcastLanguageSelect = document.getElementById('podcast-language');
+const podcastToneSelect = document.getElementById('podcast-tone');
+const rawPodcastTextInput = document.getElementById('raw-podcast-text');
+const formatWithAiBtn = document.getElementById('format-with-ai-btn');
+const formattedPreviewCard = document.getElementById('formatted-preview-card');
+const formattedDialoguePreview = document.getElementById('formatted-dialogue-preview');
+const generateFromFormattedBtn = document.getElementById('generate-from-formatted-btn');
+const llmPodcastResultContainer = document.getElementById('llm-podcast-result-container');
+const llmPodcastAudio = document.getElementById('llm-podcast-audio');
+const llmPodcastAudioSource = document.getElementById('llm-podcast-audio-source');
+const downloadLlmPodcastBtn = document.getElementById('download-llm-podcast-btn');
+
+// Voice options organized by gender
+const geminiVoiceOptions = {
+    female: ['Zephyr', 'Leda', 'Laomedeia', 'Aoede', 'Callirrhoe', 'Autonoe', 'Erinome', 'Umbriel', 'Despina', 'Pulcherrima', 'Vindemiatrix'],
+    male: ['Kore', 'Charon', 'Fenrir', 'Orus', 'Puck', 'Enceladus', 'Iapetus', 'Algenib', 'Achernar', 'Algieba', 'Gacrux', 'Alnilam', 'Rasalgethi', 'Sadaltager', 'Zubenelgenubi'],
+    neutral: ['Kore', 'Achird', 'Schedar', 'Sadachbia', 'Sulafat']
+};
+
+const defaultSpeakers = [
+    { name: 'Anna', voice: 'Zephyr', personality: 'friendly and enthusiastic' },
+    { name: 'Max', voice: 'Charon', personality: 'professional and informative' },
+    { name: 'Sarah', voice: 'Leda', personality: 'curious and thoughtful' },
+    { name: 'Tom', voice: 'Puck', personality: 'upbeat and humorous' }
+];
+
+function createSpeakerConfig(index) {
+    const speaker = defaultSpeakers[index] || { name: `Speaker${index + 1}`, voice: 'Kore', personality: 'neutral' };
+    
+    const configDiv = document.createElement('div');
+    configDiv.className = 'speaker-config';
+    configDiv.dataset.speakerIndex = index;
+    
+    configDiv.innerHTML = `
+        <div class="speaker-config-header">Speaker ${index + 1}</div>
+        <div class="speaker-config-row">
+            <div>
+                <label class="form-label" style="font-size: 0.8rem;">Name</label>
+                <input type="text" class="form-control form-control-sm speaker-name" value="${speaker.name}">
+            </div>
+            <div>
+                <label class="form-label" style="font-size: 0.8rem;">Voice</label>
+                <select class="form-select form-select-sm speaker-voice">
+                    <optgroup label="Female">
+                        ${geminiVoiceOptions.female.map(v => `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`).join('')}
+                    </optgroup>
+                    <optgroup label="Male">
+                        ${geminiVoiceOptions.male.map(v => `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`).join('')}
+                    </optgroup>
+                    <optgroup label="Neutral">
+                        ${geminiVoiceOptions.neutral.map(v => `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`).join('')}
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" style="font-size: 0.8rem;">Personality</label>
+                <input type="text" class="form-control form-control-sm speaker-personality" value="${speaker.personality}" placeholder="e.g., friendly, professional...">
+            </div>
+        </div>
+    `;
+    
+    return configDiv;
+}
+
+function updateSpeakerConfigs() {
+    const numSpeakers = parseInt(numSpeakersSelect.value);
+    speakersConfigContainer.innerHTML = '';
+    
+    for (let i = 0; i < numSpeakers; i++) {
+        speakersConfigContainer.appendChild(createSpeakerConfig(i));
+    }
+}
+
+function collectSpeakerDescriptions() {
+    const configs = speakersConfigContainer.querySelectorAll('.speaker-config');
+    const descriptions = [];
+    
+    configs.forEach(config => {
+        descriptions.push({
+            name: config.querySelector('.speaker-name').value.trim(),
+            voice: config.querySelector('.speaker-voice').value,
+            personality: config.querySelector('.speaker-personality').value.trim()
+        });
+    });
+    
+    return descriptions;
+}
+
+// Initialize with 2 speakers
+numSpeakersSelect.addEventListener('change', updateSpeakerConfigs);
+updateSpeakerConfigs();
+
+// Format with AI
+formatWithAiBtn.addEventListener('click', async () => {
+    const rawText = rawPodcastTextInput.value.trim();
+    
+    if (!rawText) {
+        alert('Please enter some text to format.');
+        return;
+    }
+    
+    formatWithAiBtn.disabled = true;
+    formatWithAiBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Formatting with AI...';
+    
+    try {
+        const response = await fetch('/format-dialogue-with-llm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                raw_text: rawText,
+                num_speakers: parseInt(numSpeakersSelect.value),
+                speaker_descriptions: collectSpeakerDescriptions(),
+                language: podcastLanguageSelect.value,
+                tone: podcastToneSelect.value
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Show the formatted dialogue
+        formattedDialoguePreview.value = data.raw_formatted_text;
+        formattedPreviewCard.style.display = 'block';
+        
+        // Scroll to preview
+        formattedPreviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+    } catch (error) {
+        console.error('Formatting error:', error);
+        alert('Error formatting dialogue: ' + error.message);
+    } finally {
+        formatWithAiBtn.disabled = false;
+        formatWithAiBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> ✨ Format with AI';
+    }
+});
+
+// Generate podcast from formatted dialogue
+generateFromFormattedBtn.addEventListener('click', async () => {
+    const formattedText = formattedDialoguePreview.value.trim();
+    
+    if (!formattedText) {
+        alert('No formatted dialogue to generate.');
+        return;
+    }
+    
+    // Parse the formatted text into dialogue array
+    const dialogue = [];
+    const speakerDescriptions = collectSpeakerDescriptions();
+    const speakerVoiceMap = {};
+    speakerDescriptions.forEach(desc => {
+        speakerVoiceMap[desc.name] = desc.voice;
+    });
+    
+    for (const line of formattedText.split('\n')) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('**')) {
+            continue;
+        }
+        
+        if (trimmedLine.includes(':')) {
+            const parts = trimmedLine.split(':', 1);
+            const speakerPart = parts[0].trim();
+            const textPart = trimmedLine.substring(parts[0].length + 1).trim();
+            
+            let speaker = speakerPart;
+            let style = '';
+            
+            // Extract style if present
+            if (speakerPart.includes('[') && speakerPart.includes(']')) {
+                speaker = speakerPart.split('[')[0].trim();
+                style = speakerPart.split('[')[1].split(']')[0].trim();
+            }
+            
+            // Map speaker name to voice
+            const voice = speakerVoiceMap[speaker] || 'Kore';
+            
+            if (textPart) {
+                dialogue.push({
+                    speaker: voice,  // Use the voice name directly
+                    style: style,
+                    text: textPart
+                });
+            }
+        }
+    }
+    
+    if (dialogue.length === 0) {
+        alert('Could not parse any dialogue. Please check the format.');
+        return;
+    }
+    
+    generateFromFormattedBtn.disabled = true;
+    generateFromFormattedBtn.textContent = '🎙️ Generating...';
+    llmPodcastResultContainer.style.display = 'none';
+    
+    try {
+        const response = await fetch('/generate-gemini-podcast', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dialogue: dialogue,
+                language: podcastLanguageSelect.value
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+        }
+        
+        // Get the audio blob
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Update audio player
+        llmPodcastAudioSource.src = audioUrl;
+        llmPodcastAudio.load();
+        
+        // Update download link
+        downloadLlmPodcastBtn.href = audioUrl;
+        
+        // Show result container
+        llmPodcastResultContainer.style.display = 'block';
+        llmPodcastResultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+    } catch (error) {
+        console.error('Podcast generation error:', error);
+        alert('Error generating podcast: ' + error.message);
+    } finally {
+        generateFromFormattedBtn.disabled = false;
+        generateFromFormattedBtn.textContent = '🎙️ Generate Podcast';
+    }
 });
 </script>
 {% endif %}

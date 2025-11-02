@@ -12,3 +12,5 @@ PyMuPDF==1.24.1
 gevent==24.2.1
 mermaid==0.3.2
 deepgram-sdk==3.4.0
+google-cloud-texttospeech==2.21.0
+google-generativeai==0.8.3
