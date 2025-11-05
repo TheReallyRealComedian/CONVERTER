@@ -199,6 +199,79 @@
 .speaker-config-row > div {
     flex: 1;
 }
+
+/* NEW: Mode selector styles */
+.mode-selector {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid var(--border-light);
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.mode-btn:hover {
+    background-color: var(--bg-editor-pane);
+    border-color: var(--border-focus);
+}
+
+.mode-btn.active {
+    background-color: var(--bg-primary);
+    color: var(--text-white);
+    border-color: var(--bg-primary);
+}
+
+/* NEW: Collapsible prompt editor */
+.prompt-editor-section {
+    margin-top: 1rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    background-color: var(--bg-page);
+}
+
+.prompt-editor-header {
+    padding: 0.75rem;
+    background-color: var(--bg-editor-pane);
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+}
+
+.prompt-editor-header:hover {
+    background-color: #e0e2e5;
+}
+
+.prompt-editor-content {
+    padding: 0.75rem;
+    display: none;
+}
+
+.prompt-editor-content.expanded {
+    display: block;
+}
+
+.prompt-textarea {
+    width: 100%;
+    min-height: 200px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 0.5rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+}
 </style>
 {% endblock %}
 
@@ -294,7 +367,7 @@
                         
                         <!-- GEMINI PODCAST PANE -->
                         <div class="tab-pane fade" id="gemini-podcast-tab-pane" role="tabpanel">
-                            <p>Paste your text, describe your speakers, and let AI format it into a multi-speaker podcast.</p>
+                            <p>Create a multi-speaker podcast: Configure speakers, then either let AI format your text or write your own script.</p>
                             
                             <!-- Step 1: Configure Speakers -->
                             <div class="card mb-3" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light);">
@@ -338,30 +411,128 @@
                                 </div>
                             </div>
                             
-                            <!-- Step 2: Enter Raw Text -->
+                            <!-- Step 2: Choose Mode -->
                             <div class="card mb-3" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light);">
                                 <div class="card-body">
-                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 2: Enter Your Text</h5>
-                                    <div class="mb-3">
-                                        <label for="raw-podcast-text" class="form-label">Raw Content (just paste your text, AI will format it)</label>
-                                        <textarea class="form-control" id="raw-podcast-text" rows="8" placeholder="Paste your podcast content here. No special formatting needed - just write naturally!
+                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 2: Create Your Script</h5>
+                                    
+                                    <!-- Mode Selector -->
+                                    <label class="form-label">Choose Creation Mode:</label>
+                                    <div class="mode-selector">
+                                        <button class="mode-btn active" data-mode="ai">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.3rem;"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                                            AI-Assisted<br><small style="font-size: 0.75rem; font-weight: normal;">Let AI format your text</small>
+                                        </button>
+                                        <button class="mode-btn" data-mode="manual">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 0.3rem;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                            Manual Script<br><small style="font-size: 0.75rem; font-weight: normal;">Write your own dialogue</small>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- AI Mode Content -->
+                                    <div id="ai-mode-content" style="display: block;">
+                                        <div class="mb-3 mt-3">
+                                            <label for="script-length" class="form-label">Desired Script Length</label>
+                                            <select class="form-select" id="script-length">
+                                                <option value="short">Short (~2-3 minutes, ~300-500 words)</option>
+                                                <option value="medium" selected>Medium (~5-7 minutes, ~800-1200 words)</option>
+                                                <option value="long">Long (~10-15 minutes, ~1500-2500 words)</option>
+                                                <option value="very-long">Very Long (~20-30 minutes, ~3000-5000 words)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="raw-podcast-text" class="form-label">Raw Content</label>
+                                            <textarea class="form-control" id="raw-podcast-text" rows="8" placeholder="Paste your podcast content here. No special formatting needed - just write naturally!
 
 Example:
 Today we're discussing artificial intelligence and its impact on society. AI has been developing rapidly in recent years. We've seen major breakthroughs in language models, computer vision, and robotics. But what does this mean for the average person? Well, AI is already in your smartphone, your car, and even your refrigerator..."></textarea>
+                                        </div>
+                                        
+                                        <!-- Collapsible System Prompt Editor -->
+                                        <div class="prompt-editor-section">
+                                            <div class="prompt-editor-header" id="prompt-editor-toggle">
+                                                <span>⚙️ Advanced: Edit System Prompt</span>
+                                                <span id="prompt-toggle-icon">▼</span>
+                                            </div>
+                                            <div class="prompt-editor-content" id="prompt-editor-content">
+                                                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                                    This is the instruction given to the AI. You can customize it to change how the script is generated.
+                                                </p>
+                                                <textarea class="prompt-textarea" id="system-prompt-editor">You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
+
+**Context:**
+- Number of speakers: {num_speakers}
+- Language: {language_name}
+- Overall tone: {tone}
+- Target length: {target_length}
+- Speakers:
+{speakers_info}
+
+**Raw Text to Convert:**
+{raw_text}
+
+**Instructions:**
+1. Create a natural, engaging {target_length_desc} podcast script from the raw text
+2. Split the content naturally into dialogue turns between the {num_speakers} speaker(s)
+3. Each turn should be 1-4 sentences for natural conversational flow
+4. Add appropriate style hints in square brackets (e.g., enthusiastically, calmly, thoughtfully)
+5. Make it conversational, engaging, and maintain the {tone} tone
+6. Use the exact speaker names provided above
+7. IMPORTANT: Generate enough content to match the target length. Don't be brief - expand on topics naturally.
+8. Include transitions, questions, clarifications, and natural back-and-forth between speakers
+
+**Output Format (one line per dialogue turn):**
+SpeakerName [style]: Text of what they say
+
+**Example:**
+Anna [enthusiastically]: Welcome to our show!
+Max [professionally]: Today we discuss artificial intelligence and how it's changing our world.
+Anna [curiously]: What makes it so revolutionary? Can you break it down for our listeners?
+Max [thoughtfully]: Great question. Let me start with the basics...
+
+Now convert the raw text above into this format. Remember to generate {target_length_desc} content!</textarea>
+                                                <button class="btn btn-secondary btn-sm mt-2" id="reset-prompt-btn">Reset to Default</button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="d-grid mt-3">
+                                            <button type="button" class="btn btn-secondary" id="format-with-ai-btn">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                                                ✨ Format with AI
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="d-grid">
-                                        <button type="button" class="btn btn-secondary" id="format-with-ai-btn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
-                                            ✨ Format with AI
-                                        </button>
+                                    
+                                    <!-- Manual Mode Content -->
+                                    <div id="manual-mode-content" style="display: none;">
+                                        <div class="alert alert-info mt-3" style="font-size: 0.9rem;">
+                                            <strong>Format Instructions:</strong> Write one line per speaker turn in this format:<br>
+                                            <code>SpeakerName [optional-style]: What they say</code><br><br>
+                                            <strong>Example:</strong><br>
+                                            <code>Anna [enthusiastically]: Welcome everyone!</code><br>
+                                            <code>Max: Today we're discussing AI.</code>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="manual-script-input" class="form-label">Your Formatted Script</label>
+                                            <textarea class="form-control" id="manual-script-input" rows="15" style="font-family: var(--font-mono); font-size: 0.9rem;" placeholder="Anna [enthusiastically]: Welcome to our podcast!
+Max [professionally]: Today we're discussing an important topic.
+Anna [curiously]: Can you tell us more about it?
+Max [thoughtfully]: Of course! Let me explain..."></textarea>
+                                        </div>
+                                        <div class="d-grid">
+                                            <button type="button" class="btn btn-primary" id="use-manual-script-btn">
+                                                📝 Use This Script
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Step 3: Preview & Adjust -->
+                            <!-- Step 3: Preview & Generate -->
                             <div class="card mb-3" id="formatted-preview-card" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light); display: none;">
                                 <div class="card-body">
-                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 3: Preview & Adjust</h5>
+                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 3: Preview & Generate</h5>
                                     <div class="mb-3">
                                         <label for="formatted-dialogue-preview" class="form-label">Formatted Dialogue (you can edit if needed)</label>
                                         <textarea class="form-control" id="formatted-dialogue-preview" rows="12" style="font-family: var(--font-mono); font-size: 0.9rem;"></textarea>
@@ -667,6 +838,7 @@ const numSpeakersSelect = document.getElementById('num-speakers');
 const speakersConfigContainer = document.getElementById('speakers-config-container');
 const podcastLanguageSelect = document.getElementById('podcast-language');
 const podcastToneSelect = document.getElementById('podcast-tone');
+const scriptLengthSelect = document.getElementById('script-length');
 const rawPodcastTextInput = document.getElementById('raw-podcast-text');
 const formatWithAiBtn = document.getElementById('format-with-ai-btn');
 const formattedPreviewCard = document.getElementById('formatted-preview-card');
@@ -676,6 +848,22 @@ const llmPodcastResultContainer = document.getElementById('llm-podcast-result-co
 const llmPodcastAudio = document.getElementById('llm-podcast-audio');
 const llmPodcastAudioSource = document.getElementById('llm-podcast-audio-source');
 const downloadLlmPodcastBtn = document.getElementById('download-llm-podcast-btn');
+
+// NEW: Mode selector elements
+const modeButtons = document.querySelectorAll('.mode-btn');
+const aiModeContent = document.getElementById('ai-mode-content');
+const manualModeContent = document.getElementById('manual-mode-content');
+const manualScriptInput = document.getElementById('manual-script-input');
+const useManualScriptBtn = document.getElementById('use-manual-script-btn');
+
+// NEW: Prompt editor elements
+const promptEditorToggle = document.getElementById('prompt-editor-toggle');
+const promptEditorContent = document.getElementById('prompt-editor-content');
+const promptToggleIcon = document.getElementById('prompt-toggle-icon');
+const systemPromptEditor = document.getElementById('system-prompt-editor');
+const resetPromptBtn = document.getElementById('reset-prompt-btn');
+
+let currentMode = 'ai';
 
 // Voice options organized by gender
 const geminiVoiceOptions = {
@@ -690,6 +878,88 @@ const defaultSpeakers = [
     { name: 'Sarah', voice: 'Leda', personality: 'curious and thoughtful' },
     { name: 'Tom', voice: 'Puck', personality: 'upbeat and humorous' }
 ];
+
+const defaultPromptTemplate = `You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
+
+**Context:**
+- Number of speakers: {num_speakers}
+- Language: {language_name}
+- Overall tone: {tone}
+- Target length: {target_length}
+- Speakers:
+{speakers_info}
+
+**Raw Text to Convert:**
+{raw_text}
+
+**Instructions:**
+1. Create a natural, engaging {target_length_desc} podcast script from the raw text
+2. Split the content naturally into dialogue turns between the {num_speakers} speaker(s)
+3. Each turn should be 1-4 sentences for natural conversational flow
+4. Add appropriate style hints in square brackets (e.g., enthusiastically, calmly, thoughtfully)
+5. Make it conversational, engaging, and maintain the {tone} tone
+6. Use the exact speaker names provided above
+7. IMPORTANT: Generate enough content to match the target length. Don't be brief - expand on topics naturally.
+8. Include transitions, questions, clarifications, and natural back-and-forth between speakers
+
+**Output Format (one line per dialogue turn):**
+SpeakerName [style]: Text of what they say
+
+**Example:**
+Anna [enthusiastically]: Welcome to our show!
+Max [professionally]: Today we discuss artificial intelligence and how it's changing our world.
+Anna [curiously]: What makes it so revolutionary? Can you break it down for our listeners?
+Max [thoughtfully]: Great question. Let me start with the basics...
+
+Now convert the raw text above into this format. Remember to generate {target_length_desc} content!`;
+
+// NEW: Mode switching
+modeButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+        modeButtons.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentMode = this.dataset.mode;
+        
+        if (currentMode === 'ai') {
+            aiModeContent.style.display = 'block';
+            manualModeContent.style.display = 'none';
+        } else {
+            aiModeContent.style.display = 'none';
+            manualModeContent.style.display = 'block';
+        }
+    });
+});
+
+// NEW: Prompt editor toggle
+promptEditorToggle.addEventListener('click', function() {
+    const isExpanded = promptEditorContent.classList.contains('expanded');
+    if (isExpanded) {
+        promptEditorContent.classList.remove('expanded');
+        promptToggleIcon.textContent = '▼';
+    } else {
+        promptEditorContent.classList.add('expanded');
+        promptToggleIcon.textContent = '▲';
+    }
+});
+
+// NEW: Reset prompt button
+resetPromptBtn.addEventListener('click', function() {
+    systemPromptEditor.value = defaultPromptTemplate;
+});
+
+// NEW: Manual script button
+useManualScriptBtn.addEventListener('click', function() {
+    const scriptText = manualScriptInput.value.trim();
+    if (!scriptText) {
+        alert('Please enter a script first.');
+        return;
+    }
+    
+    // Show the preview card with the manual script
+    formattedDialoguePreview.value = scriptText;
+    formattedPreviewCard.style.display = 'block';
+    formattedPreviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
 
 function createSpeakerConfig(index) {
     const speaker = defaultSpeakers[index] || { name: `Speaker${index + 1}`, voice: 'Kore', personality: 'neutral' };
@@ -780,7 +1050,9 @@ formatWithAiBtn.addEventListener('click', async () => {
                 num_speakers: parseInt(numSpeakersSelect.value),
                 speaker_descriptions: collectSpeakerDescriptions(),
                 language: podcastLanguageSelect.value,
-                tone: podcastToneSelect.value
+                tone: podcastToneSelect.value,
+                script_length: scriptLengthSelect.value,
+                custom_prompt: systemPromptEditor.value
             })
         });
         

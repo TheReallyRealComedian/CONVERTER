@@ -629,6 +629,8 @@ def format_dialogue_with_llm():
         speaker_descriptions = data.get('speaker_descriptions', [])
         language = data.get('language', 'en')
         tone = data.get('tone', 'professional and informative')
+        script_length = data.get('script_length', 'medium')
+        custom_prompt = data.get('custom_prompt', '').strip()
         
         if not raw_text:
             return jsonify({"error": "No text provided."}), 400
@@ -636,7 +638,7 @@ def format_dialogue_with_llm():
         if num_speakers < 1 or num_speakers > 4:
             return jsonify({"error": "Number of speakers must be between 1 and 4."}), 400
 
-        # Build the prompt for the LLM
+        # Build speaker information
         speakers_info = ""
         for i, desc in enumerate(speaker_descriptions[:num_speakers], 1):
             name = desc.get('name', f'Speaker{i}')
@@ -644,19 +646,34 @@ def format_dialogue_with_llm():
             personality = desc.get('personality', 'neutral')
             speakers_info += f"- {name} (Voice: {voice}, Personality: {personality})\n"
         
+        # Language name mapping
         language_name = {
             'en': 'English',
             'de': 'German',
             'es': 'Spanish',
             'fr': 'French'
         }.get(language, 'English')
+        
+        # Script length mappings
+        length_info = {
+            'short': ('300-500 words', 'short (2-3 minute)'),
+            'medium': ('800-1200 words', 'medium-length (5-7 minute)'),
+            'long': ('1500-2500 words', 'long (10-15 minute)'),
+            'very-long': ('3000-5000 words', 'very long (20-30 minute)')
+        }
+        target_length, target_length_desc = length_info.get(script_length, length_info['medium'])
 
-        prompt = f"""You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
+        # Use custom prompt if provided, otherwise use default
+        if custom_prompt:
+            prompt = custom_prompt
+        else:
+            prompt = f"""You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
 
 **Context:**
 - Number of speakers: {num_speakers}
 - Language: {language_name}
 - Overall tone: {tone}
+- Target length: {target_length}
 - Speakers:
 {speakers_info}
 
@@ -664,29 +681,49 @@ def format_dialogue_with_llm():
 {raw_text}
 
 **Instructions:**
-1. Split the text naturally into dialogue turns between the {num_speakers} speaker(s)
-2. Each turn should be 1-3 sentences max for natural flow
-3. Add appropriate style hints in square brackets (e.g., enthusiastically, calmly, thoughtfully)
-4. Make it conversational and engaging
-5. Use the exact speaker names provided above
+1. Create a natural, engaging {target_length_desc} podcast script from the raw text
+2. Split the content naturally into dialogue turns between the {num_speakers} speaker(s)
+3. Each turn should be 1-4 sentences for natural conversational flow
+4. Add appropriate style hints in square brackets (e.g., enthusiastically, calmly, thoughtfully)
+5. Make it conversational, engaging, and maintain the {tone} tone
+6. Use the exact speaker names provided above
+7. IMPORTANT: Generate enough content to match the target length of {target_length}. Don't be brief - expand on topics naturally with details, examples, and explanations.
+8. Include transitions, questions, clarifications, and natural back-and-forth between speakers
+9. Add depth by exploring different angles, asking follow-up questions, and providing context
 
 **Output Format (one line per dialogue turn):**
 SpeakerName [style]: Text of what they say
 
 **Example:**
 Anna [enthusiastically]: Welcome to our show!
-Max [professionally]: Today we discuss artificial intelligence.
-Anna [curiously]: What makes it so revolutionary?
+Max [professionally]: Today we discuss artificial intelligence and how it's transforming every aspect of our daily lives.
+Anna [curiously]: That's fascinating! Can you break down what exactly makes AI so revolutionary for our listeners who might not be familiar with the technical details?
+Max [thoughtfully]: Great question. Let me start with the basics and then we'll dive deeper into some specific examples...
 
-Now convert the raw text above into this format. Output ONLY the formatted dialogue, nothing else."""
+Now convert the raw text above into this format. Remember to generate {target_length_desc} content - don't rush, take time to explore the topic thoroughly!"""
+        
+        # Replace placeholders if using custom prompt
+        prompt = prompt.replace('{num_speakers}', str(num_speakers))
+        prompt = prompt.replace('{language_name}', language_name)
+        prompt = prompt.replace('{tone}', tone)
+        prompt = prompt.replace('{target_length}', target_length)
+        prompt = prompt.replace('{target_length_desc}', target_length_desc)
+        prompt = prompt.replace('{speakers_info}', speakers_info)
+        prompt = prompt.replace('{raw_text}', raw_text)
 
-        # ===== UPDATED: Use new library =====
+        app.logger.info(f"Generating dialogue with script_length={script_length}, target={target_length}")
+        app.logger.info(f"Prompt preview: {prompt[:500]}...")
+
+        # Generate the formatted dialogue with configuration for longer output
         client = genai.Client(api_key=GEMINI_API_KEY)
         
-        # Generate the formatted dialogue
         response = client.models.generate_content(
             model="gemini-2.0-flash-exp",
-            contents=prompt
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                max_output_tokens=8192  # Increase for longer scripts
+            )
         )
         
         if not response.text:
@@ -694,7 +731,8 @@ Now convert the raw text above into this format. Output ONLY the formatted dialo
         
         formatted_dialogue = response.text.strip()
         
-        app.logger.info(f"LLM formatted dialogue:\n{formatted_dialogue}")
+        app.logger.info(f"LLM formatted dialogue length: {len(formatted_dialogue)} characters")
+        app.logger.info(f"LLM formatted dialogue preview:\n{formatted_dialogue[:1000]}...")
         
         # Parse the formatted dialogue into structured format
         dialogue_lines = []
@@ -725,6 +763,8 @@ Now convert the raw text above into this format. Output ONLY the formatted dialo
         
         if not dialogue_lines:
             return jsonify({"error": "Could not parse dialogue from LLM output."}), 500
+        
+        app.logger.info(f"Parsed {len(dialogue_lines)} dialogue lines")
         
         return jsonify({
             'dialogue': dialogue_lines,
