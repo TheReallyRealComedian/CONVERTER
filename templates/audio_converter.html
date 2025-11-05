@@ -378,11 +378,11 @@
                                         <div class="col-md-4">
                                             <label for="num-speakers" class="form-label">Number of Speakers</label>
                                             <select class="form-select" id="num-speakers">
-                                                <option value="1">1 (Monologue)</option>
                                                 <option value="2" selected>2 (Dialogue)</option>
                                                 <option value="3">3 (Panel)</option>
                                                 <option value="4">4 (Group)</option>
                                             </select>
+                                            <div class="form-text" style="font-size: 0.75rem;">Note: Gemini TTS requires 2-4 speakers</div>
                                         </div>
                                         <div class="col-md-4">
                                             <label for="podcast-language" class="form-label">Language</label>
@@ -579,15 +579,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== LANGUAGE SELECTION =====
     // ==========================================================
     const languageButtons = document.querySelectorAll('.language-btn');
-    let selectedLanguage = 'en'; // Default language
+    let selectedLanguage = 'en';
     
     languageButtons.forEach(button => {
         button.addEventListener('click', function() {
-            // Remove active class from all buttons
             languageButtons.forEach(btn => btn.classList.remove('active'));
-            // Add active class to clicked button
             this.classList.add('active');
-            // Update selected language
             selectedLanguage = this.dataset.lang;
         });
     });
@@ -655,7 +652,6 @@ document.addEventListener('DOMContentLoaded', function() {
             micButton.classList.add('recording');
             micButton.title = "Click to Stop Recording";
             
-            // Disable language selection while recording
             languageButtons.forEach(btn => btn.disabled = true);
 
             keepAliveInterval = setInterval(() => {
@@ -705,7 +701,6 @@ document.addEventListener('DOMContentLoaded', function() {
         micButton.classList.remove('recording');
         micButton.title = "Click to Start Recording";
         
-        // Re-enable language selection
         languageButtons.forEach(btn => btn.disabled = false);
         
         transcriptOutput.focus();
@@ -801,7 +796,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             await navigator.clipboard.writeText(text);
-            // Visual feedback
             const originalText = button.innerHTML;
             button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
             button.style.backgroundColor = 'var(--bg-alert-success)';
@@ -849,14 +843,12 @@ const llmPodcastAudio = document.getElementById('llm-podcast-audio');
 const llmPodcastAudioSource = document.getElementById('llm-podcast-audio-source');
 const downloadLlmPodcastBtn = document.getElementById('download-llm-podcast-btn');
 
-// NEW: Mode selector elements
 const modeButtons = document.querySelectorAll('.mode-btn');
 const aiModeContent = document.getElementById('ai-mode-content');
 const manualModeContent = document.getElementById('manual-mode-content');
 const manualScriptInput = document.getElementById('manual-script-input');
 const useManualScriptBtn = document.getElementById('use-manual-script-btn');
 
-// NEW: Prompt editor elements
 const promptEditorToggle = document.getElementById('prompt-editor-toggle');
 const promptEditorContent = document.getElementById('prompt-editor-content');
 const promptToggleIcon = document.getElementById('prompt-toggle-icon');
@@ -865,7 +857,6 @@ const resetPromptBtn = document.getElementById('reset-prompt-btn');
 
 let currentMode = 'ai';
 
-// Voice options organized by gender
 const geminiVoiceOptions = {
     female: ['Zephyr', 'Leda', 'Laomedeia', 'Aoede', 'Callirrhoe', 'Autonoe', 'Erinome', 'Umbriel', 'Despina', 'Pulcherrima', 'Vindemiatrix'],
     male: ['Kore', 'Charon', 'Fenrir', 'Orus', 'Puck', 'Enceladus', 'Iapetus', 'Algenib', 'Achernar', 'Algieba', 'Gacrux', 'Alnilam', 'Rasalgethi', 'Sadaltager', 'Zubenelgenubi'],
@@ -913,7 +904,6 @@ Max [thoughtfully]: Great question. Let me start with the basics...
 
 Now convert the raw text above into this format. Remember to generate {target_length_desc} content!`;
 
-// NEW: Mode switching
 modeButtons.forEach(btn => {
     btn.addEventListener('click', function() {
         modeButtons.forEach(b => b.classList.remove('active'));
@@ -930,7 +920,6 @@ modeButtons.forEach(btn => {
     });
 });
 
-// NEW: Prompt editor toggle
 promptEditorToggle.addEventListener('click', function() {
     const isExpanded = promptEditorContent.classList.contains('expanded');
     if (isExpanded) {
@@ -942,12 +931,10 @@ promptEditorToggle.addEventListener('click', function() {
     }
 });
 
-// NEW: Reset prompt button
 resetPromptBtn.addEventListener('click', function() {
     systemPromptEditor.value = defaultPromptTemplate;
 });
 
-// NEW: Manual script button
 useManualScriptBtn.addEventListener('click', function() {
     const scriptText = manualScriptInput.value.trim();
     if (!scriptText) {
@@ -955,14 +942,17 @@ useManualScriptBtn.addEventListener('click', function() {
         return;
     }
     
-    // Show the preview card with the manual script
     formattedDialoguePreview.value = scriptText;
     formattedPreviewCard.style.display = 'block';
     formattedPreviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
 
 function createSpeakerConfig(index) {
-    const speaker = defaultSpeakers[index] || { name: `Speaker${index + 1}`, voice: 'Kore', personality: 'neutral' };
+    const speaker = defaultSpeakers[index] || { 
+        name: `Speaker${index + 1}`, 
+        voice: 'Kore', 
+        personality: 'neutral' 
+    };
     
     const configDiv = document.createElement('div');
     configDiv.className = 'speaker-config';
@@ -979,19 +969,27 @@ function createSpeakerConfig(index) {
                 <label class="form-label" style="font-size: 0.8rem;">Voice</label>
                 <select class="form-select form-select-sm speaker-voice">
                     <optgroup label="Female">
-                        ${geminiVoiceOptions.female.map(v => `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`).join('')}
+                        ${geminiVoiceOptions.female.map(v => 
+                            `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`
+                        ).join('')}
                     </optgroup>
                     <optgroup label="Male">
-                        ${geminiVoiceOptions.male.map(v => `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`).join('')}
+                        ${geminiVoiceOptions.male.map(v => 
+                            `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`
+                        ).join('')}
                     </optgroup>
                     <optgroup label="Neutral">
-                        ${geminiVoiceOptions.neutral.map(v => `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`).join('')}
+                        ${geminiVoiceOptions.neutral.map(v => 
+                            `<option value="${v}" ${v === speaker.voice ? 'selected' : ''}>${v}</option>`
+                        ).join('')}
                     </optgroup>
                 </select>
             </div>
             <div>
                 <label class="form-label" style="font-size: 0.8rem;">Personality</label>
-                <input type="text" class="form-control form-control-sm speaker-personality" value="${speaker.personality}" placeholder="e.g., friendly, professional...">
+                <input type="text" class="form-control form-control-sm speaker-personality" 
+                       value="${speaker.personality}" 
+                       placeholder="e.g., friendly, professional...">
             </div>
         </div>
     `;
@@ -1023,11 +1021,9 @@ function collectSpeakerDescriptions() {
     return descriptions;
 }
 
-// Initialize with 2 speakers
 numSpeakersSelect.addEventListener('change', updateSpeakerConfigs);
 updateSpeakerConfigs();
 
-// Format with AI
 formatWithAiBtn.addEventListener('click', async () => {
     const rawText = rawPodcastTextInput.value.trim();
     
@@ -1063,11 +1059,9 @@ formatWithAiBtn.addEventListener('click', async () => {
         
         const data = await response.json();
         
-        // Show the formatted dialogue
         formattedDialoguePreview.value = data.raw_formatted_text;
         formattedPreviewCard.style.display = 'block';
         
-        // Scroll to preview
         formattedPreviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
     } catch (error) {
@@ -1079,7 +1073,6 @@ formatWithAiBtn.addEventListener('click', async () => {
     }
 });
 
-// Generate podcast from formatted dialogue
 generateFromFormattedBtn.addEventListener('click', async () => {
     const formattedText = formattedDialoguePreview.value.trim();
     
@@ -1088,7 +1081,6 @@ generateFromFormattedBtn.addEventListener('click', async () => {
         return;
     }
     
-    // Parse the formatted text into dialogue array
     const dialogue = [];
     const speakerDescriptions = collectSpeakerDescriptions();
     const speakerVoiceMap = {};
@@ -1110,18 +1102,16 @@ generateFromFormattedBtn.addEventListener('click', async () => {
             let speaker = speakerPart;
             let style = '';
             
-            // Extract style if present
             if (speakerPart.includes('[') && speakerPart.includes(']')) {
                 speaker = speakerPart.split('[')[0].trim();
                 style = speakerPart.split('[')[1].split(']')[0].trim();
             }
             
-            // Map speaker name to voice
             const voice = speakerVoiceMap[speaker] || 'Kore';
             
             if (textPart) {
                 dialogue.push({
-                    speaker: voice,  // Use the voice name directly
+                    speaker: voice,
                     style: style,
                     text: textPart
                 });
@@ -1155,18 +1145,14 @@ generateFromFormattedBtn.addEventListener('click', async () => {
             throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         }
         
-        // Get the audio blob
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         
-        // Update audio player
         llmPodcastAudioSource.src = audioUrl;
         llmPodcastAudio.load();
         
-        // Update download link
         downloadLlmPodcastBtn.href = audioUrl;
         
-        // Show result container
         llmPodcastResultContainer.style.display = 'block';
         llmPodcastResultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         

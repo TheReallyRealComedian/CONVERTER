@@ -16,43 +16,30 @@ from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
-import fitz  # PyMuPDF
+import fitz
 from deepgram import DeepgramClient, PrerecordedOptions
 from flask import jsonify
 import traceback
-# ===== UPDATED IMPORT FOR NEW LIBRARY =====
 from google import genai
 from google.genai import types
-# ==========================================
 
 
-# ==========================================================
-# ===== LOGGING CONFIGURATION =====
-# ==========================================================
-# Configure logging to output to stdout, which is standard for containers
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
-# ==========================================================
 
-
-# --- Configuration ---
 SECRET_KEY = os.urandom(24)
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 GOOGLE_CREDENTIALS_PATH = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 STYLE_DIR = Path('/app/static/css/pdf_styles')
 
-# --- Flask App Initialization ---
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
-# --- Markdown Parser Initialization ---
 def highlight_code(code, lang, _):
     try:
         lexer = get_lexer_by_name(lang, stripall=True)
@@ -66,12 +53,9 @@ md = MarkdownIt(
     {'breaks': True, 'html': True, 'highlight': highlight_code}
 )
 
-# ==========================================================
-# ===== ROUTES FOR MARKDOWN TO PDF CONVERTER =====
-# ==========================================================
+
 @app.route('/')
 def markdown_converter():
-    """Renders the main page for the markdown converter."""
     themes = []
     if STYLE_DIR.exists():
         for f in STYLE_DIR.glob('*.css'):
@@ -80,25 +64,21 @@ def markdown_converter():
 
 @app.route('/convert-markdown', methods=['POST'])
 async def convert_markdown():
-    """Handles the form submission and PDF conversion."""
     markdown_text = request.form.get('markdown_text')
     markdown_file = request.files.get('markdown_file')
 
-    # --- Input Validation ---
     if markdown_file and markdown_file.filename:
         markdown_text = markdown_file.read().decode('utf-8')
     elif not markdown_text or not markdown_text.strip():
         flash('Error: No Markdown content provided. Please paste text or upload a file.', 'danger')
         return redirect(url_for('markdown_converter'))
 
-    # --- Filename Sanitization ---
     output_filename = request.form.get('output_filename')
     safe_filename = secure_filename(output_filename)
     if not safe_filename:
         flash('Error: Invalid filename provided.', 'danger')
         return redirect(url_for('markdown_converter'))
 
-    # --- Style Selection ---
     style_theme = request.form.get('style_theme', 'default')
     style_path = STYLE_DIR / f"{secure_filename(style_theme)}.css"
     style_content = ''
@@ -110,7 +90,6 @@ async def convert_markdown():
             flash(f'Warning: Style "{style_theme}" not found. Using no style.', 'warning')
             style_content = ''
 
-    # --- Conversion Logic ---
     html_content = md.render(markdown_text)
     full_html = f"""
     <!DOCTYPE html>
@@ -124,7 +103,7 @@ async def convert_markdown():
     </body>
     </html>
     """
-    temp_pdf_path = None # Initialize to avoid UnboundLocalError in finally
+    temp_pdf_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
             temp_pdf_path = temp_pdf.name
@@ -160,27 +139,17 @@ async def convert_markdown():
             app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}")
 
 
-# ==========================================================
-# ===== ROUTES FOR MERMAID DIAGRAMS =====
-# ==========================================================
 @app.route('/mermaid-converter')
 def mermaid_converter():
-    """Renders the UI for the Mermaid diagram converter."""
     return render_template('mermaid_converter.html')
 
 
-# ========================================================
-# ===== ROUTES FOR UNSTRUCTURED CONVERTER (NEW) =====
-# ========================================================
-
 @app.route('/document-converter')
 def document_converter():
-    """Renders the UI for the document converter."""
     return render_template('document_converter.html')
 
 @app.route('/transform-document', methods=['POST'])
 def transform_document():
-    """Handles file upload and transformation using a robust hybrid approach."""
     if 'document_file' not in request.files:
         flash('No file part in the request.', 'danger')
         return redirect(url_for('document_converter'))
@@ -200,11 +169,6 @@ def transform_document():
             file.save(temp_f.name)
             temp_file_path = temp_f.name
 
-        # ==========================================================
-        # ===== NEW HYBRID LOGIC: PyMuPDF + Unstructured
-        # ==========================================================
-
-        # --- Part 1: Use PyMuPDF to build a definitive link map ---
         link_map = {}
         try:
             app.logger.info("Starting PyMuPDF link extraction...")
@@ -213,45 +177,30 @@ def transform_document():
                 links = page.get_links()
                 for link in links:
                     if link.get('kind') == fitz.LINK_URI:
-                        # The 'from' key is a Rect object defining the clickable area
                         clickable_area = link['from']
-                        # Extract the text that falls inside that clickable area
                         link_text = page.get_textbox(clickable_area).strip().replace('\n', ' ')
                         link_url = link.get('uri')
 
                         if link_text and link_url:
-                            # Store the text and URL. We use the text as a key.
-                            # This handles cases where the same text links to the same URL multiple times.
                             link_map[link_text] = link_url
                             app.logger.info(f"PyMuPDF found link: '{link_text}' -> '{link_url}'")
             doc.close()
             app.logger.info(f"PyMuPDF finished. Found {len(link_map)} unique links.")
         except Exception as e:
             app.logger.error(f"PyMuPDF failed to process links: {e}", exc_info=True)
-            # We can still proceed without links if this fails
             link_map = {}
 
-        # --- Part 2: Use unstructured for the main text body ---
         app.logger.info("Partitioning document with unstructured (strategy='fast')...")
         elements = partition(filename=temp_file_path, strategy="fast")
-        # Get the full plain text output from unstructured
         full_text = "\n\n".join([el.text for el in elements])
 
-        # --- Part 3: Merge the results ---
         app.logger.info("Merging unstructured text with PyMuPDF link map...")
         output_markdown = full_text
         if link_map:
-            # Sort keys by length, longest first, to avoid partial replacements
-            # e.g., replace "McKinsey & Company" before "McKinsey"
             for link_text in sorted(link_map.keys(), key=len, reverse=True):
                 link_url = link_map[link_text]
                 markdown_link = f"[{link_text}]({link_url})"
-                # Perform a simple but effective replacement on the entire text block
                 output_markdown = output_markdown.replace(link_text, markdown_link)
-
-        # ==========================================================
-        # ===== END OF NEW HYBRID LOGIC
-        # ==========================================================
 
         output_path_obj = Path(original_filename)
         output_filename = f"{output_path_obj.stem}.md"
@@ -276,29 +225,20 @@ def transform_document():
             os.remove(temp_file_path)
 
 
-# ==========================================================
-# ===== ROUTES FOR AUDIO TRANSCRIPTION (DEEPGRAM) =====
-# ==========================================================
-
 @app.route('/audio-converter')
 def audio_converter():
-    """Renders the UI for the audio converter."""
     return render_template('audio_converter.html', deepgram_api_key_set=bool(DEEPGRAM_API_KEY))
 
 @app.route('/api/get-deepgram-token', methods=['GET'])
 def get_deepgram_token():
-    """Provides the Deepgram API Key to the frontend for live transcription."""
     if not DEEPGRAM_API_KEY:
         app.logger.error("DEEPGRAM_API_KEY not configured on the server.")
         return jsonify({"error": "Audio transcription service is not configured."}), 503
 
-    # For a production app with user accounts, you might generate a short-lived key here.
-    # For this application, we provide the main key as the app is self-contained.
     return jsonify({"deepgram_token": DEEPGRAM_API_KEY})
 
 @app.route('/transcribe-audio-file', methods=['POST'])
 def transcribe_audio_file():
-    """Handles audio file upload and transcription via Deepgram."""
     if not DEEPGRAM_API_KEY:
         return jsonify({"error": "Audio transcription service is not configured."}), 503
 
@@ -306,20 +246,16 @@ def transcribe_audio_file():
         return jsonify({"error": "No audio file part in the request."}), 400
 
     file = request.files['audio_file']
-    language = request.form.get('language', 'en') # Default to English
+    language = request.form.get('language', 'en')
 
     if file.filename == '':
         return jsonify({"error": "No file selected."}), 400
 
     try:
-        # Initialize Deepgram client
         deepgram = DeepgramClient(DEEPGRAM_API_KEY)
-
-        # Read file into a buffer
         buffer_data = file.read()
-        payload = { "buffer": buffer_data }
+        payload = {"buffer": buffer_data}
 
-        # Configure transcription options
         options = PrerecordedOptions(
             model="nova-2",
             smart_format=True,
@@ -328,10 +264,7 @@ def transcribe_audio_file():
             language=language
         )
 
-        # Send the request to Deepgram
         response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options)
-
-        # Extract the transcript
         transcript = response.results.channels[0].alternatives[0].transcript
 
         return jsonify({"transcript": transcript})
@@ -341,13 +274,8 @@ def transcribe_audio_file():
         return jsonify({"error": f"An error occurred during transcription: {str(e)}"}), 500
 
 
-# ==========================================================
-# ===== ROUTES FOR PODCAST GENERATION (GOOGLE TTS) =====
-# ==========================================================
-
 @app.route('/generate-podcast', methods=['POST'])
 def generate_podcast():
-    """Handles text-to-speech conversion for podcast generation using Google Cloud TTS."""
     if not GOOGLE_CREDENTIALS_PATH or not os.path.exists(GOOGLE_CREDENTIALS_PATH):
         return jsonify({"error": "Google Cloud TTS is not configured. Please set up credentials."}), 503
 
@@ -363,38 +291,30 @@ def generate_podcast():
         if not text:
             return jsonify({"error": "No text provided for synthesis."}), 400
 
-        # Initialize the Text-to-Speech client
         client = texttospeech.TextToSpeechClient()
-
-        # Set the text input
         synthesis_input = texttospeech.SynthesisInput(text=text)
 
-        # Build the voice request
         voice = texttospeech.VoiceSelectionParams(
             language_code=language_code,
             name=voice_name
         )
 
-        # Select the type of audio file you want returned
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3,
             speaking_rate=speaking_rate,
             pitch=pitch
         )
 
-        # Perform the text-to-speech request
         response = client.synthesize_speech(
             input=synthesis_input,
             voice=voice,
             audio_config=audio_config
         )
 
-        # Create a temporary file to store the audio
         with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_audio:
             temp_audio.write(response.audio_content)
             temp_audio_path = temp_audio.name
 
-        # Send the file to the user
         return send_file(
             temp_audio_path,
             as_attachment=True,
@@ -406,7 +326,6 @@ def generate_podcast():
         app.logger.error(f"Google TTS synthesis failed: {e}", exc_info=True)
         return jsonify({"error": f"An error occurred during synthesis: {str(e)}"}), 500
     finally:
-        # Clean up the temporary file
         try:
             if temp_audio_path and os.path.exists(temp_audio_path):
                 os.unlink(temp_audio_path)
@@ -416,7 +335,6 @@ def generate_podcast():
 
 @app.route('/api/get-google-voices', methods=['GET'])
 def get_google_voices():
-    """Returns a list of available Google Cloud TTS voices."""
     if not GOOGLE_CREDENTIALS_PATH or not os.path.exists(GOOGLE_CREDENTIALS_PATH):
         return jsonify({"error": "Google Cloud TTS is not configured."}), 503
 
@@ -424,7 +342,6 @@ def get_google_voices():
         client = texttospeech.TextToSpeechClient()
         voices_response = client.list_voices()
 
-        # Group voices by language
         voices_by_language = {}
         for voice in voices_response.voices:
             for language_code in voice.language_codes:
@@ -444,13 +361,8 @@ def get_google_voices():
         return jsonify({"error": str(e)}), 500
 
 
-# ==========================================================
-# ===== ROUTES FOR GEMINI-TTS (MULTI-SPEAKER PODCASTS) =====
-# ==========================================================
-
 @app.route('/generate-gemini-podcast', methods=['POST'])
 def generate_gemini_podcast():
-    """Handles multi-speaker podcast generation using Gemini-TTS (UPDATED VERSION)."""
     if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API Key is not configured."}), 503
 
@@ -462,14 +374,11 @@ def generate_gemini_podcast():
         if not dialogue or len(dialogue) == 0:
             return jsonify({"error": "No dialogue provided."}), 400
 
-        # ===== UPDATED: Use new library =====
         client = genai.Client(api_key=GEMINI_API_KEY)
 
-        # Build multi-speaker configuration
         speaker_voice_configs = []
         seen_speakers = set()
         
-        # Build the text with speaker labels
         dialogue_lines = []
         for turn in dialogue:
             speaker = turn.get('speaker', 'Kore')
@@ -479,7 +388,6 @@ def generate_gemini_podcast():
             if not text:
                 continue
             
-            # Add to speaker configs if not seen
             if speaker not in seen_speakers:
                 speaker_voice_configs.append(
                     types.SpeakerVoiceConfig(
@@ -493,7 +401,6 @@ def generate_gemini_podcast():
                 )
                 seen_speakers.add(speaker)
             
-            # Format: "Speaker: [style] Text"
             if style:
                 dialogue_lines.append(f"{speaker}: [{style}] {text}")
             else:
@@ -501,10 +408,21 @@ def generate_gemini_podcast():
         
         full_dialogue = "\n".join(dialogue_lines)
         
+        unique_speakers = list(seen_speakers)
+        if len(unique_speakers) < 2:
+            app.logger.error(f"Insufficient speakers: {len(unique_speakers)}. Gemini TTS requires 2-4 speakers.")
+            return jsonify({
+                "error": "Gemini TTS requires at least 2 speakers. Please configure 2-4 speakers and try again."
+            }), 400
+        elif len(unique_speakers) > 4:
+            app.logger.error(f"Too many speakers: {len(unique_speakers)}. Gemini TTS supports maximum 4 speakers.")
+            return jsonify({
+                "error": "Gemini TTS supports maximum 4 speakers. Please reduce to 2-4 speakers."
+            }), 400
+        
         app.logger.info(f"Gemini-TTS dialogue:\n{full_dialogue}")
         app.logger.info(f"Speakers: {list(seen_speakers)}")
 
-        # ===== UPDATED: Use new API structure =====
         response = client.models.generate_content(
             model="gemini-2.5-flash-preview-tts",
             contents=full_dialogue,
@@ -520,12 +438,10 @@ def generate_gemini_podcast():
 
         app.logger.info("Gemini-TTS response received")
 
-        # ===== UPDATED: Extract audio from response =====
         if not response or not response.candidates:
             app.logger.error(f"Invalid response: {response}")
             return jsonify({"error": "Invalid response from Gemini-TTS."}), 500
         
-        # Access inline_data correctly with new library
         audio_data = response.candidates[0].content.parts[0].inline_data.data
         mime_type = response.candidates[0].content.parts[0].inline_data.mime_type
         
@@ -535,23 +451,20 @@ def generate_gemini_podcast():
 
         app.logger.info(f"Found audio: {len(audio_data)} bytes, type: {mime_type}")
 
-        # Convert PCM to WAV
         import wave
         
         temp_audio_path = None
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_audio:
             temp_audio_path = temp_audio.name
             
-            # Create WAV file
             with wave.open(temp_audio_path, 'wb') as wav_file:
-                wav_file.setnchannels(1)  # Mono
-                wav_file.setsampwidth(2)  # 16-bit
-                wav_file.setframerate(24000)  # 24kHz
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(24000)
                 wav_file.writeframes(audio_data)
         
         app.logger.info(f"Audio converted and saved to: {temp_audio_path}")
         
-        # Send to user
         return send_file(
             temp_audio_path,
             as_attachment=True,
@@ -563,16 +476,15 @@ def generate_gemini_podcast():
         app.logger.error(f"Gemini-TTS failed: {e}", exc_info=True)
         return jsonify({"error": f"Error: {str(e)}"}), 500
     finally:
-        # Cleanup
         try:
             if 'temp_audio_path' in locals() and temp_audio_path and os.path.exists(temp_audio_path):
                 os.unlink(temp_audio_path)
         except Exception as e:
             app.logger.error(f"Cleanup error: {e}")
+
             
 @app.route('/api/get-gemini-voices', methods=['GET'])
 def get_gemini_voices():
-    """Returns the list of available Gemini-TTS voice personas."""
     voices = {
         "male": [
             {"name": "Kore", "description": "Firm and authoritative"},
@@ -618,7 +530,6 @@ def get_gemini_voices():
 
 @app.route('/format-dialogue-with-llm', methods=['POST'])
 def format_dialogue_with_llm():
-    """Uses an LLM to format raw text into structured dialogue for Gemini-TTS."""
     if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API Key is not configured."}), 503
 
@@ -638,7 +549,6 @@ def format_dialogue_with_llm():
         if num_speakers < 1 or num_speakers > 4:
             return jsonify({"error": "Number of speakers must be between 1 and 4."}), 400
 
-        # Build speaker information
         speakers_info = ""
         for i, desc in enumerate(speaker_descriptions[:num_speakers], 1):
             name = desc.get('name', f'Speaker{i}')
@@ -646,7 +556,6 @@ def format_dialogue_with_llm():
             personality = desc.get('personality', 'neutral')
             speakers_info += f"- {name} (Voice: {voice}, Personality: {personality})\n"
         
-        # Language name mapping
         language_name = {
             'en': 'English',
             'de': 'German',
@@ -654,7 +563,6 @@ def format_dialogue_with_llm():
             'fr': 'French'
         }.get(language, 'English')
         
-        # Script length mappings
         length_info = {
             'short': ('300-500 words', 'short (2-3 minute)'),
             'medium': ('800-1200 words', 'medium-length (5-7 minute)'),
@@ -663,7 +571,6 @@ def format_dialogue_with_llm():
         }
         target_length, target_length_desc = length_info.get(script_length, length_info['medium'])
 
-        # Use custom prompt if provided, otherwise use default
         if custom_prompt:
             prompt = custom_prompt
         else:
@@ -702,7 +609,6 @@ Max [thoughtfully]: Great question. Let me start with the basics and then we'll 
 
 Now convert the raw text above into this format. Remember to generate {target_length_desc} content - don't rush, take time to explore the topic thoroughly!"""
         
-        # Replace placeholders if using custom prompt
         prompt = prompt.replace('{num_speakers}', str(num_speakers))
         prompt = prompt.replace('{language_name}', language_name)
         prompt = prompt.replace('{tone}', tone)
@@ -714,7 +620,6 @@ Now convert the raw text above into this format. Remember to generate {target_le
         app.logger.info(f"Generating dialogue with script_length={script_length}, target={target_length}")
         app.logger.info(f"Prompt preview: {prompt[:500]}...")
 
-        # Generate the formatted dialogue with configuration for longer output
         client = genai.Client(api_key=GEMINI_API_KEY)
         
         response = client.models.generate_content(
@@ -722,7 +627,7 @@ Now convert the raw text above into this format. Remember to generate {target_le
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.7,
-                max_output_tokens=8192  # Increase for longer scripts
+                max_output_tokens=8192
             )
         )
         
@@ -734,20 +639,17 @@ Now convert the raw text above into this format. Remember to generate {target_le
         app.logger.info(f"LLM formatted dialogue length: {len(formatted_dialogue)} characters")
         app.logger.info(f"LLM formatted dialogue preview:\n{formatted_dialogue[:1000]}...")
         
-        # Parse the formatted dialogue into structured format
         dialogue_lines = []
         for line in formatted_dialogue.split('\n'):
             line = line.strip()
             if not line or line.startswith('#') or line.startswith('**'):
                 continue
                 
-            # Parse format: "Name [style]: Text" or "Name: Text"
             if ':' in line:
                 parts = line.split(':', 1)
                 speaker_part = parts[0].strip()
                 text_part = parts[1].strip() if len(parts) > 1 else ""
                 
-                # Extract style if present
                 style = ""
                 speaker = speaker_part
                 if '[' in speaker_part and ']' in speaker_part:
@@ -775,7 +677,7 @@ Now convert the raw text above into this format. Remember to generate {target_le
         app.logger.error(f"Dialogue formatting failed: {e}", exc_info=True)
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
-# --- ASGI Wrapper ---
+
 asgi_app = WsgiToAsgi(app)
 
 if __name__ == '__main__':
