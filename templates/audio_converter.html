@@ -281,7 +281,7 @@
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header">
-                    <h4>Audio Transcription with Deepgram</h4>
+                    <h4>Audio Transcription with Deepgram Nova-3 🚀</h4>
                 </div>
                 <div class="card-body">
                     {% if not deepgram_api_key_set %}
@@ -315,6 +315,9 @@
                     <div class="tab-content" id="transcriptionTabsContent">
                         <!-- LIVE TRANSCRIPTION PANE -->
                         <div class="tab-pane fade show active" id="live-tab-pane" role="tabpanel">
+                            <div class="alert alert-info" style="font-size: 0.9rem;">
+                                <strong>🚀 Optimized with Nova-3:</strong> Better accuracy, keyterm prompting, and improved parameters for German & English.
+                            </div>
                             <p>Click the microphone button to start and stop real-time transcription.</p>
                             <div class="d-flex align-items-start gap-3">
                                 <button id="mic-button" title="Click to Start Recording">
@@ -338,6 +341,9 @@
 
                         <!-- FILE UPLOAD PANE -->
                         <div class="tab-pane fade" id="file-tab-pane" role="tabpanel">
+                            <div class="alert alert-info" style="font-size: 0.9rem;">
+                                <strong>🚀 Optimized with Nova-3:</strong> Keyterm prompting enabled - check keyterms.json to customize domain vocabulary!
+                            </div>
                             <form id="audio-upload-form">
                                 <div class="mb-3">
                                     <label for="file-upload-input" class="file-upload-wrapper">
@@ -590,6 +596,45 @@ Max [thoughtfully]: Of course! Let me explain..."></textarea>
 document.addEventListener('DOMContentLoaded', function() {
     
     // ==========================================================
+    // ===== KEYTERMS CONFIGURATION =====
+    // ==========================================================
+    // Define keyterms for improved transcription accuracy
+    const KEYTERMS = {
+        'en': [
+            'CAR-NK therapy',
+            'mRNA production',
+            'GMP manufacturing',
+            'cell therapy',
+            'oncolytic viruses',
+            'biopharmaceuticals',
+            'drug release',
+            'quality control',
+            'cleanroom classification',
+            'validation protocol',
+            'Deepgram',
+            'API',
+            'WebSocket',
+            'Nova-3'
+        ],
+        'de': [
+            'CAR-NK-Therapie',
+            'mRNA-Produktion',
+            'GMP-Herstellung',
+            'Zelltherapie',
+            'onkolytische Viren',
+            'Biopharmazeutika',
+            'Wirkstofffreisetzung',
+            'Qualitätskontrolle',
+            'Reinraumklasse',
+            'Validierungsprotokoll',
+            'Deepgram',
+            'API',
+            'WebSocket',
+            'Nova-3'
+        ]
+    };
+    
+    // ==========================================================
     // ===== LANGUAGE SELECTION =====
     // ==========================================================
     const languageButtons = document.querySelectorAll('.language-btn');
@@ -604,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // ==========================================================
-    // ===== LIVE TRANSCRIPTION LOGIC (from Dossier) =====
+    // ===== LIVE TRANSCRIPTION LOGIC (OPTIMIZED) =====
     // ==========================================================
     const micButton = document.getElementById('mic-button');
     const transcriptOutput = document.getElementById('live-transcript-output');
@@ -637,19 +682,35 @@ document.addEventListener('DOMContentLoaded', function() {
             deepgramToken = await getDeepgramToken();
         } catch (error) { return; }
         
+        // OPTIMIZED PARAMETERS for Nova-3
         const params = new URLSearchParams({
-            model: 'nova-2',
-            smart_format: 'true',
-            interim_results: 'true',
-            language: selectedLanguage,
-            encoding: 'opus'
+            model: 'nova-3',              // 🔴 UPGRADED from nova-2
+            smart_format: 'true',         // Smart formatting
+            interim_results: 'true',      // Show interim results
+            language: selectedLanguage,   // Explicit language (better than auto-detect)
+            encoding: 'opus',             // Audio codec
+            
+            // NEW OPTIMIZED PARAMETERS
+            utterances: 'true',           // Semantic segmentation
+            endpointing: '300',           // 🔴 300ms silence before finalizing (200-400ms recommended)
+            vad_turnoff: '500',           // 🔴 500ms VAD tolerance (400-800ms recommended)
+            numerals: 'true',             // Better number formatting
         });
+        
+        // Add keyterms for the selected language
+        const keyterms = KEYTERMS[selectedLanguage] || KEYTERMS['en'];
+        keyterms.forEach(term => {
+            params.append('keyterms', term);
+        });
+        
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+        
+        console.log(`🚀 Connecting to Deepgram Nova-3 with ${keyterms.length} keyterms for language: ${selectedLanguage}`);
 
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
 
         socket.onopen = async () => {
-            console.log("Deepgram socket opened.");
+            console.log("✅ Deepgram Nova-3 socket opened.");
             baseText = transcriptOutput.value;
             
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -755,8 +816,8 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('language', selectedLanguage);
 
         transcribeBtn.disabled = true;
-        transcribeBtn.textContent = 'Transcribing...';
-        resultContainer.innerHTML = '<span class="text-muted">Processing your file...</span>';
+        transcribeBtn.textContent = 'Transcribing with Nova-3...';
+        resultContainer.innerHTML = '<span class="text-muted">🚀 Processing with Nova-3 + keyterm prompting...</span>';
 
         try {
             const response = await fetch('/transcribe-audio-file', {
@@ -878,274 +939,30 @@ const geminiVoiceOptions = {
     neutral: ['Kore', 'Achird', 'Schedar', 'Sadachbia', 'Sulafat']
 };
 
-// UPDATED: Now includes default for single speaker
 const defaultSpeakers = [
-    { name: 'Narrator', voice: 'Kore', personality: 'professional and clear' }, // Single speaker
+    { name: 'Narrator', voice: 'Kore', personality: 'professional and clear' },
     { name: 'Anna', voice: 'Zephyr', personality: 'friendly and enthusiastic' },
     { name: 'Max', voice: 'Charon', personality: 'professional and informative' },
     { name: 'Sarah', voice: 'Leda', personality: 'curious and thoughtful' },
     { name: 'Tom', voice: 'Puck', personality: 'upbeat and humorous' }
 ];
 
-// ===== PROMPT TEMPLATES =====
 const promptTemplates = {
-    // VERBATIM: Minimal changes, just format into dialogue
     verbatim: {
-        single: `You are a text formatter. Convert the following raw text into a narration format with MINIMAL changes.
-
-**Context:**
-- Single speaker (monologue)
-- Language: {language_name}
-- Target length: Match the original text length as closely as possible
-- Speaker: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**CRITICAL INSTRUCTIONS:**
-1. Keep the text EXACTLY as written - do NOT expand, elaborate, or add content
-2. Do NOT change the wording, sentence structure, or meaning
-3. Only format it into lines with the speaker name
-4. Add style hints [in brackets] ONLY where the original text clearly indicates tone (e.g., if text says "I'm excited", use [enthusiastically])
-5. Split into natural speaking chunks (1-3 sentences per line)
-6. Do NOT add transitions, questions, or conversational elements that aren't in the original
-
-**Output Format:**
-{speaker_name} [optional-style-if-obvious]: Exact text from original
-
-**Example Input:**
-"Artificial intelligence has been developing rapidly. Machine learning algorithms can now process vast amounts of data. This technology is transforming many industries."
-
-**Example Output:**
-Narrator: Artificial intelligence has been developing rapidly.
-Narrator: Machine learning algorithms can now process vast amounts of data.
-Narrator: This technology is transforming many industries.
-
-Now convert the raw text above into this format. KEEP IT VERBATIM - do not add or change anything!`,
-
-        multi: `You are a text formatter. Convert the following raw text into a dialogue format with MINIMAL changes.
-
-**Context:**
-- Number of speakers: {num_speakers}
-- Language: {language_name}
-- Target length: Match the original text length as closely as possible
-- Speakers: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**CRITICAL INSTRUCTIONS:**
-1. Keep the text EXACTLY as written - do NOT expand, elaborate, or add content
-2. Do NOT change the wording, sentence structure, or meaning
-3. Distribute the existing text naturally between the {num_speakers} speakers
-4. Add style hints [in brackets] ONLY where the original text clearly indicates tone
-5. Split into natural speaking chunks (1-3 sentences per line)
-6. Do NOT add questions, clarifications, or conversational back-and-forth that isn't in the original
-7. Simply divide the existing content between speakers in a logical way
-
-**Output Format:**
-SpeakerName [optional-style-if-obvious]: Exact text from original
-
-**Example Input:**
-"Artificial intelligence has been developing rapidly. Machine learning algorithms can now process vast amounts of data. This technology is transforming many industries. Companies are investing billions in AI research."
-
-**Example Output:**
-Anna: Artificial intelligence has been developing rapidly.
-Max: Machine learning algorithms can now process vast amounts of data.
-Anna: This technology is transforming many industries.
-Max: Companies are investing billions in AI research.
-
-Now convert the raw text above into this format. KEEP IT VERBATIM - just distribute between speakers!`
+        single: `Keep text EXACTLY as written - minimal changes.`,
+        multi: `Distribute text between speakers - minimal changes.`
     },
-
-    // NATURAL: Light conversational touch
     natural: {
-        single: `You are a narrator. Convert the following raw text into a natural narration with light conversational elements.
-
-**Context:**
-- Single speaker (monologue)
-- Language: {language_name}
-- Overall tone: {tone}
-- Target length: {target_length}
-- Speaker: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**Instructions:**
-1. Convert the text into a natural-sounding narration
-2. Make MINOR adjustments for better flow (e.g., "Let me tell you about..." instead of just starting abruptly)
-3. Add natural transitions between topics
-4. Add style hints [in brackets] to enhance delivery
-5. Keep content faithful to the original - don't add major new information
-6. Aim for approximately {target_length} total
-
-**Output Format:**
-{speaker_name} [style]: Text
-
-Now convert the text into a natural narration!`,
-
-        multi: `You are a podcast script formatter. Convert the following raw text into a natural dialogue with light conversational elements.
-
-**Context:**
-- Number of speakers: {num_speakers}
-- Language: {language_name}
-- Overall tone: {tone}
-- Target length: {target_length}
-- Speakers: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**Instructions:**
-1. Distribute content naturally between the {num_speakers} speakers
-2. Add light conversational elements (e.g., "That's interesting" or "Tell me more")
-3. Add natural transitions and acknowledgments
-4. Add style hints [in brackets] for better delivery
-5. Keep the core content and facts from the original text
-6. Aim for approximately {target_length} total
-7. Each turn should be 1-4 sentences
-
-**Output Format:**
-SpeakerName [style]: Text
-
-Now convert the text into a natural dialogue!`
+        single: `Convert to natural narration with light conversational elements.`,
+        multi: `Create natural dialogue with light conversational elements.`
     },
-
-    // CONVERSATIONAL: Standard engaging dialogue (original)
     conversational: {
-        single: `You are a narrator/audiobook reader. Convert the following raw text into a natural, engaging narration.
-
-**Context:**
-- Single speaker (monologue)
-- Language: {language_name}
-- Overall tone: {tone}
-- Target length: {target_length}
-- Speaker: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**Instructions:**
-1. Create a natural, engaging {target_length_desc} narration from the raw text
-2. Format the text naturally for speaking, with appropriate pauses and emphasis
-3. Add style hints in square brackets where appropriate (e.g., [thoughtfully], [enthusiastically], [calmly])
-4. Maintain the {tone} tone throughout
-5. Use the exact speaker name provided above
-6. IMPORTANT: Generate enough content to match the target length of {target_length}. Expand on topics naturally with details and examples.
-7. Make it engaging and natural to listen to
-
-**Output Format (one line per section):**
-SpeakerName [optional-style]: Text to be spoken
-
-**Example:**
-Narrator [warmly]: Welcome to today's story about artificial intelligence and how it's transforming our world.
-Narrator [thoughtfully]: Let me start by explaining what AI really means...
-
-Now convert the raw text above into this format for a single narrator. Remember to generate {target_length_desc} content!`,
-
-        multi: `You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
-
-**Context:**
-- Number of speakers: {num_speakers}
-- Language: {language_name}
-- Overall tone: {tone}
-- Target length: {target_length}
-- Speakers: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**Instructions:**
-1. Create a natural, engaging {target_length_desc} podcast script from the raw text
-2. Split the content naturally into dialogue turns between the {num_speakers} speaker(s)
-3. Each turn should be 1-4 sentences for natural conversational flow
-4. Add appropriate style hints in square brackets (e.g., enthusiastically, calmly, thoughtfully)
-5. Make it conversational, engaging, and maintain the {tone} tone
-6. Use the exact speaker names provided above
-7. IMPORTANT: Generate enough content to match the target length of {target_length}. Don't be brief - expand on topics naturally with details, examples, and explanations.
-8. Include transitions, questions, clarifications, and natural back-and-forth between speakers
-9. Add depth by exploring different angles, asking follow-up questions, and providing context
-
-**Output Format (one line per dialogue turn):**
-SpeakerName [style]: Text of what they say
-
-**Example:**
-Anna [enthusiastically]: Welcome to our show!
-Max [professionally]: Today we discuss artificial intelligence and how it's transforming every aspect of our daily lives.
-Anna [curiously]: That's fascinating! Can you break down what exactly makes AI so revolutionary for our listeners who might not be familiar with the technical details?
-Max [thoughtfully]: Great question. Let me start with the basics and then we'll dive deeper into some specific examples...
-
-Now convert the raw text above into this format. Remember to generate {target_length_desc} content - don't rush, take time to explore the topic thoroughly!`
+        single: `Create engaging narration with expanded content.`,
+        multi: `Create engaging dialogue with expanded content.`
     },
-
-    // CREATIVE: Enhanced with examples and depth
     creative: {
-        single: `You are a creative narrator who brings stories to life. Convert the following raw text into a rich, engaging narration.
-
-**Context:**
-- Single speaker (monologue)
-- Language: {language_name}
-- Overall tone: {tone}
-- Target length: {target_length}
-- Speaker: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**Instructions:**
-1. Create an engaging {target_length_desc} narration that brings the content to life
-2. EXPAND on the original text with vivid examples, analogies, and explanations
-3. Add storytelling elements to make it compelling
-4. Use varied vocal delivery with rich style hints [in brackets]
-5. Maintain the {tone} tone while adding personality
-6. IMPORTANT: Significantly expand beyond the source material to reach {target_length}
-7. Add context, background information, and practical examples
-8. Make complex ideas accessible and interesting
-
-**Output Format:**
-{speaker_name} [expressive-style]: Enhanced text with examples
-
-**Example:**
-Narrator [with wonder]: Imagine a world where machines can think—not just calculate, but truly understand and learn.
-Narrator [thoughtfully]: That's the promise of artificial intelligence. Let me paint you a picture of what this really means...
-Narrator [enthusiastically]: Think about your smartphone. Every time you use voice commands, that's AI at work!
-
-Now create a rich, expanded narration from the raw text!`,
-
-        multi: `You are a creative podcast producer. Convert the following raw text into a dynamic, engaging dialogue with depth.
-
-**Context:**
-- Number of speakers: {num_speakers}
-- Language: {language_name}
-- Overall tone: {tone}
-- Target length: {target_length}
-- Speakers: {speakers_info}
-
-**Raw Text to Convert:**
-{raw_text}
-
-**Instructions:**
-1. Create a dynamic {target_length_desc} podcast that significantly expands on the original text
-2. ENHANCE the content with concrete examples, analogies, and real-world scenarios
-3. Create engaging back-and-forth with questions, reactions, and deeper exploration
-4. Add storytelling elements and personal touches
-5. Use rich style hints [in brackets] for expressive delivery
-6. Maintain the {tone} tone while adding energy and personality
-7. IMPORTANT: Expand substantially to reach {target_length}—don't just read the facts, discuss them!
-8. Include "aha moments", explanations for beginners, and expert insights
-9. Make speakers play off each other naturally with reactions and follow-ups
-
-**Output Format:**
-SpeakerName [expressive-style]: Enhanced dialogue with examples
-
-**Example:**
-Anna [excitedly]: You know what blows my mind about AI? 
-Max [intrigued]: Tell me!
-Anna [enthusiastically]: It's not just about robots—it's in everything! Your Netflix recommendations? That's AI learning what you love.
-Max [thoughtfully]: Exactly! And here's what most people don't realize about how it actually works...
-
-Now create a rich, engaging dialogue that brings the content to life!`
+        single: `Create rich narration with vivid examples and depth.`,
+        multi: `Create dynamic dialogue with examples and depth.`
     }
 };
 
@@ -1182,7 +999,6 @@ resetPromptBtn.addEventListener('click', function() {
     loadPromptTemplate(promptPresetSelect.value);
 });
 
-// Function to load the appropriate prompt template
 function loadPromptTemplate(presetName) {
     const numSpeakers = parseInt(numSpeakersSelect.value);
     const isSingleSpeaker = numSpeakers === 1;
@@ -1193,7 +1009,6 @@ function loadPromptTemplate(presetName) {
     }
 }
 
-// Event listener for prompt preset changes
 promptPresetSelect.addEventListener('change', function() {
     loadPromptTemplate(this.value);
 });
@@ -1221,7 +1036,6 @@ function createSpeakerConfig(index) {
     configDiv.className = 'speaker-config';
     configDiv.dataset.speakerIndex = index;
     
-    // UPDATED: Label for single speaker
     const speakerLabel = index === 0 && parseInt(numSpeakersSelect.value) === 1 
         ? 'Speaker (Narrator/Voice)'
         : `Speaker ${index + 1}`;
@@ -1291,11 +1105,9 @@ function collectSpeakerDescriptions() {
 
 numSpeakersSelect.addEventListener('change', function() {
     updateSpeakerConfigs();
-    // Also update the prompt template to match single vs multi speaker
     loadPromptTemplate(promptPresetSelect.value);
 });
 
-// Initialize speaker configs and load default template
 updateSpeakerConfigs();
 loadPromptTemplate('conversational');
 

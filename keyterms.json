@@ -1,0 +1,33 @@
+{
+  "comment": "Domain-specific terms for improved Deepgram transcription accuracy",
+  "german": [
+    "CAR-NK-Therapie",
+    "mRNA-Produktion",
+    "GMP-Herstellung",
+    "Zelltherapie",
+    "onkolytische Viren",
+    "Biopharmazeutika",
+    "Wirkstofffreisetzung",
+    "Qualitätskontrolle",
+    "Reinraumklasse",
+    "Validierungsprotokoll"
+  ],
+  "english": [
+    "CAR-NK therapy",
+    "mRNA production",
+    "GMP manufacturing",
+    "cell therapy",
+    "oncolytic viruses",
+    "biopharmaceuticals",
+    "drug release",
+    "quality control",
+    "cleanroom classification",
+    "validation protocol"
+  ],
+  "universal": [
+    "Deepgram",
+    "API",
+    "WebSocket",
+    "Nova-3"
+  ]
+}
