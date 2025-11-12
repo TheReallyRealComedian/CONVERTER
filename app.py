@@ -409,32 +409,55 @@ def generate_gemini_podcast():
         full_dialogue = "\n".join(dialogue_lines)
         
         unique_speakers = list(seen_speakers)
-        if len(unique_speakers) < 2:
-            app.logger.error(f"Insufficient speakers: {len(unique_speakers)}. Gemini TTS requires 2-4 speakers.")
+        
+        # Changed: Now supports 1-4 speakers instead of 2-4
+        if len(unique_speakers) < 1:
+            app.logger.error(f"No speakers found in dialogue.")
             return jsonify({
-                "error": "Gemini TTS requires at least 2 speakers. Please configure 2-4 speakers and try again."
+                "error": "No speakers found. Please configure at least 1 speaker."
             }), 400
         elif len(unique_speakers) > 4:
             app.logger.error(f"Too many speakers: {len(unique_speakers)}. Gemini TTS supports maximum 4 speakers.")
             return jsonify({
-                "error": "Gemini TTS supports maximum 4 speakers. Please reduce to 2-4 speakers."
+                "error": "Gemini TTS supports maximum 4 speakers. Please reduce to 1-4 speakers."
             }), 400
         
         app.logger.info(f"Gemini-TTS dialogue:\n{full_dialogue}")
         app.logger.info(f"Speakers: {list(seen_speakers)}")
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-tts",
-            contents=full_dialogue,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
-                        speaker_voice_configs=speaker_voice_configs
+        # NEW: Check if single speaker or multi-speaker
+        if len(unique_speakers) == 1:
+            # Single speaker mode - use voiceConfig
+            app.logger.info("Using single-speaker mode")
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-preview-tts",
+                contents=full_dialogue,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name=speaker_voice_configs[0].speaker
+                            )
+                        )
                     )
                 )
             )
-        )
+        else:
+            # Multi-speaker mode - use multiSpeakerVoiceConfig
+            app.logger.info("Using multi-speaker mode")
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-preview-tts",
+                contents=full_dialogue,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(
+                        multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
+                            speaker_voice_configs=speaker_voice_configs
+                        )
+                    )
+                )
+            )
 
         app.logger.info("Gemini-TTS response received")
 
@@ -546,6 +569,7 @@ def format_dialogue_with_llm():
         if not raw_text:
             return jsonify({"error": "No text provided."}), 400
         
+        # Changed: Now supports 1-4 speakers instead of 2-4
         if num_speakers < 1 or num_speakers > 4:
             return jsonify({"error": "Number of speakers must be between 1 and 4."}), 400
 
@@ -574,7 +598,40 @@ def format_dialogue_with_llm():
         if custom_prompt:
             prompt = custom_prompt
         else:
-            prompt = f"""You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
+            # NEW: Adjusted prompt to handle single speaker scenarios
+            if num_speakers == 1:
+                prompt = f"""You are a narrator/audiobook reader. Convert the following raw text into a natural, engaging narration.
+
+**Context:**
+- Single speaker (monologue)
+- Language: {language_name}
+- Overall tone: {tone}
+- Target length: {target_length}
+- Speaker:
+{speakers_info}
+
+**Raw Text to Convert:**
+{raw_text}
+
+**Instructions:**
+1. Create a natural, engaging {target_length_desc} narration from the raw text
+2. Format the text naturally for speaking, with appropriate pauses and emphasis
+3. Add style hints in square brackets where appropriate (e.g., [thoughtfully], [enthusiastically], [calmly])
+4. Maintain the {tone} tone throughout
+5. Use the exact speaker name provided above
+6. IMPORTANT: Generate enough content to match the target length of {target_length}. Expand on topics naturally with details and examples.
+7. Make it engaging and natural to listen to
+
+**Output Format (one line per section):**
+SpeakerName [optional-style]: Text to be spoken
+
+**Example:**
+Narrator [warmly]: Welcome to today's story about artificial intelligence and how it's transforming our world.
+Narrator [thoughtfully]: Let me start by explaining what AI really means...
+
+Now convert the raw text above into this format for a single narrator. Remember to generate {target_length_desc} content!"""
+            else:
+                prompt = f"""You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
 
 **Context:**
 - Number of speakers: {num_speakers}
@@ -617,7 +674,7 @@ Now convert the raw text above into this format. Remember to generate {target_le
         prompt = prompt.replace('{speakers_info}', speakers_info)
         prompt = prompt.replace('{raw_text}', raw_text)
 
-        app.logger.info(f"Generating dialogue with script_length={script_length}, target={target_length}")
+        app.logger.info(f"Generating dialogue with script_length={script_length}, target={target_length}, num_speakers={num_speakers}")
         app.logger.info(f"Prompt preview: {prompt[:500]}...")
 
         client = genai.Client(api_key=GEMINI_API_KEY)
