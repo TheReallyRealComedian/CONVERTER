@@ -14,3 +14,4 @@ mermaid==0.3.2
 deepgram-sdk==5.1.0
 google-cloud-texttospeech==2.21.0
 google-genai>=1.0.0
+requests==2.31.0

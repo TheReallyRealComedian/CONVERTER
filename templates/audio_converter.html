@@ -698,47 +698,28 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // OPTIMIZED PARAMETERS for Nova-3
         const params = new URLSearchParams({
-            model: 'nova-3',              // ✅ Nova-3
-            smart_format: 'true',         // Smart formatting
-            interim_results: 'true',      // Show interim results
-            language: selectedLanguage,   // Explicit language
-            encoding: 'opus',             // Audio codec
-            
-            // OPTIMIZED PARAMETERS
-            utterances: 'true',           // Semantic segmentation
-            endpointing: '300',           // 300ms silence before finalizing
-            vad_turnoff: '500',           // 500ms VAD tolerance
-            numerals: 'true',             // Better number formatting
+            model: 'nova-2',           // ← Erstmal nova-2 statt nova-3
+            language: selectedLanguage,
+            encoding: 'linear16',       // ← linear16 statt opus
+            interim_results: 'true'
         });
         
-        // ✅ REAKTIVIERT - keyterms funktionieren mit v1!
-        const keyterms = KEYTERMS[selectedLanguage] || KEYTERMS['en'];
-        keyterms.forEach(term => {
-            params.append('keyterm', term);  // ← SINGULAR!
-        });
-        
-        // ✅ API v1 für Nova-3! (nicht v2!)
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
-        //                                       ^^ v1 für Nova-3!
         
-        console.log(`🚀 Connecting to Deepgram Nova-3 (API v1)`);
-        console.log(`   Language: ${selectedLanguage}`);
-        console.log(`   Keyterms: ${keyterms.length} loaded`);
-        console.log(`   URL length: ${deepgramUrl.length} chars`);
+        console.log(`🧪 TEST: Minimal params`);
+        console.log(`   URL: ${deepgramUrl}`);
 
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
 
         socket.onopen = async () => {
-            console.log("✅ ✅ ✅ Deepgram Nova-3 socket SUCCESSFULLY opened (with keyterms)!");
+            console.log("✅ ✅ ✅ WebSocket opened!");
             baseText = transcriptOutput.value;
             
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm; codecs=opus' });
-
-            mediaRecorder.addEventListener('dataavailable', event => {
-                if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-                    socket.send(event.data);
-                }
+            
+            // LINEAR16 benötigt andere MediaRecorder config
+            mediaRecorder = new MediaRecorder(stream, { 
+                mimeType: 'audio/webm'  // ← Ohne codecs
             });
 
             mediaRecorder.start(250);
@@ -754,6 +735,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 5000);
         };
+        
         socket.onmessage = (message) => {
             const received = JSON.parse(message.data);
             const transcript = received.channel?.alternatives[0]?.transcript;
