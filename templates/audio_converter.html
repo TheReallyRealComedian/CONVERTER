@@ -315,10 +315,6 @@
                     <div class="tab-content" id="transcriptionTabsContent">
                         <!-- LIVE TRANSCRIPTION PANE -->
                         <div class="tab-pane fade show active" id="live-tab-pane" role="tabpanel">
-                            <div class="alert alert-info" style="font-size: 0.9rem;">
-                                <strong>🚀 Optimized with Nova-3:</strong> 11-18% better accuracy with improved parameters.<br>
-                                <small>Note: Keyterms disabled (SDK 3.4.0 limitation) - upgrade to SDK ≥3.5.0 to enable.</small>
-                            </div>
                             <p>Click the microphone button to start and stop real-time transcription.</p>
                             <div class="d-flex align-items-start gap-3">
                                 <button id="mic-button" title="Click to Start Recording">
@@ -703,7 +699,11 @@ document.addEventListener('DOMContentLoaded', function() {
             encoding: 'linear16',
             channels: '1',
             sample_rate: '16000',
-            interim_results: 'true'
+            interim_results: 'true',
+            smart_format: 'true',
+            punctuate: 'true',
+            numerals: 'true',
+            utterances: 'true'
         });
         
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
