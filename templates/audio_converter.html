@@ -698,9 +698,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // OPTIMIZED PARAMETERS for Nova-3
         const params = new URLSearchParams({
-            model: 'nova-2',           // ← Erstmal nova-2 statt nova-3
+            model: 'nova-2',
             language: selectedLanguage,
-            encoding: 'linear16',       // ← linear16 statt opus
+            encoding: 'opus',              // ← OPUS!
+            sample_rate: '48000',          // ← Opus default
             interim_results: 'true'
         });
         
@@ -712,14 +713,22 @@ document.addEventListener('DOMContentLoaded', function() {
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
 
         socket.onopen = async () => {
-            console.log("✅ ✅ ✅ WebSocket opened!");
+            console.log("✅ WebSocket opened!");
             baseText = transcriptOutput.value;
             
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            // LINEAR16 benötigt andere MediaRecorder config
+            // OPUS: audio/webm mit opus codec
             mediaRecorder = new MediaRecorder(stream, { 
-                mimeType: 'audio/webm'  // ← Ohne codecs
+                mimeType: 'audio/webm; codecs=opus'
+            });
+
+            // WICHTIG: Audio chunks an WebSocket senden
+            mediaRecorder.addEventListener('dataavailable', event => {
+                if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                    console.log(`📤 Sending ${event.data.size} bytes`);
+                    socket.send(event.data);
+                }
             });
 
             mediaRecorder.start(250);
