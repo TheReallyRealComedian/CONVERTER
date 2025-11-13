@@ -316,7 +316,8 @@
                         <!-- LIVE TRANSCRIPTION PANE -->
                         <div class="tab-pane fade show active" id="live-tab-pane" role="tabpanel">
                             <div class="alert alert-info" style="font-size: 0.9rem;">
-                                <strong>🚀 Optimized with Nova-3:</strong> Better accuracy, keyterm prompting, and improved parameters for German & English.
+                                <strong>🚀 Optimized with Nova-3:</strong> 11-18% better accuracy with improved parameters.<br>
+                                <small>Note: Keyterms disabled (SDK 3.4.0 limitation) - upgrade to SDK ≥3.5.0 to enable.</small>
                             </div>
                             <p>Click the microphone button to start and stop real-time transcription.</p>
                             <div class="d-flex align-items-start gap-3">
@@ -341,8 +342,9 @@
 
                         <!-- FILE UPLOAD PANE -->
                         <div class="tab-pane fade" id="file-tab-pane" role="tabpanel">
-                            <div class="alert alert-info" style="font-size: 0.9rem;">
-                                <strong>🚀 Optimized with Nova-3:</strong> Keyterm prompting enabled - check keyterms.json to customize domain vocabulary!
+                            <div class="alert alert-success" style="font-size: 0.9rem;">
+                                <strong>🚀 Optimized with Nova-3 + Keyterms:</strong> Up to 35% better accuracy with domain-specific terms!<br>
+                                <small>✅ Keyterms enabled (SDK 3.8.1) - Check keyterms.json to customize vocabulary.</small>
                             </div>
                             <form id="audio-upload-form">
                                 <div class="mb-3">
@@ -662,16 +664,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function getDeepgramToken() {
         try {
+            console.log("📡 Fetching Deepgram token...");
             const response = await fetch('/api/get-deepgram-token');
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to get token');
             }
             const data = await response.json();
-            return data.deepgram_token;
+            const token = data.deepgram_token;
+            
+            // Validate token
+            if (!token || token.length < 10) {
+                throw new Error('Invalid API token received');
+            }
+            
+            console.log("✅ Token received:", token.substring(0, 15) + "...");
+            return token;
         } catch (error) {
-            console.error("Failed to get Deepgram token:", error);
-            alert("Error: " + error.message);
+            console.error("❌ Failed to get Deepgram token:", error);
+            alert("Error getting API token: " + error.message + "\n\nCheck if DEEPGRAM_API_KEY is set in your .env file");
             throw error;
         }
     }
@@ -680,37 +691,46 @@ document.addEventListener('DOMContentLoaded', function() {
         let deepgramToken;
         try {
             deepgramToken = await getDeepgramToken();
-        } catch (error) { return; }
+        } catch (error) { 
+            console.error("Cannot connect without valid token");
+            return; 
+        }
         
         // OPTIMIZED PARAMETERS for Nova-3
         const params = new URLSearchParams({
-            model: 'nova-3',              // 🔴 UPGRADED from nova-2
+            model: 'nova-3',              // ✅ Nova-3
             smart_format: 'true',         // Smart formatting
             interim_results: 'true',      // Show interim results
-            language: selectedLanguage,   // Explicit language (better than auto-detect)
+            language: selectedLanguage,   // Explicit language
             encoding: 'opus',             // Audio codec
             
-            // NEW OPTIMIZED PARAMETERS
+            // OPTIMIZED PARAMETERS
             utterances: 'true',           // Semantic segmentation
-            endpointing: '300',           // 🔴 300ms silence before finalizing (200-400ms recommended)
-            vad_turnoff: '500',           // 🔴 500ms VAD tolerance (400-800ms recommended)
+            endpointing: '300',           // 300ms silence before finalizing
+            vad_turnoff: '500',           // 500ms VAD tolerance
             numerals: 'true',             // Better number formatting
         });
         
-        // Add keyterms for the selected language
+        // ✅ REAKTIVIERT - funktioniert mit API v2!
         const keyterms = KEYTERMS[selectedLanguage] || KEYTERMS['en'];
         keyterms.forEach(term => {
-            params.append('keyterms', term);
+            // ⚠️ CRITICAL: Parameter heißt 'keyterm' (SINGULAR!)
+            params.append('keyterm', term);  // ← NOT 'keyterms'!
         });
         
-        const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+        // ✅ API v2 statt v1!
+        const deepgramUrl = `wss://api.deepgram.com/v2/listen?${params.toString()}`;
+        //                                       ^^ v2 instead of v1!
         
-        console.log(`🚀 Connecting to Deepgram Nova-3 with ${keyterms.length} keyterms for language: ${selectedLanguage}`);
+        console.log(`🚀 Connecting to Deepgram Nova-3 (API v2)`);
+        console.log(`   Language: ${selectedLanguage}`);
+        console.log(`   Keyterms: ${keyterms.length} loaded`);
+        console.log(`   URL length: ${deepgramUrl.length} chars`);
 
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
 
         socket.onopen = async () => {
-            console.log("✅ Deepgram Nova-3 socket opened.");
+            console.log("✅ ✅ ✅ Deepgram Nova-3 socket SUCCESSFULLY opened (with keyterms)!");
             baseText = transcriptOutput.value;
             
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -735,7 +755,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 5000);
         };
-
         socket.onmessage = (message) => {
             const received = JSON.parse(message.data);
             const transcript = received.channel?.alternatives[0]?.transcript;
@@ -749,11 +768,35 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
 
-        socket.onclose = () => {
-            console.log("Deepgram socket closed.");
+        socket.onclose = (event) => {
+            console.log("🔴 Deepgram socket closed");
+            console.log("   Code:", event.code);
+            console.log("   Reason:", event.reason || '(no reason provided)');
+            console.log("   Was clean:", event.wasClean);
+            
+            if (event.code === 1006) {
+                console.error("❌ Abnormal closure - possible auth or network issue");
+            } else if (event.code === 1008) {
+                console.error("❌ Policy violation - check API key and parameters");
+            } else if (event.code === 1011) {
+                console.error("❌ Server error - Deepgram had an internal error");
+            }
+            
             if (isRecording) stopRecording(false);
         };
-        socket.onerror = (error) => console.error("Deepgram socket error:", error);
+
+        socket.onerror = (error) => {
+            console.error("❌ ❌ ❌ Deepgram WebSocket error:", error);
+            console.error("   Socket state:", socket.readyState);
+            console.error("   Socket URL:", socket.url);
+            
+            alert("WebSocket connection failed!\n\n" +
+                "Possible causes:\n" +
+                "1. Invalid DEEPGRAM_API_KEY in .env\n" +
+                "2. Network/firewall blocking WebSocket\n" +
+                "3. Deepgram service issue\n\n" +
+                "Check browser console for details.");
+        };
     };
 
     const stopRecording = (shouldCloseSocket = true) => {

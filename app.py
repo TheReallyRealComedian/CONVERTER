@@ -17,7 +17,11 @@ from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
 import fitz
-from deepgram import DeepgramClient, PrerecordedOptions
+from deepgram import (
+    DeepgramClient,
+    PrerecordedOptions,
+    FileSource,
+)
 from flask import jsonify
 import traceback
 from google import genai
@@ -284,29 +288,33 @@ def transcribe_audio_file():
     try:
         deepgram = DeepgramClient(DEEPGRAM_API_KEY)
         buffer_data = file.read()
-        payload = {"buffer": buffer_data}
+        
+        # ✅ NEW: FileSource type
+        payload: FileSource = {
+            "buffer": buffer_data,
+        }
 
         # Load keyterms for the selected language
         keyterms = load_keyterms(language)
 
-        # OPTIMIZED OPTIONS for Nova-3
+        # ✅ OPTIMIZED OPTIONS for Nova-3 with keyterms
         options = PrerecordedOptions(
-            model="nova-3",              # 🔴 UPGRADED from nova-2
-            smart_format=True,            # Already optimal
-            utterances=True,              # Semantic segmentation
-            punctuate=True,               # Included in smart_format, but explicit
-            language=language,            # Explicit is better than auto-detection
+            model="nova-3",              # Nova-3 model
+            smart_format=True,           # Already optimal
+            utterances=True,             # Semantic segmentation
+            punctuate=True,              # Included in smart_format, but explicit
+            language=language,           # Explicit is better than auto-detection
             
-            # NEW OPTIMIZED PARAMETERS
-            keyterms=keyterms,            # 🔴 Domain-specific terms for 90% better accuracy
-            numerals=True,                # Better number formatting
-            paragraphs=True,              # For longer texts
-            # diarize=False,              # User doesn't need speaker separation
+            # OPTIMIZED PARAMETERS
+            keywords=keyterms,           # ✅ Domain-specific terms (SDK 3.8.1: "keywords")
+            numerals=True,               # Better number formatting
+            paragraphs=True,             # For longer texts
         )
 
-        app.logger.info(f"Transcribing with Nova-3, language={language}, keyterms={len(keyterms)}")
+        app.logger.info(f"Transcribing with Nova-3, language={language}, keywords={len(keyterms)}")
         
-        response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options)
+        # ✅ API v2 instead of v1
+        response = deepgram.listen.prerecorded.v("2").transcribe_file(payload, options)
         transcript = response.results.channels[0].alternatives[0].transcript
 
         return jsonify({"transcript": transcript})
@@ -314,6 +322,7 @@ def transcribe_audio_file():
     except Exception as e:
         app.logger.error(f"Deepgram transcription failed: {e}", exc_info=True)
         return jsonify({"error": f"An error occurred during transcription: {str(e)}"}), 500
+
 
 
 @app.route('/generate-podcast', methods=['POST'])
