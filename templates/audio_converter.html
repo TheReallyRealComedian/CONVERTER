@@ -696,18 +696,19 @@ document.addEventListener('DOMContentLoaded', function() {
             return; 
         }
         
-        // OPTIMIZED PARAMETERS for Nova-3
+        // FUNKTIONIERENDE PARAMETER - LINEAR16
         const params = new URLSearchParams({
-            model: 'nova-2',
+            model: 'nova-3',
             language: selectedLanguage,
-            encoding: 'opus',              // ← OPUS!
-            sample_rate: '48000',          // ← Opus default
+            encoding: 'linear16',
+            channels: '1',
+            sample_rate: '16000',
             interim_results: 'true'
         });
         
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
         
-        console.log(`🧪 TEST: Minimal params`);
+        console.log(`🎤 Connecting to Deepgram (LINEAR16)`);
         console.log(`   URL: ${deepgramUrl}`);
 
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
@@ -716,22 +717,37 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("✅ WebSocket opened!");
             baseText = transcriptOutput.value;
             
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // OPUS: audio/webm mit opus codec
-            mediaRecorder = new MediaRecorder(stream, { 
-                mimeType: 'audio/webm; codecs=opus'
-            });
-
-            // WICHTIG: Audio chunks an WebSocket senden
-            mediaRecorder.addEventListener('dataavailable', event => {
-                if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-                    console.log(`📤 Sending ${event.data.size} bytes`);
-                    socket.send(event.data);
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    channelCount: 1,
+                    sampleRate: 16000
                 }
             });
-
-            mediaRecorder.start(250);
+            
+            // AudioContext für PCM conversion
+            const audioContext = new AudioContext({ sampleRate: 16000 });
+            const source = audioContext.createMediaStreamSource(stream);
+            const processor = audioContext.createScriptProcessor(4096, 1, 1);
+            
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+            
+            processor.onaudioprocess = (e) => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmData = new Int16Array(inputData.length);
+                    
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                    }
+                    
+                    socket.send(pcmData.buffer);
+                }
+            };
+            
+            // Store for cleanup
+            mediaRecorder = { processor, source, stream, audioContext };
+            
             isRecording = true;
             micButton.classList.add('recording');
             micButton.title = "Click to Stop Recording";
@@ -739,7 +755,7 @@ document.addEventListener('DOMContentLoaded', function() {
             languageButtons.forEach(btn => btn.disabled = true);
 
             keepAliveInterval = setInterval(() => {
-                if (socket.readyState === WebSocket.OPEN) {
+                if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ type: 'KeepAlive' }));
                 }
             }, 5000);
@@ -749,6 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const received = JSON.parse(message.data);
             const transcript = received.channel?.alternatives[0]?.transcript;
             if (transcript) {
+                console.log(`📝 Transcript: ${transcript}`);
                 if (received.is_final) {
                     transcriptOutput.value = baseText + transcript + ' ';
                     baseText = transcriptOutput.value;
@@ -789,15 +806,28 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     };
 
+    
     const stopRecording = (shouldCloseSocket = true) => {
         if (!isRecording && shouldCloseSocket) return;
 
         clearInterval(keepAliveInterval);
 
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
-            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        if (mediaRecorder) {
+            if (mediaRecorder.processor) {
+                mediaRecorder.processor.disconnect();
+                mediaRecorder.processor.onaudioprocess = null;
+            }
+            if (mediaRecorder.source) {
+                mediaRecorder.source.disconnect();
+            }
+            if (mediaRecorder.audioContext) {
+                mediaRecorder.audioContext.close();
+            }
+            if (mediaRecorder.stream) {
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
         }
+        
         if (socket && socket.readyState === WebSocket.OPEN && shouldCloseSocket) {
             socket.close();
         }
@@ -813,6 +843,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         transcriptOutput.focus();
     };
+
+
 
     micButton.addEventListener('click', () => {
         if (isRecording) stopRecording();
