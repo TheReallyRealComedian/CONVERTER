@@ -711,18 +711,17 @@ document.addEventListener('DOMContentLoaded', function() {
             numerals: 'true',             // Better number formatting
         });
         
-        // ✅ REAKTIVIERT - funktioniert mit API v2!
+        // ✅ REAKTIVIERT - keyterms funktionieren mit v1!
         const keyterms = KEYTERMS[selectedLanguage] || KEYTERMS['en'];
         keyterms.forEach(term => {
-            // ⚠️ CRITICAL: Parameter heißt 'keyterm' (SINGULAR!)
-            params.append('keyterm', term);  // ← NOT 'keyterms'!
+            params.append('keyterm', term);  // ← SINGULAR!
         });
         
-        // ✅ API v2 statt v1!
-        const deepgramUrl = `wss://api.deepgram.com/v2/listen?${params.toString()}`;
-        //                                       ^^ v2 instead of v1!
+        // ✅ API v1 für Nova-3! (nicht v2!)
+        const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+        //                                       ^^ v1 für Nova-3!
         
-        console.log(`🚀 Connecting to Deepgram Nova-3 (API v2)`);
+        console.log(`🚀 Connecting to Deepgram Nova-3 (API v1)`);
         console.log(`   Language: ${selectedLanguage}`);
         console.log(`   Keyterms: ${keyterms.length} loaded`);
         console.log(`   URL length: ${deepgramUrl.length} chars`);

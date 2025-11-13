@@ -267,7 +267,7 @@ def get_deepgram_token():
 @app.route('/transcribe-audio-file', methods=['POST'])
 def transcribe_audio_file():
     """
-    OPTIMIZED: Now uses Nova-3 model with keyterm prompting and improved parameters
+    OPTIMIZED: Now uses Nova-3 model with keyterm prompting (SDK 5.1.0)
     """
     if not DEEPGRAM_API_KEY:
         return jsonify({"error": "Audio transcription service is not configured."}), 503
@@ -282,38 +282,32 @@ def transcribe_audio_file():
         return jsonify({"error": "No file selected."}), 400
 
     try:
+        # ✅ SDK 5.1.0: Simple initialization
         deepgram = DeepgramClient(api_key=DEEPGRAM_API_KEY)
-        buffer_data = file.read()
         
-        # ✅ NEW: FileSource type
-        payload: FileSource = {
-            "buffer": buffer_data,
-        }
+        # Read file data
+        buffer_data = file.read()
 
         # Load keyterms for the selected language
         keyterms = load_keyterms(language)
 
-        # ✅ OPTIMIZED OPTIONS for Nova-3 with keyterms
-        options = PrerecordedOptions(
-            model="nova-3",              # Nova-3 model
-            smart_format=True,           # Already optimal
-            utterances=True,             # Semantic segmentation
-            punctuate=True,              # Included in smart_format, but explicit
-            language=language,           # Explicit is better than auto-detection
-            
-            # OPTIMIZED PARAMETERS
-            keywords=keyterms,           # ✅ Domain-specific terms (SDK 3.8.1: "keywords")
-            numerals=True,               # Better number formatting
-            paragraphs=True,             # For longer texts
-        )
+        app.logger.info(f"Transcribing with Nova-3 (SDK 5.1.0), language={language}, keyterms={len(keyterms)}")
 
-        app.logger.info(f"Transcribing with Nova-3, language={language}, keywords={len(keyterms)}")
-        
+        # ✅ SDK 5.1.0: Direct API call with kwargs
+        # All parameters are passed as kwargs, no PrerecordedOptions!
         response = deepgram.listen.v1.media.transcribe_file(
             request=buffer_data,
-            model="nova-3",
-            keyterm=keyterms,  # ← Alle Parameter als kwargs!
+            model="nova-3",              # Nova-3 model
+            smart_format=True,           # Smart formatting
+            utterances=True,             # Semantic segmentation
+            punctuate=True,              # Punctuation
+            language=language,           # Explicit language
+            numerals=True,               # Better number formatting
+            paragraphs=True,             # For longer texts
+            keyterm=keyterms,            # ✅ Domain-specific terms (list of strings)
         )
+
+        # ✅ SDK 5.1.0: Response structure stays the same
         transcript = response.results.channels[0].alternatives[0].transcript
 
         return jsonify({"transcript": transcript})
