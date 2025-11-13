@@ -17,11 +17,7 @@ from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
 import fitz
-from deepgram import (
-    DeepgramClient,
-    PrerecordedOptions,
-    FileSource,
-)
+from deepgram import DeepgramClient
 from flask import jsonify
 import traceback
 from google import genai
@@ -286,7 +282,7 @@ def transcribe_audio_file():
         return jsonify({"error": "No file selected."}), 400
 
     try:
-        deepgram = DeepgramClient(DEEPGRAM_API_KEY)
+        deepgram = DeepgramClient(api_key=DEEPGRAM_API_KEY)
         buffer_data = file.read()
         
         # ✅ NEW: FileSource type
@@ -313,8 +309,11 @@ def transcribe_audio_file():
 
         app.logger.info(f"Transcribing with Nova-3, language={language}, keywords={len(keyterms)}")
         
-        # ✅ API v2 instead of v1
-        response = deepgram.listen.prerecorded.v("2").transcribe_file(payload, options)
+        response = deepgram.listen.v1.media.transcribe_file(
+            request=buffer_data,
+            model="nova-3",
+            keyterm=keyterms,  # ← Alle Parameter als kwargs!
+        )
         transcript = response.results.channels[0].alternatives[0].transcript
 
         return jsonify({"transcript": transcript})
