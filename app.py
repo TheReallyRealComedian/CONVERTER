@@ -396,8 +396,19 @@ def format_dialogue_with_llm():
     try:
         data = request.get_json()
         
+        # CRITICAL DEBUG: Log what we receive
+        raw_text_received = data.get('raw_text', '')
+        app.logger.info(f"=== RAW TEXT DEBUG ===")
+        app.logger.info(f"Request data keys: {list(data.keys())}")
+        app.logger.info(f"raw_text length: {len(raw_text_received)}")
+        app.logger.info(f"raw_text first 200 chars: {raw_text_received[:200]}")
+        
+        if not raw_text_received or not raw_text_received.strip():
+            app.logger.error("ERROR: raw_text is empty or whitespace only!")
+            return jsonify({"error": "No text provided for formatting"}), 400
+        
         result = gemini_service.format_dialogue_with_llm(
-            raw_text=data.get('raw_text', '').strip(),
+            raw_text=raw_text_received.strip(),
             num_speakers=int(data.get('num_speakers', 2)),
             speaker_descriptions=data.get('speaker_descriptions', []),
             language=data.get('language', 'en'),
@@ -413,6 +424,8 @@ def format_dialogue_with_llm():
     except Exception as e:
         app.logger.error(f"Dialogue formatting failed: {e}", exc_info=True)
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+    
+
 
 
 asgi_app = WsgiToAsgi(app)

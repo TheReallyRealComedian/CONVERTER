@@ -105,9 +105,15 @@ class GeminiService:
             raise ValueError("LLM did not generate any output")
         
         formatted_dialogue = response.text.strip()
-        
-        logger.info(f"LLM formatted dialogue length: {len(formatted_dialogue)} characters")
-        
+        # DEBUG: Log what the LLM actually returned
+        logger.info(f"LLM raw response:\n{formatted_dialogue}")
+        logger.info(f"LLM response length: {len(formatted_dialogue)} characters")
+
+        # Check if LLM refused or gave invalid output
+        if len(formatted_dialogue) < 100:
+            logger.error(f"LLM gave suspiciously short response: '{formatted_dialogue}'")
+            raise ValueError(f"LLM generated invalid output (too short): {formatted_dialogue}")
+                
         # Parse dialogue
         dialogue_lines = self._parse_dialogue(formatted_dialogue)
         
@@ -152,7 +158,7 @@ class GeminiService:
 
         Now convert the source text. Remember: SHORT lines, EXACT format!"""
     
-    
+
     def _build_multi_speaker_prompt(self, num_speakers, language_name, tone, target_length, target_length_desc, speakers_info, raw_text):
         return f"""You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
 

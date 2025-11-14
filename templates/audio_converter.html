@@ -1178,44 +1178,60 @@ loadPromptTemplate('conversational');
 
 formatWithAiBtn.addEventListener('click', async () => {
     const rawText = rawPodcastTextInput.value.trim();
-    
+
+    // DEBUG: Log what we're sending
+    console.log('=== FRONTEND DEBUG ===');
+    console.log('Raw text length:', rawText.length);
+    console.log('Raw text preview:', rawText.substring(0, 200));
+
     if (!rawText) {
         alert('Please enter some text to format.');
         return;
     }
-    
+
     formatWithAiBtn.disabled = true;
-    formatWithAiBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Formatting with AI...';
-    
+    formatWithAiBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Formatting...';
+
     try {
+        const payload = {
+            raw_text: rawText,
+            num_speakers: parseInt(numSpeakersSelect.value),
+            speaker_descriptions: collectSpeakerDescriptions(),
+            language: podcastLanguageSelect.value,
+            tone: podcastToneSelect.value,
+            script_length: scriptLengthSelect.value,
+            custom_prompt: systemPromptEditor.value
+        };
+
+        // DEBUG: Log the payload
+        console.log('Sending payload:', {
+            ...payload,
+            raw_text: payload.raw_text.substring(0, 100) + '...'
+        });
+
         const response = await fetch('/format-dialogue-with-llm', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                raw_text: rawText,
-                num_speakers: parseInt(numSpeakersSelect.value),
-                speaker_descriptions: collectSpeakerDescriptions(),
-                language: podcastLanguageSelect.value,
-                tone: podcastToneSelect.value,
-                script_length: scriptLengthSelect.value,
-                custom_prompt: systemPromptEditor.value
-            })
+            body: JSON.stringify(payload)
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         formattedDialoguePreview.value = data.raw_formatted_text;
         formattedPreviewCard.style.display = 'block';
-        
-        formattedPreviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        
+
+        formattedPreviewCard.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+        });
+
     } catch (error) {
         console.error('Formatting error:', error);
         alert('Error formatting dialogue: ' + error.message);
@@ -1224,6 +1240,7 @@ formatWithAiBtn.addEventListener('click', async () => {
         formatWithAiBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> ✨ Format with AI';
     }
 });
+
 
 generateFromFormattedBtn.addEventListener('click', async () => {
     const formattedText = formattedDialoguePreview.value.trim();
