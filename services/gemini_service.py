@@ -88,6 +88,10 @@ class GeminiService:
         prompt = prompt.replace('{target_length_desc}', target_length_desc)
         prompt = prompt.replace('{speakers_info}', speakers_info)
         prompt = prompt.replace('{raw_text}', raw_text)
+        logger.info(f"=== PROMPT DEBUG ===")
+        logger.info(f"Prompt length: {len(prompt)} characters")
+        logger.info(f"Prompt first 500 chars:\n{prompt[:500]}")
+        logger.info(f"Prompt contains raw_text: {raw_text[:100] in prompt}")
         
         logger.info(f"Generating dialogue with script_length={script_length}, num_speakers={num_speakers}")
         
