@@ -283,35 +283,45 @@ Let emotion serve the story - powerful but not overwrought.
         example_tags = tag_examples.get(narration_style, "[with emotion], [pause: 400ms]")
         
         return f"""[SYSTEM INSTRUCTION - Style Directive]
-{style_directive}
+        {style_directive}
 
-[NARRATIVE GENERATION TASK]
-Transform this text into a flowing, natural narrative for text-to-speech in {language_name}.
+        [NARRATIVE GENERATION TASK]
+        Transform this text into a segmented narrative for text-to-speech in {language_name}.
 
-**Speaker:** {speaker_name}
-**Target Length:** {target_length} ({target_length_desc})
-**Content Length:** {len(raw_text)} characters (~{tag_info['spoken_minutes']} minutes spoken)
+        **Speaker:** {speaker_name}
+        **Target Length:** {target_length} ({target_length_desc})
+        **Content Length:** {len(raw_text)} characters (~{tag_info['spoken_minutes']} minutes spoken)
 
-**Critical Formatting Rules:**
-1. Generate a FLOWING NARRATIVE, not fragmented line-by-line dialogue
-2. Keep content close to original - minimal rewriting, preserve key information
-3. Use markup tags STRATEGICALLY ({tag_info['tag_range']} tags recommended for this length):
-   - Target density: approximately 1 tag per {tag_info['chars_per_tag']} characters
-   - Available tags: {example_tags}
-   - Place tags at TRANSITIONS and KEY MOMENTS only
-   - Examples of when to tag:
-     * Before revealing important information: [pause: 500ms]
-     * When shifting emotional tone: [with concern], [with sarcasm]
-     * At analytical observations: [analytically speaking]
-4. Let semantic weight drive emotion naturally (don't over-tag routine content)
-5. Format: {speaker_name} [optional_style]: Natural sentence flow.
+        **Critical Formatting Rules:**
+        1. BREAK INTO SHORT SEGMENTS - Each line should be 1-3 sentences (max 40-60 words)
+        2. EVERY line MUST start with "{speaker_name}:" - even when continuing the same thought
+        3. Each line is a complete thought, dramatic beat, or narrative unit
+        4. Keep content close to original - minimal rewriting, preserve key information
+        5. Use markup tags STRATEGICALLY ({tag_info['tag_range']} tags recommended for this length):
+        - Target density: approximately 1 tag per {tag_info['chars_per_tag']} characters
+        - Available tags: {example_tags}
+        - Place tags at TRANSITIONS and KEY MOMENTS only
+        - Examples of when to tag:
+            * Before revealing important information: [pause: 500ms]
+            * When shifting emotional tone: [with concern], [with sarcasm]
+            * At analytical observations: [analytically speaking]
+        6. Let semantic weight drive emotion naturally (don't over-tag routine content)
 
-**Source Text:**
-{raw_text}
+        **Example Format (FOLLOW THIS STRUCTURE):**
+        {speaker_name}: Opening statement with 1-2 sentences.
+        {speaker_name}: Next development or thought. Continue building the narrative.
+        {speaker_name}: [pause: 500ms] Key revelation or dramatic moment.
+        {speaker_name}: [with sarcasm] Commentary on the situation.
+        {speaker_name}: Further elaboration keeping segments short.
 
-Generate a natural, flowing narrative with {tag_info['tag_range']} strategic markup tags.
-Focus on natural delivery - tags enhance, don't dominate.
-"""
+        **CRITICAL: Each line MUST start with "{speaker_name}:" for TTS to process correctly!**
+
+        **Source Text:**
+        {raw_text}
+
+        Generate segmented narrative with {tag_info['tag_range']} strategic markup tags.
+        Each segment should be short (1-3 sentences) with "{speaker_name}:" prefix.
+        """
 
     def _build_multi_speaker_prompt_v2(self, style_directive, num_speakers, language_name, 
                                         target_length, target_length_desc, speakers_info, raw_text, 
@@ -348,9 +358,10 @@ Transform this text into a natural dialogue script for text-to-speech in {langua
 
 **Critical Formatting Rules:**
 1. Create natural, flowing dialogue with back-and-forth conversation
-2. Keep content close to original - minimal rewriting, preserve key information
-3. Each turn should be 1-3 sentences for natural conversational flow
-4. Use markup tags STRATEGICALLY ({dialogue_range} tags recommended for dialogue):
+2. EACH line MUST start with "SpeakerName:" - no exceptions for TTS processing
+3. Each turn should be 1-3 sentences (max 40-60 words) for natural conversational flow
+4. Keep content close to original - minimal rewriting, preserve key information
+5. Use markup tags STRATEGICALLY ({dialogue_range} tags recommended for dialogue):
    - Target density: approximately 1 tag per {int(tag_info['chars_per_tag']*0.7)} characters (more for dialogue)
    - Available tags: {example_tags}
    - Place tags at speaker transitions and emotional shifts
@@ -358,14 +369,21 @@ Transform this text into a natural dialogue script for text-to-speech in {langua
      * Before key revelations: [pause: 300ms]
      * When tone shifts: [with concern], [enthusiastically]
      * For emphasis: [with sarcasm], [analytically speaking]
-5. Let semantic weight and dialogue structure drive emotion naturally
-6. Format: SpeakerName [optional_style]: Natural dialogue text
+6. Let semantic weight and dialogue structure drive emotion naturally
+
+**Example Format (FOLLOW THIS STRUCTURE):**
+Kate: Opening thought with 1-2 sentences.
+Max: Response or counterpoint. Keep it concise.
+Kate: [pause: 300ms] Key revelation or dramatic turn.
+Max: [with sarcasm] Witty commentary on the situation.
+
+**CRITICAL: EVERY line must start with speaker name for TTS to work!**
 
 **Source Text:**
 {raw_text}
 
 Generate engaging dialogue with {dialogue_range} strategic markup tags.
-Focus on natural conversation flow - tags enhance key moments.
+Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
 """
 
     def _parse_dialogue(self, formatted_text):
