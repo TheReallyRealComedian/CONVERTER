@@ -412,7 +412,7 @@ def format_dialogue_with_llm():
             num_speakers=int(data.get('num_speakers', 2)),
             speaker_descriptions=data.get('speaker_descriptions', []),
             language=data.get('language', 'en'),
-            tone=data.get('tone', 'professional and informative'),
+            narration_style=data.get('narration_style', 'conversational'),
             script_length=data.get('script_length', 'medium'),
             custom_prompt=(data.get('custom_prompt') or '').strip() or None
         )

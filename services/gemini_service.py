@@ -1,10 +1,9 @@
-# services/gemini_service.py - Mit Chunking Support für lange Podcasts
+# services/gemini_service.py - Mit dynamischer Tag-Berechnung
 import logging
 import tempfile
 import os
 import wave
 import time
-import asyncio
 from typing import List, Dict, Optional
 from google import genai
 from google.genai import types
@@ -13,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiService:
-    # Chunking-Konfiguration basierend auf Recherche
-    MAX_LINES_PER_CHUNK = 80  # Sicher unter 5-Minuten-Limit
-    MAX_CHARS_PER_CHUNK = 3000  # Konservativ unter 4000-Byte-Limit
-    CHUNK_OVERLAP_LINES = 2  # Überlappung für Voice-Konsistenz
-    INTER_CHUNK_DELAY = 1.0  # Sekunden zwischen Requests
-    RATE_LIMIT_DELAY = 0.4  # Minimum Delay für 150 req/min
+    # Chunking-Konfiguration
+    MAX_LINES_PER_CHUNK = 80
+    MAX_CHARS_PER_CHUNK = 3000
+    CHUNK_OVERLAP_LINES = 2
+    INTER_CHUNK_DELAY = 1.0
+    RATE_LIMIT_DELAY = 0.4
 
     def __init__(self, api_key):
         if not api_key:
@@ -39,12 +38,55 @@ class GeminiService:
             logger.warning("PyDub not available - audio concatenation disabled")
             self.pydub_available = False
 
+    def _calculate_tag_guidance(self, raw_text: str, narration_style: str) -> dict:
+        """
+        Calculate recommended tag count based on content length and narration style.
+        
+        Returns dict with:
+        - tag_range: "X-Y tags"
+        - chars_per_tag: int
+        - recommended_count: int
+        """
+        char_count = len(raw_text)
+        word_count = len(raw_text.split())
+        
+        # Style-specific tag density (chars per tag)
+        density_map = {
+            'documentary': 1000,    # Sparse, authoritative
+            'conversational': 800,  # Moderate engagement
+            'academic': 1000,       # Sparse, precise
+            'satirical': 600,       # Dense for timing/sarcasm
+            'dramatic': 500         # Most expressive
+        }
+        
+        chars_per_tag = density_map.get(narration_style, 800)
+        recommended_tags = max(int(char_count / chars_per_tag), 2)  # Minimum 2 tags
+        
+        # Give range (±20%)
+        min_tags = max(int(recommended_tags * 0.8), 2)
+        max_tags = int(recommended_tags * 1.2)
+        
+        # Calculate approximate spoken time (assuming ~150 words/minute)
+        minutes = word_count / 150
+        
+        logger.info(f"Tag calculation: {char_count} chars, {word_count} words (~{minutes:.1f} min)")
+        logger.info(f"Style '{narration_style}': {chars_per_tag} chars/tag → {min_tags}-{max_tags} tags")
+        
+        return {
+            'tag_range': f"{min_tags}-{max_tags}",
+            'chars_per_tag': chars_per_tag,
+            'recommended_count': recommended_tags,
+            'min_tags': min_tags,
+            'max_tags': max_tags,
+            'spoken_minutes': round(minutes, 1)
+        }
+
     def format_dialogue_with_llm(self, raw_text, num_speakers=2, speaker_descriptions=None,
-                                 language='en', narration_style='conversational',
-                                 script_length='medium', custom_prompt=None):
+                                  language='en', narration_style='conversational',
+                                  script_length='medium', custom_prompt=None):
         """
         Format raw text into structured narrative using Gemini LLM with style directives.
-
+        
         Args:
             raw_text: Raw text to format
             num_speakers: Number of speakers (1-4)
@@ -53,18 +95,18 @@ class GeminiService:
             narration_style: Delivery style (documentary, conversational, academic, satirical, dramatic)
             script_length: 'short', 'medium', 'long', 'very-long'
             custom_prompt: Optional custom system prompt
-
+        
         Returns:
             dict: {'dialogue': [...], 'raw_formatted_text': '...'}
         """
         if not raw_text or not raw_text.strip():
             raise ValueError("No text provided")
-
+        
         if num_speakers < 1 or num_speakers > 4:
             raise ValueError("Number of speakers must be between 1 and 4")
-
+        
         speaker_descriptions = speaker_descriptions or []
-
+        
         # Build speakers info string
         speakers_info = ""
         for i, desc in enumerate(speaker_descriptions[:num_speakers], 1):
@@ -72,7 +114,7 @@ class GeminiService:
             voice = desc.get('voice', 'Kore')
             personality = desc.get('personality', 'neutral')
             speakers_info += f"- {name} (Voice: {voice}, Personality: {personality})\n"
-
+        
         # Language mapping
         language_name = {
             'en': 'English',
@@ -80,7 +122,7 @@ class GeminiService:
             'es': 'Spanish',
             'fr': 'French'
         }.get(language, 'English')
-
+        
         # Length info
         length_info = {
             'short': ('300-500 words', 'short (2-3 minute)'),
@@ -89,8 +131,11 @@ class GeminiService:
             'very-long': ('3000-5000 words', 'very long (20-30 minute)')
         }
         target_length, target_length_desc = length_info.get(script_length, length_info['medium'])
-
-        # ===== NEW: Style Directive Templates =====
+        
+        # Calculate dynamic tag guidance
+        tag_info = self._calculate_tag_guidance(raw_text, narration_style)
+        
+        # ===== Style Directive Templates =====
         style_directives = {
             'documentary': """
 You are a documentary narrator with authoritative expertise and measured delivery.
@@ -104,7 +149,7 @@ Tone Guidance - Shift naturally based on content significance:
 
 Delivery: Natural pacing as in professional documentary. Avoid artificial or forced emotion.
 """,
-
+            
             'conversational': """
 You are a warm, engaging storyteller sharing fascinating discoveries with genuine enthusiasm.
 
@@ -117,7 +162,7 @@ Emotional Flow - Let authentic interest guide delivery:
 
 Delivery: Tell the story as you would to an interested friend - natural, not performative.
 """,
-
+            
             'academic': """
 You are a subject matter expert presenting research with precision and intellectual rigor.
 
@@ -130,7 +175,7 @@ Analytical Delivery - Maintain scholarly precision:
 
 Delivery: Professional academic presentation - precise without being dry.
 """,
-
+            
             'satirical': """
 You are a sharp-witted commentator in the style of John Oliver or late-night satirists.
 Deploy intelligent sarcasm and pointed humor to expose absurdities.
@@ -145,7 +190,7 @@ Satirical Tone - Strategic deployment of wit:
 Delivery: Smart, incisive commentary. Use [pause: 500ms] before key reveals.
 Sarcasm should be intelligent, not mean-spirited. Land points with precision.
 """,
-
+            
             'dramatic': """
 You are an expressive presenter emphasizing human impact and emotional resonance.
 
@@ -160,79 +205,83 @@ Delivery: Theatrical range with strategic pauses [pause: 800ms] for maximum impa
 Let emotion serve the story - powerful but not overwrought.
 """
         }
-
+        
         # Get the style directive
         style_directive = style_directives.get(narration_style, style_directives['conversational'])
-
+        
         # Build prompt based on num_speakers
         if custom_prompt:
             prompt = custom_prompt
         else:
             if num_speakers == 1:
                 prompt = self._build_single_speaker_prompt_v2(
-                    style_directive, language_name, target_length, target_length_desc,
-                    speakers_info, raw_text
+                    style_directive, language_name, target_length, target_length_desc, 
+                    speakers_info, raw_text, tag_info, narration_style
                 )
             else:
                 prompt = self._build_multi_speaker_prompt_v2(
-                    style_directive, num_speakers, language_name, target_length,
-                    target_length_desc, speakers_info, raw_text
+                    style_directive, num_speakers, language_name, target_length, 
+                    target_length_desc, speakers_info, raw_text, tag_info, narration_style
                 )
-
-        # Replace placeholders
-        prompt = prompt.replace('{style_directive}', style_directive)
-        prompt = prompt.replace('{num_speakers}', str(num_speakers))
-        prompt = prompt.replace('{language_name}', language_name)
-        prompt = prompt.replace('{target_length}', target_length)
-        prompt = prompt.replace('{target_length_desc}', target_length_desc)
-        prompt = prompt.replace('{speakers_info}', speakers_info)
-        prompt = prompt.replace('{raw_text}', raw_text)
-
+        
         logger.info(f"=== PROMPT DEBUG ===")
         logger.info(f"Narration style: {narration_style}")
+        logger.info(f"Tag guidance: {tag_info['tag_range']} tags ({tag_info['chars_per_tag']} chars/tag)")
         logger.info(f"Prompt length: {len(prompt)} characters")
         logger.info(f"Generating with script_length={script_length}, num_speakers={num_speakers}")
-
-        # Call Gemini (upgrade to Pro when available)
+        
+        # Call Gemini
         response = self.client.models.generate_content(
-            model="gemini-2.0-flash-exp",  # TODO: Change to "gemini-exp-1206" when ready
+            model="gemini-2.0-flash-exp",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.7,
                 max_output_tokens=8192
             )
         )
-
+        
         if not response.text:
             raise ValueError("LLM did not generate any output")
-
+        
         formatted_dialogue = response.text.strip()
         logger.info(f"LLM response length: {len(formatted_dialogue)} characters")
-
+        
         # Check if LLM refused or gave invalid output
         if len(formatted_dialogue) < 100:
             logger.error(f"LLM gave suspiciously short response: '{formatted_dialogue}'")
             raise ValueError(f"LLM generated invalid output (too short): {formatted_dialogue}")
-
+        
         # Parse dialogue
         dialogue_lines = self._parse_dialogue(formatted_dialogue)
-
+        
         if not dialogue_lines:
             raise ValueError("Could not parse dialogue from LLM output")
-
+        
         logger.info(f"Parsed {len(dialogue_lines)} dialogue lines")
-
+        
         return {
             'dialogue': dialogue_lines,
             'raw_formatted_text': formatted_dialogue
         }
 
-    def _build_single_speaker_prompt_v2(self, style_directive, language_name, target_length,
-                                        target_length_desc, speakers_info, raw_text):
-        """Build optimized prompt for single-speaker narrative with style directive."""
-
+    def _build_single_speaker_prompt_v2(self, style_directive, language_name, target_length, 
+                                         target_length_desc, speakers_info, raw_text, tag_info, 
+                                         narration_style):
+        """Build optimized prompt for single-speaker narrative with dynamic tag guidance."""
+        
         speaker_name = speakers_info.split('\n')[0].split('(')[0].replace('-', '').strip() if speakers_info else 'Narrator'
-
+        
+        # Style-specific tag examples
+        tag_examples = {
+            'documentary': "[with emphasis], [analytically speaking], [pause: 500ms]",
+            'conversational': "[thoughtfully], [with enthusiasm], [pause: 300ms]",
+            'academic': "[analytically speaking], [methodically], [pause: 400ms]",
+            'satirical': "[with sarcasm], [incredulously], [pause: 500ms] before reveals",
+            'dramatic': "[with grave concern], [with intensity], [pause: 800ms]"
+        }
+        
+        example_tags = tag_examples.get(narration_style, "[with emotion], [pause: 400ms]")
+        
         return f"""[SYSTEM INSTRUCTION - Style Directive]
 {style_directive}
 
@@ -241,27 +290,50 @@ Transform this text into a flowing, natural narrative for text-to-speech in {lan
 
 **Speaker:** {speaker_name}
 **Target Length:** {target_length} ({target_length_desc})
+**Content Length:** {len(raw_text)} characters (~{tag_info['spoken_minutes']} minutes spoken)
 
 **Critical Formatting Rules:**
 1. Generate a FLOWING NARRATIVE, not fragmented line-by-line dialogue
 2. Keep content close to original - minimal rewriting, preserve key information
-3. Use markup tags SPARINGLY (2-4 tags maximum for entire narrative):
-   - [pause: 500ms] for dramatic breaks at pivotal moments
-   - [with concern], [analytically speaking], [with emphasis] ONLY at transition points
-4. Let semantic weight drive emotion naturally (don't over-tag)
-5. Each line format: {speaker_name} [optional_style]: Natural sentence flow.
+3. Use markup tags STRATEGICALLY ({tag_info['tag_range']} tags recommended for this length):
+   - Target density: approximately 1 tag per {tag_info['chars_per_tag']} characters
+   - Available tags: {example_tags}
+   - Place tags at TRANSITIONS and KEY MOMENTS only
+   - Examples of when to tag:
+     * Before revealing important information: [pause: 500ms]
+     * When shifting emotional tone: [with concern], [with sarcasm]
+     * At analytical observations: [analytically speaking]
+4. Let semantic weight drive emotion naturally (don't over-tag routine content)
+5. Format: {speaker_name} [optional_style]: Natural sentence flow.
 
 **Source Text:**
 {raw_text}
 
-Generate a natural, flowing narrative that sounds authentic when read aloud.
-Use minimal markup - let the content's semantic weight create the emotional tone.
+Generate a natural, flowing narrative with {tag_info['tag_range']} strategic markup tags.
+Focus on natural delivery - tags enhance, don't dominate.
 """
 
-    def _build_multi_speaker_prompt_v2(self, style_directive, num_speakers, language_name,
-                                       target_length, target_length_desc, speakers_info, raw_text):
-        """Build optimized prompt for multi-speaker dialogue with style directive."""
-
+    def _build_multi_speaker_prompt_v2(self, style_directive, num_speakers, language_name, 
+                                        target_length, target_length_desc, speakers_info, raw_text, 
+                                        tag_info, narration_style):
+        """Build optimized prompt for multi-speaker dialogue with dynamic tag guidance."""
+        
+        # Style-specific tag examples
+        tag_examples = {
+            'documentary': "[analytically], [with emphasis], [pause: 400ms]",
+            'conversational': "[enthusiastically], [thoughtfully], [pause: 300ms]",
+            'academic': "[methodically], [with precision], [pause: 400ms]",
+            'satirical': "[with sarcasm], [incredulously], [mockingly], [pause: 500ms]",
+            'dramatic': "[intensely], [with grave concern], [pause: 800ms]"
+        }
+        
+        example_tags = tag_examples.get(narration_style, "[with emotion], [pause: 400ms]")
+        
+        # For dialogue, increase tag budget by 50% (more transitions between speakers)
+        dialogue_min = int(tag_info['min_tags'] * 1.5)
+        dialogue_max = int(tag_info['max_tags'] * 1.5)
+        dialogue_range = f"{dialogue_min}-{dialogue_max}"
+        
         return f"""[SYSTEM INSTRUCTION - Style Directive]
 {style_directive}
 
@@ -272,22 +344,28 @@ Transform this text into a natural dialogue script for text-to-speech in {langua
 {speakers_info}
 
 **Target Length:** {target_length} ({target_length_desc})
+**Content Length:** {len(raw_text)} characters (~{tag_info['spoken_minutes']} minutes spoken)
 
 **Critical Formatting Rules:**
 1. Create natural, flowing dialogue with back-and-forth conversation
 2. Keep content close to original - minimal rewriting, preserve key information
 3. Each turn should be 1-3 sentences for natural conversational flow
-4. Use markup tags SPARINGLY (5-8 tags maximum for entire script):
-   - [pause: 300ms] for dramatic breaks
-   - Style tags [enthusiastically], [with concern], [thoughtfully] ONLY at transitions
+4. Use markup tags STRATEGICALLY ({dialogue_range} tags recommended for dialogue):
+   - Target density: approximately 1 tag per {int(tag_info['chars_per_tag']*0.7)} characters (more for dialogue)
+   - Available tags: {example_tags}
+   - Place tags at speaker transitions and emotional shifts
+   - Examples of when to tag:
+     * Before key revelations: [pause: 300ms]
+     * When tone shifts: [with concern], [enthusiastically]
+     * For emphasis: [with sarcasm], [analytically speaking]
 5. Let semantic weight and dialogue structure drive emotion naturally
 6. Format: SpeakerName [optional_style]: Natural dialogue text
 
 **Source Text:**
 {raw_text}
 
-Generate engaging dialogue that sounds authentic when spoken.
-Focus on natural conversation flow - don't over-tag emotions.
+Generate engaging dialogue with {dialogue_range} strategic markup tags.
+Focus on natural conversation flow - tags enhance key moments.
 """
 
     def _parse_dialogue(self, formatted_text):
