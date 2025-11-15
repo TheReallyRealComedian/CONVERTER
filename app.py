@@ -414,7 +414,7 @@ def format_dialogue_with_llm():
             language=data.get('language', 'en'),
             tone=data.get('tone', 'professional and informative'),
             script_length=data.get('script_length', 'medium'),
-            custom_prompt=data.get('custom_prompt', '').strip() or None
+            custom_prompt=(data.get('custom_prompt') or '').strip() or None
         )
         
         return jsonify(result)

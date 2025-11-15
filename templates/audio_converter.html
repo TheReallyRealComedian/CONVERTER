@@ -1067,10 +1067,13 @@ resetPromptBtn.addEventListener('click', function() {
 function loadPromptTemplate(presetName) {
     const numSpeakers = parseInt(numSpeakersSelect.value);
     const isSingleSpeaker = numSpeakers === 1;
-    const template = promptTemplates[presetName];
     
-    if (template) {
-        systemPromptEditor.value = isSingleSpeaker ? template.single : template.multi;
+    // Use the full default prompt templates that include placeholders
+    if (presetName === 'verbatim' || presetName === 'natural' || 
+        presetName === 'conversational' || presetName === 'creative') {
+        // Clear the prompt editor to use built-in templates
+        systemPromptEditor.value = '';
+        systemPromptEditor.placeholder = `Using built-in ${presetName} template - leave empty to use default or add custom prompt with placeholders like {raw_text}, {speakers_info}, {language_name}, etc.`;
     }
 }
 
@@ -1193,6 +1196,24 @@ formatWithAiBtn.addEventListener('click', async () => {
     formatWithAiBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Formatting...';
 
     try {
+        // FIXED: Don't send custom prompt if it's the default template or too short
+        let customPrompt = systemPromptEditor.value.trim();
+        
+        // Check if it's still the default template or a broken/short prompt
+        if (!customPrompt || 
+            customPrompt.length < 50 || 
+            customPrompt.startsWith('You are a podcast script formatter') ||
+            customPrompt === 'Create engaging narration with expanded content.' ||
+            customPrompt === 'Create engaging dialogue with expanded content.' ||
+            customPrompt === 'Create natural dialogue with light conversational elements.' ||
+            customPrompt === 'Distribute text between speakers - minimal changes.' ||
+            customPrompt === 'Keep text EXACTLY as written - minimal changes.' ||
+            customPrompt === 'Convert to natural narration with light conversational elements.' ||
+            customPrompt === 'Create rich narration with vivid examples and depth.' ||
+            customPrompt === 'Create dynamic dialogue with examples and depth.') {
+            customPrompt = null;  // Use built-in prompt instead
+        }
+        
         const payload = {
             raw_text: rawText,
             num_speakers: parseInt(numSpeakersSelect.value),
@@ -1200,13 +1221,14 @@ formatWithAiBtn.addEventListener('click', async () => {
             language: podcastLanguageSelect.value,
             tone: podcastToneSelect.value,
             script_length: scriptLengthSelect.value,
-            custom_prompt: systemPromptEditor.value
+            custom_prompt: customPrompt  // Will be null if using default
         };
-
+        
         // DEBUG: Log the payload
         console.log('Sending payload:', {
             ...payload,
-            raw_text: payload.raw_text.substring(0, 100) + '...'
+            raw_text: payload.raw_text.substring(0, 100) + '...',
+            custom_prompt: payload.custom_prompt ? 'custom' : 'default'
         });
 
         const response = await fetch('/format-dialogue-with-llm', {

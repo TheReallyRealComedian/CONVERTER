@@ -1,8 +1,11 @@
-# services/gemini_service.py
+# services/gemini_service.py - Mit Chunking Support für lange Podcasts
 import logging
 import tempfile
 import os
 import wave
+import time
+import asyncio
+from typing import List, Dict, Optional
 from google import genai
 from google.genai import types
 
@@ -10,11 +13,26 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiService:
+    # Chunking-Konfiguration basierend auf Recherche
+    MAX_LINES_PER_CHUNK = 80  # Sicher unter 5-Minuten-Limit
+    MAX_CHARS_PER_CHUNK = 3000  # Konservativ unter 4000-Byte-Limit
+    CHUNK_OVERLAP_LINES = 2  # Überlappung für Voice-Konsistenz
+    INTER_CHUNK_DELAY = 1.0  # Sekunden zwischen Requests
+    RATE_LIMIT_DELAY = 0.4  # Minimum Delay für 150 req/min
+    
     def __init__(self, api_key):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is required")
         self.api_key = api_key
         self.client = genai.Client(api_key=api_key)
+        
+        # Check if pydub is available
+        try:
+            from pydub import AudioSegment
+            self.pydub_available = True
+        except ImportError:
+            logger.warning("PyDub not available - audio concatenation disabled")
+            self.pydub_available = False
     
     def format_dialogue_with_llm(self, raw_text, num_speakers=2, speaker_descriptions=None,
                                   language='en', tone='professional and informative',
@@ -88,11 +106,9 @@ class GeminiService:
         prompt = prompt.replace('{target_length_desc}', target_length_desc)
         prompt = prompt.replace('{speakers_info}', speakers_info)
         prompt = prompt.replace('{raw_text}', raw_text)
+        
         logger.info(f"=== PROMPT DEBUG ===")
         logger.info(f"Prompt length: {len(prompt)} characters")
-        logger.info(f"Prompt first 500 chars:\n{prompt[:500]}")
-        logger.info(f"Prompt contains raw_text: {raw_text[:100] in prompt}")
-        
         logger.info(f"Generating dialogue with script_length={script_length}, num_speakers={num_speakers}")
         
         # Call Gemini
@@ -109,10 +125,8 @@ class GeminiService:
             raise ValueError("LLM did not generate any output")
         
         formatted_dialogue = response.text.strip()
-        # DEBUG: Log what the LLM actually returned
-        logger.info(f"LLM raw response:\n{formatted_dialogue}")
         logger.info(f"LLM response length: {len(formatted_dialogue)} characters")
-
+        
         # Check if LLM refused or gave invalid output
         if len(formatted_dialogue) < 100:
             logger.error(f"LLM gave suspiciously short response: '{formatted_dialogue}'")
@@ -162,7 +176,6 @@ class GeminiService:
 
         Now convert the source text. Remember: SHORT lines, EXACT format!"""
     
-
     def _build_multi_speaker_prompt(self, num_speakers, language_name, tone, target_length, target_length_desc, speakers_info, raw_text):
         return f"""You are a podcast script formatter. Convert the following raw text into a structured dialogue script.
 
@@ -229,19 +242,19 @@ Now convert the raw text above into this format. Remember to generate {target_le
     
     def generate_podcast(self, dialogue, language='en'):
         """
-        Generate multi-speaker podcast audio using Gemini TTS.
+        Generate multi-speaker podcast audio using Gemini TTS with automatic chunking for long podcasts.
         
         Args:
             dialogue: List of dicts with 'speaker', 'style', 'text'
             language: Language code
         
         Returns:
-            str: Path to temporary WAV file
+            str: Path to temporary WAV file (concatenated if chunked)
         """
         if not dialogue or len(dialogue) == 0:
             raise ValueError("No dialogue provided")
         
-        # Build speaker voice configs
+        # Build speaker voice configs and prepare dialogue
         speaker_voice_configs = []
         seen_speakers = set()
         dialogue_lines = []
@@ -273,13 +286,10 @@ Now convert the raw text above into this format. Remember to generate {target_le
                 'text': text
             })
 
-        # CRITICAL: Filter and split before TTS
         logger.info(f"Raw dialogue: {len(dialogue_lines)} turns")
 
-        # Remove metadata/captions
+        # Filter and process
         dialogue_lines = self._filter_metadata_lines(dialogue_lines)
-
-        # Split long turns (50 words max per turn)
         dialogue_lines = self._split_long_dialogue_turns(dialogue_lines, max_words=50)
 
         if not dialogue_lines:
@@ -287,24 +297,34 @@ Now convert the raw text above into this format. Remember to generate {target_le
 
         logger.info(f"Final dialogue: {len(dialogue_lines)} turns")
 
+        # Check if we need to chunk
+        if len(dialogue_lines) <= self.MAX_LINES_PER_CHUNK:
+            # Single chunk - original behavior
+            logger.info(f"Single chunk generation: {len(dialogue_lines)} lines")
+            return self._generate_single_chunk(dialogue_lines, speaker_voice_configs)
+        else:
+            # Multiple chunks required
+            logger.info(f"Multi-chunk generation required: {len(dialogue_lines)} lines")
+            return self._generate_with_chunking(dialogue_lines, speaker_voice_configs)
+    
+    def _generate_single_chunk(self, dialogue_lines: List[Dict], speaker_voice_configs: List):
+        """Generate audio for a single chunk of dialogue."""
+        
         # Format for TTS
         formatted_lines = []
+        unique_speakers = set()
+        
         for turn in dialogue_lines:
+            unique_speakers.add(turn['speaker'])
             if turn['style']:
                 formatted_lines.append(f"{turn['speaker']}: [{turn['style']}] {turn['text']}")
             else:
                 formatted_lines.append(f"{turn['speaker']}: {turn['text']}")
 
         full_dialogue = "\n".join(formatted_lines)
-        unique_speakers = list(seen_speakers)
+        unique_speakers = list(unique_speakers)
         
-        if len(unique_speakers) < 1:
-            raise ValueError("No speakers found. Please configure at least 1 speaker.")
-        elif len(unique_speakers) > 4:
-            raise ValueError("Gemini TTS supports maximum 4 speakers. Please reduce to 1-4 speakers.")
-        
-        logger.info(f"Gemini-TTS dialogue:\n{full_dialogue}")
-        logger.info(f"Speakers: {unique_speakers}")
+        logger.info(f"Generating TTS for {len(formatted_lines)} lines, {len(unique_speakers)} speakers")
         
         # Generate audio
         if len(unique_speakers) == 1:
@@ -317,7 +337,7 @@ Now convert the raw text above into this format. Remember to generate {target_le
                     speech_config=types.SpeechConfig(
                         voice_config=types.VoiceConfig(
                             prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                voice_name=speaker_voice_configs[0].speaker
+                                voice_name=unique_speakers[0]
                             )
                         )
                     )
@@ -325,6 +345,12 @@ Now convert the raw text above into this format. Remember to generate {target_le
             )
         else:
             logger.info("Using multi-speaker mode")
+            # Filter speaker_voice_configs to only include speakers in this chunk
+            chunk_speaker_configs = [
+                config for config in speaker_voice_configs
+                if config.speaker in unique_speakers
+            ]
+            
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash-preview-tts",
                 contents=full_dialogue,
@@ -332,13 +358,11 @@ Now convert the raw text above into this format. Remember to generate {target_le
                     response_modalities=["AUDIO"],
                     speech_config=types.SpeechConfig(
                         multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
-                            speaker_voice_configs=speaker_voice_configs
+                            speaker_voice_configs=chunk_speaker_configs
                         )
                     )
                 )
             )
-        
-        logger.info("Gemini-TTS response received")
         
         if not response or not response.candidates:
             raise ValueError("Invalid response from Gemini-TTS")
@@ -360,9 +384,152 @@ Now convert the raw text above into this format. Remember to generate {target_le
             wav_file.setframerate(24000)
             wav_file.writeframes(audio_data)
         
-        logger.info(f"Audio converted and saved to: {temp_audio_path}")
+        logger.info(f"Audio saved to: {temp_audio_path}")
         
         return temp_audio_path
+    
+    def _generate_with_chunking(self, dialogue_lines: List[Dict], speaker_voice_configs: List):
+        """Generate audio in chunks and concatenate them."""
+        
+        # Split into chunks
+        chunks = self._create_dialogue_chunks(dialogue_lines)
+        logger.info(f"Split dialogue into {len(chunks)} chunks")
+        
+        # Generate audio for each chunk
+        chunk_files = []
+        
+        for i, chunk in enumerate(chunks):
+            logger.info(f"Generating chunk {i+1}/{len(chunks)}: {len(chunk)} lines")
+            
+            try:
+                # Generate this chunk
+                chunk_file = self._generate_single_chunk(chunk, speaker_voice_configs)
+                chunk_files.append(chunk_file)
+                
+                # Rate limiting delay
+                if i < len(chunks) - 1:
+                    logger.info(f"Waiting {self.INTER_CHUNK_DELAY}s before next chunk...")
+                    time.sleep(max(self.RATE_LIMIT_DELAY, self.INTER_CHUNK_DELAY))
+                    
+            except Exception as e:
+                logger.error(f"Failed to generate chunk {i+1}: {e}")
+                # Clean up partial chunks
+                for f in chunk_files:
+                    if os.path.exists(f):
+                        os.unlink(f)
+                raise
+        
+        # Concatenate chunks
+        if self.pydub_available:
+            return self._concatenate_with_pydub(chunk_files)
+        else:
+            return self._concatenate_with_wave(chunk_files)
+    
+    def _create_dialogue_chunks(self, dialogue_lines: List[Dict]) -> List[List[Dict]]:
+        """Split dialogue into overlapping chunks for consistent voice generation."""
+        
+        chunks = []
+        current_chunk = []
+        current_char_count = 0
+        
+        for i, line in enumerate(dialogue_lines):
+            line_chars = len(f"{line['speaker']}: {line['text']}")
+            
+            # Check if adding this line would exceed limits
+            if (len(current_chunk) >= self.MAX_LINES_PER_CHUNK or
+                current_char_count + line_chars > self.MAX_CHARS_PER_CHUNK) and current_chunk:
+                
+                # Save current chunk
+                chunks.append(current_chunk.copy())
+                
+                # Start new chunk with overlap
+                if self.CHUNK_OVERLAP_LINES > 0 and len(current_chunk) > self.CHUNK_OVERLAP_LINES:
+                    # Include last N lines from previous chunk for voice consistency
+                    current_chunk = current_chunk[-self.CHUNK_OVERLAP_LINES:]
+                    current_char_count = sum(
+                        len(f"{l['speaker']}: {l['text']}") for l in current_chunk
+                    )
+                else:
+                    current_chunk = []
+                    current_char_count = 0
+            
+            current_chunk.append(line)
+            current_char_count += line_chars
+        
+        # Add remaining lines as final chunk
+        if current_chunk:
+            chunks.append(current_chunk)
+        
+        # Log chunk statistics
+        for i, chunk in enumerate(chunks):
+            chars = sum(len(f"{l['speaker']}: {l['text']}") for l in chunk)
+            logger.info(f"Chunk {i+1}: {len(chunk)} lines, {chars} characters")
+        
+        return chunks
+    
+    def _concatenate_with_pydub(self, audio_files: List[str]) -> str:
+        """Concatenate audio files using PyDub with silence between chunks."""
+        from pydub import AudioSegment
+        
+        logger.info(f"Concatenating {len(audio_files)} audio files with PyDub")
+        
+        combined = AudioSegment.empty()
+        silence = AudioSegment.silent(duration=1000)  # 1 second silence
+        
+        for i, file_path in enumerate(audio_files):
+            audio = AudioSegment.from_wav(file_path)
+            
+            if i > 0:
+                # Add silence between chunks
+                combined += silence
+            
+            combined += audio
+            
+            # Clean up chunk file
+            os.unlink(file_path)
+        
+        # Export combined audio
+        output_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        combined.export(output_path, format="wav")
+        
+        logger.info(f"Combined audio saved to: {output_path}")
+        return output_path
+    
+    def _concatenate_with_wave(self, audio_files: List[str]) -> str:
+        """Concatenate audio files using wave module (fallback if PyDub unavailable)."""
+        
+        logger.info(f"Concatenating {len(audio_files)} audio files with wave module")
+        
+        # Read all wave data
+        frames = []
+        params = None
+        
+        for file_path in audio_files:
+            with wave.open(file_path, 'rb') as wav_file:
+                if params is None:
+                    params = wav_file.getparams()
+                
+                # Add audio frames
+                frames.append(wav_file.readframes(wav_file.getnframes()))
+                
+                # Add 1 second of silence (24000 samples at 24kHz)
+                if file_path != audio_files[-1]:
+                    silence_frames = b'\x00\x00' * 24000
+                    frames.append(silence_frames)
+            
+            # Clean up chunk file
+            os.unlink(file_path)
+        
+        # Write combined audio
+        output_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        
+        with wave.open(output_path, 'wb') as out_wav:
+            out_wav.setparams(params)
+            for frame_data in frames:
+                out_wav.writeframes(frame_data)
+        
+        logger.info(f"Combined audio saved to: {output_path}")
+        return output_path
     
     def _split_long_dialogue_turns(self, dialogue_lines, max_words=50):
         """
