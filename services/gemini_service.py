@@ -25,6 +25,11 @@ class GeminiService:
             raise ValueError("GEMINI_API_KEY is required")
         self.api_key = api_key
         self.client = genai.Client(api_key=api_key)
+        if hasattr(self.client, '_api_client'):
+            if hasattr(self.client._api_client, '_httpx_client'):
+                import httpx
+                self.client._api_client._httpx_client.timeout = httpx.Timeout(timeout=300.0)
+                logger.info("✅ Timeout auf 300 Sekunden erhöht")
         
         # Check if pydub is available
         try:
