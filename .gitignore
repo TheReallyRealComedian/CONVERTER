@@ -1,2 +1,4 @@
 google-credentials.json
 .env
+._DS_Store
+._.

@@ -118,11 +118,11 @@ class GeminiService:
         
         # Call Gemini
         response = self.client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model="gemini-exp-1206",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.7,
-                max_output_tokens=8192
+                max_output_tokens=18192
             )
         )
         
