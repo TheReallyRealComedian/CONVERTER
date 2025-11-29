@@ -57,4 +57,4 @@ PY
 
 COPY . .
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "900","--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "1800","--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]

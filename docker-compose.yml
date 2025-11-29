@@ -2,6 +2,9 @@ services:
   markdown-converter:
     build: .
     container_name: markdown-converter
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     ports:
       # Map port 5656 on your host to port 5000 inside the container
       - "5656:5000"
