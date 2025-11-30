@@ -446,17 +446,32 @@ Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
 
         return dialogue_lines
 
-    def generate_podcast(self, dialogue, language='en'):
+    # Available TTS models
+    TTS_MODELS = {
+        'gemini-2.5-flash-preview-tts': 'Gemini 2.5 Flash TTS (newest)',
+        'gemini-2.5-pro-preview-tts': 'Gemini 2.5 Pro TTS (higher quality)'
+    }
+    DEFAULT_TTS_MODEL = 'gemini-2.5-flash-preview-tts'
+
+    def generate_podcast(self, dialogue, language='en', tts_model=None):
         """
         Generate multi-speaker podcast audio using Gemini TTS with automatic chunking for long podcasts.
 
         Args:
             dialogue: List of dicts with 'speaker', 'style', 'text'
             language: Language code
+            tts_model: TTS model to use (default: gemini-2.5-flash-preview-tts)
 
         Returns:
             str: Path to temporary WAV file (concatenated if chunked)
         """
+        # Validate and set TTS model
+        if tts_model and tts_model in self.TTS_MODELS:
+            self.current_tts_model = tts_model
+        else:
+            self.current_tts_model = self.DEFAULT_TTS_MODEL
+
+        logger.info(f"Using TTS model: {self.current_tts_model}")
         if not dialogue or len(dialogue) == 0:
             raise ValueError("No dialogue provided")
 
@@ -544,10 +559,14 @@ Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
 
         # Generate audio
         try:
+            # Use the selected TTS model
+            tts_model = getattr(self, 'current_tts_model', self.DEFAULT_TTS_MODEL)
+            logger.info(f"TTS Model: {tts_model}")
+
             if len(unique_speakers) == 1:
                 logger.info("Mode: single-speaker")
                 response = self.client.models.generate_content(
-                    model="gemini-2.5-flash-preview-tts",
+                    model=tts_model,
                     contents=full_dialogue,
                     config=types.GenerateContentConfig(
                         response_modalities=["AUDIO"],
@@ -569,7 +588,7 @@ Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
                 ]
 
                 response = self.client.models.generate_content(
-                    model="gemini-2.5-flash-preview-tts",
+                    model=tts_model,
                     contents=full_dialogue,
                     config=types.GenerateContentConfig(
                         response_modalities=["AUDIO"],
@@ -970,9 +989,9 @@ Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
         for line in dialogue_lines:
             text = line['text'].strip()
 
-            # Skip very short lines
-            if len(text) < 15:
-                logger.info(f"Skipping short line: {text}")
+            # Skip empty/tiny lines (reduced from 15 to preserve short dialogue)
+            if len(text) < 2:
+                logger.info(f"Skipping empty/tiny line: {text}")
                 continue
 
             # Check for metadata patterns

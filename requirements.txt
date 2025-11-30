@@ -15,3 +15,6 @@ deepgram-sdk==5.1.0
 google-cloud-texttospeech==2.21.0
 google-genai>=1.0.0
 requests==2.31.0
+pydub==0.25.1
+redis==5.0.1
+rq==1.16.0

@@ -1,23 +1,58 @@
 services:
+  # 1. Redis - Job Queue Database (internal only, no port exposed)
+  redis:
+    image: redis:alpine
+    container_name: file-transformer-redis
+    restart: unless-stopped
+
+  # 2. Web Container (Flask API)
   markdown-converter:
     build: .
-    container_name: markdown-converter
+    container_name: markdown-converter-web
     dns:
       - 8.8.8.8
       - 8.8.4.4
     ports:
-      # Map port 5656 on your host to port 5000 inside the container
       - "5656:5000"
     volumes:
-      # Map our local output folder to the app's output folder inside the container
-      # This makes the generated PDFs persist on your server's filesystem.
       - ./output_pdfs:/app/output
-      # Mount Google Cloud credentials (optional, for Cloud TTS)
+      - ./google-credentials.json:/app/google-credentials.json
+      # Shared volume for podcast files
+      - podcast_data:/app/output_podcasts
+    environment:
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # 3. Worker Container (Background Job Processor)
+  worker:
+    build: .
+    container_name: markdown-converter-worker
+    command: python worker.py
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      # Shared volume for podcast files
+      - podcast_data:/app/output_podcasts
       - ./google-credentials.json:/app/google-credentials.json
     environment:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - REDIS_URL=redis://redis:6379
     env_file:
       - .env
+    depends_on:
+      - redis
     restart: unless-stopped
+
+# Named volume for sharing podcast files between web and worker
+volumes:
+  podcast_data:

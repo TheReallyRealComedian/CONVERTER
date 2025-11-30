@@ -321,7 +321,7 @@
                                     </div>
                                     
                                     <div class="row">
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-3">
                                             <label for="podcast-language" class="form-label">Language</label>
                                             <select class="form-select" id="podcast-language">
                                                 <option value="en">English</option>
@@ -330,7 +330,7 @@
                                                 <option value="fr">French</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-6 mb-3">
+                                        <div class="col-md-4 mb-3">
                                             <label for="narration-style" class="form-label">Narration Style</label>
                                             <select class="form-select" id="narration-style">
                                                 <option value="documentary">Documentary - Authoritative narrator</option>
@@ -338,6 +338,13 @@
                                                 <option value="academic">Academic - Precise analyst</option>
                                                 <option value="satirical">Satirical - Sharp wit & sarcasm</option>
                                                 <option value="dramatic">Dramatic - Emotional presenter</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label for="tts-model" class="form-label">TTS Model</label>
+                                            <select class="form-select" id="tts-model">
+                                                <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
+                                                <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS (Higher Quality)</option>
                                             </select>
                                         </div>
                                     </div>
@@ -880,37 +887,66 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         generatePodcastBtn.disabled = true;
-        generatePodcastBtn.textContent = '🎙️ Generating...';
+        generatePodcastBtn.textContent = '🎙️ Starting...';
         podcastResultContainer.style.display = 'none';
-        
+
         try {
-            const response = await fetch('/generate-gemini-podcast', {
+            // Start the job
+            const ttsModelSelect = document.getElementById('tts-model');
+            const startResponse = await fetch('/generate-gemini-podcast', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     dialogue: dialogue,
-                    language: podcastLanguageSelect.value
+                    language: podcastLanguageSelect.value,
+                    tts_model: ttsModelSelect.value
                 })
             });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+
+            if (!startResponse.ok) {
+                const errorData = await startResponse.json();
+                throw new Error(errorData.error || `HTTP error! Status: ${startResponse.status}`);
             }
-            
-            const audioBlob = await response.blob();
+
+            const { job_id } = await startResponse.json();
+            generatePodcastBtn.textContent = '🎙️ Generating...';
+
+            // Poll for status
+            let status = 'pending';
+            let pollCount = 0;
+            while (status === 'pending' || status === 'processing') {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Poll every 2 seconds
+                pollCount++;
+                generatePodcastBtn.textContent = `🎙️ Generating... (${pollCount * 2}s)`;
+
+                const statusResponse = await fetch(`/podcast-status/${job_id}`);
+                const statusData = await statusResponse.json();
+                status = statusData.status;
+
+                if (status === 'failed') {
+                    throw new Error(statusData.error || 'Generation failed');
+                }
+            }
+
+            // Download the result
+            const downloadResponse = await fetch(`/podcast-download/${job_id}`);
+            if (!downloadResponse.ok) {
+                throw new Error('Failed to download podcast');
+            }
+
+            const audioBlob = await downloadResponse.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
-            
+
             podcastAudioSource.src = audioUrl;
             podcastAudio.load();
-            
+
             downloadPodcastBtn.href = audioUrl;
-            
+
             podcastResultContainer.style.display = 'block';
             podcastResultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            
+
         } catch (error) {
             console.error('Podcast generation error:', error);
             alert('Error generating podcast: ' + error.message);

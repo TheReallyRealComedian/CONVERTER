@@ -5,6 +5,9 @@ import logging
 import sys
 import json
 from pathlib import Path
+from redis import Redis
+from rq import Queue
+from rq.job import Job
 from io import BytesIO
 from flask import Flask, render_template, request, flash, redirect, url_for, send_file
 from markdown_it import MarkdownIt
@@ -19,6 +22,7 @@ import fitz
 from flask import jsonify
 import traceback
 from services import DeepgramService, GeminiService, GoogleTTSService
+from tasks import generate_podcast_task
 
 
 logging.basicConfig(
@@ -41,6 +45,14 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
 gemini_service = GeminiService(GEMINI_API_KEY) if GEMINI_API_KEY else None
 google_tts_service = GoogleTTSService(GOOGLE_CREDENTIALS_PATH) if GOOGLE_CREDENTIALS_PATH else None
+
+# Redis Queue setup
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+redis_conn = Redis.from_url(REDIS_URL)
+task_queue = Queue(connection=redis_conn)
+
+# Shared output directory (must match tasks.py and docker-compose volume)
+OUTPUT_DIR = '/app/output_podcasts'
 
 def highlight_code(code, lang, _):
     try:
@@ -314,33 +326,74 @@ def get_google_voices():
 
 @app.route('/generate-gemini-podcast', methods=['POST'])
 def generate_gemini_podcast():
-    if not gemini_service:
+    """Queue a podcast generation job to Redis."""
+    if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API Key is not configured."}), 503
-    
-    temp_audio_path = None
+
     try:
         data = request.get_json()
         dialogue = data.get('dialogue', [])
         language = data.get('language', 'en')
-        
-        temp_audio_path = gemini_service.generate_podcast(dialogue, language)
-        
-        return send_file(
-            temp_audio_path,
-            as_attachment=True,
-            download_name='gemini_podcast.wav',
-            mimetype='audio/wav'
+        tts_model = data.get('tts_model', None)
+
+        # Enqueue job to Redis (worker will pick it up)
+        job = task_queue.enqueue(
+            generate_podcast_task,
+            args=(dialogue, language, tts_model),
+            job_timeout=600  # 10 minutes max
         )
-    
+
+        app.logger.info(f"Job {job.get_id()} queued for podcast generation")
+        return jsonify({"job_id": job.get_id(), "status": "queued"})
+
     except Exception as e:
-        app.logger.error(f"Gemini-TTS failed: {e}", exc_info=True)
+        app.logger.error(f"Failed to queue podcast job: {e}", exc_info=True)
         return jsonify({"error": f"Error: {str(e)}"}), 500
-    finally:
-        if temp_audio_path and os.path.exists(temp_audio_path):
-            try:
-                os.unlink(temp_audio_path)
-            except Exception as e:
-                app.logger.error(f"Cleanup error: {e}")
+
+
+@app.route('/podcast-status/<job_id>', methods=['GET'])
+def podcast_status(job_id):
+    """Check the status of a podcast generation job in Redis."""
+    try:
+        job = Job.fetch(job_id, connection=redis_conn)
+    except Exception:
+        return jsonify({"error": "Job not found"}), 404
+
+    status = job.get_status()
+
+    if status == 'finished':
+        return jsonify({"status": "completed", "result": job.result})
+    elif status == 'failed':
+        error_msg = str(job.exc_info) if job.exc_info else "Unknown error"
+        return jsonify({"status": "failed", "error": error_msg})
+    elif status in ['queued', 'started']:
+        return jsonify({"status": "processing"})
+    else:
+        return jsonify({"status": status})
+
+
+@app.route('/podcast-download/<job_id>', methods=['GET'])
+def podcast_download(job_id):
+    """Download the generated podcast file."""
+    try:
+        job = Job.fetch(job_id, connection=redis_conn)
+    except Exception:
+        return jsonify({"error": "Job not found"}), 404
+
+    if not job.is_finished:
+        return jsonify({"error": "Job not ready"}), 400
+
+    file_path = job.result
+
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({"error": "File not found on server"}), 404
+
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name='gemini_podcast.wav',
+        mimetype='audio/wav'
+    )
 
             
 @app.route('/api/get-gemini-voices', methods=['GET'])
