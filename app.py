@@ -255,21 +255,42 @@ def get_deepgram_token():
 def transcribe_audio_file():
     if not deepgram_service:
         return jsonify({"error": "Audio transcription service is not configured."}), 503
-    
+
     if 'audio_file' not in request.files:
         return jsonify({"error": "No audio file part in the request."}), 400
-    
+
     file = request.files['audio_file']
     language = request.form.get('language', 'en')
-    
+
     if file.filename == '':
         return jsonify({"error": "No file selected."}), 400
-    
+
     try:
         buffer_data = file.read()
+        file_size_mb = len(buffer_data) / (1024 * 1024)
+
+        app.logger.info(f"Received audio file: {file.filename} ({file_size_mb:.1f} MB)")
+
+        # transcribe_file handhabt automatisch Splitting wenn nötig
         transcript = deepgram_service.transcribe_file(buffer_data, language)
-        return jsonify({"transcript": transcript})
-    
+
+        return jsonify({
+            "transcript": transcript,
+            "metadata": {
+                "file_size_mb": round(file_size_mb, 2),
+                "transcript_length": len(transcript),
+                "language": language
+            }
+        })
+
+    except RuntimeError as e:
+        # Chunk-spezifischer Fehler
+        app.logger.error(f"Chunked transcription failed: {e}", exc_info=True)
+        return jsonify({
+            "error": "Transcription of long audio failed. Please try a shorter file.",
+            "details": str(e)
+        }), 500
+
     except Exception as e:
         app.logger.error(f"Deepgram transcription failed: {e}", exc_info=True)
         return jsonify({"error": f"An error occurred during transcription: {str(e)}"}), 500

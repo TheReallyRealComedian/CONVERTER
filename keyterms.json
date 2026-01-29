@@ -1,6 +1,6 @@
 {
-  "comment": "Domain-specific terms for improved Deepgram transcription accuracy",
-  "german": [
+  "comment": "Domain-specific terms for improved Deepgram transcription accuracy. Keys must match ISO language codes (de, en).",
+  "de": [
     "CAR-NK-Therapie",
     "mRNA-Produktion",
     "GMP-Herstellung",
@@ -10,9 +10,10 @@
     "Wirkstofffreisetzung",
     "Qualitätskontrolle",
     "Reinraumklasse",
-    "Validierungsprotokoll"
+    "Validierungsprotokoll",
+    "BI","Boehringer","API","Drug Product"
   ],
-  "english": [
+  "en": [
     "CAR-NK therapy",
     "mRNA production",
     "GMP manufacturing",
@@ -25,9 +26,5 @@
     "validation protocol"
   ],
   "universal": [
-    "Deepgram",
-    "API",
-    "WebSocket",
-    "Nova-3"
   ]
 }

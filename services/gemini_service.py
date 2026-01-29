@@ -509,23 +509,34 @@ Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
 
         logger.info(f"Raw dialogue: {len(dialogue_lines)} turns")
 
-        # Filter and process
+        # Filter and process with statistics
+        raw_count = len(dialogue_lines)
         dialogue_lines = self._filter_metadata_lines(dialogue_lines)
+        filtered_count = raw_count - len(dialogue_lines)
+        if filtered_count > 0:
+            logger.info(f"Filtered out {filtered_count} metadata lines")
+
+        pre_split = len(dialogue_lines)
         dialogue_lines = self._split_long_dialogue_turns(dialogue_lines, max_words=50)
+        if len(dialogue_lines) > pre_split:
+            logger.info(f"Split long turns: {pre_split} -> {len(dialogue_lines)} lines")
 
         if not dialogue_lines:
             raise ValueError("No valid dialogue lines after filtering")
 
         logger.info(f"Final dialogue: {len(dialogue_lines)} turns")
 
-        # Check if we need to chunk
+        # Check if we need to chunk - with detailed logging
+        total_chars = sum(len(line.get('text', '')) for line in dialogue_lines)
+        logger.info(f"=== CHUNKING DECISION ===")
+        logger.info(f"  Lines: {len(dialogue_lines)} / {self.MAX_LINES_PER_CHUNK} max")
+        logger.info(f"  Chars: {total_chars} / {self.MAX_CHARS_PER_CHUNK} max")
+
         if len(dialogue_lines) <= self.MAX_LINES_PER_CHUNK:
-            # Single chunk - original behavior
-            logger.info(f"Single chunk generation: {len(dialogue_lines)} lines")
+            logger.info(f"  -> Single chunk (Zeilen unter Schwellwert)")
             return self._generate_single_chunk(dialogue_lines, speaker_voice_configs)
         else:
-            # Multiple chunks required
-            logger.info(f"Multi-chunk generation required: {len(dialogue_lines)} lines")
+            logger.info(f"  -> Multi-chunk erforderlich!")
             return self._generate_with_chunking(dialogue_lines, speaker_voice_configs)
 
     def _generate_single_chunk(self, dialogue_lines: List[Dict], speaker_voice_configs: List):
