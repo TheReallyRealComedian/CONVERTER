@@ -103,9 +103,12 @@ class DeepgramService:
                 chunk, language, total_chunks
             )
 
-            if transcript:
+            if transcript is not None:
                 transcripts.append(transcript)
-                logger.info(f"Chunk {chunk.index + 1} transcript: {len(transcript)} chars")
+                if transcript:
+                    logger.info(f"Chunk {chunk.index + 1} transcript: {len(transcript)} chars")
+                else:
+                    logger.warning(f"Chunk {chunk.index + 1} returned empty transcript (silence/music?)")
             else:
                 logger.error(f"Chunk {chunk.index + 1} failed!")
                 raise RuntimeError(f"Transcription failed for chunk {chunk.index + 1}")
