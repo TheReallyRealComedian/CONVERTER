@@ -150,12 +150,8 @@ class PDFExtractionService:
         response = self.gemini_client.models.generate_content(
             model=self.VISION_MODEL,
             contents=[
-                types.Content(
-                    parts=[
-                        types.Part.from_text(prompt),
-                        types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
-                    ]
-                )
+                prompt,
+                types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
             ],
             config=types.GenerateContentConfig(
                 temperature=0.1,
