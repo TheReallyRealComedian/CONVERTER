@@ -21,7 +21,7 @@ from asgiref.wsgi import WsgiToAsgi
 import fitz
 from flask import jsonify
 import traceback
-from services import DeepgramService, GeminiService, GoogleTTSService
+from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 from tasks import generate_podcast_task
 
 
@@ -45,6 +45,7 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
 gemini_service = GeminiService(GEMINI_API_KEY) if GEMINI_API_KEY else None
 google_tts_service = GoogleTTSService(GOOGLE_CREDENTIALS_PATH) if GOOGLE_CREDENTIALS_PATH else None
+pdf_extraction_service = PDFExtractionService(GEMINI_API_KEY)
 
 # Redis Queue setup
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
@@ -183,38 +184,17 @@ def transform_document():
             file.save(temp_f.name)
             temp_file_path = temp_f.name
 
-        link_map = {}
-        try:
-            app.logger.info("Starting PyMuPDF link extraction...")
-            doc = fitz.open(temp_file_path)
-            for page_num, page in enumerate(doc):
-                links = page.get_links()
-                for link in links:
-                    if link.get('kind') == fitz.LINK_URI:
-                        clickable_area = link['from']
-                        link_text = page.get_textbox(clickable_area).strip().replace('\n', ' ')
-                        link_url = link.get('uri')
+        file_ext = Path(original_filename).suffix.lower()
 
-                        if link_text and link_url:
-                            link_map[link_text] = link_url
-                            app.logger.info(f"PyMuPDF found link: '{link_text}' -> '{link_url}'")
-            doc.close()
-            app.logger.info(f"PyMuPDF finished. Found {len(link_map)} unique links.")
-        except Exception as e:
-            app.logger.error(f"PyMuPDF failed to process links: {e}", exc_info=True)
-            link_map = {}
-
-        app.logger.info("Partitioning document with unstructured (strategy='fast')...")
-        elements = partition(filename=temp_file_path, strategy="fast")
-        full_text = "\n\n".join([el.text for el in elements])
-
-        app.logger.info("Merging unstructured text with PyMuPDF link map...")
-        output_markdown = full_text
-        if link_map:
-            for link_text in sorted(link_map.keys(), key=len, reverse=True):
-                link_url = link_map[link_text]
-                markdown_link = f"[{link_text}]({link_url})"
-                output_markdown = output_markdown.replace(link_text, markdown_link)
+        if file_ext == '.pdf':
+            # PDF: Hybrid-Extraktion mit Tabellenerkennung (PyMuPDF + Gemini Vision)
+            app.logger.info("PDF erkannt - verwende PDFExtractionService mit Tabellenerkennung...")
+            output_markdown = pdf_extraction_service.extract_markdown(temp_file_path)
+        else:
+            # Andere Formate (DOCX, PPTX, HTML, EML, etc.): bestehende unstructured Pipeline
+            app.logger.info("Partitioning document with unstructured (strategy='fast')...")
+            elements = partition(filename=temp_file_path, strategy="fast")
+            output_markdown = "\n\n".join([el.text for el in elements])
 
         output_path_obj = Path(original_filename)
         output_filename = f"{output_path_obj.stem}.md"

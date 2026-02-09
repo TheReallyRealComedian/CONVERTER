@@ -190,6 +190,10 @@ class TranscriptMerger:
         first_words = first.split()
         second_words = second.split()
 
+        logger.debug(
+            f"Chunk {chunk_index}: Merging first={len(first_words)} words + second={len(second_words)} words"
+        )
+
         if not first_words or not second_words:
             return first + " " + second
 
@@ -202,13 +206,27 @@ class TranscriptMerger:
 
         if best_match:
             overlap_start, overlap_length, similarity = best_match
-            logger.info(
-                f"Chunk {chunk_index}: Found overlap of {overlap_length} words "
-                f"(similarity: {similarity:.2f}) at position {overlap_start}"
-            )
 
-            # Schneide Überlappung aus second heraus
-            merged = first + " " + " ".join(second_words[overlap_start + overlap_length:])
+            # NUR Overlaps am Anfang von second akzeptieren (Position 0)
+            # Bei anderen Positionen werden fälschlicherweise Wörter VOR dem Overlap entfernt
+            if overlap_start == 0:
+                logger.info(
+                    f"Chunk {chunk_index}: Found overlap of {overlap_length} words "
+                    f"(similarity: {similarity:.2f}) at position {overlap_start}"
+                )
+                # Schneide nur die Overlap-Wörter aus second heraus
+                if overlap_length < len(second_words):
+                    merged = first + " " + " ".join(second_words[overlap_length:])
+                else:
+                    # Overlap ist gesamter second-Text -> nur first behalten
+                    merged = first
+            else:
+                # Overlap nicht am Anfang = False Positive
+                logger.warning(
+                    f"Chunk {chunk_index}: Overlap at position {overlap_start} (not at start), "
+                    f"concatenating to avoid data loss"
+                )
+                merged = self._smart_concatenate(first, second)
         else:
             logger.warning(
                 f"Chunk {chunk_index}: No clear overlap found, "
@@ -216,6 +234,7 @@ class TranscriptMerger:
             )
             merged = self._smart_concatenate(first, second)
 
+        logger.debug(f"Chunk {chunk_index}: Result = {len(merged.split())} words")
         return merged
 
     def _find_best_overlap(

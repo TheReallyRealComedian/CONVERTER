@@ -104,11 +104,12 @@ class DeepgramService:
             )
 
             if transcript is not None:
-                transcripts.append(transcript)
-                if transcript:
+                if transcript.strip():
+                    transcripts.append(transcript)
                     logger.info(f"Chunk {chunk.index + 1} transcript: {len(transcript)} chars")
                 else:
-                    logger.warning(f"Chunk {chunk.index + 1} returned empty transcript (silence/music?)")
+                    # Leere Chunks nicht zur Liste hinzufügen - vermeidet unnötige Merge-Operationen
+                    logger.warning(f"Chunk {chunk.index + 1} returned empty transcript (silence/music?) - skipping")
             else:
                 logger.error(f"Chunk {chunk.index + 1} failed!")
                 raise RuntimeError(f"Transcription failed for chunk {chunk.index + 1}")
@@ -121,7 +122,7 @@ class DeepgramService:
         logger.info(f"")
         logger.info(f"=== ALL CHUNKS TRANSCRIBED ===")
         logger.info(f"Total time: {total_elapsed:.1f}s")
-        logger.info(f"Chunks: {len(transcripts)}")
+        logger.info(f"Chunks with content: {len(transcripts)}/{total_chunks}")
 
         # Merge Transkripte
         merged_transcript = self.merger.merge_transcripts(transcripts)
