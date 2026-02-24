@@ -105,9 +105,9 @@ class AudioChunker:
             # Extrahiere Chunk
             chunk_audio = audio[start_ms:end_ms]
 
-            # Exportiere als WAV in Bytes
+            # Exportiere als MP3 in Bytes (komprimiert, ~10x kleiner als WAV)
             buffer = BytesIO()
-            chunk_audio.export(buffer, format="wav")
+            chunk_audio.export(buffer, format="mp3")
             chunk_bytes = buffer.getvalue()
 
             chunk = AudioChunk(

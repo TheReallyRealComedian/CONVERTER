@@ -151,6 +151,7 @@ class DeepgramService:
                 numerals=True,
                 paragraphs=True,
                 keyterm=keyterms,
+                request_options={"timeout_in_seconds": 300},
             )
 
             # Extract transcript
