@@ -11,8 +11,12 @@
     <div class="main-container">
         <!-- LEFT PANE: EDITOR AND CONTROLS -->
         <div class="editor-pane">
-            <div class="pane-header">
+            <div class="pane-header pane-header-with-actions">
                 <h4>Markdown</h4>
+                <div class="pane-header-buttons">
+                    <button type="button" class="save-library-btn" id="save-markdown-btn" onclick="saveMarkdownToLibrary()">Save to Library</button>
+                    <button type="button" class="reader-mode-btn" onclick="toggleReaderMode()">Reader Mode</button>
+                </div>
             </div>
 
             <div class="alerts-wrapper">
@@ -88,6 +92,20 @@ This is a blockquote to demonstrate styling.
             </form>
         </div>
 
+        <!-- READER TOOLBAR (visible only in reader mode) -->
+        <div class="reader-toolbar" id="reader-toolbar">
+            <button type="button" onclick="changeFontSize(-2)" title="Smaller text">A-</button>
+            <button type="button" onclick="changeFontSize(2)" title="Larger text">A+</button>
+            <div class="separator"></div>
+            <button type="button" onclick="changeWidth('narrow')" title="Narrow" id="width-narrow">▐</button>
+            <button type="button" onclick="changeWidth('medium')" title="Medium" id="width-medium">▐▐</button>
+            <button type="button" onclick="changeWidth('wide')" title="Wide" id="width-wide">▐▐▐</button>
+            <div class="separator"></div>
+            <button type="button" onclick="toggleDarkMode()" id="dark-mode-btn" title="Toggle dark mode">🌙</button>
+            <div class="separator"></div>
+            <button type="button" onclick="toggleReaderMode()" title="Exit reader mode (Esc)">✕</button>
+        </div>
+
         <!-- RIGHT PANE: LIVE PREVIEW -->
         <div class="preview-pane">
             <div class="pane-header">
@@ -107,6 +125,141 @@ This is a blockquote to demonstrate styling.
 {% block scripts %}
     <!-- Updated markdown-it CDN URL -->
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+
+    <!-- Reader Mode Logic -->
+    <script>
+        const READER_PREFS_KEY = 'readerPrefs';
+        const WIDTH_MAP = { narrow: '600px', medium: '800px', wide: '1000px' };
+
+        function getReaderPrefs() {
+            try {
+                return JSON.parse(localStorage.getItem(READER_PREFS_KEY)) || {};
+            } catch { return {}; }
+        }
+
+        function saveReaderPrefs(prefs) {
+            localStorage.setItem(READER_PREFS_KEY, JSON.stringify(prefs));
+        }
+
+        function toggleReaderMode() {
+            const container = document.querySelector('.main-container');
+            const isActive = container.classList.toggle('reader-mode');
+            document.body.classList.toggle('reader-active', isActive);
+
+            if (isActive) {
+                const prefs = getReaderPrefs();
+                if (prefs.dark) applyDarkMode(true);
+                if (prefs.fontSize) document.querySelector('.main-container').style.setProperty('--reader-font-size', prefs.fontSize + 'px');
+                if (prefs.width) applyWidth(prefs.width);
+                updateWidthButtons(prefs.width || 'medium');
+            } else {
+                document.body.classList.remove('reader-active');
+                document.documentElement.removeAttribute('data-theme');
+            }
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            applyDarkMode(!isDark);
+            const prefs = getReaderPrefs();
+            prefs.dark = !isDark;
+            saveReaderPrefs(prefs);
+        }
+
+        function applyDarkMode(on) {
+            document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light');
+            const btn = document.getElementById('dark-mode-btn');
+            if (btn) btn.textContent = on ? '☀️' : '🌙';
+        }
+
+        function changeFontSize(delta) {
+            const container = document.querySelector('.main-container');
+            const current = parseInt(getComputedStyle(container).getPropertyValue('--reader-font-size')) || 18;
+            const next = Math.min(32, Math.max(12, current + delta));
+            container.style.setProperty('--reader-font-size', next + 'px');
+            const prefs = getReaderPrefs();
+            prefs.fontSize = next;
+            saveReaderPrefs(prefs);
+        }
+
+        function changeWidth(size) {
+            applyWidth(size);
+            const prefs = getReaderPrefs();
+            prefs.width = size;
+            saveReaderPrefs(prefs);
+        }
+
+        function applyWidth(size) {
+            const px = WIDTH_MAP[size] || WIDTH_MAP.medium;
+            document.querySelector('.main-container').style.setProperty('--reader-width', px);
+            updateWidthButtons(size);
+        }
+
+        function updateWidthButtons(active) {
+            ['narrow', 'medium', 'wide'].forEach(function(s) {
+                const btn = document.getElementById('width-' + s);
+                if (btn) btn.classList.toggle('active', s === active);
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.querySelector('.main-container.reader-mode')) {
+                toggleReaderMode();
+            }
+        });
+    </script>
+
+    <script>
+        async function saveMarkdownToLibrary() {
+            const content = document.getElementById('markdown_text').value.trim();
+            if (!content) { alert('No markdown content to save.'); return; }
+
+            const btn = document.getElementById('save-markdown-btn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').trim();
+                const title = firstLine.substring(0, 100) || 'Untitled Markdown';
+                const theme = document.getElementById('style_theme').value;
+                const filename = document.getElementById('output_filename').value || '';
+                const fileInput = document.getElementById('markdown_file');
+                const fromFile = fileInput.files && fileInput.files.length > 0;
+
+                const response = await fetch('/api/conversions', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        conversion_type: 'markdown_input',
+                        title: title,
+                        content: content,
+                        source_filename: fromFile ? fileInput.files[0].name : null,
+                        metadata: {
+                            style_theme: theme,
+                            output_filename: filename,
+                            from_file_upload: fromFile
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    btn.textContent = 'Saved!';
+                    btn.classList.add('saved');
+                    setTimeout(() => {
+                        btn.textContent = 'Save to Library';
+                        btn.classList.remove('saved');
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error('Save failed');
+                }
+            } catch (err) {
+                btn.textContent = 'Save to Library';
+                btn.disabled = false;
+                alert('Failed to save: ' + err.message);
+            }
+        }
+    </script>
 
     <script>
         // Wait for both the DOM and all scripts to be fully loaded
@@ -208,6 +361,13 @@ This is a blockquote to demonstrate styling.
             fileInput.addEventListener('change', handleFileSelect);
 
             // --- Initial Load ---
+            // Check if we have content from library reuse
+            const reuseContent = localStorage.getItem('libraryReuse');
+            if (reuseContent) {
+                markdownInput.value = reuseContent;
+                localStorage.removeItem('libraryReuse');
+            }
+
             // Trigger both functions on page load to set the initial state
             updateStyle();
             updatePreview();

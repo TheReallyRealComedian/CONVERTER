@@ -4,14 +4,18 @@ import tempfile
 import logging
 import sys
 import json
+import click
 from pathlib import Path
+from datetime import datetime, timezone
 from redis import Redis
 from rq import Queue
 from rq.job import Job
 from io import BytesIO
-from flask import Flask, render_template, request, flash, redirect, url_for, send_file
+from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
+from html.parser import HTMLParser
 from werkzeug.utils import secure_filename
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name
@@ -19,10 +23,10 @@ from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
 import fitz
-from flask import jsonify
 import traceback
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 from tasks import generate_podcast_task
+from models import db, User, Conversion
 
 
 logging.basicConfig(
@@ -31,15 +35,36 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
-SECRET_KEY = os.urandom(24)
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 GOOGLE_CREDENTIALS_PATH = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 STYLE_DIR = Path('/app/static/css/pdf_styles')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = SECRET_KEY
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key and os.environ.get('FLASK_ENV') == 'production':
+    raise RuntimeError("SECRET_KEY environment variable must be set in production")
+app.config['SECRET_KEY'] = _secret_key or 'dev-fallback-change-me-in-production'
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////app/data/converter.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize database
+db.init_app(app)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        return db.session.get(User, int(user_id))
+    except (ValueError, TypeError):
+        return None
 
 # Initialize services
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
@@ -55,13 +80,127 @@ task_queue = Queue(connection=redis_conn)
 # Shared output directory (must match tasks.py and docker-compose volume)
 OUTPUT_DIR = '/app/output_podcasts'
 
+# --- Create DB tables on startup ---
+with app.app_context():
+    os.makedirs('/app/data', exist_ok=True)
+    db.create_all()
+
+
+# --- CLI Commands ---
+@app.cli.command('create-user')
+@click.argument('username')
+@click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True)
+def create_user_cmd(username, password):
+    """Create a new user account."""
+    if len(password) < 8:
+        click.echo('Error: Password must be at least 8 characters.')
+        return
+    if User.query.filter_by(username=username).first():
+        click.echo(f'Error: User "{username}" already exists.')
+        return
+    user = User(username=username)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    click.echo(f'User "{username}" created successfully.')
+
+
+# --- Auth Routes ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('markdown_converter'))
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user, remember=True)
+            next_page = request.args.get('next')
+            if next_page:
+                from urllib.parse import urlparse
+                parsed = urlparse(next_page)
+                if parsed.netloc or parsed.scheme:
+                    next_page = None
+            return redirect(next_page or url_for('markdown_converter'))
+        flash('Invalid username or password.', 'danger')
+    return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+
 def highlight_code(code, lang, _):
     try:
         lexer = get_lexer_by_name(lang, stripall=True)
-    except:
+    except Exception:
         lexer = get_lexer_by_name('text', stripall=True)
     formatter = HtmlFormatter(style='default', cssclass='highlight', noclasses=True)
     return highlight(code, lexer, formatter)
+
+class _TableColumnCounter(HTMLParser):
+    """Counts columns in each <table> to detect wide tables."""
+
+    def __init__(self):
+        super().__init__()
+        self._in_table = False
+        self._in_first_row = False
+        self._col_count = 0
+        self._tables = []  # list of (start_offset, col_count)
+        self._table_start = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'table':
+            self._in_table = True
+            self._in_first_row = True
+            self._col_count = 0
+            self._table_start = self.getpos()
+        elif tag in ('th', 'td') and self._in_first_row:
+            self._col_count += 1
+        elif tag == 'tr' and self._in_table and self._col_count > 0:
+            # Second <tr> means first row is done
+            self._in_first_row = False
+
+    def handle_endtag(self, tag):
+        if tag == 'table' and self._in_table:
+            self._tables.append((self._table_start, self._col_count))
+            self._in_table = False
+            self._in_first_row = False
+
+
+def _wrap_wide_tables(html: str, column_threshold: int = 6) -> str:
+    """Wrap tables with >= column_threshold columns in a landscape div."""
+    parser = _TableColumnCounter()
+    parser.feed(html)
+
+    if not parser._tables:
+        return html
+
+    # Process in reverse so string offsets remain valid
+    lines = html.split('\n')
+    for (line_no, _col_offset), col_count in reversed(parser._tables):
+        if col_count < column_threshold:
+            continue
+        # Find the <table> tag in the source and its closing </table>
+        # line_no is 1-based from HTMLParser.getpos()
+        table_line_idx = line_no - 1
+
+        # Find the line with </table> starting from table_line_idx
+        end_idx = table_line_idx
+        for i in range(table_line_idx, len(lines)):
+            if '</table>' in lines[i]:
+                end_idx = i
+                break
+
+        lines[end_idx] = lines[end_idx].replace('</table>', '</table>\n</div>', 1)
+        lines[table_line_idx] = '<div class="landscape-table">\n' + lines[table_line_idx]
+
+    return '\n'.join(lines)
+
 
 md = MarkdownIt(
     'default',
@@ -70,6 +209,7 @@ md = MarkdownIt(
 
 
 @app.route('/')
+@login_required
 def markdown_converter():
     themes = []
     if STYLE_DIR.exists():
@@ -78,6 +218,7 @@ def markdown_converter():
     return render_template('markdown_converter.html', themes=sorted(themes))
 
 @app.route('/convert-markdown', methods=['POST'])
+@login_required
 async def convert_markdown():
     markdown_text = request.form.get('markdown_text')
     markdown_file = request.files.get('markdown_file')
@@ -106,6 +247,7 @@ async def convert_markdown():
             style_content = ''
 
     html_content = md.render(markdown_text)
+    html_content = _wrap_wide_tables(html_content, column_threshold=6)
     full_html = f"""
     <!DOCTYPE html>
     <html>
@@ -127,6 +269,18 @@ async def convert_markdown():
             browser = await p.chromium.launch()
             page = await browser.new_page()
             await page.set_content(full_html)
+            # Detect tables that overflow the page width (few but very wide columns)
+            await page.evaluate('''() => {
+                document.querySelectorAll('table').forEach(table => {
+                    if (table.scrollWidth > table.parentElement.clientWidth
+                        && !table.closest('.landscape-table')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'landscape-table';
+                        table.parentNode.insertBefore(wrapper, table);
+                        wrapper.appendChild(table);
+                    }
+                });
+            }''')
             await page.pdf(
                 path=temp_pdf_path,
                 format='A4',
@@ -155,27 +309,28 @@ async def convert_markdown():
 
 
 @app.route('/mermaid-converter')
+@login_required
 def mermaid_converter():
     return render_template('mermaid_converter.html')
 
 
 @app.route('/document-converter')
+@login_required
 def document_converter():
     return render_template('document_converter.html')
 
 @app.route('/transform-document', methods=['POST'])
+@login_required
 def transform_document():
     if 'document_file' not in request.files:
-        flash('No file part in the request.', 'danger')
-        return redirect(url_for('document_converter'))
+        return jsonify({'error': 'No file part in the request.'}), 400
 
     file = request.files['document_file']
     if file.filename == '':
-        flash('No file selected.', 'danger')
-        return redirect(url_for('document_converter'))
+        return jsonify({'error': 'No file selected.'}), 400
 
     if not file:
-        return redirect(url_for('document_converter'))
+        return jsonify({'error': 'No file provided.'}), 400
 
     original_filename = secure_filename(file.filename)
     temp_file_path = None
@@ -212,18 +367,19 @@ def transform_document():
 
     except Exception as e:
         app.logger.error(f"Unstructured processing failed: {e}", exc_info=True)
-        flash(f'Error processing file: {e}', 'danger')
-        return redirect(url_for('document_converter'))
+        return jsonify({'error': f'Error processing file: {e}'}), 500
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
 
 @app.route('/audio-converter')
+@login_required
 def audio_converter():
     return render_template('audio_converter.html', deepgram_api_key_set=bool(DEEPGRAM_API_KEY))
 
 @app.route('/api/get-deepgram-token', methods=['GET'])
+@login_required
 def get_deepgram_token():
     if not deepgram_service:
         app.logger.error("Deepgram service not configured")
@@ -232,6 +388,7 @@ def get_deepgram_token():
     return jsonify({"deepgram_token": deepgram_service.get_api_key()})
 
 @app.route('/transcribe-audio-file', methods=['POST'])
+@login_required
 def transcribe_audio_file():
     if not deepgram_service:
         return jsonify({"error": "Audio transcription service is not configured."}), 503
@@ -277,6 +434,7 @@ def transcribe_audio_file():
 
 
 @app.route('/generate-podcast', methods=['POST'])
+@login_required
 def generate_podcast():
     if not google_tts_service:
         return jsonify({"error": "Google Cloud TTS is not configured."}), 503
@@ -313,6 +471,7 @@ def generate_podcast():
 
 
 @app.route('/api/get-google-voices', methods=['GET'])
+@login_required
 def get_google_voices():
     if not google_tts_service:
         return jsonify({"error": "Google Cloud TTS is not configured."}), 503
@@ -326,6 +485,7 @@ def get_google_voices():
 
 
 @app.route('/generate-gemini-podcast', methods=['POST'])
+@login_required
 def generate_gemini_podcast():
     """Queue a podcast generation job to Redis."""
     if not GEMINI_API_KEY:
@@ -353,6 +513,7 @@ def generate_gemini_podcast():
 
 
 @app.route('/podcast-status/<job_id>', methods=['GET'])
+@login_required
 def podcast_status(job_id):
     """Check the status of a podcast generation job in Redis."""
     try:
@@ -374,6 +535,7 @@ def podcast_status(job_id):
 
 
 @app.route('/podcast-download/<job_id>', methods=['GET'])
+@login_required
 def podcast_download(job_id):
     """Download the generated podcast file."""
     try:
@@ -398,6 +560,7 @@ def podcast_download(job_id):
 
             
 @app.route('/api/get-gemini-voices', methods=['GET'])
+@login_required
 def get_gemini_voices():
     voices = {
         "male": [
@@ -443,6 +606,7 @@ def get_gemini_voices():
 
 
 @app.route('/format-dialogue-with-llm', methods=['POST'])
+@login_required
 def format_dialogue_with_llm():
     if not gemini_service:
         return jsonify({"error": "Gemini API Key is not configured."}), 503
@@ -480,6 +644,118 @@ def format_dialogue_with_llm():
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
     
 
+
+
+# --- Library Routes ---
+@app.route('/library')
+@login_required
+def library():
+    conversion_type = request.args.get('type', '')
+    search = request.args.get('search', '').strip()
+    favorites = request.args.get('favorites', '') == '1'
+    sort = request.args.get('sort', 'newest')
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    query = Conversion.query.filter_by(user_id=current_user.id)
+
+    if conversion_type:
+        query = query.filter_by(conversion_type=conversion_type)
+    if favorites:
+        query = query.filter_by(is_favorite=True)
+    if search:
+        query = query.filter(
+            db.or_(
+                Conversion.title.ilike(f'%{search}%'),
+                Conversion.content.ilike(f'%{search}%'),
+                Conversion.tags.ilike(f'%{search}%')
+            )
+        )
+
+    if sort == 'oldest':
+        query = query.order_by(Conversion.created_at.asc())
+    elif sort == 'title':
+        query = query.order_by(Conversion.title.asc())
+    else:
+        query = query.order_by(Conversion.created_at.desc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('library.html',
+                           conversions=pagination.items,
+                           pagination=pagination,
+                           current_type=conversion_type,
+                           current_search=search,
+                           current_favorites=favorites,
+                           current_sort=sort)
+
+
+@app.route('/library/<int:conversion_id>')
+@login_required
+def library_detail(conversion_id):
+    conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+    metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
+    return render_template('library_detail.html', conversion=conversion, metadata=metadata)
+
+
+# --- Conversion API ---
+ALLOWED_CONVERSION_TYPES = {'document_to_markdown', 'audio_transcription', 'dialogue_formatting', 'markdown_input'}
+
+@app.route('/api/conversions', methods=['POST'])
+@login_required
+def api_create_conversion():
+    data = request.get_json()
+    if not data or not data.get('content'):
+        return jsonify({'error': 'Content is required'}), 400
+
+    conversion_type = data.get('conversion_type', 'unknown')
+    if conversion_type not in ALLOWED_CONVERSION_TYPES:
+        return jsonify({'error': f'Invalid conversion type: {conversion_type}'}), 400
+
+    title = data.get('title', 'Untitled')[:255]
+
+    conversion = Conversion(
+        user_id=current_user.id,
+        conversion_type=conversion_type,
+        title=title,
+        content=data['content'],
+        source_filename=data.get('source_filename'),
+        source_mimetype=data.get('source_mimetype'),
+        source_size_bytes=data.get('source_size_bytes'),
+        metadata_json=json.dumps(data.get('metadata', {})),
+        tags=data.get('tags', ''),
+    )
+    db.session.add(conversion)
+    db.session.commit()
+    return jsonify(conversion.to_dict()), 201
+
+
+@app.route('/api/conversions/<int:conversion_id>', methods=['PUT'])
+@login_required
+def api_update_conversion(conversion_id):
+    conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+    data = request.get_json()
+
+    if 'title' in data:
+        conversion.title = str(data['title'])[:255]
+    if 'tags' in data:
+        conversion.tags = str(data['tags'])[:500]
+    if 'content' in data:
+        conversion.content = data['content']
+    if 'is_favorite' in data:
+        conversion.is_favorite = bool(data['is_favorite'])
+
+    db.session.commit()
+    return jsonify(conversion.to_dict())
+
+
+@app.route('/api/conversions/<int:conversion_id>', methods=['DELETE'])
+@login_required
+def api_delete_conversion(conversion_id):
+    conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+    db.session.delete(conversion)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 asgi_app = WsgiToAsgi(app)

@@ -15,15 +15,17 @@ services:
     ports:
       - "5656:5000"
     volumes:
-      - ./output_pdfs:/app/output
       - ./google-credentials.json:/app/google-credentials.json
       # Shared volume for podcast files
       - podcast_data:/app/output_podcasts
+      # Persistent database storage
+      - app_data:/app/data
     environment:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=${SECRET_KEY}
     env_file:
       - .env
     depends_on:
@@ -56,3 +58,4 @@ services:
 # Named volume for sharing podcast files between web and worker
 volumes:
   podcast_data:
+  app_data:

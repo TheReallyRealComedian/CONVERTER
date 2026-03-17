@@ -52,11 +52,11 @@ class GeminiService:
         
         # Style-specific tag density (chars per tag)
         density_map = {
-            'documentary': 1000,    # Sparse, authoritative
-            'conversational': 800,  # Moderate engagement
-            'academic': 1000,       # Sparse, precise
-            'satirical': 600,       # Dense for timing/sarcasm
-            'dramatic': 500         # Most expressive
+            'documentary': 800,     # Moderate, placed at key revelations
+            'conversational': 600,  # More frequent for natural feel
+            'academic': 900,        # Sparse, at analytical shifts
+            'satirical': 400,       # Dense for comedic timing/sarcasm
+            'dramatic': 350         # Most expressive, pauses and emotion
         }
         
         chars_per_tag = density_map.get(narration_style, 800)
@@ -138,71 +138,50 @@ class GeminiService:
         # ===== Style Directive Templates =====
         style_directives = {
             'documentary': """
-You are a documentary narrator with authoritative expertise and measured delivery.
+You are a world-class documentary narrator — think David Attenborough meets investigative journalism.
 
-Tone Guidance - Shift naturally based on content significance:
-- Foundational facts: Clear, informative, professional
-- Pivotal moments: Emphasis with appropriate weight
-- Strategic insights: Analytical precision and clarity
-- Consequences: Appropriate concern and gravity
-- Conclusions: Decisive clarity and thoughtful reflection
-
-Delivery: Natural pacing as in professional documentary. Avoid artificial or forced emotion.
+Voice: Authoritative but never dry. You make complex topics feel urgent and important.
+Approach: Build each segment like a mini-documentary — establish context, reveal the unexpected, draw conclusions.
+Emotional range: Start measured and professional, then let genuine fascination or concern break through at key moments.
+Use concrete examples and vivid details instead of abstract summaries. Make the listener SEE what you're describing.
 """,
-            
+
             'conversational': """
-You are a warm, engaging storyteller sharing fascinating discoveries with genuine enthusiasm.
+You are two curious, well-read friends having an animated conversation over coffee about something fascinating you just discovered.
 
-Emotional Flow - Let authentic interest guide delivery:
-- Opening: Curious, inviting tone
-- Discoveries: Excited engagement and wonder
-- Insights: Thoughtful exploration
-- Impact: Genuine concern and authenticity
-- Reflection: Warm, contemplative closure
-
-Delivery: Tell the story as you would to an interested friend - natural, not performative.
+Voice: Warm, genuine, sometimes surprised by your own insights. Think podcast hosts who actually care about the topic.
+Approach: Share discoveries like you're genuinely excited. React to each other's points. Build on ideas together.
+One speaker should be slightly more knowledgeable, the other asks the questions the audience is thinking.
+Use contractions always ("it's", "don't", "can't"). Include verbal fillers occasionally ("I mean...", "right?", "you know what's wild?").
+Disagree sometimes. Push back. Not every response should start with agreement.
 """,
-            
+
             'academic': """
-You are a subject matter expert presenting research with precision and intellectual rigor.
+You are brilliant researchers who make complex ideas accessible — think a TED talk, not a lecture hall.
 
-Analytical Delivery - Maintain scholarly precision:
-- Data presentation: Measured, clear articulation
-- Analysis: Thoughtful, methodical reasoning
-- Comparisons: Balanced, objective evaluation
-- Implications: Considered weight and nuance
-- Conclusions: Careful, evidence-based closure
-
-Delivery: Professional academic presentation - precise without being dry.
+Voice: Intellectually precise but passionate about the subject. You find this genuinely fascinating.
+Approach: Build understanding progressively — don't frontload jargon. Use analogies to bridge expert and lay understanding.
+Ground claims in evidence, but present findings as discoveries, not textbook entries.
+Alternate between dense analysis and "zoom out" moments where you explain why this matters.
 """,
-            
+
             'satirical': """
-You are a sharp-witted commentator in the style of John Oliver or late-night satirists.
-Deploy intelligent sarcasm and pointed humor to expose absurdities.
+You are sharp-witted commentators in the tradition of John Oliver or Jon Stewart.
+Your weapon is intelligent humor that exposes absurdities and contradictions.
 
-Satirical Tone - Strategic deployment of wit:
-- Setup: Build with dry, mock-serious delivery
-- Absurdities: [with sarcasm] Highlight contradictions sharply
-- Contrast reality: [incredulously] Emphasize the gap between claims and truth
-- Punchlines: Brief pause before landing the criticism
-- Righteous points: Drop sarcasm for moments of genuine concern
-
-Delivery: Smart, incisive commentary. Use [pause: 500ms] before key reveals.
-Sarcasm should be intelligent, not mean-spirited. Land points with precision.
+Voice: Dry wit, mock-seriousness, and perfectly timed incredulity. Drop the sarcasm for moments of genuine concern.
+Approach: Set up the absurdity with a straight face, then pull back the curtain. Use contrast between what's claimed and what's real.
+Land punchlines with precision — then immediately pivot to why it actually matters.
+Include [sarcastic] tags before key satirical moments. Use [pause] before reveals for comedic timing.
 """,
-            
+
             'dramatic': """
-You are an expressive presenter emphasizing human impact and emotional resonance.
+You are compelling storytellers who make the listener feel the stakes of every development.
 
-Dramatic Range - Full emotional spectrum:
-- Setup: Build tension and anticipation
-- Rising action: Increasing intensity
-- Climax: Full emphasis with strategic pauses
-- Impact: Deep emotional weight
-- Aftermath: Reflective gravity and meaning
-
-Delivery: Theatrical range with strategic pauses [pause: 800ms] for maximum impact.
-Let emotion serve the story - powerful but not overwrought.
+Voice: Expressive, emotionally resonant, with a sense of narrative urgency. Think true crime podcast meets prestige documentary.
+Approach: Build tension deliberately. Use pacing — slow down before revelations, speed up during action.
+Make the audience feel the human impact. Use sensory details and concrete scenarios.
+Strategic silence is your most powerful tool — use [pause] before and after major revelations.
 """
         }
         
@@ -225,7 +204,7 @@ Let emotion serve the story - powerful but not overwrought.
                 )
         
         logger.info(f"=== LLM SCRIPT GENERATION START ===")
-        logger.info(f"Model: gemini-2.0-flash-exp")
+        logger.info(f"Model: gemini-2.5-flash")
         logger.info(f"Narration style: {narration_style}")
         logger.info(f"Tag guidance: {tag_info['tag_range']} tags ({tag_info['chars_per_tag']} chars/tag)")
         logger.info(f"Prompt length: {len(prompt)} characters")
@@ -237,11 +216,11 @@ Let emotion serve the story - powerful but not overwrought.
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.7,
-                    max_output_tokens=8192
+                    temperature=0.8,
+                    max_output_tokens=16384
                 )
             )
 
@@ -296,127 +275,152 @@ Let emotion serve the story - powerful but not overwrought.
             'raw_formatted_text': formatted_dialogue
         }
 
-    def _build_single_speaker_prompt_v2(self, style_directive, language_name, target_length, 
-                                         target_length_desc, speakers_info, raw_text, tag_info, 
+    def _build_single_speaker_prompt_v2(self, style_directive, language_name, target_length,
+                                         target_length_desc, speakers_info, raw_text, tag_info,
                                          narration_style):
         """Build optimized prompt for single-speaker narrative with dynamic tag guidance."""
-        
+
         speaker_name = speakers_info.split('\n')[0].split('(')[0].replace('-', '').strip() if speakers_info else 'Narrator'
-        
-        # Style-specific tag examples
-        tag_examples = {
-            'documentary': "[with emphasis], [analytically speaking], [pause: 500ms]",
-            'conversational': "[thoughtfully], [with enthusiasm], [pause: 300ms]",
-            'academic': "[analytically speaking], [methodically], [pause: 400ms]",
-            'satirical': "[with sarcasm], [incredulously], [pause: 500ms] before reveals",
-            'dramatic': "[with grave concern], [with intensity], [pause: 800ms]"
-        }
-        
-        example_tags = tag_examples.get(narration_style, "[with emotion], [pause: 400ms]")
-        
-        return f"""[SYSTEM INSTRUCTION - Style Directive]
-        {style_directive}
 
-        [NARRATIVE GENERATION TASK]
-        Transform this text into a segmented narrative for text-to-speech in {language_name}.
+        return f"""You are a world-class podcast producer creating a {target_length_desc} spoken narrative in {language_name}.
 
-        **Speaker:** {speaker_name}
-        **Target Length:** {target_length} ({target_length_desc})
-        **Content Length:** {len(raw_text)} characters (~{tag_info['spoken_minutes']} minutes spoken)
+{style_directive}
 
-        **Critical Formatting Rules:**
-        1. BREAK INTO SHORT SEGMENTS - Each line should be 1-3 sentences (max 40-60 words)
-        2. EVERY line MUST start with "{speaker_name}:" - even when continuing the same thought
-        3. Each line is a complete thought, dramatic beat, or narrative unit
-        4. Keep content close to original - minimal rewriting, preserve key information
-        5. Use markup tags STRATEGICALLY ({tag_info['tag_range']} tags recommended for this length):
-        - Target density: approximately 1 tag per {tag_info['chars_per_tag']} characters
-        - Available tags: {example_tags}
-        - Place tags at TRANSITIONS and KEY MOMENTS only
-        - Examples of when to tag:
-            * Before revealing important information: [pause: 500ms]
-            * When shifting emotional tone: [with concern], [with sarcasm]
-            * At analytical observations: [analytically speaking]
-        6. Let semantic weight drive emotion naturally (don't over-tag routine content)
+YOUR TASK: Transform the source material below into a compelling, structured monologue for text-to-speech.
 
-        **Example Format (FOLLOW THIS STRUCTURE):**
-        {speaker_name}: Opening statement with 1-2 sentences.
-        {speaker_name}: Next development or thought. Continue building the narrative.
-        {speaker_name}: [pause: 500ms] Key revelation or dramatic moment.
-        {speaker_name}: [with sarcasm] Commentary on the situation.
-        {speaker_name}: Further elaboration keeping segments short.
+SPEAKER: {speaker_name}
+TARGET: {target_length} ({target_length_desc})
 
-        **CRITICAL: Each line MUST start with "{speaker_name}:" for TTS to process correctly!**
+=== NARRATIVE STRUCTURE ===
+Build your script with this arc:
+1. HOOK (first 2-3 lines): Open with something surprising, provocative, or fascinating from the source. Grab attention immediately. Don't start with "Today we're going to talk about..."
+2. CONTEXT: Establish why this matters. What's at stake? Why should the listener care?
+3. BODY: Explore the key ideas as a STORY, not a summary. Use concrete examples, vivid details, analogies, and hypothetical scenarios ("Imagine you're..."). Alternate between information-dense segments and reflective "zoom out" moments.
+4. CLIMAX: Build to the most significant insight or revelation.
+5. CLOSING (last 2-3 lines): End with a memorable takeaway that resonates. Callback to the opening if possible.
 
-        **Source Text:**
-        {raw_text}
+=== PERFORMANCE TAGS (Gemini TTS) ===
+Use these OFFICIAL Gemini TTS tags strategically ({tag_info['tag_range']} tags total, ~1 per {tag_info['chars_per_tag']} chars):
 
-        Generate segmented narrative with {tag_info['tag_range']} strategic markup tags.
-        Each segment should be short (1-3 sentences) with "{speaker_name}:" prefix.
-        """
+Emotions: [excited], [thoughtful], [empathetic], [sad], [playful], [resigned], [menacing]
+Voice: [whispering], [laughing], [sighing], [speaking slowly]
+Pacing: [pause], [slow], [measured]
+Texture: [soft], [intimate], [quiet], [quiet emphasis]
 
-    def _build_multi_speaker_prompt_v2(self, style_directive, num_speakers, language_name, 
-                                        target_length, target_length_desc, speakers_info, raw_text, 
+Place tags at TRANSITIONS and KEY MOMENTS only. Don't over-tag routine content.
+
+=== FORMAT RULES ===
+- EVERY line MUST start with "{speaker_name}:" — no exceptions
+- Keep each line to 1-2 sentences (max ~120 characters of spoken text)
+- Each line = one thought, one beat, one moment
+- Do NOT write headers, section titles, or markdown — ONLY dialogue lines
+- Transform the source material into engaging narrative — do NOT just summarize or rephrase it
+
+=== WHAT TO AVOID ===
+- Wikipedia-style summaries ("X is a Y that was Z")
+- Listing facts without narrative thread
+- Generic openings ("Today we'll explore...")
+- Monotone information delivery without emotional variation
+- Overly formal or written-style language — this must sound SPOKEN
+
+=== EXAMPLE (showing structure and feel, not content) ===
+{speaker_name}: [pause] What if I told you that everything you think you know about this topic is based on a single, flawed assumption?
+{speaker_name}: [thoughtful] Because that's exactly what a team of researchers discovered last year. And the implications... they're staggering.
+{speaker_name}: But let me back up for a second. To understand why this matters, we need to start with a story.
+{speaker_name}: [excited] Picture this. It's 2019, and a small lab in Cambridge is running what they think is a routine experiment.
+{speaker_name}: Nobody expected what happened next.
+{speaker_name}: [pause] The results didn't just challenge one theory. They upended an entire field.
+
+=== SOURCE MATERIAL ===
+{raw_text}
+
+Now generate the full monologue. Remember: every line starts with "{speaker_name}:", keep lines short, and make it compelling — not a summary."""
+
+    def _build_multi_speaker_prompt_v2(self, style_directive, num_speakers, language_name,
+                                        target_length, target_length_desc, speakers_info, raw_text,
                                         tag_info, narration_style):
         """Build optimized prompt for multi-speaker dialogue with dynamic tag guidance."""
-        
-        # Style-specific tag examples
-        tag_examples = {
-            'documentary': "[analytically], [with emphasis], [pause: 400ms]",
-            'conversational': "[enthusiastically], [thoughtfully], [pause: 300ms]",
-            'academic': "[methodically], [with precision], [pause: 400ms]",
-            'satirical': "[with sarcasm], [incredulously], [mockingly], [pause: 500ms]",
-            'dramatic': "[intensely], [with grave concern], [pause: 800ms]"
-        }
-        
-        example_tags = tag_examples.get(narration_style, "[with emotion], [pause: 400ms]")
-        
+
         # For dialogue, increase tag budget by 50% (more transitions between speakers)
         dialogue_min = int(tag_info['min_tags'] * 1.5)
         dialogue_max = int(tag_info['max_tags'] * 1.5)
         dialogue_range = f"{dialogue_min}-{dialogue_max}"
-        
-        return f"""[SYSTEM INSTRUCTION - Style Directive]
+
+        # Extract speaker names for examples
+        speaker_names = []
+        for line in speakers_info.strip().split('\n'):
+            if line.strip().startswith('-'):
+                name = line.strip().lstrip('- ').split('(')[0].strip()
+                if name:
+                    speaker_names.append(name)
+        sp1 = speaker_names[0] if len(speaker_names) > 0 else 'Host'
+        sp2 = speaker_names[1] if len(speaker_names) > 1 else 'Guest'
+
+        return f"""You are a world-class podcast producer creating a {target_length_desc} dialogue in {language_name} between {num_speakers} speakers.
+
 {style_directive}
 
-[DIALOGUE GENERATION TASK]
-Transform this text into a natural dialogue script for text-to-speech in {language_name}.
-
-**Speakers:** {num_speakers}
+SPEAKERS:
 {speakers_info}
 
-**Target Length:** {target_length} ({target_length_desc})
-**Content Length:** {len(raw_text)} characters (~{tag_info['spoken_minutes']} minutes spoken)
+TARGET: {target_length} ({target_length_desc})
 
-**Critical Formatting Rules:**
-1. Create natural, flowing dialogue with back-and-forth conversation
-2. EACH line MUST start with "SpeakerName:" - no exceptions for TTS processing
-3. Each turn should be 1-3 sentences (max 40-60 words) for natural conversational flow
-4. Keep content close to original - minimal rewriting, preserve key information
-5. Use markup tags STRATEGICALLY ({dialogue_range} tags recommended for dialogue):
-   - Target density: approximately 1 tag per {int(tag_info['chars_per_tag']*0.7)} characters (more for dialogue)
-   - Available tags: {example_tags}
-   - Place tags at speaker transitions and emotional shifts
-   - Examples of when to tag:
-     * Before key revelations: [pause: 300ms]
-     * When tone shifts: [with concern], [enthusiastically]
-     * For emphasis: [with sarcasm], [analytically speaking]
-6. Let semantic weight and dialogue structure drive emotion naturally
+=== SPEAKER DYNAMICS ===
+Create REAL conversation, not a scripted Q&A. The speakers should:
+- Have DISTINCT perspectives: one might be more skeptical, the other more enthusiastic. One explains, the other challenges.
+- REACT genuinely to each other: surprise ("Wait, seriously?"), pushback ("I'm not sure I buy that"), building on ideas ("And that connects to something else...")
+- Occasionally INTERRUPT or finish each other's thoughts
+- Use natural fillers sparingly: "I mean...", "right?", "here's the thing", "you know what's wild?"
+- Use contractions ALWAYS ("it's", "don't", "can't", "we're")
+- DISAGREE sometimes. Not every response should be "That's a great point." Challenge each other.
 
-**Example Format (FOLLOW THIS STRUCTURE):**
-Kate: Opening thought with 1-2 sentences.
-Max: Response or counterpoint. Keep it concise.
-Kate: [pause: 300ms] Key revelation or dramatic turn.
-Max: [with sarcasm] Witty commentary on the situation.
+=== NARRATIVE STRUCTURE ===
+1. HOOK (first 3-4 exchanges): Start with something that grabs attention. A surprising fact, a provocative question, a "you won't believe this" moment. NOT "Welcome to our show, today we'll discuss..."
+2. CONTEXT: Naturally establish why the listener should care. Build stakes.
+3. BODY: Explore key ideas through genuine back-and-forth. Use concrete stories, analogies, and "imagine this" scenarios. Alternate between information-rich exchanges and lighter, reflective moments.
+4. CLIMAX: Build to the biggest insight or most important revelation.
+5. CLOSING (last 3-4 exchanges): Memorable takeaway. Callback to the opening hook if possible. Leave the listener thinking.
 
-**CRITICAL: EVERY line must start with speaker name for TTS to work!**
+=== PERFORMANCE TAGS (Gemini TTS) ===
+Use these OFFICIAL Gemini TTS tags strategically ({dialogue_range} tags total):
 
-**Source Text:**
+Emotions: [excited], [thoughtful], [empathetic], [sad], [sarcastic], [playful], [resigned]
+Voice: [whispering], [laughing], [sighing], [speaking slowly]
+Pacing: [pause], [slow], [measured]
+Texture: [soft], [intimate], [quiet], [quiet emphasis]
+
+Place tags in the TEXT portion of lines (after "Speaker:"). Use at emotional shifts and key moments.
+
+=== FORMAT RULES ===
+- EVERY line MUST start with the speaker's exact name followed by colon: "SpeakerName: text"
+- Keep each turn to 1-2 sentences (max ~120 characters of spoken text)
+- Each turn = one thought, one reaction, one beat
+- Aim for rapid back-and-forth — avoid long monologues within dialogue
+- Do NOT write headers, section titles, or markdown — ONLY dialogue lines
+- Transform the source into engaging conversation — do NOT just summarize it as Q&A
+
+=== WHAT TO AVOID ===
+- Q&A ping-pong ("What is X?" / "X is Y." / "And what about Z?")
+- Both speakers always agreeing ("Great point!" / "Exactly!" / "Absolutely!")
+- Wikipedia-style explanations read aloud
+- Formal, written language that no one would actually say
+- Long turns that are really monologues disguised as dialogue
+- Generic praise patterns ("That's so interesting", "Wow, fascinating")
+
+=== EXAMPLE (showing dynamics and feel, not content) ===
+{sp1}: [pause] OK so I came across something this week that genuinely blew my mind. And I don't say that lightly.
+{sp2}: [laughing] You say that every week.
+{sp1}: Fair. But this time I mean it. So you know how everyone assumes that...
+{sp2}: Oh no. You're about to tell me that's wrong, aren't you.
+{sp1}: [excited] Completely wrong! There was this study that came out and basically...
+{sp2}: [thoughtful] Hmm, wait. Let me push back on that a little. Because I've seen research that suggests the opposite.
+{sp1}: OK sure, but here's what makes this different...
+{sp2}: [pause] Alright, that's actually... yeah. That changes things.
+
+=== SOURCE MATERIAL ===
 {raw_text}
 
-Generate engaging dialogue with {dialogue_range} strategic markup tags.
-Each turn should be short (1-3 sentences) with "SpeakerName:" prefix.
-"""
+Now generate the full dialogue. Remember: every line starts with a speaker name and colon, keep turns short, make it feel like a REAL conversation — not a scripted summary."""
 
     def _parse_dialogue(self, formatted_text):
         """Parse formatted dialogue text into structured list."""

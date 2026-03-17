@@ -3,6 +3,19 @@
     size: A4;
     margin: 2.5cm;
 }
+
+@page landscape-page {
+    size: A4 landscape;
+    margin: 2.5cm;
+}
+
+.landscape-table {
+    page: landscape-page;
+}
+
+.landscape-table table {
+    font-size: 0.85em;
+}
 body {
     font-family: "Times New Roman", Times, serif;
     font-size: 12pt;

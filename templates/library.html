@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Library{% endblock %}
+
+{% block content %}
+<div class="container-fluid library-page">
+    <!-- Filter Bar -->
+    <div class="library-filters">
+        <form method="GET" action="{{ url_for('library') }}" class="filter-form">
+            <div class="filter-group">
+                <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All Types</option>
+                    <option value="document_to_markdown" {% if current_type == 'document_to_markdown' %}selected{% endif %}>Document</option>
+                    <option value="audio_transcription" {% if current_type == 'audio_transcription' %}selected{% endif %}>Audio</option>
+                    <option value="dialogue_formatting" {% if current_type == 'dialogue_formatting' %}selected{% endif %}>Dialogue</option>
+                    <option value="markdown_input" {% if current_type == 'markdown_input' %}selected{% endif %}>Markdown</option>
+                </select>
+            </div>
+            <div class="filter-group filter-search">
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="Search title, content, tags..." value="{{ current_search }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-checkbox">
+                    <input type="checkbox" name="favorites" value="1" {% if current_favorites %}checked{% endif %} onchange="this.form.submit()">
+                    <span>Favorites</span>
+                </label>
+            </div>
+            <div class="filter-group">
+                <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest</option>
+                    <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest</option>
+                    <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Title A-Z</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Search</button>
+        </form>
+    </div>
+
+    <!-- Results -->
+    {% if conversions %}
+    <div class="library-grid">
+        {% for conv in conversions %}
+        <div class="library-card" data-id="{{ conv.id }}">
+            <div class="library-card-header">
+                <span class="type-badge type-{{ conv.conversion_type }}">
+                    {% if conv.conversion_type == 'document_to_markdown' %}Document
+                    {% elif conv.conversion_type == 'audio_transcription' %}Audio
+                    {% elif conv.conversion_type == 'dialogue_formatting' %}Dialogue
+                    {% elif conv.conversion_type == 'markdown_input' %}Markdown
+                    {% else %}{{ conv.conversion_type }}{% endif %}
+                </span>
+                <button class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Toggle favorite">
+                    {{ '&#9733;' if conv.is_favorite else '&#9734;' }}
+                </button>
+            </div>
+            <a href="{{ url_for('library_detail', conversion_id=conv.id) }}" class="library-card-body">
+                <h5 class="library-card-title">{{ conv.title }}</h5>
+                {% if conv.source_filename %}
+                <div class="library-card-source">{{ conv.source_filename }}</div>
+                {% endif %}
+                <p class="library-card-preview">{{ conv.content[:200] }}{% if conv.content|length > 200 %}...{% endif %}</p>
+            </a>
+            <div class="library-card-footer">
+                <span class="library-card-date" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
+                    {{ conv.created_at.strftime('%d %b %Y, %H:%M') }}
+                </span>
+                {% if conv.tags %}
+                <div class="library-card-tags">
+                    {% for tag in conv.tags.split(',') %}
+                        {% if tag.strip() %}
+                        <span class="tag-pill">{{ tag.strip() }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="library-card-actions">
+                    <button class="action-btn-sm" onclick="copyContent({{ conv.id }})" title="Copy content">Copy</button>
+                    <button class="action-btn-sm action-btn-danger" onclick="deleteConversion({{ conv.id }}, this)" title="Delete">Delete</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav class="library-pagination">
+        <ul class="pagination pagination-sm justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('library', page=pagination.prev_num, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}">Prev</a>
+            </li>
+            {% endif %}
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('library', page=p, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('library', page=pagination.next_num, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="library-empty">
+        <h5>No saved conversions yet</h5>
+        <p>Use "Save to Library" on any converter page to start building your library.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleFavorite(id, btn) {
+        const isFav = btn.classList.contains('active');
+        fetch(`/api/conversions/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({is_favorite: !isFav})
+        }).then(r => {
+            if (r.ok) {
+                btn.classList.toggle('active');
+                btn.innerHTML = btn.classList.contains('active') ? '&#9733;' : '&#9734;';
+            }
+        });
+    }
+
+    function copyContent(id) {
+        const card = document.querySelector(`[data-id="${id}"]`);
+        const text = card.querySelector('.library-card-preview').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Content copied to clipboard');
+        });
+    }
+
+    function deleteConversion(id, btn) {
+        if (!confirm('Delete this conversion? This cannot be undone.')) return;
+        fetch(`/api/conversions/${id}`, {method: 'DELETE'}).then(r => {
+            if (r.ok) {
+                const card = btn.closest('.library-card');
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => card.remove(), 200);
+            }
+        });
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+</script>
+{% endblock %}

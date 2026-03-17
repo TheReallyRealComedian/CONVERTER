@@ -257,6 +257,9 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                                             Clear
                                         </button>
+                                        {% if current_user.is_authenticated %}
+                                        <button type="button" class="save-library-btn hidden" id="save-live-btn">Save to Library</button>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -288,6 +291,7 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                                     Clear
                                 </button>
+                                <button type="button" class="save-library-btn hidden" id="save-transcription-btn">Save to Library</button>
                             </div>
                         </div>
                         
@@ -619,8 +623,17 @@ document.addEventListener('DOMContentLoaded', function() {
         micButton.title = "Click to Start Recording";
         
         languageButtons.forEach(btn => btn.disabled = false);
-        
+
         transcriptOutput.focus();
+
+        // Show save button if there's transcript content
+        const saveLiveBtn = document.getElementById('save-live-btn');
+        if (saveLiveBtn && transcriptOutput.value.trim()) {
+            saveLiveBtn.classList.remove('hidden');
+            saveLiveBtn.textContent = 'Save to Library';
+            saveLiveBtn.disabled = false;
+            saveLiveBtn.classList.remove('saved');
+        }
     };
 
     micButton.addEventListener('click', () => {
@@ -674,6 +687,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             resultContainer.textContent = result.transcript || 'No transcript was returned.';
+
+            // Show save button and store metadata
+            const saveBtn = document.getElementById('save-transcription-btn');
+            saveBtn.classList.remove('hidden');
+            saveBtn.textContent = 'Save to Library';
+            saveBtn.disabled = false;
+            saveBtn._transcriptionData = {
+                content: result.transcript,
+                filename: fileInput.files[0].name,
+                mimetype: fileInput.files[0].type,
+                size: fileInput.files[0].size,
+                metadata: result.metadata || {}
+            };
 
         } catch (error) {
             console.error('Transcription error:', error);
@@ -740,7 +766,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const podcastModeRadios = document.querySelectorAll('input[name="podcast-mode"]');
     const podcastLanguageSelect = document.getElementById('podcast-language');
-    const podcastStyleSelect = document.getElementById('podcast-style');
     const podcastRawText = document.getElementById('podcast-raw-text');
     const podcastScript = document.getElementById('podcast-script');
     const generateScriptBtn = document.getElementById('generate-script-btn');
@@ -955,6 +980,84 @@ document.addEventListener('DOMContentLoaded', function() {
             generatePodcastBtn.textContent = '🎙️ Generate Podcast';
         }
     });
+
+    // ==========================================================
+    // ===== SAVE TO LIBRARY =====
+    // ==========================================================
+    document.getElementById('save-transcription-btn').addEventListener('click', async function() {
+        const btn = this;
+        const data = btn._transcriptionData;
+        if (!data) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            const stem = data.filename.replace(/\.[^.]+$/, '');
+            const response = await fetch('/api/conversions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    conversion_type: 'audio_transcription',
+                    title: stem,
+                    content: data.content,
+                    source_filename: data.filename,
+                    source_mimetype: data.mimetype,
+                    source_size_bytes: data.size,
+                    metadata: data.metadata
+                })
+            });
+            if (response.ok) {
+                btn.textContent = 'Saved!';
+                btn.classList.add('saved');
+            } else {
+                throw new Error('Save failed');
+            }
+        } catch (err) {
+            btn.textContent = 'Save to Library';
+            btn.disabled = false;
+            alert('Failed to save: ' + err.message);
+        }
+    });
+
+    // ===== SAVE LIVE TRANSCRIPTION TO LIBRARY =====
+    const saveLiveBtn = document.getElementById('save-live-btn');
+    if (saveLiveBtn) {
+        saveLiveBtn.addEventListener('click', async function() {
+            const btn = this;
+            const content = document.getElementById('live-transcript-output').value.trim();
+            if (!content) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const now = new Date();
+                const title = `Live Transcription ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+                const response = await fetch('/api/conversions', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        conversion_type: 'audio_transcription',
+                        title: title,
+                        content: content,
+                        source_filename: 'live-recording',
+                        metadata: {source: 'live_transcription'}
+                    })
+                });
+                if (response.ok) {
+                    btn.textContent = 'Saved!';
+                    btn.classList.add('saved');
+                } else {
+                    throw new Error('Save failed');
+                }
+            } catch (err) {
+                btn.textContent = 'Save to Library';
+                btn.disabled = false;
+                alert('Failed to save: ' + err.message);
+            }
+        });
+    }
 
 });
 </script>

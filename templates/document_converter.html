@@ -14,7 +14,9 @@
                     <p class="card-text">
                         Upload a file (PDF, DOCX, PPTX, EML, HTML, etc.) and convert it into a structured plain text file. Powered by <strong>unstructured.io</strong>.
                     </p>
-                    
+
+                    <div id="alert-container"></div>
+
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
                             {% for category, message in messages %}
@@ -23,19 +25,138 @@
                         {% endif %}
                     {% endwith %}
 
-                    <form action="{{ url_for('transform_document') }}" method="post" enctype="multipart/form-data">
+                    <form id="convert-form" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label for="document_file" class="form-label">Select File</label>
                             <input class="form-control" type="file" id="document_file" name="document_file" required>
                             <div class="form-text">Max file size: 100MB.</div>
                         </div>
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Transform to Text</button>
+                            <button type="submit" class="btn btn-primary" id="convert-btn">Transform to Text</button>
                         </div>
                     </form>
+
+                    <!-- Result area (hidden by default) -->
+                    <div id="result-area" class="result-area hidden">
+                        <hr>
+                        <div class="result-header">
+                            <h5 class="result-title">Conversion Result</h5>
+                            <div class="result-actions">
+                                <button type="button" class="action-btn" onclick="downloadResult()">Download .md</button>
+                                <button type="button" class="save-library-btn" id="save-btn" onclick="saveToLibrary()">Save to Library</button>
+                            </div>
+                        </div>
+                        <pre id="result-content" class="result-preview"></pre>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let lastResult = null;
+
+    document.getElementById('convert-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('document_file');
+        if (!fileInput.files.length) return;
+
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('document_file', file);
+
+        const btn = document.getElementById('convert-btn');
+        btn.disabled = true;
+        btn.textContent = 'Converting...';
+        document.getElementById('result-area').classList.add('hidden');
+        document.getElementById('alert-container').innerHTML = '';
+
+        try {
+            const response = await fetch('{{ url_for("transform_document") }}', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || `Conversion failed (${response.status})`);
+                }
+                throw new Error(`Conversion failed (${response.status})`);
+            }
+
+            const text = await response.text();
+            lastResult = {
+                content: text,
+                filename: file.name,
+                mimetype: file.type,
+                size: file.size
+            };
+
+            document.getElementById('result-content').textContent = text;
+            document.getElementById('result-area').classList.remove('hidden');
+            document.getElementById('save-btn').textContent = 'Save to Library';
+            document.getElementById('save-btn').disabled = false;
+        } catch (err) {
+            document.getElementById('alert-container').innerHTML =
+                `<div class="alert alert-danger">${err.message}</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Transform to Text';
+        }
+    });
+
+    function downloadResult() {
+        if (!lastResult) return;
+        const blob = new Blob([lastResult.content], {type: 'text/markdown'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const stem = lastResult.filename.replace(/\.[^.]+$/, '');
+        a.download = stem + '.md';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    async function saveToLibrary() {
+        if (!lastResult) return;
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            const stem = lastResult.filename.replace(/\.[^.]+$/, '');
+            const ext = lastResult.filename.split('.').pop().toLowerCase();
+            const response = await fetch('/api/conversions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    conversion_type: 'document_to_markdown',
+                    title: stem,
+                    content: lastResult.content,
+                    source_filename: lastResult.filename,
+                    source_mimetype: lastResult.mimetype,
+                    source_size_bytes: lastResult.size,
+                    metadata: {
+                        file_extension: '.' + ext
+                    }
+                })
+            });
+
+            if (response.ok) {
+                btn.textContent = 'Saved!';
+                btn.classList.add('saved');
+            } else {
+                throw new Error('Save failed');
+            }
+        } catch (err) {
+            btn.textContent = 'Save to Library';
+            btn.disabled = false;
+            alert('Failed to save: ' + err.message);
+        }
+    }
+</script>
 {% endblock %}

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}{{ conversion.title }} - Library{% endblock %}
+
+{% block content %}
+<div class="container-fluid library-detail-page">
+    <div class="detail-header">
+        <a href="{{ url_for('library') }}" class="back-link">&larr; Back to Library</a>
+        <div class="detail-title-row">
+            <input type="text" class="detail-title-input" id="detail-title" value="{{ conversion.title }}" onchange="updateField('title', this.value)">
+            <span class="type-badge type-{{ conversion.conversion_type }}">
+                {% if conversion.conversion_type == 'document_to_markdown' %}Document
+                {% elif conversion.conversion_type == 'audio_transcription' %}Audio
+                {% elif conversion.conversion_type == 'dialogue_formatting' %}Dialogue
+                {% elif conversion.conversion_type == 'markdown_input' %}Markdown
+                {% else %}{{ conversion.conversion_type }}{% endif %}
+            </span>
+            <button class="favorite-btn {% if conversion.is_favorite %}active{% endif %}" onclick="toggleFavorite(this)" title="Toggle favorite">
+                {{ '&#9733;' if conversion.is_favorite else '&#9734;' }}
+            </button>
+        </div>
+    </div>
+
+    <div class="detail-layout">
+        <!-- Main Content -->
+        <div class="detail-content">
+            <div class="detail-content-actions">
+                <button class="action-btn" onclick="copyFullContent()">Copy to Clipboard</button>
+                <button class="action-btn" onclick="downloadContent()">Download as .txt</button>
+                {% if conversion.conversion_type == 'markdown_input' %}
+                <a href="{{ url_for('markdown_converter') }}" class="action-btn" onclick="storeForReuse()">Open in Editor</a>
+                {% endif %}
+                <button class="action-btn action-btn-danger" onclick="deleteConversion()">Delete</button>
+            </div>
+            <div class="detail-content-body" id="content-body">
+                <pre class="detail-content-text">{{ conversion.content }}</pre>
+            </div>
+        </div>
+
+        <!-- Sidebar: Metadata -->
+        <div class="detail-sidebar">
+            <div class="sidebar-section">
+                <h6>Details</h6>
+                {% if conversion.source_filename %}
+                <div class="meta-row">
+                    <span class="meta-label">Source File</span>
+                    <span class="meta-value">{{ conversion.source_filename }}</span>
+                </div>
+                {% endif %}
+                {% if conversion.source_mimetype %}
+                <div class="meta-row">
+                    <span class="meta-label">File Type</span>
+                    <span class="meta-value">{{ conversion.source_mimetype }}</span>
+                </div>
+                {% endif %}
+                {% if conversion.source_size_bytes %}
+                <div class="meta-row">
+                    <span class="meta-label">File Size</span>
+                    <span class="meta-value">{{ "%.1f"|format(conversion.source_size_bytes / 1048576) }} MB</span>
+                </div>
+                {% endif %}
+                <div class="meta-row">
+                    <span class="meta-label">Created</span>
+                    <span class="meta-value">{{ conversion.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+                </div>
+                {% if conversion.updated_at and conversion.updated_at != conversion.created_at %}
+                <div class="meta-row">
+                    <span class="meta-label">Updated</span>
+                    <span class="meta-value">{{ conversion.updated_at.strftime('%d %b %Y, %H:%M') }}</span>
+                </div>
+                {% endif %}
+                <div class="meta-row">
+                    <span class="meta-label">Content Length</span>
+                    <span class="meta-value">{{ conversion.content|length|string + ' chars' }}</span>
+                </div>
+            </div>
+
+            {% if metadata %}
+            <div class="sidebar-section">
+                <h6>Conversion Metadata</h6>
+                {% for key, value in metadata.items() %}
+                <div class="meta-row">
+                    <span class="meta-label">{{ key.replace('_', ' ').title() }}</span>
+                    <span class="meta-value">{{ value }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="sidebar-section">
+                <h6>Tags</h6>
+                <div class="tags-editor">
+                    <input type="text" class="form-control form-control-sm" id="tags-input"
+                           value="{{ conversion.tags }}"
+                           placeholder="comma-separated tags"
+                           onchange="updateField('tags', this.value)">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const CONVERSION_ID = {{ conversion.id }};
+
+    function updateField(field, value) {
+        const body = {};
+        body[field] = value;
+        fetch(`/api/conversions/${CONVERSION_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        }).then(r => {
+            if (r.ok) showToast(`${field} updated`);
+        });
+    }
+
+    function toggleFavorite(btn) {
+        const isFav = btn.classList.contains('active');
+        fetch(`/api/conversions/${CONVERSION_ID}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({is_favorite: !isFav})
+        }).then(r => {
+            if (r.ok) {
+                btn.classList.toggle('active');
+                btn.innerHTML = btn.classList.contains('active') ? '&#9733;' : '&#9734;';
+            }
+        });
+    }
+
+    function copyFullContent() {
+        const text = document.querySelector('.detail-content-text').textContent;
+        navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'));
+    }
+
+    function downloadContent() {
+        const text = document.querySelector('.detail-content-text').textContent;
+        const blob = new Blob([text], {type: 'text/plain'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '{{ conversion.title|e }}.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function storeForReuse() {
+        const text = document.querySelector('.detail-content-text').textContent;
+        localStorage.setItem('libraryReuse', text);
+    }
+
+    function deleteConversion() {
+        if (!confirm('Delete this conversion? This cannot be undone.')) return;
+        fetch(`/api/conversions/${CONVERSION_ID}`, {method: 'DELETE'}).then(r => {
+            if (r.ok) window.location.href = '{{ url_for("library") }}';
+        });
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+</script>
+{% endblock %}
