@@ -25,3 +25,4 @@ opencv-python-headless==4.10.0.84
 Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Flask-WTF==1.2.1
+nh3==0.2.18

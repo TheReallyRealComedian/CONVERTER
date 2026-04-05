@@ -23,6 +23,7 @@ from pygments.lexers import get_lexer_by_name
 from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
+import nh3
 import fitz
 import re
 import traceback
@@ -319,6 +320,29 @@ async def convert_markdown():
             style_content = ''
 
     html_content = md.render(markdown_text)
+    html_content = nh3.clean(
+        html_content,
+        tags={
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'p', 'br', 'hr', 'blockquote', 'pre', 'code',
+            'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+            'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+            'a', 'img', 'figure', 'figcaption',
+            'strong', 'em', 'b', 'i', 'u', 's', 'del', 'ins', 'mark',
+            'sub', 'sup', 'small', 'abbr', 'cite', 'q', 'kbd', 'var', 'samp',
+            'details', 'summary',
+            'div', 'span', 'section', 'article', 'aside', 'header', 'footer', 'nav', 'main',
+        },
+        attributes={
+            '*': {'class', 'id', 'style'},
+            'a': {'href', 'title', 'target', 'rel'},
+            'img': {'src', 'alt', 'title', 'width', 'height'},
+            'th': {'colspan', 'rowspan', 'scope'},
+            'td': {'colspan', 'rowspan'},
+            'col': {'span'},
+            'colgroup': {'span'},
+        },
+    )
     html_content = _wrap_wide_tables(html_content, column_threshold=6)
     full_html = f"""
     <!DOCTYPE html>
@@ -653,8 +677,19 @@ def podcast_download(job_id):
         app.logger.warning(f"Path traversal attempt blocked: {file_path}")
         return jsonify({"error": "Invalid file path"}), 403
 
+    # Read into buffer and delete file to prevent unbounded disk growth
+    podcast_buffer = BytesIO()
+    with open(real_path, 'rb') as f:
+        podcast_buffer.write(f.read())
+    podcast_buffer.seek(0)
+
+    try:
+        os.unlink(real_path)
+    except Exception as e:
+        app.logger.warning(f"Failed to clean up podcast file {real_path}: {e}")
+
     return send_file(
-        real_path,
+        podcast_buffer,
         as_attachment=True,
         download_name='gemini_podcast.wav',
         mimetype='audio/wav'
