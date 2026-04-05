@@ -36,6 +36,7 @@
             </div>
 
                 <form action="{{ url_for('convert_markdown') }}" method="post" enctype="multipart/form-data" class="editor-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="mb-3 markdown-textarea-wrapper">
                     <label for="markdown_text" class="block text-sm font-medium text-white/70 mb-1.5">Paste or Upload Markdown</label>

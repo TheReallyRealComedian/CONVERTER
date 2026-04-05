@@ -469,13 +469,11 @@ Now generate the full dialogue. Remember: every line starts with a speaker name 
         Returns:
             str: Path to temporary WAV file (concatenated if chunked)
         """
-        # Validate and set TTS model
-        if tts_model and tts_model in self.TTS_MODELS:
-            self.current_tts_model = tts_model
-        else:
-            self.current_tts_model = self.DEFAULT_TTS_MODEL
+        # Validate TTS model
+        if not tts_model or tts_model not in self.TTS_MODELS:
+            tts_model = self.DEFAULT_TTS_MODEL
 
-        logger.info(f"Using TTS model: {self.current_tts_model}")
+        logger.info(f"Using TTS model: {tts_model}")
         if not dialogue or len(dialogue) == 0:
             raise ValueError("No dialogue provided")
 
@@ -538,12 +536,12 @@ Now generate the full dialogue. Remember: every line starts with a speaker name 
 
         if len(dialogue_lines) <= self.MAX_LINES_PER_CHUNK:
             logger.info(f"  -> Single chunk (Zeilen unter Schwellwert)")
-            return self._generate_single_chunk(dialogue_lines, speaker_voice_configs)
+            return self._generate_single_chunk(dialogue_lines, speaker_voice_configs, tts_model)
         else:
             logger.info(f"  -> Multi-chunk erforderlich!")
-            return self._generate_with_chunking(dialogue_lines, speaker_voice_configs)
+            return self._generate_with_chunking(dialogue_lines, speaker_voice_configs, tts_model)
 
-    def _generate_single_chunk(self, dialogue_lines: List[Dict], speaker_voice_configs: List):
+    def _generate_single_chunk(self, dialogue_lines: List[Dict], speaker_voice_configs: List, tts_model: str = None):
         """Generate audio for a single chunk of dialogue."""
 
         # Format for TTS
@@ -575,7 +573,7 @@ Now generate the full dialogue. Remember: every line starts with a speaker name 
         # Generate audio
         try:
             # Use the selected TTS model
-            tts_model = getattr(self, 'current_tts_model', self.DEFAULT_TTS_MODEL)
+            tts_model = tts_model or self.DEFAULT_TTS_MODEL
             logger.info(f"TTS Model: {tts_model}")
 
             if len(unique_speakers) == 1:
@@ -709,7 +707,7 @@ Now generate the full dialogue. Remember: every line starts with a speaker name 
 
         return temp_audio_path
 
-    def _generate_with_chunking(self, dialogue_lines: List[Dict], speaker_voice_configs: List):
+    def _generate_with_chunking(self, dialogue_lines: List[Dict], speaker_voice_configs: List, tts_model: str = None):
         """Generate audio in chunks and concatenate them."""
 
         # Split into chunks
@@ -754,7 +752,7 @@ Now generate the full dialogue. Remember: every line starts with a speaker name 
                         time.sleep(retry_delay * attempt)  # Progressive backoff
 
                     # Generate this chunk
-                    chunk_file = self._generate_single_chunk(chunk, speaker_voice_configs)
+                    chunk_file = self._generate_single_chunk(chunk, speaker_voice_configs, tts_model)
                     break  # Success, exit retry loop
 
                 except Exception as e:

@@ -13,6 +13,7 @@ from rq.job import Job
 from io import BytesIO
 from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_wtf.csrf import CSRFProtect
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
 from html.parser import HTMLParser
@@ -23,6 +24,7 @@ from pygments.formatters import HtmlFormatter
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
 import fitz
+import re
 import traceback
 import time as _time
 import requests as http_requests
@@ -102,11 +104,17 @@ def _get_select_options(db_id, prop_name):
     return []
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
+
 _secret_key = os.environ.get('SECRET_KEY')
-if not _secret_key and os.environ.get('FLASK_ENV') == 'production':
-    raise RuntimeError("SECRET_KEY environment variable must be set in production")
-app.config['SECRET_KEY'] = _secret_key or 'dev-fallback-change-me-in-production'
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
+if not _secret_key:
+    raise RuntimeError("SECRET_KEY environment variable must be set")
+app.config['SECRET_KEY'] = _secret_key
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////app/data/converter.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -355,8 +363,14 @@ async def convert_markdown():
             )
             await browser.close()
 
+        # Read into buffer so temp file can safely be deleted
+        pdf_buffer = BytesIO()
+        with open(temp_pdf_path, 'rb') as f:
+            pdf_buffer.write(f.read())
+        pdf_buffer.seek(0)
+
         return send_file(
-            temp_pdf_path,
+            pdf_buffer,
             as_attachment=True,
             download_name=f"{safe_filename}.pdf",
             mimetype='application/pdf'
@@ -364,14 +378,14 @@ async def convert_markdown():
 
     except Exception as e:
         app.logger.error(f"PDF generation failed: {e}")
-        flash(f'Error: Could not generate PDF. {e}', 'danger')
+        flash('Error: Could not generate PDF. Please try again.', 'danger')
         return render_template('markdown_converter.html', markdown_text=markdown_text)
     finally:
-        try:
-            if temp_pdf_path and os.path.exists(temp_pdf_path):
+        if temp_pdf_path and os.path.exists(temp_pdf_path):
+            try:
                 os.unlink(temp_pdf_path)
-        except Exception as e:
-            app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}")
+            except Exception as e:
+                app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}")
 
 
 @app.route('/mermaid-converter')
@@ -433,7 +447,7 @@ def transform_document():
 
     except Exception as e:
         app.logger.error(f"Unstructured processing failed: {e}", exc_info=True)
-        return jsonify({'error': f'Error processing file: {e}'}), 500
+        return jsonify({'error': 'Error processing file. Please try again.'}), 500
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
@@ -451,7 +465,12 @@ def get_deepgram_token():
         app.logger.error("Deepgram service not configured")
         return jsonify({"error": "Audio transcription service is not configured."}), 503
     
-    return jsonify({"deepgram_token": deepgram_service.get_api_key()})
+    try:
+        temp_key = deepgram_service.create_temporary_key(ttl_seconds=60)
+        return jsonify({"deepgram_token": temp_key})
+    except Exception as e:
+        app.logger.error(f"Failed to create temporary Deepgram key: {e}")
+        return jsonify({"error": "Failed to create transcription token."}), 500
 
 @app.route('/transcribe-audio-file', methods=['POST'])
 @login_required
@@ -490,13 +509,12 @@ def transcribe_audio_file():
         # Chunk-spezifischer Fehler
         app.logger.error(f"Chunked transcription failed: {e}", exc_info=True)
         return jsonify({
-            "error": "Transcription of long audio failed. Please try a shorter file.",
-            "details": str(e)
+            "error": "Transcription of long audio failed. Please try a shorter file."
         }), 500
 
     except Exception as e:
         app.logger.error(f"Deepgram transcription failed: {e}", exc_info=True)
-        return jsonify({"error": f"An error occurred during transcription: {str(e)}"}), 500
+        return jsonify({"error": "An error occurred during transcription. Please try again."}), 500
 
 
 @app.route('/generate-podcast', methods=['POST'])
@@ -518,16 +536,21 @@ def generate_podcast():
             text, voice_name, language_code, speaking_rate, pitch
         )
         
+        audio_buffer = BytesIO()
+        with open(temp_audio_path, 'rb') as f:
+            audio_buffer.write(f.read())
+        audio_buffer.seek(0)
+
         return send_file(
-            temp_audio_path,
+            audio_buffer,
             as_attachment=True,
             download_name='podcast.mp3',
             mimetype='audio/mpeg'
         )
-    
+
     except Exception as e:
         app.logger.error(f"Google TTS synthesis failed: {e}", exc_info=True)
-        return jsonify({"error": f"An error occurred during synthesis: {str(e)}"}), 500
+        return jsonify({"error": "An error occurred during synthesis. Please try again."}), 500
     finally:
         if temp_audio_path and os.path.exists(temp_audio_path):
             try:
@@ -547,7 +570,7 @@ def get_google_voices():
         return jsonify(voices)
     except Exception as e:
         app.logger.error(f"Failed to retrieve Google TTS voices: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to retrieve voices."}), 500
 
 
 @app.route('/generate-gemini-podcast', methods=['POST'])
@@ -567,7 +590,8 @@ def generate_gemini_podcast():
         job = task_queue.enqueue(
             generate_podcast_task,
             args=(dialogue, language, tts_model),
-            job_timeout=600  # 10 minutes max
+            job_timeout=600,  # 10 minutes max
+            meta={'user_id': current_user.id}
         )
 
         app.logger.info(f"Job {job.get_id()} queued for podcast generation")
@@ -575,7 +599,7 @@ def generate_gemini_podcast():
 
     except Exception as e:
         app.logger.error(f"Failed to queue podcast job: {e}", exc_info=True)
-        return jsonify({"error": f"Error: {str(e)}"}), 500
+        return jsonify({"error": "Failed to queue podcast job. Please try again."}), 500
 
 
 @app.route('/podcast-status/<job_id>', methods=['GET'])
@@ -585,6 +609,9 @@ def podcast_status(job_id):
     try:
         job = Job.fetch(job_id, connection=redis_conn)
     except Exception:
+        return jsonify({"error": "Job not found"}), 404
+
+    if job.meta.get('user_id') != current_user.id:
         return jsonify({"error": "Job not found"}), 404
 
     status = job.get_status()
@@ -609,6 +636,9 @@ def podcast_download(job_id):
     except Exception:
         return jsonify({"error": "Job not found"}), 404
 
+    if job.meta.get('user_id') != current_user.id:
+        return jsonify({"error": "Job not found"}), 404
+
     if not job.is_finished:
         return jsonify({"error": "Job not ready"}), 400
 
@@ -617,8 +647,14 @@ def podcast_download(job_id):
     if not file_path or not os.path.exists(file_path):
         return jsonify({"error": "File not found on server"}), 404
 
+    # Prevent path traversal — ensure file is within allowed output directory
+    real_path = os.path.realpath(file_path)
+    if not real_path.startswith(os.path.realpath(OUTPUT_DIR)):
+        app.logger.warning(f"Path traversal attempt blocked: {file_path}")
+        return jsonify({"error": "Invalid file path"}), 403
+
     return send_file(
-        file_path,
+        real_path,
         as_attachment=True,
         download_name='gemini_podcast.wav',
         mimetype='audio/wav'
@@ -680,15 +716,9 @@ def format_dialogue_with_llm():
     try:
         data = request.get_json()
         
-        # CRITICAL DEBUG: Log what we receive
         raw_text_received = data.get('raw_text', '')
-        app.logger.info(f"=== RAW TEXT DEBUG ===")
-        app.logger.info(f"Request data keys: {list(data.keys())}")
-        app.logger.info(f"raw_text length: {len(raw_text_received)}")
-        app.logger.info(f"raw_text first 200 chars: {raw_text_received[:200]}")
-        
+
         if not raw_text_received or not raw_text_received.strip():
-            app.logger.error("ERROR: raw_text is empty or whitespace only!")
             return jsonify({"error": "No text provided for formatting"}), 400
         
         result = gemini_service.format_dialogue_with_llm(
@@ -707,7 +737,7 @@ def format_dialogue_with_llm():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         app.logger.error(f"Dialogue formatting failed: {e}", exc_info=True)
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        return jsonify({"error": "An error occurred during dialogue formatting. Please try again."}), 500
     
 
 
@@ -730,11 +760,12 @@ def library():
     if favorites:
         query = query.filter_by(is_favorite=True)
     if search:
+        escaped_search = re.sub(r'([%_\\])', r'\\\1', search)
         query = query.filter(
             db.or_(
-                Conversion.title.ilike(f'%{search}%'),
-                Conversion.content.ilike(f'%{search}%'),
-                Conversion.tags.ilike(f'%{search}%')
+                Conversion.title.ilike(f'%{escaped_search}%'),
+                Conversion.content.ilike(f'%{escaped_search}%'),
+                Conversion.tags.ilike(f'%{escaped_search}%')
             )
         )
 
@@ -867,7 +898,8 @@ def api_send_to_notion(conversion_id):
             return jsonify({'error': result.get('error', result.get('detail', 'Notion API error'))}), resp.status_code
         return jsonify(result), resp.status_code
     except http_requests.RequestException as e:
-        return jsonify({'error': f'Failed to reach Notion server: {str(e)}'}), 502
+        app.logger.error(f"Failed to reach Notion server: {e}")
+        return jsonify({'error': 'Failed to reach Notion server.'}), 502
 
 
 asgi_app = WsgiToAsgi(app)

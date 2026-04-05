@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 from typing import Optional
 
+import requests as http_requests
 from deepgram import DeepgramClient
 
 from .audio_chunker import AudioChunker, TranscriptMerger, AudioChunk
@@ -206,6 +207,41 @@ class DeepgramService:
         )
         return None
     
-    def get_api_key(self):
-        """Return API key for client-side WebSocket connection."""
-        return self.api_key
+    def create_temporary_key(self, ttl_seconds=60):
+        """Create a short-lived Deepgram API key for client-side WebSocket connection.
+
+        Uses Deepgram's REST API to generate a temporary scoped key
+        instead of exposing the permanent API key to the browser.
+        """
+        try:
+            # Get project ID first
+            resp = http_requests.get(
+                'https://api.deepgram.com/v1/projects',
+                headers={'Authorization': f'Token {self.api_key}'},
+                timeout=10
+            )
+            resp.raise_for_status()
+            projects = resp.json().get('projects', [])
+            if not projects:
+                raise RuntimeError("No Deepgram projects found")
+            project_id = projects[0]['project_id']
+
+            # Create temporary key with limited scope
+            resp = http_requests.post(
+                f'https://api.deepgram.com/v1/projects/{project_id}/keys',
+                headers={
+                    'Authorization': f'Token {self.api_key}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'comment': 'Temporary browser key',
+                    'scopes': ['usage:write'],
+                    'time_to_live_in_seconds': ttl_seconds
+                },
+                timeout=10
+            )
+            resp.raise_for_status()
+            return resp.json()['key']
+        except Exception as e:
+            logger.error(f"Failed to create temporary Deepgram key: {e}")
+            raise
