@@ -26,10 +26,16 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=${SECRET_KEY}
+      - NOTION_MCP_URL=http://notion-mcp-server:3333
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - NOTION_TOKEN=${NOTION_TOKEN}
     env_file:
       - .env
     depends_on:
       - redis
+    networks:
+      - default
+      - notion-mcp-net
     restart: unless-stopped
 
   # 3. Worker Container (Background Job Processor)
@@ -59,3 +65,7 @@ services:
 volumes:
   podcast_data:
   app_data:
+
+networks:
+  notion-mcp-net:
+    external: true

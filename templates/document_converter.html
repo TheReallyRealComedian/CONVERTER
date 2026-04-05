@@ -3,52 +3,61 @@
 {% block title %}Document Converter{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h4>Document to Text Converter</h4>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">
-                        Upload a file (PDF, DOCX, PPTX, EML, HTML, etc.) and convert it into a structured plain text file. Powered by <strong>unstructured.io</strong>.
-                    </p>
+<div class="flex-1 p-6 lg:p-8 overflow-auto">
+    <div class="max-w-2xl mx-auto">
+        <h2 class="text-lg font-semibold text-white/95 mb-1">Document to Text Converter</h2>
+        <p class="text-sm text-white/55 mb-6">Upload PDF, DOCX, PPTX, EML, HTML and convert to structured text.</p>
 
-                    <div id="alert-container"></div>
+        <div id="alert-container"></div>
 
-                    {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ category }}">{{ message }}</div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endwith %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="glass-alert
+                        {% if category == 'danger' %}glass-alert-danger
+                        {% elif category == 'success' %}glass-alert-success
+                        {% else %}glass-alert-info{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-                    <form id="convert-form" enctype="multipart/form-data">
-                        <div class="mb-3">
-                            <label for="document_file" class="form-label">Select File</label>
-                            <input class="form-control" type="file" id="document_file" name="document_file" required>
-                            <div class="form-text">Max file size: 100MB.</div>
-                        </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary" id="convert-btn">Transform to Text</button>
-                        </div>
-                    </form>
+        <form id="convert-form" enctype="multipart/form-data">
+            <!-- Drop zone -->
+            <div id="drop-zone"
+                 class="glass-drop-zone mb-4"
+                 onclick="document.getElementById('document_file').click()">
+                <svg class="w-12 h-12 mx-auto mb-3 text-white/35" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-sm font-medium text-white/65 mb-1">Drop file here or click to browse</p>
+                <p class="text-xs text-white/40">PDF, DOCX, PPTX, EML, HTML -- Max 100MB</p>
+                <input type="file" id="document_file" name="document_file" class="hidden" required title="Select a document file">
+            </div>
 
-                    <!-- Result area (hidden by default) -->
-                    <div id="result-area" class="result-area hidden">
-                        <hr>
-                        <div class="result-header">
-                            <h5 class="result-title">Conversion Result</h5>
-                            <div class="result-actions">
-                                <button type="button" class="action-btn" onclick="downloadResult()">Download .md</button>
-                                <button type="button" class="save-library-btn" id="save-btn" onclick="saveToLibrary()">Save to Library</button>
-                            </div>
-                        </div>
-                        <pre id="result-content" class="result-preview"></pre>
+            <!-- File selected indicator -->
+            <div id="file-info" class="hidden mb-4 px-3 py-2 glass--subtle text-sm text-white/70 flex items-center justify-between">
+                <span id="file-name" class="truncate"></span>
+                <button type="button" id="clear-file" class="text-white/40 hover:text-white/70 ml-2 flex-shrink-0" title="Clear file">&times;</button>
+            </div>
+
+            <button type="submit" class="glass-btn glass-btn--primary w-full text-center" id="convert-btn">
+                Transform to Text
+            </button>
+        </form>
+
+        <!-- Result area -->
+        <div id="result-area" class="hidden mt-6">
+            <div class="border-t border-white/[0.08] pt-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-base font-semibold text-white/95">Conversion Result</h3>
+                    <div class="flex gap-2">
+                        <button type="button" class="glass-btn text-xs py-1.5 px-3" onclick="downloadResult()">Download .md</button>
+                        <button type="button" class="save-library-btn" id="save-btn" onclick="saveToLibrary()">Save to Library</button>
                     </div>
                 </div>
+                <pre id="result-content" class="glass--subtle p-4 max-h-[500px] overflow-auto whitespace-pre-wrap break-words text-sm text-white/80 font-mono"></pre>
             </div>
         </div>
     </div>
@@ -59,9 +68,42 @@
 <script>
     let lastResult = null;
 
+    // Drag and drop
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('document_file');
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drop-zone-active');
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drop-zone-active');
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drop-zone-active');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            showFileInfo(e.dataTransfer.files[0]);
+        }
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) showFileInfo(fileInput.files[0]);
+    });
+    document.getElementById('clear-file').addEventListener('click', () => {
+        fileInput.value = '';
+        fileInfo.classList.add('hidden');
+    });
+
+    function showFileInfo(file) {
+        fileName.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+        fileInfo.classList.remove('hidden');
+    }
+
     document.getElementById('convert-form').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const fileInput = document.getElementById('document_file');
         if (!fileInput.files.length) return;
 
         const file = fileInput.files[0];
@@ -103,7 +145,7 @@
             document.getElementById('save-btn').disabled = false;
         } catch (err) {
             document.getElementById('alert-container').innerHTML =
-                `<div class="alert alert-danger">${err.message}</div>`;
+                `<div class="glass-alert glass-alert-danger">${err.message}</div>`;
         } finally {
             btn.disabled = false;
             btn.textContent = 'Transform to Text';

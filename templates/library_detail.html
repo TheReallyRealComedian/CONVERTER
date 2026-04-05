@@ -3,97 +3,117 @@
 {% block title %}{{ conversion.title }} - Library{% endblock %}
 
 {% block content %}
-<div class="container-fluid library-detail-page">
-    <div class="detail-header">
-        <a href="{{ url_for('library') }}" class="back-link">&larr; Back to Library</a>
-        <div class="detail-title-row">
-            <input type="text" class="detail-title-input" id="detail-title" value="{{ conversion.title }}" onchange="updateField('title', this.value)">
-            <span class="type-badge type-{{ conversion.conversion_type }}">
-                {% if conversion.conversion_type == 'document_to_markdown' %}Document
-                {% elif conversion.conversion_type == 'audio_transcription' %}Audio
-                {% elif conversion.conversion_type == 'dialogue_formatting' %}Dialogue
-                {% elif conversion.conversion_type == 'markdown_input' %}Markdown
-                {% else %}{{ conversion.conversion_type }}{% endif %}
-            </span>
-            <button class="favorite-btn {% if conversion.is_favorite %}active{% endif %}" onclick="toggleFavorite(this)" title="Toggle favorite">
-                {{ '&#9733;' if conversion.is_favorite else '&#9734;' }}
-            </button>
-        </div>
-    </div>
-
-    <div class="detail-layout">
-        <!-- Main Content -->
-        <div class="detail-content">
-            <div class="detail-content-actions">
-                <button class="action-btn" onclick="copyFullContent()">Copy to Clipboard</button>
-                <button class="action-btn" onclick="downloadContent()">Download as .txt</button>
-                {% if conversion.conversion_type == 'markdown_input' %}
-                <a href="{{ url_for('markdown_converter') }}" class="action-btn" onclick="storeForReuse()">Open in Editor</a>
-                {% endif %}
-                <button class="action-btn action-btn-danger" onclick="deleteConversion()">Delete</button>
-            </div>
-            <div class="detail-content-body" id="content-body">
-                <pre class="detail-content-text">{{ conversion.content }}</pre>
+<div class="flex-1 p-6 lg:p-8 overflow-auto">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="mb-6">
+            <a href="{{ url_for('library') }}" class="text-sm text-white/50 hover:text-white/80 no-underline transition-colors">&larr; Back to Library</a>
+            <div class="flex items-center gap-3 mt-2">
+                <input type="text" class="text-xl font-semibold text-white/95 border-none bg-transparent flex-1 py-1
+                       border-b-2 border-transparent hover:border-white/20 focus:border-blue-400/50 focus:outline-none transition-colors"
+                       id="detail-title" value="{{ conversion.title }}" onchange="updateField('title', this.value)" title="Conversion title" placeholder="Untitled">
+                <span class="type-badge type-{{ conversion.conversion_type }}">
+                    {% if conversion.conversion_type == 'document_to_markdown' %}Document
+                    {% elif conversion.conversion_type == 'audio_transcription' %}Audio
+                    {% elif conversion.conversion_type == 'dialogue_formatting' %}Dialogue
+                    {% elif conversion.conversion_type == 'markdown_input' %}Markdown
+                    {% else %}{{ conversion.conversion_type }}{% endif %}
+                </span>
+                <button type="button" class="favorite-btn {% if conversion.is_favorite %}active{% endif %}" onclick="toggleFavorite(this)" title="Toggle favorite">
+                    {{ '&#9733;' if conversion.is_favorite else '&#9734;' }}
+                </button>
             </div>
         </div>
 
-        <!-- Sidebar: Metadata -->
-        <div class="detail-sidebar">
-            <div class="sidebar-section">
-                <h6>Details</h6>
-                {% if conversion.source_filename %}
-                <div class="meta-row">
-                    <span class="meta-label">Source File</span>
-                    <span class="meta-value">{{ conversion.source_filename }}</span>
+        <div class="grid lg:grid-cols-[1fr_300px] gap-6">
+            <!-- Main Content -->
+            <div class="min-w-0">
+                <div class="flex gap-2 mb-4 flex-wrap">
+                    <button type="button" class="glass-btn text-xs py-1.5 px-3" onclick="copyFullContent()">Copy to Clipboard</button>
+                    <button type="button" class="glass-btn text-xs py-1.5 px-3" onclick="downloadContent()">Download as .txt</button>
+                    {% if conversion.conversion_type == 'markdown_input' %}
+                    <a href="{{ url_for('markdown_converter') }}" class="glass-btn text-xs py-1.5 px-3 no-underline" onclick="storeForReuse()">Open in Editor</a>
+                    {% endif %}
+                    <button type="button" class="text-xs py-1.5 px-3 border border-red-400/20 rounded-full text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer" onclick="deleteConversion()">Delete</button>
                 </div>
-                {% endif %}
-                {% if conversion.source_mimetype %}
-                <div class="meta-row">
-                    <span class="meta-label">File Type</span>
-                    <span class="meta-value">{{ conversion.source_mimetype }}</span>
-                </div>
-                {% endif %}
-                {% if conversion.source_size_bytes %}
-                <div class="meta-row">
-                    <span class="meta-label">File Size</span>
-                    <span class="meta-value">{{ "%.1f"|format(conversion.source_size_bytes / 1048576) }} MB</span>
-                </div>
-                {% endif %}
-                <div class="meta-row">
-                    <span class="meta-label">Created</span>
-                    <span class="meta-value">{{ conversion.created_at.strftime('%d %b %Y, %H:%M') }}</span>
-                </div>
-                {% if conversion.updated_at and conversion.updated_at != conversion.created_at %}
-                <div class="meta-row">
-                    <span class="meta-label">Updated</span>
-                    <span class="meta-value">{{ conversion.updated_at.strftime('%d %b %Y, %H:%M') }}</span>
-                </div>
-                {% endif %}
-                <div class="meta-row">
-                    <span class="meta-label">Content Length</span>
-                    <span class="meta-value">{{ conversion.content|length|string + ' chars' }}</span>
+                <div class="glass overflow-auto max-h-[calc(100vh-280px)]" id="content-body">
+                    <pre class="detail-content-text p-5 m-0 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words text-white/80">{{ conversion.content }}</pre>
                 </div>
             </div>
 
-            {% if metadata %}
-            <div class="sidebar-section">
-                <h6>Conversion Metadata</h6>
-                {% for key, value in metadata.items() %}
-                <div class="meta-row">
-                    <span class="meta-label">{{ key.replace('_', ' ').title() }}</span>
-                    <span class="meta-value">{{ value }}</span>
+            <!-- Sidebar -->
+            <div class="flex flex-col gap-4">
+                <!-- Save to Notion -->
+                <div class="glass--subtle p-4">
+                    <button type="button" onclick="toggleNotionPanel()" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">
+                        <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 m-0">Save to Notion</h6>
+                        <span class="text-white/30 text-xs" id="notion-toggle-icon">&#9662;</span>
+                    </button>
+                    <div id="notion-panel" class="hidden mt-3">
+                        <div class="flex gap-1.5 mb-3" id="notion-target-group">
+                            <button type="button" class="glass-btn text-[11px] flex-1 py-1.5" data-target="meetings" onclick="selectTarget('meetings')">Meeting</button>
+                            <button type="button" class="glass-btn text-[11px] flex-1 py-1.5" data-target="notes" onclick="selectTarget('notes')">Note</button>
+                            <button type="button" class="glass-btn text-[11px] flex-1 py-1.5" data-target="inbox" onclick="selectTarget('inbox')">Inbox</button>
+                        </div>
+                        <div id="notion-fields" class="flex flex-col gap-2"></div>
+                        <button type="button" class="glass-btn glass-btn--primary w-full text-xs py-2 mt-3" id="notion-submit-btn" onclick="sendToNotion()">Send to Notion</button>
+                    </div>
                 </div>
-                {% endfor %}
-            </div>
-            {% endif %}
 
-            <div class="sidebar-section">
-                <h6>Tags</h6>
-                <div class="tags-editor">
-                    <input type="text" class="form-control form-control-sm" id="tags-input"
-                           value="{{ conversion.tags }}"
-                           placeholder="comma-separated tags"
-                           onchange="updateField('tags', this.value)">
+                <div class="glass--subtle p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-3">Details</h6>
+                    {% if conversion.source_filename %}
+                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
+                        <span class="text-white/50">Source File</span>
+                        <span class="text-white/90 font-medium text-right max-w-[60%] break-words">{{ conversion.source_filename }}</span>
+                    </div>
+                    {% endif %}
+                    {% if conversion.source_mimetype %}
+                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
+                        <span class="text-white/50">File Type</span>
+                        <span class="text-white/90 font-medium">{{ conversion.source_mimetype }}</span>
+                    </div>
+                    {% endif %}
+                    {% if conversion.source_size_bytes %}
+                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
+                        <span class="text-white/50">File Size</span>
+                        <span class="text-white/90 font-medium">{{ "%.1f"|format(conversion.source_size_bytes / 1048576) }} MB</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
+                        <span class="text-white/50">Created</span>
+                        <span class="text-white/90 font-medium">{{ conversion.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+                    </div>
+                    {% if conversion.updated_at and conversion.updated_at != conversion.created_at %}
+                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
+                        <span class="text-white/50">Updated</span>
+                        <span class="text-white/90 font-medium">{{ conversion.updated_at.strftime('%d %b %Y, %H:%M') }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between py-1.5 text-sm">
+                        <span class="text-white/50">Content Length</span>
+                        <span class="text-white/90 font-medium">{{ conversion.content|length|string + ' chars' }}</span>
+                    </div>
+                </div>
+
+                {% if metadata %}
+                <div class="glass--subtle p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-3">Conversion Metadata</h6>
+                    {% for key, value in metadata.items() %}
+                    <div class="flex justify-between py-1.5 text-sm {% if not loop.last %}border-b border-white/[0.06]{% endif %}">
+                        <span class="text-white/50">{{ key.replace('_', ' ').title() }}</span>
+                        <span class="text-white/90 font-medium text-right max-w-[60%] break-words">{{ value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="glass--subtle p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-3">Tags</h6>
+                    <input type="text"
+                        class="glass-input w-full"
+                        id="tags-input" value="{{ conversion.tags }}" placeholder="comma-separated tags"
+                        onchange="updateField('tags', this.value)">
                 </div>
             </div>
         </div>
@@ -131,9 +151,28 @@
         });
     }
 
+    function fallbackCopyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        return new Promise((resolve, reject) => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy') ? resolve() : reject();
+            } catch (e) { reject(e); }
+            finally { document.body.removeChild(ta); }
+        });
+    }
+
     function copyFullContent() {
         const text = document.querySelector('.detail-content-text').textContent;
-        navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'));
+        fallbackCopyText(text).then(() => showToast('Copied to clipboard'))
+            .catch(() => showToast('Copy failed'));
     }
 
     function downloadContent() {
@@ -156,6 +195,126 @@
         fetch(`/api/conversions/${CONVERSION_ID}`, {method: 'DELETE'}).then(r => {
             if (r.ok) window.location.href = '{{ url_for("library") }}';
         });
+    }
+
+    // --- Notion Integration ---
+    const DEFAULT_TARGET = '{{ "meetings" if conversion.conversion_type == "audio_transcription" else "notes" }}';
+    let currentTarget = DEFAULT_TARGET;
+    let notionSuggestions = null;
+
+    function toggleNotionPanel() {
+        const panel = document.getElementById('notion-panel');
+        const icon = document.getElementById('notion-toggle-icon');
+        const isHidden = panel.classList.toggle('hidden');
+        icon.innerHTML = isHidden ? '&#9662;' : '&#9652;';
+        if (!isHidden) {
+            selectTarget(DEFAULT_TARGET);
+            loadSuggestions();
+        }
+    }
+
+    function loadSuggestions() {
+        if (notionSuggestions) return;
+        fetch('/api/notion/suggestions').then(r => r.json()).then(data => {
+            notionSuggestions = data;
+            renderNotionFields(currentTarget);
+        }).catch(() => { notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []}; });
+    }
+
+    function selectTarget(target) {
+        currentTarget = target;
+        document.querySelectorAll('#notion-target-group button').forEach(btn => {
+            btn.classList.toggle('glass-btn--primary', btn.dataset.target === target);
+        });
+        renderNotionFields(target);
+    }
+
+    function renderNotionFields(target) {
+        const title = document.getElementById('detail-title').value;
+        const tags = document.getElementById('tags-input').value;
+        const now = new Date().toISOString().slice(0, 16);
+        const s = notionSuggestions || {people: [], projects: [], meeting_types: [], note_types: []};
+
+        const fieldDefs = {
+            meetings: [
+                {key: 'title', label: 'Title', value: title, required: true},
+                {key: 'datum', label: 'Date', value: now, type: 'datetime-local'},
+                {key: 'project', label: 'Project', value: '', list: s.projects},
+                {key: 'people', label: 'People', value: '', placeholder: 'comma-separated', list: s.people},
+                {key: 'type', label: 'Type', value: '', list: s.meeting_types},
+                {key: 'summary', label: 'Summary', value: '', type: 'textarea'},
+            ],
+            notes: [
+                {key: 'title', label: 'Title', value: title, required: true},
+                {key: 'project', label: 'Project', value: '', list: s.projects},
+                {key: 'type', label: 'Type', value: '', list: s.note_types},
+                {key: 'tags', label: 'Tags', value: tags, placeholder: 'comma-separated'},
+                {key: 'people', label: 'People', value: '', placeholder: 'comma-separated', list: s.people},
+                {key: 'summary', label: 'Summary', value: '', type: 'textarea'},
+            ],
+            inbox: [
+                {key: 'name', label: 'Name', value: title, required: true},
+                {key: 'description', label: 'Description', value: '', type: 'textarea'},
+                {key: 'source', label: 'Source', value: 'CONVERTER'},
+                {key: 'project', label: 'Project', value: '', list: s.projects},
+                {key: 'people', label: 'People', value: '', placeholder: 'comma-separated', list: s.people},
+            ]
+        };
+        const container = document.getElementById('notion-fields');
+        let datalistsHtml = '';
+        container.innerHTML = fieldDefs[target].map(f => {
+            const esc = v => v.replace(/"/g, '&quot;');
+            let listAttr = '';
+            if (f.list && f.list.length) {
+                const dlId = `dl-${f.key}`;
+                listAttr = ` list="${dlId}"`;
+                datalistsHtml += `<datalist id="${dlId}">${f.list.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+            }
+            const input = f.type === 'textarea'
+                ? `<textarea class="glass-input w-full text-xs" id="nf-${f.key}" rows="2" placeholder="${f.placeholder || ''}">${f.value}</textarea>`
+                : `<input type="${f.type || 'text'}" class="glass-input w-full text-xs" id="nf-${f.key}" value="${esc(f.value)}" placeholder="${f.placeholder || ''}"${listAttr}>`;
+            return `<div><label class="text-[11px] text-white/50 mb-0.5 block">${f.label}${f.required ? ' *' : ''}</label>${input}</div>`;
+        }).join('') + datalistsHtml;
+    }
+
+    function sendToNotion() {
+        const btn = document.getElementById('notion-submit-btn');
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+
+        const fields = {};
+        document.querySelectorAll('#notion-fields input, #notion-fields textarea').forEach(el => {
+            const key = el.id.replace('nf-', '');
+            const val = el.value.trim();
+            if (val) fields[key] = val;
+        });
+
+        const content = document.querySelector('.detail-content-text').textContent;
+        if (currentTarget === 'meetings') {
+            fields.transcript = content;
+        } else {
+            fields.content = content;
+        }
+
+        if (fields.people) fields.people = fields.people.split(',').map(s => s.trim()).filter(Boolean);
+        if (fields.tags) fields.tags = fields.tags.split(',').map(s => s.trim()).filter(Boolean);
+
+        fetch(`/api/conversions/${CONVERSION_ID}/send-to-notion`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({target: currentTarget, fields: fields})
+        })
+        .then(r => r.json().then(data => ({status: r.status, data})))
+        .then(({status, data}) => {
+            if (status < 400) {
+                showToast('Saved to Notion!');
+                if (data.url) window.open(data.url, '_blank');
+            } else {
+                showToast('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(() => showToast('Failed to connect to Notion'))
+        .finally(() => { btn.disabled = false; btn.textContent = 'Send to Notion'; });
     }
 
     function showToast(message) {

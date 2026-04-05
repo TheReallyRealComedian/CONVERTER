@@ -4,431 +4,248 @@
 
 {% block head_extra %}
 <style>
-    /* Styles adapted from the dossier for the microphone button */
     #mic-button {
         background: none;
-        border: 1px solid var(--border-light);
+        border: 1px solid var(--glass-stroke-soft);
         padding: 10px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--text-secondary);
+        color: var(--text-3);
         border-radius: 50%;
         transition: background-color 0.2s ease, color 0.2s ease;
     }
-    #mic-button:hover {
-        background-color: var(--bg-editor-pane);
-    }
+    #mic-button:hover { background-color: var(--glass-fill); }
     #mic-button.recording {
-        color: var(--text-white);
-        background-color: var(--border-danger);
-        border-color: var(--border-danger);
+        color: #ffffff;
+        background-color: rgba(239, 68, 68, 0.8);
+        border-color: rgba(239, 68, 68, 0.8);
     }
-    .file-upload-wrapper {
-        border: 2px dashed var(--border-dashed);
-        border-radius: var(--border-radius);
-        padding: 2rem;
-        text-align: center;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-    .file-upload-wrapper:hover {
-        background-color: var(--bg-editor-pane);
-    }
-    .file-upload-wrapper p {
-        margin: 0;
-        font-weight: 500;
-        color: var(--text-secondary);
-    }
-    #file-upload-input {
-        display: none;
-    }
-    #transcription-result-container {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        background-color: var(--bg-editor-pane);
-        border: 1px solid var(--border-light);
-        border-radius: var(--border-radius);
-        padding: 1rem;
-        min-height: 150px;
-    }
-    
-    /* Language button styles */
-    .language-buttons {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    .language-btn {
-        padding: 0.5rem 1rem;
-        border: 2px solid var(--border-light);
-        background-color: var(--bg-page);
-        color: var(--text-primary);
-        border-radius: var(--border-radius);
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s ease;
-    }
-    .language-btn:hover {
-        background-color: var(--bg-editor-pane);
-        border-color: var(--border-focus);
-    }
-    .language-btn.active {
-        background-color: var(--bg-primary);
-        color: var(--text-white);
-        border-color: var(--bg-primary);
-    }
-    
-    /* Action button styles */
-    .action-buttons {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-    }
-    .action-btn {
-        padding: 0.4rem 0.8rem;
-        border: 1px solid var(--border-light);
-        background-color: var(--bg-page);
-        color: var(--text-primary);
-        border-radius: var(--border-radius);
-        cursor: pointer;
-        font-size: 0.875rem;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-    }
-    .action-btn:hover {
-        background-color: var(--bg-editor-pane);
-        border-color: var(--border-focus);
-    }
-    .action-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-    
-    /* Mode selector - simplified to radio buttons */
-    .mode-selector {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .mode-radio-wrapper {
-        flex: 1;
-    }
-    
-    .mode-radio-label {
-        display: block;
-        padding: 1rem;
-        border: 2px solid var(--border-light);
-        background-color: var(--bg-page);
-        border-radius: var(--border-radius);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-align: center;
-    }
-    
-    .mode-radio-label:hover {
-        background-color: var(--bg-editor-pane);
-        border-color: var(--border-focus);
-    }
-    
-    .mode-radio-input {
-        display: none;
-    }
-    
+    .mode-radio-input { display: none; }
     .mode-radio-input:checked + .mode-radio-label {
-        background-color: var(--bg-primary);
-        color: var(--text-white);
-        border-color: var(--bg-primary);
+        background: var(--accent-fill);
+        color: var(--text-1);
+        border-color: var(--accent);
     }
-    
-    .mode-radio-title {
-        font-weight: 600;
-        font-size: 1rem;
-        margin-bottom: 0.25rem;
-    }
-    
-    .mode-radio-desc {
-        font-size: 0.85rem;
-        opacity: 0.9;
-    }
-    
-    /* Prompt editor */
-    .prompt-editor-section {
-        margin-top: 1rem;
-        border: 1px solid var(--border-light);
-        border-radius: var(--border-radius);
-        background-color: var(--bg-page);
-    }
-    
-    .prompt-editor-header {
-        padding: 0.75rem;
-        background-color: var(--bg-editor-pane);
-        border-bottom: 1px solid var(--border-light);
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: 500;
-    }
-    
-    .prompt-editor-header:hover {
-        background-color: #e0e2e5;
-    }
-    
-    .prompt-editor-content {
-        padding: 0.75rem;
-        display: none;
-    }
-    
-    .prompt-editor-content.expanded {
-        display: block;
-    }
-    
-    .prompt-textarea {
-        width: 100%;
-        min-height: 200px;
-        font-family: var(--font-mono);
-        font-size: 0.85rem;
-        padding: 0.5rem;
-        border: 1px solid var(--border-light);
-        border-radius: var(--border-radius);
-    }
+    .prompt-editor-content { display: none; }
+    .prompt-editor-content.expanded { display: block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-10">
-            <div class="card">
-                <div class="card-header">
-                    <h4>Audio Tools</h4>
-                </div>
-                <div class="card-body">
-                    {% if not deepgram_api_key_set %}
-                    <div class="alert alert-danger">
-                        <strong>Configuration Error:</strong> Audio services are not configured. Please set API keys.
+<div class="flex-1 p-6 lg:p-8 overflow-auto">
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-lg font-semibold text-white/95 mb-1">Audio Tools</h2>
+        <p class="text-sm text-white/55 mb-6">Transcription, file processing, and AI podcast generation.</p>
+
+        {% if not deepgram_api_key_set %}
+        <div class="glass-alert glass-alert-danger">
+            <strong>Configuration Error:</strong> Audio services are not configured. Please set API keys.
+        </div>
+        {% else %}
+
+        <!-- TABS -->
+        <div class="flex border-b border-white/[0.08] mb-6" id="transcriptionTabs">
+            <button type="button" data-tab="live" class="tab-btn tab-active px-4 py-2.5 text-sm font-medium transition-colors">
+                Live Transcription
+            </button>
+            <button type="button" data-tab="file" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium transition-colors">
+                Transcribe File
+            </button>
+            <button type="button" data-tab="podcast" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium transition-colors">
+                Text to Podcast
+            </button>
+        </div>
+
+        <!-- TRANSCRIPTION LANGUAGE (only for Live & File tabs) -->
+        <div class="mb-4" id="transcription-language-selector">
+            <label class="block text-sm font-medium text-white/70 mb-2">Transcription Language</label>
+            <div class="flex gap-2">
+                <button type="button" class="language-btn lang-active px-3 py-1.5 text-sm font-medium border-2 rounded-md transition-colors" data-lang="en">English</button>
+                <button type="button" class="language-btn lang-inactive px-3 py-1.5 text-sm font-medium border-2 rounded-md transition-colors" data-lang="de">German</button>
+            </div>
+        </div>
+
+        <!-- TAB CONTENT -->
+
+        <!-- LIVE TRANSCRIPTION PANE -->
+        <div class="tab-pane" id="live-pane">
+            <p class="text-sm text-white/60 mb-4">Click the microphone button to start and stop real-time transcription.</p>
+            <div class="flex items-start gap-3">
+                <button type="button" id="mic-button" title="Click to Start Recording">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                </button>
+                <div class="flex-1">
+                    <textarea id="live-transcript-output" rows="8" placeholder="Live transcription will appear here..."
+                        class="glass-input w-full"></textarea>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-live-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            Copy
+                        </button>
+                        <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-live-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                            Clear
+                        </button>
+                        {% if current_user.is_authenticated %}
+                        <button type="button" class="save-library-btn hidden" id="save-live-btn">Save to Library</button>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <!-- TABS -->
-                    <ul class="nav nav-tabs" id="transcriptionTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="live-tab" data-bs-toggle="tab" data-bs-target="#live-tab-pane" type="button" role="tab">Live Transcription</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-tab-pane" type="button" role="tab">Transcribe File</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="podcast-tab" data-bs-toggle="tab" data-bs-target="#podcast-tab-pane" type="button" role="tab">Text to Podcast</button>
-                        </li>
-                    </ul>
-
-                    <!-- TRANSCRIPTION LANGUAGE (only for Live & File tabs) -->
-                    <div class="my-3" id="transcription-language-selector">
-                        <label class="form-label">Transcription Language</label>
-                        <div class="language-buttons">
-                            <button class="language-btn active" data-lang="en">English</button>
-                            <button class="language-btn" data-lang="de">German</button>
-                        </div>
-                    </div>
-
-                    <!-- TAB CONTENT -->
-                    <div class="tab-content" id="transcriptionTabsContent">
-                        <!-- LIVE TRANSCRIPTION PANE -->
-                        <div class="tab-pane fade show active" id="live-tab-pane" role="tabpanel">
-                            <p>Click the microphone button to start and stop real-time transcription.</p>
-                            <div class="d-flex align-items-start gap-3">
-                                <button id="mic-button" title="Click to Start Recording">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
-                                </button>
-                                <div style="flex-grow: 1;">
-                                    <textarea id="live-transcript-output" class="form-control" rows="8" placeholder="Live transcription will appear here..."></textarea>
-                                    <div class="action-buttons">
-                                        <button class="action-btn" id="copy-live-btn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                            Copy
-                                        </button>
-                                        <button class="action-btn" id="clear-live-btn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                            Clear
-                                        </button>
-                                        {% if current_user.is_authenticated %}
-                                        <button type="button" class="save-library-btn hidden" id="save-live-btn">Save to Library</button>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- FILE UPLOAD PANE -->
-                        <div class="tab-pane fade" id="file-tab-pane" role="tabpanel">
-                            <form id="audio-upload-form">
-                                <div class="mb-3">
-                                    <label for="file-upload-input" class="file-upload-wrapper">
-                                        <p id="file-upload-text">Click to select an audio file or drag and drop</p>
-                                    </label>
-                                    <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required>
-                                </div>
-                                <div class="d-grid mb-3">
-                                    <button type="submit" class="btn btn-primary" id="transcribe-file-btn">Transcribe File</button>
-                                </div>
-                            </form>
-                            <h5>Transcription Result:</h5>
-                            <div id="transcription-result-container">
-                                <span class="text-muted">The transcription will appear here after processing.</span>
-                            </div>
-                            <div class="action-buttons">
-                                <button class="action-btn" id="copy-file-btn">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                    Copy
-                                </button>
-                                <button class="action-btn" id="clear-file-btn">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                    Clear
-                                </button>
-                                <button type="button" class="save-library-btn hidden" id="save-transcription-btn">Save to Library</button>
-                            </div>
-                        </div>
-                        
-                        <!-- PODCAST GENERATOR PANE -->
-                        <div class="tab-pane fade" id="podcast-tab-pane" role="tabpanel">
-                            <p>Convert your text into a natural-sounding podcast with AI-powered voices.</p>
-                            
-                            <!-- Step 1: Choose Format & Language -->
-                            <div class="card mb-3" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light);">
-                                <div class="card-body">
-                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 1: Setup</h5>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Format</label>
-                                        <div class="mode-selector">
-                                            <div class="mode-radio-wrapper">
-                                                <input type="radio" id="mode-monolog" name="podcast-mode" value="monolog" class="mode-radio-input" checked>
-                                                <label for="mode-monolog" class="mode-radio-label">
-                                                    <div class="mode-radio-title">Monolog</div>
-                                                    <div class="mode-radio-desc">Single narrator (Kate)</div>
-                                                </label>
-                                            </div>
-                                            <div class="mode-radio-wrapper">
-                                                <input type="radio" id="mode-dialogue" name="podcast-mode" value="dialogue" class="mode-radio-input">
-                                                <label for="mode-dialogue" class="mode-radio-label">
-                                                    <div class="mode-radio-title">Dialogue</div>
-                                                    <div class="mode-radio-desc">Conversation (Kate & Max)</div>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <label for="podcast-language" class="form-label">Language</label>
-                                            <select class="form-select" id="podcast-language">
-                                                <option value="en">English</option>
-                                                <option value="de" selected>German</option>
-                                                <option value="es">Spanish</option>
-                                                <option value="fr">French</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4 mb-3">
-                                            <label for="narration-style" class="form-label">Narration Style</label>
-                                            <select class="form-select" id="narration-style">
-                                                <option value="documentary">Documentary - Authoritative narrator</option>
-                                                <option value="conversational" selected>Conversational - Warm storyteller</option>
-                                                <option value="academic">Academic - Precise analyst</option>
-                                                <option value="satirical">Satirical - Sharp wit & sarcasm</option>
-                                                <option value="dramatic">Dramatic - Emotional presenter</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4 mb-3">
-                                            <label for="tts-model" class="form-label">TTS Model</label>
-                                            <select class="form-select" id="tts-model">
-                                                <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
-                                                <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS (Higher Quality)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Step 2: Script -->
-                            <div class="card mb-3" style="background-color: var(--bg-editor-pane); border: 1px solid var(--border-light);">
-                                <div class="card-body">
-                                    <h5 class="card-title" style="font-size: 1rem; margin-bottom: 1rem;">Step 2: Create Your Podcast</h5>
-                                    
-                                    <div class="mb-3">
-                                        <label for="podcast-raw-text" class="form-label">Source Text</label>
-                                        <textarea class="form-control" id="podcast-raw-text" rows="6" placeholder="Paste your text here, or generate a script below...
-
-Example:
-Artificial intelligence is transforming our world. From smartphones to self-driving cars, AI is everywhere. But what does this mean for society? Let's explore the opportunities and challenges ahead."></textarea>
-                                        <div class="form-text">Paste your content or leave empty to work directly with the script below</div>
-                                    </div>
-                                    
-                                    <div class="d-grid mb-3">
-                                        <button type="button" class="btn btn-secondary" id="generate-script-btn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
-                                            ✨ Generate Script from Text Above
-                                        </button>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label for="podcast-script" class="form-label">Podcast Script</label>
-                                        <textarea class="form-control" id="podcast-script" rows="12" style="font-family: var(--font-mono); font-size: 0.9rem;" placeholder="Edit your script here or generate one from the text above.
-
-Format:
-Kate [warmly]: Welcome to today's show!
-Max [professionally]: Thanks for joining us."></textarea>
-                                        <div class="form-text">Format: SpeakerName [style]: Text</div>
-                                    </div>
-                                    
-                                    <!-- Advanced: Custom Prompt Editor -->
-                                    <div class="prompt-editor-section">
-                                        <div class="prompt-editor-header" id="prompt-editor-toggle">
-                                            <span>⚙️ Advanced: Custom Prompt</span>
-                                            <span id="prompt-toggle-icon">▼</span>
-                                        </div>
-                                        <div class="prompt-editor-content" id="prompt-editor-content">
-                                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-                                                Customize the AI instruction for script generation. Leave empty to use the built-in prompt for your selected style.
-                                            </p>
-                                            <textarea class="prompt-textarea" id="custom-prompt-editor" placeholder="Enter custom prompt with placeholders: {raw_text}, {speakers_info}, {language_name}, {tone}, etc."></textarea>
-                                            <button class="btn btn-secondary btn-sm mt-2" id="reset-prompt-btn">Reset to Default</button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="d-grid mt-3">
-                                        <button type="button" class="btn btn-primary btn-lg" id="generate-podcast-btn">
-                                            🎙️ Generate Podcast
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Result Container -->
-                            <div id="podcast-result-container" style="display: none;">
-                                <h5>Your Podcast:</h5>
-                                <audio id="podcast-audio" controls style="width: 100%; margin-bottom: 1rem;">
-                                    <source id="podcast-audio-source" type="audio/wav">
-                                    Your browser does not support the audio element.
-                                </audio>
-                                <div class="action-buttons">
-                                    <a id="download-podcast-btn" class="action-btn" download="podcast.wav">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                        Download
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
+
+        <!-- FILE UPLOAD PANE -->
+        <div class="tab-pane hidden" id="file-pane">
+            <form id="audio-upload-form">
+                <div class="mb-4">
+                    <label for="file-upload-input"
+                        class="glass-drop-zone block cursor-pointer">
+                        <p id="file-upload-text" class="text-sm font-medium text-white/65">Click to select an audio file or drag and drop</p>
+                    </label>
+                    <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required class="hidden" title="Select an audio file">
+                </div>
+                <button type="submit" class="glass-btn glass-btn--primary w-full text-center mb-4" id="transcribe-file-btn">
+                    Transcribe File
+                </button>
+            </form>
+            <h5 class="text-sm font-semibold text-white/90 mb-2">Transcription Result:</h5>
+            <div id="transcription-result-container" class="glass--subtle p-4 min-h-[150px] whitespace-pre-wrap break-words text-sm text-white/70">
+                <span class="text-white/40">The transcription will appear here after processing.</span>
+            </div>
+            <div class="flex gap-2 mt-2">
+                <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-file-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    Copy
+                </button>
+                <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-file-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    Clear
+                </button>
+                <button type="button" class="save-library-btn hidden" id="save-transcription-btn">Save to Library</button>
+            </div>
+        </div>
+
+        <!-- PODCAST GENERATOR PANE -->
+        <div class="tab-pane hidden" id="podcast-pane">
+            <p class="text-sm text-white/60 mb-4">Convert your text into a natural-sounding podcast with AI-powered voices.</p>
+
+            <!-- Step 1: Choose Format & Language -->
+            <div class="glass--subtle p-5 mb-4">
+                <h5 class="text-sm font-semibold text-white/90 mb-4">Step 1: Setup</h5>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-white/70 mb-2">Format</label>
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                            <input type="radio" id="mode-monolog" name="podcast-mode" value="monolog" class="mode-radio-input" checked>
+                            <label for="mode-monolog" class="mode-radio-label block p-3 border-2 border-white/[0.12] bg-white/[0.04] rounded-md cursor-pointer text-center hover:border-white/[0.22] transition-colors">
+                                <div class="font-semibold text-sm mb-0.5">Monolog</div>
+                                <div class="text-xs opacity-70">Single narrator (Kate)</div>
+                            </label>
+                        </div>
+                        <div class="flex-1">
+                            <input type="radio" id="mode-dialogue" name="podcast-mode" value="dialogue" class="mode-radio-input">
+                            <label for="mode-dialogue" class="mode-radio-label block p-3 border-2 border-white/[0.12] bg-white/[0.04] rounded-md cursor-pointer text-center hover:border-white/[0.22] transition-colors">
+                                <div class="font-semibold text-sm mb-0.5">Dialogue</div>
+                                <div class="text-xs opacity-70">Conversation (Kate & Max)</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="podcast-language" class="block text-sm font-medium text-white/70 mb-1.5">Language</label>
+                        <select class="glass-input w-full" id="podcast-language">
+                            <option value="en">English</option>
+                            <option value="de" selected>German</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="narration-style" class="block text-sm font-medium text-white/70 mb-1.5">Narration Style</label>
+                        <select class="glass-input w-full" id="narration-style">
+                            <option value="documentary">Documentary</option>
+                            <option value="conversational" selected>Conversational</option>
+                            <option value="academic">Academic</option>
+                            <option value="satirical">Satirical</option>
+                            <option value="dramatic">Dramatic</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tts-model" class="block text-sm font-medium text-white/70 mb-1.5">TTS Model</label>
+                        <select class="glass-input w-full" id="tts-model">
+                            <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
+                            <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Script -->
+            <div class="glass--subtle p-5 mb-4">
+                <h5 class="text-sm font-semibold text-white/90 mb-4">Step 2: Create Your Podcast</h5>
+
+                <div class="mb-4">
+                    <label for="podcast-raw-text" class="block text-sm font-medium text-white/70 mb-1.5">Source Text</label>
+                    <textarea id="podcast-raw-text" rows="6" placeholder="Paste your text here, or generate a script below..."
+                        class="glass-input w-full"></textarea>
+                    <p class="mt-1 text-xs text-white/45">Paste your content or leave empty to work directly with the script below</p>
+                </div>
+
+                <button type="button" class="glass-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                    Generate Script from Text Above
+                </button>
+
+                <div class="mb-4">
+                    <label for="podcast-script" class="block text-sm font-medium text-white/70 mb-1.5">Podcast Script</label>
+                    <textarea id="podcast-script" rows="12" placeholder="Edit your script here or generate one from the text above.&#10;&#10;Format:&#10;Kate [warmly]: Welcome to today's show!&#10;Max [professionally]: Thanks for joining us."
+                        class="glass-input w-full font-mono"></textarea>
+                    <p class="mt-1 text-xs text-white/45">Format: SpeakerName [style]: Text</p>
+                </div>
+
+                <!-- Advanced: Custom Prompt Editor -->
+                <div class="border border-white/[0.12] rounded-md bg-white/[0.04]">
+                    <div class="px-3 py-2.5 border-b border-white/[0.08] cursor-pointer flex justify-between items-center text-sm font-medium text-white/70 hover:bg-white/[0.06] transition-colors" id="prompt-editor-toggle">
+                        <span>Advanced: Custom Prompt</span>
+                        <span id="prompt-toggle-icon" class="text-xs">&#9660;</span>
+                    </div>
+                    <div class="prompt-editor-content p-3" id="prompt-editor-content">
+                        <p class="text-xs text-white/50 mb-2">
+                            Customize the AI instruction for script generation. Leave empty to use the built-in prompt.
+                        </p>
+                        <textarea id="custom-prompt-editor" placeholder="Enter custom prompt with placeholders: {raw_text}, {speakers_info}, {language_name}, {tone}, etc."
+                            class="glass-input w-full min-h-[200px] text-xs font-mono"></textarea>
+                        <button type="button" class="glass-btn mt-2 text-xs py-1.5 px-3" id="reset-prompt-btn">Reset to Default</button>
+                    </div>
+                </div>
+
+                <button type="button" class="glass-btn glass-btn--primary w-full mt-4 text-center" id="generate-podcast-btn">
+                    Generate Podcast
+                </button>
+            </div>
+
+            <!-- Result Container -->
+            <div id="podcast-result-container" class="hidden">
+                <h5 class="text-sm font-semibold text-white/90 mb-2">Your Podcast:</h5>
+                <audio id="podcast-audio" controls class="w-full mb-3">
+                    <source id="podcast-audio-source" type="audio/wav">
+                    Your browser does not support the audio element.
+                </audio>
+                <div class="flex gap-2">
+                    <a id="download-podcast-btn" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -437,39 +254,56 @@ Max [professionally]: Thanks for joining us."></textarea>
 {% if deepgram_api_key_set %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
+
     // ==========================================================
-    // ===== TAB SWITCHING - Hide/Show Language Selector =====
+    // ===== CUSTOM TAB SWITCHING =====
     // ==========================================================
-    const transcriptionTabs = document.getElementById('transcriptionTabs');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
     const languageSelector = document.getElementById('transcription-language-selector');
-    
-    transcriptionTabs.addEventListener('click', function(e) {
-        if (e.target.matches('[data-bs-toggle="tab"]')) {
-            const targetId = e.target.getAttribute('data-bs-target');
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update button styles using CSS classes
+            tabButtons.forEach(b => {
+                b.classList.remove('tab-active');
+                b.classList.add('tab-inactive');
+            });
+            this.classList.add('tab-active');
+            this.classList.remove('tab-inactive');
+
+            // Show/hide panes
+            const target = this.dataset.tab;
+            tabPanes.forEach(p => p.classList.add('hidden'));
+            document.getElementById(target + '-pane').classList.remove('hidden');
+
             // Show language selector only for live and file tabs
-            if (targetId === '#live-tab-pane' || targetId === '#file-tab-pane') {
+            if (target === 'live' || target === 'file') {
                 languageSelector.style.display = 'block';
             } else {
                 languageSelector.style.display = 'none';
             }
-        }
+        });
     });
-    
+
     // ==========================================================
     // ===== LANGUAGE SELECTION =====
     // ==========================================================
     const languageButtons = document.querySelectorAll('.language-btn');
     let selectedLanguage = 'en';
-    
+
     languageButtons.forEach(button => {
         button.addEventListener('click', function() {
-            languageButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
+            languageButtons.forEach(btn => {
+                btn.classList.remove('lang-active');
+                btn.classList.add('lang-inactive');
+            });
+            this.classList.add('lang-active');
+            this.classList.remove('lang-inactive');
             selectedLanguage = this.dataset.lang;
         });
     });
-    
+
     // ==========================================================
     // ===== LIVE TRANSCRIPTION LOGIC =====
     // ==========================================================
@@ -502,10 +336,10 @@ document.addEventListener('DOMContentLoaded', function() {
         let deepgramToken;
         try {
             deepgramToken = await getDeepgramToken();
-        } catch (error) { 
-            return; 
+        } catch (error) {
+            return;
         }
-        
+
         const params = new URLSearchParams({
             model: 'nova-3',
             language: selectedLanguage,
@@ -518,46 +352,46 @@ document.addEventListener('DOMContentLoaded', function() {
             numerals: 'true',
             utterances: 'true'
         });
-        
+
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
 
         socket.onopen = async () => {
             baseText = transcriptOutput.value;
-            
-            const stream = await navigator.mediaDevices.getUserMedia({ 
+
+            const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
                     sampleRate: 16000
                 }
             });
-            
+
             const audioContext = new AudioContext({ sampleRate: 16000 });
             const source = audioContext.createMediaStreamSource(stream);
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
-            
+
             source.connect(processor);
             processor.connect(audioContext.destination);
-            
+
             processor.onaudioprocess = (e) => {
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcmData = new Int16Array(inputData.length);
-                    
+
                     for (let i = 0; i < inputData.length; i++) {
                         pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
                     }
-                    
+
                     socket.send(pcmData.buffer);
                 }
             };
-            
+
             mediaRecorder = { processor, source, stream, audioContext };
-            
+
             isRecording = true;
             micButton.classList.add('recording');
             micButton.title = "Click to Stop Recording";
-            
+
             languageButtons.forEach(btn => btn.disabled = true);
 
             keepAliveInterval = setInterval(() => {
@@ -566,7 +400,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 5000);
         };
-        
+
         socket.onmessage = (message) => {
             const received = JSON.parse(message.data);
             const transcript = received.channel?.alternatives[0]?.transcript;
@@ -610,7 +444,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 mediaRecorder.stream.getTracks().forEach(track => track.stop());
             }
         }
-        
+
         if (socket && socket.readyState === WebSocket.OPEN && shouldCloseSocket) {
             socket.close();
         }
@@ -621,12 +455,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         micButton.classList.remove('recording');
         micButton.title = "Click to Start Recording";
-        
+
         languageButtons.forEach(btn => btn.disabled = false);
 
         transcriptOutput.focus();
 
-        // Show save button if there's transcript content
         const saveLiveBtn = document.getElementById('save-live-btn');
         if (saveLiveBtn && transcriptOutput.value.trim()) {
             saveLiveBtn.classList.remove('hidden');
@@ -657,10 +490,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fileUploadText.textContent = 'Click to select an audio file or drag and drop';
         }
     });
-    
+
     uploadForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        
+
         if (!fileInput.files[0]) {
             alert("Please select an audio file first.");
             return;
@@ -672,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         transcribeBtn.disabled = true;
         transcribeBtn.textContent = 'Transcribing...';
-        resultContainer.innerHTML = '<span class="text-muted">Processing your audio file...</span>';
+        resultContainer.innerHTML = '<span class="text-white/40">Processing your audio file...</span>';
 
         try {
             const response = await fetch('/transcribe-audio-file', {
@@ -685,10 +518,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) {
                 throw new Error(result.error || `HTTP error! Status: ${response.status}`);
             }
-            
+
             resultContainer.textContent = result.transcript || 'No transcript was returned.';
 
-            // Show save button and store metadata
             const saveBtn = document.getElementById('save-transcription-btn');
             saveBtn.classList.remove('hidden');
             saveBtn.textContent = 'Save to Library';
@@ -703,13 +535,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Transcription error:', error);
-            resultContainer.innerHTML = `<span class="text-danger"><strong>Error:</strong> ${error.message}</span>`;
+            resultContainer.innerHTML = `<span class="text-red-300"><strong>Error:</strong> ${error.message}</span>`;
         } finally {
             transcribeBtn.disabled = false;
             transcribeBtn.textContent = 'Transcribe File';
         }
     });
-    
+
     // ==========================================================
     // ===== COPY & CLEAR BUTTONS =====
     // ==========================================================
@@ -717,32 +549,43 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearFileBtn = document.getElementById('clear-file-btn');
     const copyLiveBtn = document.getElementById('copy-live-btn');
     const copyFileBtn = document.getElementById('copy-file-btn');
-    
+
     clearLiveBtn.addEventListener('click', () => {
         transcriptOutput.value = '';
         baseText = '';
     });
-    
+
     clearFileBtn.addEventListener('click', () => {
-        resultContainer.innerHTML = '<span class="text-muted">The transcription will appear here after processing.</span>';
+        resultContainer.innerHTML = '<span class="text-white/40">The transcription will appear here after processing.</span>';
     });
-    
+
     async function copyToClipboard(text, button) {
         if (!text || text.trim() === '') {
             alert('Nothing to copy!');
             return;
         }
-        
+
         try {
-            await navigator.clipboard.writeText(text);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                if (!document.execCommand('copy')) throw new Error('execCommand failed');
+                document.body.removeChild(ta);
+            }
             const originalText = button.innerHTML;
-            button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
-            button.style.backgroundColor = 'var(--bg-alert-success)';
-            button.style.color = 'var(--text-success)';
-            
+            button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+            button.style.background = 'rgba(34,197,94,0.15)';
+            button.style.color = '#86efac';
+
             setTimeout(() => {
                 button.innerHTML = originalText;
-                button.style.backgroundColor = '';
+                button.style.background = '';
                 button.style.color = '';
             }, 2000);
         } catch (err) {
@@ -750,11 +593,11 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Failed to copy to clipboard');
         }
     }
-    
+
     copyLiveBtn.addEventListener('click', () => {
         copyToClipboard(transcriptOutput.value, copyLiveBtn);
     });
-    
+
     copyFileBtn.addEventListener('click', () => {
         const text = resultContainer.textContent;
         copyToClipboard(text, copyFileBtn);
@@ -763,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==========================================================
     // ===== PODCAST GENERATOR =====
     // ==========================================================
-    
+
     const podcastModeRadios = document.querySelectorAll('input[name="podcast-mode"]');
     const podcastLanguageSelect = document.getElementById('podcast-language');
     const podcastRawText = document.getElementById('podcast-raw-text');
@@ -774,56 +617,55 @@ document.addEventListener('DOMContentLoaded', function() {
     const podcastAudio = document.getElementById('podcast-audio');
     const podcastAudioSource = document.getElementById('podcast-audio-source');
     const downloadPodcastBtn = document.getElementById('download-podcast-btn');
-    
+
     const promptEditorToggle = document.getElementById('prompt-editor-toggle');
     const promptEditorContent = document.getElementById('prompt-editor-content');
     const promptToggleIcon = document.getElementById('prompt-toggle-icon');
     const customPromptEditor = document.getElementById('custom-prompt-editor');
     const resetPromptBtn = document.getElementById('reset-prompt-btn');
-    
+
     // Prompt editor toggle
     promptEditorToggle.addEventListener('click', function() {
         const isExpanded = promptEditorContent.classList.contains('expanded');
         if (isExpanded) {
             promptEditorContent.classList.remove('expanded');
-            promptToggleIcon.textContent = '▼';
+            promptToggleIcon.innerHTML = '&#9660;';
         } else {
             promptEditorContent.classList.add('expanded');
-            promptToggleIcon.textContent = '▲';
+            promptToggleIcon.innerHTML = '&#9650;';
         }
     });
-    
+
     // Reset prompt
     resetPromptBtn.addEventListener('click', function() {
         customPromptEditor.value = '';
     });
-    
+
     // Generate script from raw text
     generateScriptBtn.addEventListener('click', async () => {
         const rawText = podcastRawText.value.trim();
-        
+
         if (!rawText) {
             alert('Please enter some text in the Source Text field.');
             return;
         }
-        
+
         const mode = document.querySelector('input[name="podcast-mode"]:checked').value;
         const numSpeakers = mode === 'monolog' ? 1 : 2;
-        
-        // Build speaker descriptions
-        const speakerDescriptions = numSpeakers === 1 
+
+        const speakerDescriptions = numSpeakers === 1
             ? [{ name: 'Kate', voice: 'Zephyr', personality: 'warm and professional' }]
             : [
                 { name: 'Kate', voice: 'Zephyr', personality: 'warm and enthusiastic' },
                 { name: 'Max', voice: 'Charon', personality: 'professional and informative' }
               ];
-        
+
         generateScriptBtn.disabled = true;
-        generateScriptBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
-        
+        generateScriptBtn.textContent = 'Generating...';
+
         try {
             const customPrompt = customPromptEditor.value.trim() || null;
-            
+
             const response = await fetch('/format-dialogue-with-llm', {
                 method: 'POST',
                 headers: {
@@ -839,63 +681,62 @@ document.addEventListener('DOMContentLoaded', function() {
                     custom_prompt: customPrompt
                 })
             });
-            
+
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
             }
-            
+
             const data = await response.json();
             podcastScript.value = data.raw_formatted_text;
-            
+
         } catch (error) {
             console.error('Script generation error:', error);
             alert('Error generating script: ' + error.message);
         } finally {
             generateScriptBtn.disabled = false;
-            generateScriptBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> ✨ Generate Script from Text Above';
+            generateScriptBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> Generate Script from Text Above';
         }
     });
-    
+
     // Generate podcast from script
     generatePodcastBtn.addEventListener('click', async () => {
         const scriptText = podcastScript.value.trim();
-        
+
         if (!scriptText) {
             alert('Please enter or generate a script first.');
             return;
         }
-        
+
         const mode = document.querySelector('input[name="podcast-mode"]:checked').value;
-        
-        // Parse script into dialogue format
+
         const dialogue = [];
         const voiceMap = {
             'Kate': 'Zephyr',
             'Max': 'Charon'
         };
-        
+
         for (const line of scriptText.split('\n')) {
             const trimmedLine = line.trim();
             if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('**')) {
                 continue;
             }
-            
+
             if (trimmedLine.includes(':')) {
                 const parts = trimmedLine.split(':', 1);
                 const speakerPart = parts[0].trim();
                 const textPart = trimmedLine.substring(parts[0].length + 1).trim();
-                
+
                 let speaker = speakerPart;
                 let style = '';
-                
+
                 if (speakerPart.includes('[') && speakerPart.includes(']')) {
                     speaker = speakerPart.split('[')[0].trim();
                     style = speakerPart.split('[')[1].split(']')[0].trim();
                 }
-                
+
                 const voice = voiceMap[speaker] || 'Kore';
-                
+
                 if (textPart) {
                     dialogue.push({
                         speaker: voice,
@@ -905,18 +746,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
-        
+
         if (dialogue.length === 0) {
             alert('Could not parse the script. Please check the format:\nSpeakerName [style]: Text');
             return;
         }
-        
+
         generatePodcastBtn.disabled = true;
-        generatePodcastBtn.textContent = '🎙️ Starting...';
-        podcastResultContainer.style.display = 'none';
+        generatePodcastBtn.textContent = 'Starting...';
+        podcastResultContainer.classList.add('hidden');
 
         try {
-            // Start the job
             const ttsModelSelect = document.getElementById('tts-model');
             const startResponse = await fetch('/generate-gemini-podcast', {
                 method: 'POST',
@@ -936,15 +776,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const { job_id } = await startResponse.json();
-            generatePodcastBtn.textContent = '🎙️ Generating...';
+            generatePodcastBtn.textContent = 'Generating...';
 
-            // Poll for status
             let status = 'pending';
             let pollCount = 0;
             while (status === 'pending' || status === 'processing') {
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Poll every 2 seconds
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 pollCount++;
-                generatePodcastBtn.textContent = `🎙️ Generating... (${pollCount * 2}s)`;
+                generatePodcastBtn.textContent = `Generating... (${pollCount * 2}s)`;
 
                 const statusResponse = await fetch(`/podcast-status/${job_id}`);
                 const statusData = await statusResponse.json();
@@ -955,7 +794,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // Download the result
             const downloadResponse = await fetch(`/podcast-download/${job_id}`);
             if (!downloadResponse.ok) {
                 throw new Error('Failed to download podcast');
@@ -969,7 +807,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             downloadPodcastBtn.href = audioUrl;
 
-            podcastResultContainer.style.display = 'block';
+            podcastResultContainer.classList.remove('hidden');
             podcastResultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         } catch (error) {
@@ -977,7 +815,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Error generating podcast: ' + error.message);
         } finally {
             generatePodcastBtn.disabled = false;
-            generatePodcastBtn.textContent = '🎙️ Generate Podcast';
+            generatePodcastBtn.textContent = 'Generate Podcast';
         }
     });
 
@@ -1063,4 +901,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endif %}
 {% endblock %}
-</html>
