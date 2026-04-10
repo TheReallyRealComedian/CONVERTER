@@ -7,7 +7,11 @@ services:
 
   # 2. Web Container (Flask API)
   markdown-converter:
-    build: .
+    build:
+      context: .
+      cache_from:
+        - converter-app:latest
+    image: converter-app:latest
     container_name: markdown-converter-web
     dns:
       - 8.8.8.8
@@ -40,7 +44,7 @@ services:
 
   # 3. Worker Container (Background Job Processor)
   worker:
-    build: .
+    image: converter-app:latest
     container_name: markdown-converter-worker
     command: python worker.py
     dns:

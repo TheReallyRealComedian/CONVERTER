@@ -126,6 +126,7 @@ This is a blockquote to demonstrate styling.
             <button type="button" onclick="changeWidth('narrow')" title="Narrow" id="width-narrow">&#9612;</button>
             <button type="button" onclick="changeWidth('medium')" title="Medium" id="width-medium">&#9612;&#9612;</button>
             <button type="button" onclick="changeWidth('wide')" title="Wide" id="width-wide">&#9612;&#9612;&#9612;</button>
+            <button type="button" onclick="changeWidth('ultrawide')" title="Ultra-wide (80%)" id="width-ultrawide">&#9612;&#9612;&#9612;&#9612;</button>
             <div class="separator"></div>
             <button type="button" onclick="toggleDarkMode()" id="dark-mode-btn" title="Toggle dark mode">&#127769;</button>
             <div class="separator"></div>
@@ -183,7 +184,7 @@ This is a blockquote to demonstrate styling.
     <!-- Reader Mode Logic -->
     <script>
         const READER_PREFS_KEY = 'readerPrefs';
-        const WIDTH_MAP = { narrow: '600px', medium: '800px', wide: '1000px' };
+        const WIDTH_MAP = { narrow: '600px', medium: '800px', wide: '1000px', ultrawide: '80%' };
 
         function getReaderPrefs() {
             try {
@@ -250,7 +251,7 @@ This is a blockquote to demonstrate styling.
         }
 
         function updateWidthButtons(active) {
-            ['narrow', 'medium', 'wide'].forEach(function(s) {
+            ['narrow', 'medium', 'wide', 'ultrawide'].forEach(function(s) {
                 const btn = document.getElementById('width-' + s);
                 if (btn) btn.classList.toggle('active', s === active);
             });
