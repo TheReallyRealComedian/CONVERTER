@@ -6,19 +6,22 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}File Transformer{% endblock %}</title>
     <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'glass-text': { 1: 'rgba(255,255,255,0.96)', 2: 'rgba(255,255,255,0.72)', 3: 'rgba(255,255,255,0.56)' },
-                        'glass-stroke': { DEFAULT: 'rgba(255,255,255,0.22)', soft: 'rgba(255,255,255,0.12)' },
-                        'accent': { DEFAULT: 'rgba(110,170,255,0.7)', soft: 'rgba(110,170,255,0.3)', fill: 'rgba(110,170,255,0.15)' },
+                        'neo-text': 'var(--nm-text)',
+                        'neo-muted': 'var(--nm-text-secondary)',
+                        'neo-faint': 'var(--nm-text-muted)',
+                        'neo-surface': 'var(--nm-bg)',
+                        'neo-accent': 'var(--nm-accent-hover)',
                     },
                     fontFamily: {
-                        sans: ['"DejaVu Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-                        mono: ['Monaco', 'Menlo', '"Ubuntu Mono"', 'monospace'],
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
+                        mono: ['Monaco', 'Menlo', 'Ubuntu Mono', 'monospace'],
                     }
                 }
             }
@@ -26,10 +29,10 @@
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script>
-        (function() {
-            var saved = localStorage.getItem('globalTheme');
-            var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-            if (theme === 'light') document.documentElement.setAttribute('data-global-theme', 'light');
+        (function(){
+            var t = localStorage.getItem('globalTheme');
+            if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            if (t === 'dark') document.documentElement.setAttribute('data-global-theme', 'dark');
         })();
     </script>
     {% block head_extra %}{% endblock %}
@@ -42,52 +45,52 @@
     </button>
 
     <!-- Mobile sidebar overlay -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 hidden lg:hidden"></div>
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/20 z-30 hidden lg:hidden"></div>
 
     <div class="grid lg:grid-cols-[250px_1fr] min-h-screen">
         <!-- Sidebar -->
-        <aside id="sidebar" class="glass fixed lg:static inset-y-0 left-0 z-40 w-[250px] text-white flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200" style="border-radius: 0; border-top: none; border-bottom: none; border-left: none;">
-            <div class="p-4 border-b border-white/[0.12]">
-                <a href="{{ url_for('markdown_converter') }}" class="text-lg font-semibold text-white hover:text-white no-underline">File Transformer</a>
+        <aside id="sidebar" class="c-surface neo-sidebar fixed lg:static inset-y-0 left-0 z-40 w-[250px] flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200">
+            <div class="p-4 neo-sidebar-brand">
+                <a href="{{ url_for('markdown_converter') }}" class="text-lg font-semibold text-neo-text hover:text-neo-accent no-underline">File Transformer</a>
             </div>
 
             <nav class="flex-1 py-3 px-3 space-y-0.5">
                 <a href="{{ url_for('markdown_converter') }}"
-                   class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors no-underline
-                   {% if request.path == url_for('markdown_converter') %}bg-white/[0.12] text-white{% else %}text-white/70 hover:bg-white/[0.08] hover:text-white{% endif %}">
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline
+                   {% if request.path == url_for('markdown_converter') %}neo-nav-active{% else %}text-neo-muted hover:text-neo-text{% endif %}">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     Markdown to PDF
                 </a>
                 <a href="{{ url_for('document_converter') }}"
-                   class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors no-underline
-                   {% if request.path == url_for('document_converter') %}bg-white/[0.12] text-white{% else %}text-white/70 hover:bg-white/[0.08] hover:text-white{% endif %}">
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline
+                   {% if request.path == url_for('document_converter') %}neo-nav-active{% else %}text-neo-muted hover:text-neo-text{% endif %}">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                     Document Converter
                 </a>
                 <a href="{{ url_for('audio_converter') }}"
-                   class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors no-underline
-                   {% if request.path == url_for('audio_converter') %}bg-white/[0.12] text-white{% else %}text-white/70 hover:bg-white/[0.08] hover:text-white{% endif %}">
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline
+                   {% if request.path == url_for('audio_converter') %}neo-nav-active{% else %}text-neo-muted hover:text-neo-text{% endif %}">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
                     Audio Converter
                 </a>
                 <a href="{{ url_for('mermaid_converter') }}"
-                   class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors no-underline
-                   {% if request.path == url_for('mermaid_converter') %}bg-white/[0.12] text-white{% else %}text-white/70 hover:bg-white/[0.08] hover:text-white{% endif %}">
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline
+                   {% if request.path == url_for('mermaid_converter') %}neo-nav-active{% else %}text-neo-muted hover:text-neo-text{% endif %}">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
                     Mermaid Converter
                 </a>
                 <a href="{{ url_for('library') }}"
-                   class="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors no-underline
-                   {% if '/library' in request.path %}bg-white/[0.12] text-white{% else %}text-white/70 hover:bg-white/[0.08] hover:text-white{% endif %}">
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline
+                   {% if '/library' in request.path %}neo-nav-active{% else %}text-neo-muted hover:text-neo-text{% endif %}">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     Library
                 </a>
             </nav>
 
             {% if current_user.is_authenticated %}
-            <div class="p-4 border-t border-white/[0.12] flex items-center justify-between">
-                <span class="text-sm text-white/50 truncate">{{ current_user.username }}</span>
-                <a href="{{ url_for('logout') }}" class="text-sm text-white/50 hover:text-white transition-colors no-underline">Logout</a>
+            <div class="p-4 flex items-center justify-between neo-sidebar-footer">
+                <span class="text-sm text-neo-faint truncate">{{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}" class="text-sm text-neo-faint hover:text-neo-text transition-colors no-underline">Logout</a>
             </div>
             {% endif %}
         </aside>
@@ -95,11 +98,11 @@
         <!-- Main content -->
         <main class="min-h-screen flex flex-col" id="main-content">
             <!-- Mobile header -->
-            <header class="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-white/[0.08] mobile-header">
-                <button type="button" id="sidebar-toggle" class="p-1.5 -ml-1.5 rounded-md hover:bg-white/10 transition-colors" title="Toggle navigation">
-                    <svg class="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <header class="lg:hidden flex items-center gap-3 px-4 py-3 mobile-header">
+                <button type="button" id="sidebar-toggle" class="p-1.5 -ml-1.5 rounded-xl transition-all" title="Toggle navigation">
+                    <svg class="w-5 h-5 text-neo-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
-                <span class="font-semibold text-white/90 text-sm">File Transformer</span>
+                <span class="font-semibold text-neo-text text-sm">File Transformer</span>
             </header>
 
             {% block content %}{% endblock %}
@@ -139,15 +142,12 @@
 
         /**
          * Pane Resizing Logic
-         * This script finds the editor and preview panes and makes them resizable.
          */
         document.addEventListener('DOMContentLoaded', function() {
             const editorPane = document.querySelector('.editor-pane');
             const previewPane = document.querySelector('.preview-pane');
 
-            // Only run if the split-pane layout is present on the page
             if (editorPane && previewPane) {
-                // Create and insert the resizer handle between the panes
                 const resizer = document.createElement('div');
                 resizer.className = 'resizer';
                 editorPane.parentNode.insertBefore(resizer, previewPane);
@@ -185,28 +185,28 @@
             var sunIcon = document.getElementById('theme-icon-sun');
             var moonIcon = document.getElementById('theme-icon-moon');
 
-            function isLight() {
-                return document.documentElement.getAttribute('data-global-theme') === 'light';
+            function isDark() {
+                return document.documentElement.getAttribute('data-global-theme') === 'dark';
             }
 
             function updateIcons() {
-                if (isLight()) {
-                    sunIcon.classList.add('hidden');
-                    moonIcon.classList.remove('hidden');
-                } else {
+                if (isDark()) {
                     sunIcon.classList.remove('hidden');
                     moonIcon.classList.add('hidden');
+                } else {
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
                 }
             }
 
-            function setTheme(light) {
+            function setTheme(dark) {
                 document.documentElement.classList.add('theme-transitioning');
-                if (light) {
-                    document.documentElement.setAttribute('data-global-theme', 'light');
+                if (dark) {
+                    document.documentElement.setAttribute('data-global-theme', 'dark');
                 } else {
                     document.documentElement.removeAttribute('data-global-theme');
                 }
-                localStorage.setItem('globalTheme', light ? 'light' : 'dark');
+                localStorage.setItem('globalTheme', dark ? 'dark' : 'light');
                 updateIcons();
                 setTimeout(function() {
                     document.documentElement.classList.remove('theme-transitioning');
@@ -214,9 +214,9 @@
             }
 
             updateIcons();
-            btn?.addEventListener('click', function() { setTheme(!isLight()); });
+            btn?.addEventListener('click', function() { setTheme(!isDark()); });
 
-            window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(e) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
                 if (!localStorage.getItem('globalTheme')) setTheme(e.matches);
             });
         })();

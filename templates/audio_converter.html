@@ -5,28 +5,40 @@
 {% block head_extra %}
 <style>
     #mic-button {
-        background: none;
-        border: 1px solid var(--glass-stroke-soft);
+        background: var(--nm-bg);
+        border: none;
+        box-shadow: var(--nm-raised-sm);
         padding: 10px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--text-3);
+        color: var(--nm-text-muted);
         border-radius: 50%;
-        transition: background-color 0.2s ease, color 0.2s ease;
+        transition: box-shadow 0.3s ease, color 0.15s ease, background-color 0.15s ease;
     }
-    #mic-button:hover { background-color: var(--glass-fill); }
+    #mic-button:hover {
+        box-shadow: var(--nm-raised);
+        color: var(--nm-text);
+    }
     #mic-button.recording {
         color: #ffffff;
-        background-color: rgba(239, 68, 68, 0.8);
-        border-color: rgba(239, 68, 68, 0.8);
+        background-color: rgba(225, 112, 85, 0.85);
+        box-shadow: var(--nm-pressed-sm);
     }
     .mode-radio-input { display: none; }
     .mode-radio-input:checked + .mode-radio-label {
-        background: var(--accent-fill);
-        color: var(--text-1);
-        border-color: var(--accent);
+        background: var(--nm-tint-accent);
+        color: var(--nm-accent-hover);
+        box-shadow: var(--nm-pressed-sm);
+    }
+    .mode-radio-label {
+        box-shadow: var(--nm-raised-sm);
+        border: none !important;
+        background: var(--nm-bg);
+    }
+    .mode-radio-label:hover {
+        box-shadow: var(--nm-raised);
     }
     .prompt-editor-content { display: none; }
     .prompt-editor-content.expanded { display: block; }
@@ -36,34 +48,34 @@
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-4xl mx-auto">
-        <h2 class="text-lg font-semibold text-white/95 mb-1">Audio Tools</h2>
-        <p class="text-sm text-white/55 mb-6">Transcription, file processing, and AI podcast generation.</p>
+        <h2 class="text-lg font-semibold text-neo-text mb-1">Audio Tools</h2>
+        <p class="text-sm text-neo-muted mb-6">Transcription, file processing, and AI podcast generation.</p>
 
         {% if not deepgram_api_key_set %}
-        <div class="glass-alert glass-alert-danger">
+        <div class="c-alert c-alert--danger">
             <strong>Configuration Error:</strong> Audio services are not configured. Please set API keys.
         </div>
         {% else %}
 
         <!-- TABS -->
-        <div class="flex border-b border-white/[0.08] mb-6" id="transcriptionTabs">
-            <button type="button" data-tab="live" class="tab-btn tab-active px-4 py-2.5 text-sm font-medium transition-colors">
+        <div class="flex gap-1 mb-6" id="transcriptionTabs">
+            <button type="button" data-tab="live" class="tab-btn tab-active px-4 py-2.5 text-sm font-medium rounded-xl transition-all">
                 Live Transcription
             </button>
-            <button type="button" data-tab="file" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium transition-colors">
+            <button type="button" data-tab="file" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all">
                 Transcribe File
             </button>
-            <button type="button" data-tab="podcast" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium transition-colors">
+            <button type="button" data-tab="podcast" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all">
                 Text to Podcast
             </button>
         </div>
 
         <!-- TRANSCRIPTION LANGUAGE (only for Live & File tabs) -->
         <div class="mb-4" id="transcription-language-selector">
-            <label class="block text-sm font-medium text-white/70 mb-2">Transcription Language</label>
+            <label class="block text-sm font-medium text-neo-muted mb-2">Transcription Language</label>
             <div class="flex gap-2">
-                <button type="button" class="language-btn lang-active px-3 py-1.5 text-sm font-medium border-2 rounded-md transition-colors" data-lang="en">English</button>
-                <button type="button" class="language-btn lang-inactive px-3 py-1.5 text-sm font-medium border-2 rounded-md transition-colors" data-lang="de">German</button>
+                <button type="button" class="language-btn lang-active px-3 py-1.5 text-sm font-medium rounded-xl transition-all" data-lang="en">English</button>
+                <button type="button" class="language-btn lang-inactive px-3 py-1.5 text-sm font-medium rounded-xl transition-all" data-lang="de">German</button>
             </div>
         </div>
 
@@ -71,20 +83,20 @@
 
         <!-- LIVE TRANSCRIPTION PANE -->
         <div class="tab-pane" id="live-pane">
-            <p class="text-sm text-white/60 mb-4">Click the microphone button to start and stop real-time transcription.</p>
+            <p class="text-sm text-neo-muted mb-4">Click the microphone button to start and stop real-time transcription.</p>
             <div class="flex items-start gap-3">
                 <button type="button" id="mic-button" title="Click to Start Recording">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
                 </button>
                 <div class="flex-1">
                     <textarea id="live-transcript-output" rows="8" placeholder="Live transcription will appear here..."
-                        class="glass-input w-full"></textarea>
+                        class="c-input w-full"></textarea>
                     <div class="flex gap-2 mt-2">
-                        <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-live-btn">
+                        <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-live-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                             Copy
                         </button>
-                        <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-live-btn">
+                        <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-live-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                             Clear
                         </button>
@@ -101,25 +113,25 @@
             <form id="audio-upload-form">
                 <div class="mb-4">
                     <label for="file-upload-input"
-                        class="glass-drop-zone block cursor-pointer">
-                        <p id="file-upload-text" class="text-sm font-medium text-white/65">Click to select an audio file or drag and drop</p>
+                        class="c-drop-zone block cursor-pointer">
+                        <p id="file-upload-text" class="text-sm font-medium text-neo-muted">Click to select an audio file or drag and drop</p>
                     </label>
                     <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required class="hidden" title="Select an audio file">
                 </div>
-                <button type="submit" class="glass-btn glass-btn--primary w-full text-center mb-4" id="transcribe-file-btn">
+                <button type="submit" class="c-btn c-btn--primary w-full text-center mb-4" id="transcribe-file-btn">
                     Transcribe File
                 </button>
             </form>
-            <h5 class="text-sm font-semibold text-white/90 mb-2">Transcription Result:</h5>
-            <div id="transcription-result-container" class="glass--subtle p-4 min-h-[150px] whitespace-pre-wrap break-words text-sm text-white/70">
-                <span class="text-white/40">The transcription will appear here after processing.</span>
+            <h5 class="text-sm font-semibold text-neo-text mb-2">Transcription Result:</h5>
+            <div id="transcription-result-container" class="c-surface--flat p-4 min-h-[150px] whitespace-pre-wrap break-words text-sm text-neo-muted">
+                <span class="text-neo-faint">The transcription will appear here after processing.</span>
             </div>
             <div class="flex gap-2 mt-2">
-                <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-file-btn">
+                <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-file-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                     Copy
                 </button>
-                <button type="button" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-file-btn">
+                <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-file-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                     Clear
                 </button>
@@ -129,27 +141,27 @@
 
         <!-- PODCAST GENERATOR PANE -->
         <div class="tab-pane hidden" id="podcast-pane">
-            <p class="text-sm text-white/60 mb-4">Convert your text into a natural-sounding podcast with AI-powered voices.</p>
+            <p class="text-sm text-neo-muted mb-4">Convert your text into a natural-sounding podcast with AI-powered voices.</p>
 
             <!-- Step 1: Choose Format & Language -->
-            <div class="glass--subtle p-5 mb-4">
-                <h5 class="text-sm font-semibold text-white/90 mb-4">Step 1: Setup</h5>
+            <div class="c-surface--flat p-5 mb-4">
+                <h5 class="text-sm font-semibold text-neo-text mb-4">Step 1: Setup</h5>
 
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-white/70 mb-2">Format</label>
+                    <label class="block text-sm font-medium text-neo-muted mb-2">Format</label>
                     <div class="flex gap-3">
                         <div class="flex-1">
                             <input type="radio" id="mode-monolog" name="podcast-mode" value="monolog" class="mode-radio-input" checked>
-                            <label for="mode-monolog" class="mode-radio-label block p-3 border-2 border-white/[0.12] bg-white/[0.04] rounded-md cursor-pointer text-center hover:border-white/[0.22] transition-colors">
-                                <div class="font-semibold text-sm mb-0.5">Monolog</div>
-                                <div class="text-xs opacity-70">Single narrator (Kate)</div>
+                            <label for="mode-monolog" class="mode-radio-label block p-3 rounded-xl cursor-pointer text-center transition-all">
+                                <div class="font-semibold text-sm mb-0.5 text-neo-text">Monolog</div>
+                                <div class="text-xs text-neo-muted">Single narrator (Kate)</div>
                             </label>
                         </div>
                         <div class="flex-1">
                             <input type="radio" id="mode-dialogue" name="podcast-mode" value="dialogue" class="mode-radio-input">
-                            <label for="mode-dialogue" class="mode-radio-label block p-3 border-2 border-white/[0.12] bg-white/[0.04] rounded-md cursor-pointer text-center hover:border-white/[0.22] transition-colors">
-                                <div class="font-semibold text-sm mb-0.5">Dialogue</div>
-                                <div class="text-xs opacity-70">Conversation (Kate & Max)</div>
+                            <label for="mode-dialogue" class="mode-radio-label block p-3 rounded-xl cursor-pointer text-center transition-all">
+                                <div class="font-semibold text-sm mb-0.5 text-neo-text">Dialogue</div>
+                                <div class="text-xs text-neo-muted">Conversation (Kate & Max)</div>
                             </label>
                         </div>
                     </div>
@@ -157,8 +169,8 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label for="podcast-language" class="block text-sm font-medium text-white/70 mb-1.5">Language</label>
-                        <select class="glass-input w-full" id="podcast-language">
+                        <label for="podcast-language" class="block text-sm font-medium text-neo-muted mb-1.5">Language</label>
+                        <select class="c-input w-full" id="podcast-language">
                             <option value="en">English</option>
                             <option value="de" selected>German</option>
                             <option value="es">Spanish</option>
@@ -166,8 +178,8 @@
                         </select>
                     </div>
                     <div>
-                        <label for="narration-style" class="block text-sm font-medium text-white/70 mb-1.5">Narration Style</label>
-                        <select class="glass-input w-full" id="narration-style">
+                        <label for="narration-style" class="block text-sm font-medium text-neo-muted mb-1.5">Narration Style</label>
+                        <select class="c-input w-full" id="narration-style">
                             <option value="documentary">Documentary</option>
                             <option value="conversational" selected>Conversational</option>
                             <option value="academic">Academic</option>
@@ -176,8 +188,8 @@
                         </select>
                     </div>
                     <div>
-                        <label for="tts-model" class="block text-sm font-medium text-white/70 mb-1.5">TTS Model</label>
-                        <select class="glass-input w-full" id="tts-model">
+                        <label for="tts-model" class="block text-sm font-medium text-neo-muted mb-1.5">TTS Model</label>
+                        <select class="c-input w-full" id="tts-model">
                             <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
                             <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS</option>
                         </select>
@@ -186,58 +198,58 @@
             </div>
 
             <!-- Step 2: Script -->
-            <div class="glass--subtle p-5 mb-4">
-                <h5 class="text-sm font-semibold text-white/90 mb-4">Step 2: Create Your Podcast</h5>
+            <div class="c-surface--flat p-5 mb-4">
+                <h5 class="text-sm font-semibold text-neo-text mb-4">Step 2: Create Your Podcast</h5>
 
                 <div class="mb-4">
-                    <label for="podcast-raw-text" class="block text-sm font-medium text-white/70 mb-1.5">Source Text</label>
+                    <label for="podcast-raw-text" class="block text-sm font-medium text-neo-muted mb-1.5">Source Text</label>
                     <textarea id="podcast-raw-text" rows="6" placeholder="Paste your text here, or generate a script below..."
-                        class="glass-input w-full"></textarea>
-                    <p class="mt-1 text-xs text-white/45">Paste your content or leave empty to work directly with the script below</p>
+                        class="c-input w-full"></textarea>
+                    <p class="mt-1 text-xs text-neo-faint">Paste your content or leave empty to work directly with the script below</p>
                 </div>
 
-                <button type="button" class="glass-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn">
+                <button type="button" class="c-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
                     Generate Script from Text Above
                 </button>
 
                 <div class="mb-4">
-                    <label for="podcast-script" class="block text-sm font-medium text-white/70 mb-1.5">Podcast Script</label>
+                    <label for="podcast-script" class="block text-sm font-medium text-neo-muted mb-1.5">Podcast Script</label>
                     <textarea id="podcast-script" rows="12" placeholder="Edit your script here or generate one from the text above.&#10;&#10;Format:&#10;Kate [warmly]: Welcome to today's show!&#10;Max [professionally]: Thanks for joining us."
-                        class="glass-input w-full font-mono"></textarea>
-                    <p class="mt-1 text-xs text-white/45">Format: SpeakerName [style]: Text</p>
+                        class="c-input w-full font-mono"></textarea>
+                    <p class="mt-1 text-xs text-neo-faint">Format: SpeakerName [style]: Text</p>
                 </div>
 
                 <!-- Advanced: Custom Prompt Editor -->
-                <div class="border border-white/[0.12] rounded-md bg-white/[0.04]">
-                    <div class="px-3 py-2.5 border-b border-white/[0.08] cursor-pointer flex justify-between items-center text-sm font-medium text-white/70 hover:bg-white/[0.06] transition-colors" id="prompt-editor-toggle">
+                <div class="c-surface--flat">
+                    <div class="px-3 py-2.5 neo-separator-bottom cursor-pointer flex justify-between items-center text-sm font-medium text-neo-muted hover:text-neo-text transition-colors" id="prompt-editor-toggle">
                         <span>Advanced: Custom Prompt</span>
                         <span id="prompt-toggle-icon" class="text-xs">&#9660;</span>
                     </div>
                     <div class="prompt-editor-content p-3" id="prompt-editor-content">
-                        <p class="text-xs text-white/50 mb-2">
+                        <p class="text-xs text-neo-faint mb-2">
                             Customize the AI instruction for script generation. Leave empty to use the built-in prompt.
                         </p>
                         <textarea id="custom-prompt-editor" placeholder="Enter custom prompt with placeholders: {raw_text}, {speakers_info}, {language_name}, {tone}, etc."
-                            class="glass-input w-full min-h-[200px] text-xs font-mono"></textarea>
-                        <button type="button" class="glass-btn mt-2 text-xs py-1.5 px-3" id="reset-prompt-btn">Reset to Default</button>
+                            class="c-input w-full min-h-[200px] text-xs font-mono"></textarea>
+                        <button type="button" class="c-btn mt-2 text-xs py-1.5 px-3" id="reset-prompt-btn">Reset to Default</button>
                     </div>
                 </div>
 
-                <button type="button" class="glass-btn glass-btn--primary w-full mt-4 text-center" id="generate-podcast-btn">
+                <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center" id="generate-podcast-btn">
                     Generate Podcast
                 </button>
             </div>
 
             <!-- Result Container -->
             <div id="podcast-result-container" class="hidden">
-                <h5 class="text-sm font-semibold text-white/90 mb-2">Your Podcast:</h5>
+                <h5 class="text-sm font-semibold text-neo-text mb-2">Your Podcast:</h5>
                 <audio id="podcast-audio" controls class="w-full mb-3">
                     <source id="podcast-audio-source" type="audio/wav">
                     Your browser does not support the audio element.
                 </audio>
                 <div class="flex gap-2">
-                    <a id="download-podcast-btn" class="glass-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
+                    <a id="download-podcast-btn" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         Download
                     </a>
@@ -255,6 +267,18 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
+    // Helper: safely parse JSON response, throw clear error on HTML/redirect
+    async function safeJSON(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            if (response.redirected || contentType.includes('text/html')) {
+                throw new Error('Session expired – please reload the page and log in again.');
+            }
+            throw new Error(`Server returned unexpected response (${response.status})`);
+        }
+        return response.json();
+    }
+
     // ==========================================================
     // ===== CUSTOM TAB SWITCHING =====
     // ==========================================================
@@ -264,7 +288,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', function() {
-            // Update button styles using CSS classes
             tabButtons.forEach(b => {
                 b.classList.remove('tab-active');
                 b.classList.add('tab-inactive');
@@ -272,12 +295,10 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('tab-active');
             this.classList.remove('tab-inactive');
 
-            // Show/hide panes
             const target = this.dataset.tab;
             tabPanes.forEach(p => p.classList.add('hidden'));
             document.getElementById(target + '-pane').classList.remove('hidden');
 
-            // Show language selector only for live and file tabs
             if (target === 'live' || target === 'file') {
                 languageSelector.style.display = 'block';
             } else {
@@ -320,10 +341,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/get-deepgram-token');
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await safeJSON(response);
                 throw new Error(errorData.error || 'Failed to get token');
             }
-            const data = await response.json();
+            const data = await safeJSON(response);
             return data.deepgram_token;
         } catch (error) {
             console.error("Failed to get token:", error);
@@ -505,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         transcribeBtn.disabled = true;
         transcribeBtn.textContent = 'Transcribing...';
-        resultContainer.innerHTML = '<span class="text-white/40">Processing your audio file...</span>';
+        resultContainer.innerHTML = '<span class="text-neo-faint">Processing your audio file...</span>';
 
         try {
             const response = await fetch('/transcribe-audio-file', {
@@ -513,11 +534,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
 
-            const result = await response.json();
-
             if (!response.ok) {
+                const result = await safeJSON(response);
                 throw new Error(result.error || `HTTP error! Status: ${response.status}`);
             }
+
+            const result = await safeJSON(response);
 
             resultContainer.textContent = result.transcript || 'No transcript was returned.';
 
@@ -535,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Transcription error:', error);
-            resultContainer.innerHTML = `<span class="text-red-300"><strong>Error:</strong> ${error.message}</span>`;
+            resultContainer.innerHTML = `<span style="color: var(--nm-danger)"><strong>Error:</strong> ${error.message}</span>`;
         } finally {
             transcribeBtn.disabled = false;
             transcribeBtn.textContent = 'Transcribe File';
@@ -556,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     clearFileBtn.addEventListener('click', () => {
-        resultContainer.innerHTML = '<span class="text-white/40">The transcription will appear here after processing.</span>';
+        resultContainer.innerHTML = '<span class="text-neo-faint">The transcription will appear here after processing.</span>';
     });
 
     async function copyToClipboard(text, button) {
@@ -580,13 +602,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const originalText = button.innerHTML;
             button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
-            button.style.background = 'rgba(34,197,94,0.15)';
-            button.style.color = '#86efac';
 
             setTimeout(() => {
                 button.innerHTML = originalText;
-                button.style.background = '';
-                button.style.color = '';
             }, 2000);
         } catch (err) {
             console.error('Failed to copy:', err);
@@ -683,11 +701,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await safeJSON(response);
                 throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
             }
 
-            const data = await response.json();
+            const data = await safeJSON(response);
             podcastScript.value = data.raw_formatted_text;
 
         } catch (error) {
@@ -771,11 +789,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (!startResponse.ok) {
-                const errorData = await startResponse.json();
+                const errorData = await safeJSON(startResponse);
                 throw new Error(errorData.error || `HTTP error! Status: ${startResponse.status}`);
             }
 
-            const { job_id } = await startResponse.json();
+            const { job_id } = await safeJSON(startResponse);
             generatePodcastBtn.textContent = 'Generating...';
 
             let status = 'pending';
@@ -786,7 +804,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 generatePodcastBtn.textContent = `Generating... (${pollCount * 2}s)`;
 
                 const statusResponse = await fetch(`/podcast-status/${job_id}`);
-                const statusData = await statusResponse.json();
+                const statusData = await safeJSON(statusResponse);
                 status = statusData.status;
 
                 if (status === 'failed') {

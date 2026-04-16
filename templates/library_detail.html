@@ -7,10 +7,9 @@
     <div class="max-w-6xl mx-auto">
         <!-- Header -->
         <div class="mb-6">
-            <a href="{{ url_for('library') }}" class="text-sm text-white/50 hover:text-white/80 no-underline transition-colors">&larr; Back to Library</a>
+            <a href="{{ url_for('library') }}" class="text-sm text-neo-faint hover:text-neo-text no-underline transition-colors">&larr; Back to Library</a>
             <div class="flex items-center gap-3 mt-2">
-                <input type="text" class="text-xl font-semibold text-white/95 border-none bg-transparent flex-1 py-1
-                       border-b-2 border-transparent hover:border-white/20 focus:border-blue-400/50 focus:outline-none transition-colors"
+                <input type="text" class="text-xl font-semibold text-neo-text bg-transparent flex-1 py-1 c-input"
                        id="detail-title" value="{{ conversion.title }}" onchange="updateField('title', this.value)" title="Conversion title" placeholder="Untitled">
                 <span class="type-badge type-{{ conversion.conversion_type }}">
                     {% if conversion.conversion_type == 'document_to_markdown' %}Document
@@ -29,89 +28,89 @@
             <!-- Main Content -->
             <div class="min-w-0">
                 <div class="flex gap-2 mb-4 flex-wrap">
-                    <button type="button" class="glass-btn text-xs py-1.5 px-3" onclick="copyFullContent()">Copy to Clipboard</button>
-                    <button type="button" class="glass-btn text-xs py-1.5 px-3" onclick="downloadContent()">Download as .txt</button>
+                    <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="copyFullContent()">Copy to Clipboard</button>
+                    <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="downloadContent()">Download as .txt</button>
                     {% if conversion.conversion_type == 'markdown_input' %}
-                    <a href="{{ url_for('markdown_converter') }}" class="glass-btn text-xs py-1.5 px-3 no-underline" onclick="storeForReuse()">Open in Editor</a>
+                    <a href="{{ url_for('markdown_converter') }}" class="c-btn text-xs py-1.5 px-3 no-underline" onclick="storeForReuse()">Open in Editor</a>
                     {% endif %}
-                    <button type="button" class="text-xs py-1.5 px-3 border border-red-400/20 rounded-full text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer" onclick="deleteConversion()">Delete</button>
+                    <button type="button" class="c-btn c-btn--danger text-xs py-1.5 px-3" onclick="deleteConversion()">Delete</button>
                 </div>
-                <div class="glass overflow-auto max-h-[calc(100vh-280px)]" id="content-body">
-                    <pre class="detail-content-text p-5 m-0 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words text-white/80">{{ conversion.content }}</pre>
+                <div class="c-surface overflow-auto max-h-[calc(100vh-280px)]" id="content-body">
+                    <pre class="detail-content-text p-5 m-0 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words text-neo-muted">{{ conversion.content }}</pre>
                 </div>
             </div>
 
             <!-- Sidebar -->
             <div class="flex flex-col gap-4">
                 <!-- Save to Notion -->
-                <div class="glass--subtle p-4">
+                <div class="c-surface--flat p-4">
                     <button type="button" onclick="toggleNotionPanel()" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">
-                        <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 m-0">Save to Notion</h6>
-                        <span class="text-white/30 text-xs" id="notion-toggle-icon">&#9662;</span>
+                        <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint m-0">Save to Notion</h6>
+                        <span class="text-neo-faint text-xs" id="notion-toggle-icon">&#9662;</span>
                     </button>
                     <div id="notion-panel" class="hidden mt-3">
                         <div class="flex gap-1.5 mb-3" id="notion-target-group">
-                            <button type="button" class="glass-btn text-[11px] flex-1 py-1.5" data-target="meetings" onclick="selectTarget('meetings')">Meeting</button>
-                            <button type="button" class="glass-btn text-[11px] flex-1 py-1.5" data-target="notes" onclick="selectTarget('notes')">Note</button>
-                            <button type="button" class="glass-btn text-[11px] flex-1 py-1.5" data-target="inbox" onclick="selectTarget('inbox')">Inbox</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="meetings" onclick="selectTarget('meetings')">Meeting</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="notes" onclick="selectTarget('notes')">Note</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="inbox" onclick="selectTarget('inbox')">Inbox</button>
                         </div>
                         <div id="notion-fields" class="flex flex-col gap-2"></div>
-                        <button type="button" class="glass-btn glass-btn--primary w-full text-xs py-2 mt-3" id="notion-submit-btn" onclick="sendToNotion()">Send to Notion</button>
+                        <button type="button" class="c-btn c-btn--primary w-full text-xs py-2 mt-3" id="notion-submit-btn" onclick="sendToNotion()">Send to Notion</button>
                     </div>
                 </div>
 
-                <div class="glass--subtle p-4">
-                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-3">Details</h6>
+                <div class="c-surface--flat p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Details</h6>
                     {% if conversion.source_filename %}
-                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
-                        <span class="text-white/50">Source File</span>
-                        <span class="text-white/90 font-medium text-right max-w-[60%] break-words">{{ conversion.source_filename }}</span>
+                    <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
+                        <span class="text-neo-faint">Source File</span>
+                        <span class="text-neo-text font-medium text-right max-w-[60%] break-words">{{ conversion.source_filename }}</span>
                     </div>
                     {% endif %}
                     {% if conversion.source_mimetype %}
-                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
-                        <span class="text-white/50">File Type</span>
-                        <span class="text-white/90 font-medium">{{ conversion.source_mimetype }}</span>
+                    <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
+                        <span class="text-neo-faint">File Type</span>
+                        <span class="text-neo-text font-medium">{{ conversion.source_mimetype }}</span>
                     </div>
                     {% endif %}
                     {% if conversion.source_size_bytes %}
-                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
-                        <span class="text-white/50">File Size</span>
-                        <span class="text-white/90 font-medium">{{ "%.1f"|format(conversion.source_size_bytes / 1048576) }} MB</span>
+                    <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
+                        <span class="text-neo-faint">File Size</span>
+                        <span class="text-neo-text font-medium">{{ "%.1f"|format(conversion.source_size_bytes / 1048576) }} MB</span>
                     </div>
                     {% endif %}
-                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
-                        <span class="text-white/50">Created</span>
-                        <span class="text-white/90 font-medium">{{ conversion.created_at.strftime('%d %b %Y, %H:%M') }}</span>
+                    <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
+                        <span class="text-neo-faint">Created</span>
+                        <span class="text-neo-text font-medium">{{ conversion.created_at.strftime('%d %b %Y, %H:%M') }}</span>
                     </div>
                     {% if conversion.updated_at and conversion.updated_at != conversion.created_at %}
-                    <div class="flex justify-between py-1.5 text-sm border-b border-white/[0.06]">
-                        <span class="text-white/50">Updated</span>
-                        <span class="text-white/90 font-medium">{{ conversion.updated_at.strftime('%d %b %Y, %H:%M') }}</span>
+                    <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
+                        <span class="text-neo-faint">Updated</span>
+                        <span class="text-neo-text font-medium">{{ conversion.updated_at.strftime('%d %b %Y, %H:%M') }}</span>
                     </div>
                     {% endif %}
                     <div class="flex justify-between py-1.5 text-sm">
-                        <span class="text-white/50">Content Length</span>
-                        <span class="text-white/90 font-medium">{{ conversion.content|length|string + ' chars' }}</span>
+                        <span class="text-neo-faint">Content Length</span>
+                        <span class="text-neo-text font-medium">{{ conversion.content|length|string + ' chars' }}</span>
                     </div>
                 </div>
 
                 {% if metadata %}
-                <div class="glass--subtle p-4">
-                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-3">Conversion Metadata</h6>
+                <div class="c-surface--flat p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Conversion Metadata</h6>
                     {% for key, value in metadata.items() %}
-                    <div class="flex justify-between py-1.5 text-sm {% if not loop.last %}border-b border-white/[0.06]{% endif %}">
-                        <span class="text-white/50">{{ key.replace('_', ' ').title() }}</span>
-                        <span class="text-white/90 font-medium text-right max-w-[60%] break-words">{{ value }}</span>
+                    <div class="flex justify-between py-1.5 text-sm {% if not loop.last %}neo-separator-bottom{% endif %}">
+                        <span class="text-neo-faint">{{ key.replace('_', ' ').title() }}</span>
+                        <span class="text-neo-text font-medium text-right max-w-[60%] break-words">{{ value }}</span>
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
 
-                <div class="glass--subtle p-4">
-                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-3">Tags</h6>
+                <div class="c-surface--flat p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Tags</h6>
                     <input type="text"
-                        class="glass-input w-full"
+                        class="c-input w-full"
                         id="tags-input" value="{{ conversion.tags }}" placeholder="comma-separated tags"
                         onchange="updateField('tags', this.value)">
                 </div>
@@ -224,7 +223,7 @@
     function selectTarget(target) {
         currentTarget = target;
         document.querySelectorAll('#notion-target-group button').forEach(btn => {
-            btn.classList.toggle('glass-btn--primary', btn.dataset.target === target);
+            btn.classList.toggle('c-btn--primary', btn.dataset.target === target);
         });
         renderNotionFields(target);
     }
@@ -271,9 +270,9 @@
                 datalistsHtml += `<datalist id="${dlId}">${f.list.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
             }
             const input = f.type === 'textarea'
-                ? `<textarea class="glass-input w-full text-xs" id="nf-${f.key}" rows="2" placeholder="${f.placeholder || ''}">${f.value}</textarea>`
-                : `<input type="${f.type || 'text'}" class="glass-input w-full text-xs" id="nf-${f.key}" value="${esc(f.value)}" placeholder="${f.placeholder || ''}"${listAttr}>`;
-            return `<div><label class="text-[11px] text-white/50 mb-0.5 block">${f.label}${f.required ? ' *' : ''}</label>${input}</div>`;
+                ? `<textarea class="c-input w-full text-xs" id="nf-${f.key}" rows="2" placeholder="${f.placeholder || ''}">${f.value}</textarea>`
+                : `<input type="${f.type || 'text'}" class="c-input w-full text-xs" id="nf-${f.key}" value="${esc(f.value)}" placeholder="${f.placeholder || ''}"${listAttr}>`;
+            return `<div><label class="text-[11px] text-neo-faint mb-0.5 block">${f.label}${f.required ? ' *' : ''}</label>${input}</div>`;
         }).join('') + datalistsHtml;
     }
 

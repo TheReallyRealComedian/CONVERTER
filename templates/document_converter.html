@@ -5,18 +5,18 @@
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-2xl mx-auto">
-        <h2 class="text-lg font-semibold text-white/95 mb-1">Document to Text Converter</h2>
-        <p class="text-sm text-white/55 mb-6">Upload PDF, DOCX, PPTX, EML, HTML and convert to structured text.</p>
+        <h2 class="text-lg font-semibold text-neo-text mb-1">Document to Text Converter</h2>
+        <p class="text-sm text-neo-muted mb-6">Upload PDF, DOCX, PPTX, EML, HTML and convert to structured text.</p>
 
         <div id="alert-container"></div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="glass-alert
-                        {% if category == 'danger' %}glass-alert-danger
-                        {% elif category == 'success' %}glass-alert-success
-                        {% else %}glass-alert-info{% endif %}">
+                    <div class="c-alert
+                        {% if category == 'danger' %}c-alert--danger
+                        {% elif category == 'success' %}c-alert--success
+                        {% else %}c-alert--info{% endif %}">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -26,38 +26,38 @@
         <form id="convert-form" enctype="multipart/form-data">
             <!-- Drop zone -->
             <div id="drop-zone"
-                 class="glass-drop-zone mb-4"
+                 class="c-drop-zone mb-4"
                  onclick="document.getElementById('document_file').click()">
-                <svg class="w-12 h-12 mx-auto mb-3 text-white/35" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-12 h-12 mx-auto mb-3 text-neo-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                <p class="text-sm font-medium text-white/65 mb-1">Drop file here or click to browse</p>
-                <p class="text-xs text-white/40">PDF, DOCX, PPTX, EML, HTML -- Max 100MB</p>
+                <p class="text-sm font-medium text-neo-muted mb-1">Drop file here or click to browse</p>
+                <p class="text-xs text-neo-faint">PDF, DOCX, PPTX, EML, HTML -- Max 100MB</p>
                 <input type="file" id="document_file" name="document_file" class="hidden" required title="Select a document file">
             </div>
 
             <!-- File selected indicator -->
-            <div id="file-info" class="hidden mb-4 px-3 py-2 glass--subtle text-sm text-white/70 flex items-center justify-between">
+            <div id="file-info" class="hidden mb-4 px-3 py-2 c-surface--flat text-sm text-neo-muted flex items-center justify-between">
                 <span id="file-name" class="truncate"></span>
-                <button type="button" id="clear-file" class="text-white/40 hover:text-white/70 ml-2 flex-shrink-0" title="Clear file">&times;</button>
+                <button type="button" id="clear-file" class="text-neo-faint hover:text-neo-text ml-2 flex-shrink-0" title="Clear file">&times;</button>
             </div>
 
-            <button type="submit" class="glass-btn glass-btn--primary w-full text-center" id="convert-btn">
+            <button type="submit" class="c-btn c-btn--primary w-full text-center" id="convert-btn">
                 Transform to Text
             </button>
         </form>
 
         <!-- Result area -->
         <div id="result-area" class="hidden mt-6">
-            <div class="border-t border-white/[0.08] pt-6">
+            <div class="pt-6 neo-separator-top">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-base font-semibold text-white/95">Conversion Result</h3>
+                    <h3 class="text-base font-semibold text-neo-text">Conversion Result</h3>
                     <div class="flex gap-2">
-                        <button type="button" class="glass-btn text-xs py-1.5 px-3" onclick="downloadResult()">Download .md</button>
+                        <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="downloadResult()">Download .md</button>
                         <button type="button" class="save-library-btn" id="save-btn" onclick="saveToLibrary()">Save to Library</button>
                     </div>
                 </div>
-                <pre id="result-content" class="glass--subtle p-4 max-h-[500px] overflow-auto whitespace-pre-wrap break-words text-sm text-white/80 font-mono"></pre>
+                <pre id="result-content" class="c-surface--flat p-4 max-h-[500px] overflow-auto whitespace-pre-wrap break-words text-sm text-neo-muted font-mono"></pre>
             </div>
         </div>
     </div>
@@ -67,6 +67,18 @@
 {% block scripts %}
 <script>
     let lastResult = null;
+
+    // Helper: safely parse JSON response, throw clear error on HTML/redirect
+    async function safeJSON(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            if (response.redirected || contentType.includes('text/html')) {
+                throw new Error('Session expired – please reload the page and log in again.');
+            }
+            throw new Error(`Server returned unexpected response (${response.status})`);
+        }
+        return response.json();
+    }
 
     // Drag and drop
     const dropZone = document.getElementById('drop-zone');
@@ -123,12 +135,8 @@
             });
 
             if (!response.ok) {
-                const contentType = response.headers.get('content-type') || '';
-                if (contentType.includes('application/json')) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || `Conversion failed (${response.status})`);
-                }
-                throw new Error(`Conversion failed (${response.status})`);
+                const errData = await safeJSON(response);
+                throw new Error(errData.error || `Conversion failed (${response.status})`);
             }
 
             const text = await response.text();
@@ -145,7 +153,7 @@
             document.getElementById('save-btn').disabled = false;
         } catch (err) {
             document.getElementById('alert-container').innerHTML =
-                `<div class="glass-alert glass-alert-danger">${err.message}</div>`;
+                `<div class="c-alert c-alert--danger">${err.message}</div>`;
         } finally {
             btn.disabled = false;
             btn.textContent = 'Transform to Text';
