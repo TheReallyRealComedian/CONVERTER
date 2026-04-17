@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 class DeepgramService:
     # Chunking-Konfiguration
-    MAX_AUDIO_DURATION_SECONDS = 600   # 10 Minuten
-    CHUNK_DURATION_SECONDS = 300       # 5 Minuten pro Chunk
+    MAX_AUDIO_DURATION_SECONDS = 600   # 10 Minuten → triggers chunking
+    CHUNK_DURATION_SECONDS = 1800      # 30 Minuten pro Chunk (Deepgram handles long audio well)
     OVERLAP_SECONDS = 5                # 5 Sekunden Überlappung
-    MAX_FILE_SIZE_MB = 100             # 100 MB
+    MAX_FILE_SIZE_MB = 500             # 500 MB
     INTER_CHUNK_DELAY = 0.5            # Rate limiting zwischen Chunks
     MAX_RETRIES = 2                    # Retries pro Chunk
 
@@ -152,7 +152,7 @@ class DeepgramService:
                 numerals=True,
                 paragraphs=True,
                 keyterm=keyterms,
-                request_options={"timeout_in_seconds": 300},
+                request_options={"timeout_in_seconds": 600},
             )
 
             # Extract transcript

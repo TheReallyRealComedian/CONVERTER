@@ -111,7 +111,7 @@ _secret_key = os.environ.get('SECRET_KEY')
 if not _secret_key:
     raise RuntimeError("SECRET_KEY environment variable must be set")
 app.config['SECRET_KEY'] = _secret_key
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB (large audio files)
 app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -135,6 +135,14 @@ def load_user(user_id):
         return db.session.get(User, int(user_id))
     except (ValueError, TypeError):
         return None
+
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        return jsonify({'error': 'File too large. Maximum upload size is 500 MB.'}), 413
+    return jsonify({'error': 'Request too large.'}), 413
+
 
 # Initialize services
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
