@@ -27,6 +27,7 @@ import traceback
 import time as _time
 import requests as http_requests
 
+from app_pkg import auth as auth_module
 from app_pkg import create_app
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 from tasks import generate_podcast_task
@@ -117,34 +118,7 @@ task_queue = Queue(connection=redis_conn)
 # Shared output directory (must match tasks.py and docker-compose volume)
 OUTPUT_DIR = '/app/output_podcasts'
 
-
-# --- Auth Routes ---
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('markdown_converter'))
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            login_user(user, remember=True)
-            next_page = request.args.get('next')
-            if next_page:
-                from urllib.parse import urlparse
-                parsed = urlparse(next_page)
-                if parsed.netloc or parsed.scheme:
-                    next_page = None
-            return redirect(next_page or url_for('markdown_converter'))
-        flash('Invalid username or password.', 'danger')
-    return render_template('login.html')
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
+auth_module.register(app)
 
 
 def highlight_code(code, lang, _):
