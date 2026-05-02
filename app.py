@@ -1,14 +1,27 @@
+"""Top-level entry point for the CONVERTER Flask app.
+
+Most of the routing and feature logic lives under ``app_pkg/``; this module
+is the bootstrap that builds the Flask instance via ``create_app()``,
+constructs the service singletons and Redis/RQ plumbing, registers the
+per-feature blueprints, and exposes ``app`` and ``asgi_app`` for Gunicorn /
+Uvicorn.
+
+Several names are kept at module level on purpose because the Stage 6
+characterization tests patch them by attribute on this module:
+``deepgram_service``, ``gemini_service``, ``google_tts_service``,
+``pdf_extraction_service``, ``task_queue``, ``Job``, ``async_playwright``,
+``partition``, ``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``,
+``OUTPUT_DIR``. The blueprints look these up via ``import app as
+_app_module`` so the patches reach the route handlers at call time.
+"""
 import os
+
+from asgiref.wsgi import WsgiToAsgi
+from playwright.async_api import async_playwright
 from redis import Redis
 from rq import Queue
-from rq.exceptions import NoSuchJobError
 from rq.job import Job
-from io import BytesIO
-from flask import render_template, request, redirect, url_for, send_file, jsonify
-from flask_login import login_required, current_user
-from playwright.async_api import async_playwright
 from unstructured.partition.auto import partition
-from asgiref.wsgi import WsgiToAsgi
 
 from app_pkg import audio as audio_module
 from app_pkg import auth as auth_module
@@ -17,9 +30,9 @@ from app_pkg import documents as documents_module
 from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
+from app_pkg import podcasts as podcasts_module
 from app_pkg.integrations import notion as notion_module
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
-from tasks import generate_podcast_task
 
 
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
@@ -53,246 +66,9 @@ documents_module.register(app)
 audio_module.register(app)
 library_module.register(app)
 notion_module.register(app)
+podcasts_module.register(app)
 
 
-@app.route('/generate-podcast', methods=['POST'])
-@login_required
-def generate_podcast():
-    if not google_tts_service:
-        return jsonify({"error": "Google Cloud TTS is not configured."}), 503
-
-    temp_audio_path = None
-    try:
-        data = request.get_json()
-        text = data.get('text', '').strip()
-        voice_name = data.get('voice_name', 'en-US-Neural2-C')
-        language_code = data.get('language_code', 'en-US')
-        speaking_rate = float(data.get('speaking_rate', 1.0))
-        pitch = float(data.get('pitch', 0.0))
-
-        temp_audio_path = google_tts_service.synthesize_speech(
-            text, voice_name, language_code, speaking_rate, pitch
-        )
-
-        audio_buffer = BytesIO()
-        with open(temp_audio_path, 'rb') as f:
-            audio_buffer.write(f.read())
-        audio_buffer.seek(0)
-
-        return send_file(
-            audio_buffer,
-            as_attachment=True,
-            download_name='podcast.mp3',
-            mimetype='audio/mpeg'
-        )
-
-    except Exception as e:
-        app.logger.error(f"Google TTS synthesis failed: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred during synthesis. Please try again."}), 500
-    finally:
-        if temp_audio_path and os.path.exists(temp_audio_path):
-            try:
-                os.unlink(temp_audio_path)
-            except Exception as e:
-                app.logger.error(f"Error cleaning up temp file: {e}")
-
-
-@app.route('/api/get-google-voices', methods=['GET'])
-@login_required
-def get_google_voices():
-    if not google_tts_service:
-        return jsonify({"error": "Google Cloud TTS is not configured."}), 503
-
-    try:
-        voices = google_tts_service.list_voices()
-        return jsonify(voices)
-    except Exception as e:
-        app.logger.error(f"Failed to retrieve Google TTS voices: {e}", exc_info=True)
-        return jsonify({"error": "Failed to retrieve voices."}), 500
-
-
-@app.route('/generate-gemini-podcast', methods=['POST'])
-@login_required
-def generate_gemini_podcast():
-    """Queue a podcast generation job to Redis."""
-    if not GEMINI_API_KEY:
-        return jsonify({"error": "Gemini API Key is not configured."}), 503
-
-    try:
-        data = request.get_json()
-        dialogue = data.get('dialogue', [])
-        language = data.get('language', 'en')
-        tts_model = data.get('tts_model', None)
-
-        # Enqueue job to Redis (worker will pick it up)
-        job = task_queue.enqueue(
-            generate_podcast_task,
-            args=(dialogue, language, tts_model),
-            job_timeout=600,  # 10 minutes max
-            meta={'user_id': current_user.id}
-        )
-
-        app.logger.info(f"Job {job.get_id()} queued for podcast generation")
-        return jsonify({"job_id": job.get_id(), "status": "queued"})
-
-    except Exception as e:
-        app.logger.error(f"Failed to queue podcast job: {e}", exc_info=True)
-        return jsonify({"error": "Failed to queue podcast job. Please try again."}), 500
-
-
-@app.route('/podcast-status/<job_id>', methods=['GET'])
-@login_required
-def podcast_status(job_id):
-    """Check the status of a podcast generation job in Redis."""
-    try:
-        job = Job.fetch(job_id, connection=redis_conn)
-    except NoSuchJobError:
-        return jsonify({"error": "Job not found"}), 404
-    except Exception as e:
-        app.logger.error(f"Failed to fetch RQ job {job_id}: {e}", exc_info=True)
-        return jsonify({"error": "Job lookup failed"}), 500
-
-    if job.meta.get('user_id') != current_user.id:
-        return jsonify({"error": "Job not found"}), 404
-
-    status = job.get_status()
-
-    if status == 'finished':
-        return jsonify({"status": "completed", "result": job.result})
-    elif status == 'failed':
-        error_msg = str(job.exc_info) if job.exc_info else "Unknown error"
-        return jsonify({"status": "failed", "error": error_msg})
-    elif status in ['queued', 'started']:
-        return jsonify({"status": "processing"})
-    else:
-        return jsonify({"status": status})
-
-
-@app.route('/podcast-download/<job_id>', methods=['GET'])
-@login_required
-def podcast_download(job_id):
-    """Download the generated podcast file."""
-    try:
-        job = Job.fetch(job_id, connection=redis_conn)
-    except NoSuchJobError:
-        return jsonify({"error": "Job not found"}), 404
-    except Exception as e:
-        app.logger.error(f"Failed to fetch RQ job {job_id}: {e}", exc_info=True)
-        return jsonify({"error": "Job lookup failed"}), 500
-
-    if job.meta.get('user_id') != current_user.id:
-        return jsonify({"error": "Job not found"}), 404
-
-    if not job.is_finished:
-        return jsonify({"error": "Job not ready"}), 400
-
-    file_path = job.result
-
-    if not file_path or not os.path.exists(file_path):
-        return jsonify({"error": "File not found on server"}), 404
-
-    # Prevent path traversal — ensure file is within allowed output directory
-    real_path = os.path.realpath(file_path)
-    if not real_path.startswith(os.path.realpath(OUTPUT_DIR)):
-        app.logger.warning(f"Path traversal attempt blocked: {file_path}")
-        return jsonify({"error": "Invalid file path"}), 403
-
-    # Read into buffer and delete file to prevent unbounded disk growth
-    podcast_buffer = BytesIO()
-    with open(real_path, 'rb') as f:
-        podcast_buffer.write(f.read())
-    podcast_buffer.seek(0)
-
-    try:
-        os.unlink(real_path)
-    except Exception as e:
-        app.logger.warning(f"Failed to clean up podcast file {real_path}: {e}")
-
-    return send_file(
-        podcast_buffer,
-        as_attachment=True,
-        download_name='gemini_podcast.wav',
-        mimetype='audio/wav'
-    )
-
-
-@app.route('/api/get-gemini-voices', methods=['GET'])
-@login_required
-def get_gemini_voices():
-    voices = {
-        "male": [
-            {"name": "Kore", "description": "Firm and authoritative"},
-            {"name": "Charon", "description": "Informative and clear"},
-            {"name": "Fenrir", "description": "Excitable and energetic"},
-            {"name": "Orus", "description": "Firm and steady"},
-            {"name": "Puck", "description": "Upbeat and cheerful"},
-            {"name": "Enceladus", "description": "Breathy and soft"},
-            {"name": "Iapetus", "description": "Clear and precise"},
-            {"name": "Algenib", "description": "Gravelly and deep"},
-            {"name": "Achernar", "description": "Soft and gentle"},
-            {"name": "Algieba", "description": "Smooth and polished"},
-            {"name": "Gacrux", "description": "Mature and experienced"},
-            {"name": "Alnilam", "description": "Firm and direct"},
-            {"name": "Rasalgethi", "description": "Informative and educational"},
-            {"name": "Sadaltager", "description": "Knowledgeable and wise"},
-            {"name": "Zubenelgenubi", "description": "Casual and relaxed"}
-        ],
-        "female": [
-            {"name": "Zephyr", "description": "Bright and lively"},
-            {"name": "Leda", "description": "Youthful and fresh"},
-            {"name": "Laomedeia", "description": "Upbeat and positive"},
-            {"name": "Aoede", "description": "Breezy and light"},
-            {"name": "Callirrhoe", "description": "Easy-going and friendly"},
-            {"name": "Autonoe", "description": "Bright and clear"},
-            {"name": "Erinome", "description": "Clear and articulate"},
-            {"name": "Umbriel", "description": "Easy-going and calm"},
-            {"name": "Despina", "description": "Smooth and flowing"},
-            {"name": "Pulcherrima", "description": "Forward and confident"},
-            {"name": "Vindemiatrix", "description": "Gentle and warm"}
-        ],
-        "neutral": [
-            {"name": "Kore", "description": "Firm (can be male or female)"},
-            {"name": "Achird", "description": "Friendly and approachable"},
-            {"name": "Schedar", "description": "Even and balanced"},
-            {"name": "Sadachbia", "description": "Lively and animated"},
-            {"name": "Sulafat", "description": "Warm and inviting"}
-        ]
-    }
-
-    return jsonify(voices)
-
-
-@app.route('/format-dialogue-with-llm', methods=['POST'])
-@login_required
-def format_dialogue_with_llm():
-    if not gemini_service:
-        return jsonify({"error": "Gemini API Key is not configured."}), 503
-
-    try:
-        data = request.get_json()
-
-        raw_text_received = data.get('raw_text', '')
-
-        if not raw_text_received or not raw_text_received.strip():
-            return jsonify({"error": "No text provided for formatting"}), 400
-
-        result = gemini_service.format_dialogue_with_llm(
-            raw_text=raw_text_received.strip(),
-            num_speakers=int(data.get('num_speakers', 2)),
-            speaker_descriptions=data.get('speaker_descriptions', []),
-            language=data.get('language', 'en'),
-            narration_style=data.get('narration_style', 'conversational'),
-            script_length=data.get('script_length', 'medium'),
-            custom_prompt=(data.get('custom_prompt') or '').strip() or None
-        )
-
-        return jsonify(result)
-
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        app.logger.error(f"Dialogue formatting failed: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred during dialogue formatting. Please try again."}), 500
 asgi_app = WsgiToAsgi(app)
 
 if __name__ == '__main__':
