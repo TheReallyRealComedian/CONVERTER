@@ -29,6 +29,7 @@ import requests as http_requests
 
 from app_pkg import auth as auth_module
 from app_pkg import create_app
+from app_pkg import mermaid as mermaid_module
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 from tasks import generate_podcast_task
 from models import db, User, Conversion
@@ -119,6 +120,7 @@ task_queue = Queue(connection=redis_conn)
 OUTPUT_DIR = '/app/output_podcasts'
 
 auth_module.register(app)
+mermaid_module.register(app)
 
 
 def highlight_code(code, lang, _):
@@ -329,12 +331,6 @@ async def convert_markdown():
                 os.unlink(temp_pdf_path)
             except Exception as e:
                 app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}")
-
-
-@app.route('/mermaid-converter')
-@login_required
-def mermaid_converter():
-    return render_template('mermaid_converter.html')
 
 
 @app.route('/document-converter')
