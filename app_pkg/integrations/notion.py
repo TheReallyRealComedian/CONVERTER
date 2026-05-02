@@ -5,9 +5,9 @@ import time as _time
 
 import requests as http_requests
 from flask import jsonify, request
-from flask_login import current_user, login_required
+from flask_login import login_required
 
-from models import Conversion
+from app_pkg.library import get_owned_conversion
 
 
 NOTION_MCP_URL = os.environ.get('NOTION_MCP_URL', 'http://localhost:3333')
@@ -98,7 +98,7 @@ def register(app):
     @app.route('/api/conversions/<int:conversion_id>/send-to-notion', methods=['POST'])
     @login_required
     def api_send_to_notion(conversion_id):
-        Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+        get_owned_conversion(conversion_id)
         data = request.get_json()
         target = data.get('target')
         if target not in ('meetings', 'notes', 'inbox'):

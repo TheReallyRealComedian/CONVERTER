@@ -16,6 +16,17 @@ ALLOWED_CONVERSION_TYPES = {
 }
 
 
+def get_owned_conversion(conversion_id):
+    """Look up a Conversion that belongs to the current user, or 404.
+
+    Centralises the owner-scoped lookup that was open-coded in four
+    separate routes (F-010).
+    """
+    return Conversion.query.filter_by(
+        id=conversion_id, user_id=current_user.id,
+    ).first_or_404()
+
+
 def register(app):
     @app.route('/library')
     @login_required
@@ -63,7 +74,7 @@ def register(app):
     @app.route('/library/<int:conversion_id>')
     @login_required
     def library_detail(conversion_id):
-        conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+        conversion = get_owned_conversion(conversion_id)
         metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
         return render_template('library_detail.html', conversion=conversion, metadata=metadata)
 
@@ -98,7 +109,7 @@ def register(app):
     @app.route('/api/conversions/<int:conversion_id>', methods=['PUT'])
     @login_required
     def api_update_conversion(conversion_id):
-        conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+        conversion = get_owned_conversion(conversion_id)
         data = request.get_json()
 
         if 'title' in data:
@@ -116,7 +127,7 @@ def register(app):
     @app.route('/api/conversions/<int:conversion_id>', methods=['DELETE'])
     @login_required
     def api_delete_conversion(conversion_id):
-        conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
+        conversion = get_owned_conversion(conversion_id)
         db.session.delete(conversion)
         db.session.commit()
         return jsonify({'success': True})
