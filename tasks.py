@@ -5,12 +5,12 @@ These functions run in isolated worker processes.
 import os
 import shutil
 import logging
+
+from app_pkg.config import OUTPUT_DIR
 from services import GeminiService
 
 logger = logging.getLogger(__name__)
 
-# Shared output directory (mounted as Docker volume)
-OUTPUT_DIR = '/app/output_podcasts'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 

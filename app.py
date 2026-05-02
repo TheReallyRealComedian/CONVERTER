@@ -10,9 +10,9 @@ Several names are kept at module level on purpose because the Stage 6
 characterization tests patch them by attribute on this module:
 ``deepgram_service``, ``gemini_service``, ``google_tts_service``,
 ``pdf_extraction_service``, ``task_queue``, ``Job``, ``async_playwright``,
-``partition``, ``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``,
-``OUTPUT_DIR``. The blueprints look these up via ``import app as
-_app_module`` so the patches reach the route handlers at call time.
+``partition``, ``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``.
+The blueprints look these up via ``import app as _app_module`` so the
+patches reach the route handlers at call time.
 """
 import os
 
@@ -55,9 +55,6 @@ pdf_extraction_service = PDFExtractionService(GEMINI_API_KEY)
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 redis_conn = Redis.from_url(REDIS_URL)
 task_queue = Queue(connection=redis_conn)
-
-# Shared output directory (must match tasks.py and docker-compose volume)
-OUTPUT_DIR = '/app/output_podcasts'
 
 auth_module.register(app)
 mermaid_module.register(app)

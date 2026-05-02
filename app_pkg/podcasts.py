@@ -6,6 +6,7 @@ from flask import jsonify, request, send_file
 from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 
+from app_pkg.config import OUTPUT_DIR
 from tasks import generate_podcast_task
 
 
@@ -191,7 +192,7 @@ def register(app):
 
         # Prevent path traversal — ensure file is within allowed output directory
         real_path = os.path.realpath(file_path)
-        if not real_path.startswith(os.path.realpath(_app_module.OUTPUT_DIR)):
+        if not real_path.startswith(os.path.realpath(OUTPUT_DIR)):
             app.logger.warning(f"Path traversal attempt blocked: {file_path}")
             return jsonify({"error": "Invalid file path"}), 403
 
