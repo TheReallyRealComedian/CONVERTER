@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from redis import Redis
 from rq import Queue
+from rq.exceptions import NoSuchJobError
 from rq.job import Job
 from io import BytesIO
 from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
@@ -668,8 +669,11 @@ def podcast_status(job_id):
     """Check the status of a podcast generation job in Redis."""
     try:
         job = Job.fetch(job_id, connection=redis_conn)
-    except Exception:
+    except NoSuchJobError:
         return jsonify({"error": "Job not found"}), 404
+    except Exception as e:
+        app.logger.error(f"Failed to fetch RQ job {job_id}: {e}", exc_info=True)
+        return jsonify({"error": "Job lookup failed"}), 500
 
     if job.meta.get('user_id') != current_user.id:
         return jsonify({"error": "Job not found"}), 404
@@ -693,8 +697,11 @@ def podcast_download(job_id):
     """Download the generated podcast file."""
     try:
         job = Job.fetch(job_id, connection=redis_conn)
-    except Exception:
+    except NoSuchJobError:
         return jsonify({"error": "Job not found"}), 404
+    except Exception as e:
+        app.logger.error(f"Failed to fetch RQ job {job_id}: {e}", exc_info=True)
+        return jsonify({"error": "Job lookup failed"}), 500
 
     if job.meta.get('user_id') != current_user.id:
         return jsonify({"error": "Job not found"}), 404
