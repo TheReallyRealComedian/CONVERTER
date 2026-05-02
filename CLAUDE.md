@@ -101,7 +101,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 **Acceptance:** no module >300 LOC, all callers updated, podcast smoke test passes end-to-end.
 
 ## Stage 4 — Inconsistency Sweep (anomaly detection)
-**Status:** ☐ not started
+**Status:** ☑ done 2026-05-02 → branch `cleanup/stage-4-anomalies` (3 commits). 18 findings logged below. Critical: 1 (F-001 silent `Job.fetch()` except → masked Redis/auth/pickle errors as 404; fixed in `app.py:670-678` and `697-705`, now distinguishes `NoSuchJobError` → 404 vs other → 500 with `exc_info`). Medium: 5, Low: 12 — all deferred to Stages 2/3/5 where they fold into the natural refactor.
 **Goal:** apply the "anomaly = bug" heuristic. Find places that *almost* match a pattern but don't. **Document findings; fix only the clear bugs in this stage, defer larger ones.**
 **What to grep for:**
 - Logging: every `log.error/warn/info/debug` call — are levels consistent across similar paths?
@@ -125,7 +125,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 **Acceptance:** no template >15 KB, no inline `<script>` blocks >30 LOC, visual smoke test of each page passes.
 
 ## Stage 6 — Characterization Tests (foundation for Stages 2/3)
-**Status:** ☐ not started
+**Status:** ☑ done 2026-05-02 → branch `cleanup/stage-6-tests` (7 commits, on top of `cleanup/stage-4-anomalies`). 36 tests in 6 files, runtime 4.4s. Mocking at SDK-singleton boundary (`app.deepgram_service`, `app.gemini_service`, `app.task_queue`, `app.async_playwright`) → survives Stage 3. F-001 explicitly characterized. Run via `pytest tests/`. Test deps added: `pytest>=8.0`, `pytest-asyncio>=0.23`, `responses>=0.25`.
 **Goal:** lock in current behavior of golden paths *before* restructuring. Tests document what the app does today; they are not "should" tests.
 **Coverage targets:**
 - Auth: login, logout, register, CSRF on POST
@@ -173,6 +173,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 - **Pattern:** Naming/dead-code drift
 - **Observation:** Each identifier appears exactly once in the file (the import line). `asyncio` is shadowed by `async_playwright`'s implicit loop; `fitz` was likely left from before `pdf_extraction_service` absorbed PyMuPDF; `traceback` is no longer needed because all error sites use `exc_info=True` instead of formatted strings.
 - **Action:** Defer-to-Stage-2 — imports get redistributed during the blueprint split anyway.
+- **Status:** ☑ resolved in Stage 2 (commit `8d397d6`, the markdown-extraction step) — all three imports dropped from the bootstrap `app.py` along with the rest of the unused stdlib/third-party imports left over after the route moves.
 
 ### F-004: `OUTPUT_DIR='/app/output_podcasts'` duplicated as a string literal across three files
 - **Location:** `app.py:185`, `tasks.py:13`, `test_worker_libraries.py:26`
@@ -180,6 +181,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 - **Pattern:** Hardcoded constants
 - **Observation:** The web container, the worker container and a manual smoke-test script each carry the same path literal. The Docker volume layout assumes they stay in lockstep; rename in one place and the other two silently break (web returns 404 for completed jobs, smoke-test writes to the wrong place).
 - **Action:** Defer-to-Stage-2 — extract to a shared `config.py` (or env var with a single default) when the app factory lands. Stage 0 already flagged this.
+- **Status:** ☑ resolved in Stage 2 (commit `e5e8745`) — `app_pkg/config.py` now owns the constant; `app_pkg/podcasts.py` and `tasks.py` both import it. The standalone diagnostic script `test_worker_libraries.py` keeps its inline literal (out-of-scope; not on the production import path).
 
 ### F-005: Path-traversal check in `podcast_download` uses `startswith` (prefix-collision-prone)
 - **Location:** `app.py:710-714`
@@ -208,6 +210,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 - **Pattern:** Logging consistency
 - **Observation:** Of 11 `app.logger.error` sites, 6 include `exc_info=True` and 5 do not. The split is not principled: PDF generation (440) skips it but unstructured doc partition (509) — which is the sister conversion path — includes it. "Failed to reach Notion server" (972) and "Failed to create temporary Deepgram key" (532) are both upstream-API failures but the former drops the stacktrace.
 - **Action:** Defer-to-Stage-2 — standardise to always-on `exc_info=True` in error paths during the blueprint split.
+- **Status:** Partial — the document-routes scope of Step 4c was a no-op: the only error path in `app_pkg/documents.py` (the unstructured-partition catch) already used `exc_info=True` before the move (originally `app.py:510`) and continues to do so after. The four call-sites that still drop the stacktrace (markdown PDF generation, Deepgram-key issuance, podcast TTS-temp cleanup, Notion-MCP transport failure) live in their respective blueprints now and are easy to fix in one pass; left for a future logging-pass commit since each is a behaviour change (different log output) and the prompt narrowed Step 4c to documents only.
 
 ### F-009: Local `import re` inside two methods of `gemini_service.py` despite the module being usable at top-level
 - **Location:** `services/gemini_service.py:924`, `services/gemini_service.py:982`
@@ -222,6 +225,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 - **Pattern:** Copy-paste
 - **Observation:** Identical lookup with identical user-scoping is open-coded in `library_detail`, `api_update_conversion`, `api_delete_conversion`, and `api_send_to_notion`. A future "share with another user" or "soft-delete" feature would have to be added in four places — the kind of drift Stage 4 is meant to catch.
 - **Action:** Defer-to-Stage-2 — add `Conversion.get_for_user(id, user_id)` classmethod when library/notion blueprints split out.
+- **Status:** ☑ resolved in Stage 2 (commit `5ad218b`) — extracted as `get_owned_conversion(conversion_id)` in `app_pkg/library.py`; both library and notion blueprints call it. Implemented as a module helper rather than a `Conversion` classmethod (per Stage 2 prompt) since the helper relies on the `current_user` Flask proxy, which is request-scoped.
 
 ### F-011: `if not <service>: return jsonify({"error": "… not configured"}), 503` repeated across six endpoints
 - **Location:** `app.py:524, 538, 583, 625, 640, 784`
