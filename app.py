@@ -14,6 +14,7 @@ import re
 import time as _time
 import requests as http_requests
 
+from app_pkg import audio as audio_module
 from app_pkg import auth as auth_module
 from app_pkg import create_app
 from app_pkg import documents as documents_module
@@ -111,70 +112,7 @@ auth_module.register(app)
 mermaid_module.register(app)
 markdown_module.register(app)
 documents_module.register(app)
-
-
-@app.route('/audio-converter')
-@login_required
-def audio_converter():
-    return render_template('audio_converter.html', deepgram_api_key_set=bool(DEEPGRAM_API_KEY))
-
-@app.route('/api/get-deepgram-token', methods=['GET'])
-@login_required
-def get_deepgram_token():
-    if not deepgram_service:
-        app.logger.error("Deepgram service not configured")
-        return jsonify({"error": "Audio transcription service is not configured."}), 503
-
-    try:
-        temp_key = deepgram_service.create_temporary_key(ttl_seconds=60)
-        return jsonify({"deepgram_token": temp_key})
-    except Exception as e:
-        app.logger.error(f"Failed to create temporary Deepgram key: {e}")
-        return jsonify({"error": "Failed to create transcription token."}), 500
-
-@app.route('/transcribe-audio-file', methods=['POST'])
-@login_required
-def transcribe_audio_file():
-    if not deepgram_service:
-        return jsonify({"error": "Audio transcription service is not configured."}), 503
-
-    if 'audio_file' not in request.files:
-        return jsonify({"error": "No audio file part in the request."}), 400
-
-    file = request.files['audio_file']
-    language = request.form.get('language', 'en')
-
-    if file.filename == '':
-        return jsonify({"error": "No file selected."}), 400
-
-    try:
-        buffer_data = file.read()
-        file_size_mb = len(buffer_data) / (1024 * 1024)
-
-        app.logger.info(f"Received audio file: {file.filename} ({file_size_mb:.1f} MB)")
-
-        # transcribe_file handhabt automatisch Splitting wenn nötig
-        transcript = deepgram_service.transcribe_file(buffer_data, language)
-
-        return jsonify({
-            "transcript": transcript,
-            "metadata": {
-                "file_size_mb": round(file_size_mb, 2),
-                "transcript_length": len(transcript),
-                "language": language
-            }
-        })
-
-    except RuntimeError as e:
-        # Chunk-spezifischer Fehler
-        app.logger.error(f"Chunked transcription failed: {e}", exc_info=True)
-        return jsonify({
-            "error": "Transcription of long audio failed. Please try a shorter file."
-        }), 500
-
-    except Exception as e:
-        app.logger.error(f"Deepgram transcription failed: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred during transcription. Please try again."}), 500
+audio_module.register(app)
 
 
 @app.route('/generate-podcast', methods=['POST'])
