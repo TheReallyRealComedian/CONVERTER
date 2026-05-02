@@ -1,5 +1,4 @@
 import os
-import json
 from redis import Redis
 from rq import Queue
 from rq.exceptions import NoSuchJobError
@@ -10,7 +9,6 @@ from flask_login import login_required, current_user
 from playwright.async_api import async_playwright
 from unstructured.partition.auto import partition
 from asgiref.wsgi import WsgiToAsgi
-import re
 import time as _time
 import requests as http_requests
 
@@ -18,11 +16,12 @@ from app_pkg import audio as audio_module
 from app_pkg import auth as auth_module
 from app_pkg import create_app
 from app_pkg import documents as documents_module
+from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 from tasks import generate_podcast_task
-from models import db, User, Conversion
+from models import Conversion
 
 
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
@@ -113,6 +112,7 @@ mermaid_module.register(app)
 markdown_module.register(app)
 documents_module.register(app)
 audio_module.register(app)
+library_module.register(app)
 
 
 @app.route('/generate-podcast', methods=['POST'])
@@ -355,119 +355,6 @@ def format_dialogue_with_llm():
         return jsonify({"error": "An error occurred during dialogue formatting. Please try again."}), 500
 
 
-
-
-# --- Library Routes ---
-@app.route('/library')
-@login_required
-def library():
-    conversion_type = request.args.get('type', '')
-    search = request.args.get('search', '').strip()
-    favorites = request.args.get('favorites', '') == '1'
-    sort = request.args.get('sort', 'newest')
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-
-    query = Conversion.query.filter_by(user_id=current_user.id)
-
-    if conversion_type:
-        query = query.filter_by(conversion_type=conversion_type)
-    if favorites:
-        query = query.filter_by(is_favorite=True)
-    if search:
-        escaped_search = re.sub(r'([%_\\])', r'\\\1', search)
-        query = query.filter(
-            db.or_(
-                Conversion.title.ilike(f'%{escaped_search}%'),
-                Conversion.content.ilike(f'%{escaped_search}%'),
-                Conversion.tags.ilike(f'%{escaped_search}%')
-            )
-        )
-
-    if sort == 'oldest':
-        query = query.order_by(Conversion.created_at.asc())
-    elif sort == 'title':
-        query = query.order_by(Conversion.title.asc())
-    else:
-        query = query.order_by(Conversion.created_at.desc())
-
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    return render_template('library.html',
-                           conversions=pagination.items,
-                           pagination=pagination,
-                           current_type=conversion_type,
-                           current_search=search,
-                           current_favorites=favorites,
-                           current_sort=sort)
-
-
-@app.route('/library/<int:conversion_id>')
-@login_required
-def library_detail(conversion_id):
-    conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
-    metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
-    return render_template('library_detail.html', conversion=conversion, metadata=metadata)
-
-
-# --- Conversion API ---
-ALLOWED_CONVERSION_TYPES = {'document_to_markdown', 'audio_transcription', 'dialogue_formatting', 'markdown_input'}
-
-@app.route('/api/conversions', methods=['POST'])
-@login_required
-def api_create_conversion():
-    data = request.get_json()
-    if not data or not data.get('content'):
-        return jsonify({'error': 'Content is required'}), 400
-
-    conversion_type = data.get('conversion_type', 'unknown')
-    if conversion_type not in ALLOWED_CONVERSION_TYPES:
-        return jsonify({'error': f'Invalid conversion type: {conversion_type}'}), 400
-
-    title = data.get('title', 'Untitled')[:255]
-
-    conversion = Conversion(
-        user_id=current_user.id,
-        conversion_type=conversion_type,
-        title=title,
-        content=data['content'],
-        source_filename=data.get('source_filename'),
-        source_mimetype=data.get('source_mimetype'),
-        source_size_bytes=data.get('source_size_bytes'),
-        metadata_json=json.dumps(data.get('metadata', {})),
-        tags=data.get('tags', ''),
-    )
-    db.session.add(conversion)
-    db.session.commit()
-    return jsonify(conversion.to_dict()), 201
-
-
-@app.route('/api/conversions/<int:conversion_id>', methods=['PUT'])
-@login_required
-def api_update_conversion(conversion_id):
-    conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
-    data = request.get_json()
-
-    if 'title' in data:
-        conversion.title = str(data['title'])[:255]
-    if 'tags' in data:
-        conversion.tags = str(data['tags'])[:500]
-    if 'content' in data:
-        conversion.content = data['content']
-    if 'is_favorite' in data:
-        conversion.is_favorite = bool(data['is_favorite'])
-
-    db.session.commit()
-    return jsonify(conversion.to_dict())
-
-
-@app.route('/api/conversions/<int:conversion_id>', methods=['DELETE'])
-@login_required
-def api_delete_conversion(conversion_id):
-    conversion = Conversion.query.filter_by(id=conversion_id, user_id=current_user.id).first_or_404()
-    db.session.delete(conversion)
-    db.session.commit()
-    return jsonify({'success': True})
 
 
 # --- Notion Integration ---
