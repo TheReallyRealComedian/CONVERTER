@@ -6,11 +6,23 @@ google-credentials.json
 
 # Ignores common macOS system files
 .DS_Store
+**/.DS_Store
 ._.DS_Store
 .Trashes
 .Spotlight-V100
 .TemporaryItems
 .fseventsd
+
+# Python bytecode caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Local tool caches
+.codebuddy/
+
+# Runtime PDF outputs (not tracked in git)
+output_pdfs/*
 
 # Ignores user-specific data and other common macOS hidden files
 *.swp
