@@ -19,7 +19,7 @@
                     {% else %}{{ conversion.conversion_type }}{% endif %}
                 </span>
                 <button type="button" class="favorite-btn {% if conversion.is_favorite %}active{% endif %}" onclick="toggleFavorite(this)" title="Toggle favorite">
-                    {{ '&#9733;' if conversion.is_favorite else '&#9734;' }}
+                    {{ '★' if conversion.is_favorite else '☆' }}
                 </button>
             </div>
         </div>

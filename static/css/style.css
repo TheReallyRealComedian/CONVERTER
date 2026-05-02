@@ -308,9 +308,37 @@ select.c-input option {
     display: flex;
     height: 100%;
     flex: 1;
-    gap: 8px;
-    padding: 8px;
+    gap: 0;
+    padding: var(--nm-space-md) var(--nm-space-lg) var(--nm-space-lg);
     background: var(--nm-bg);
+    position: relative;
+}
+
+@media (min-width: 1024px) {
+    .main-container {
+        padding: var(--nm-space-lg);
+    }
+}
+
+/* Unified card behind both panes — shadow wraps the whole thing */
+.main-container::before {
+    content: '';
+    position: absolute;
+    top: var(--nm-space-md);
+    right: var(--nm-space-lg);
+    bottom: var(--nm-space-lg);
+    left: var(--nm-space-lg);
+    background: linear-gradient(145deg, #dde2e9, #edf0f4);
+    box-shadow: var(--nm-raised);
+    border-radius: var(--nm-radius-md);
+    pointer-events: none;
+    z-index: 0;
+}
+
+@media (min-width: 1024px) {
+    .main-container::before {
+        top: var(--nm-space-lg);
+    }
 }
 
 .editor-pane {
@@ -318,13 +346,15 @@ select.c-input option {
     overflow: hidden;
     padding: 0;
     border: none;
-    background: linear-gradient(145deg, #dde2e9, #edf0f4);
-    box-shadow: var(--nm-raised);
-    border-radius: var(--nm-radius-md);
+    background: transparent;
+    box-shadow: none;
+    border-radius: var(--nm-radius-md) 0 0 var(--nm-radius-md);
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     flex-basis: 50%;
+    position: relative;
+    z-index: 1;
 }
 
 .editor-form {
@@ -372,14 +402,15 @@ select.c-input option {
     overflow-y: hidden;
     padding: 0;
     border: none;
-    background: linear-gradient(145deg, #dde2e9, #edf0f4);
-    box-shadow: var(--nm-raised);
-    border-radius: var(--nm-radius-md);
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0 var(--nm-radius-md) var(--nm-radius-md) 0;
     position: relative;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     flex-basis: 50%;
+    z-index: 1;
 }
 
 .preview-container {
@@ -389,6 +420,20 @@ select.c-input option {
     padding: var(--nm-space-lg);
     position: relative;
     min-height: initial;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.preview-iframe {
+    width: 100%;
+    max-width: var(--page-width);
+    aspect-ratio: 210 / 297;
+    border: none;
+    background: #fff;
+    box-shadow: var(--nm-raised);
+    border-radius: 4px;
+    display: block;
 }
 
 /* ===== PANE HEADERS ===== */
@@ -396,7 +441,7 @@ select.c-input option {
     background: transparent;
     box-shadow: 0 1px 0 rgba(0,0,0,0.06),
                 0 2px 0 rgba(255,255,255,0.4);
-    padding: var(--nm-space-sm) var(--nm-space-lg);
+    padding: var(--nm-space-md) var(--nm-space-lg);
     flex-shrink: 0;
 }
 
@@ -417,7 +462,7 @@ select.c-input option {
 
 .pane-header-buttons {
     display: flex;
-    gap: 6px;
+    gap: var(--nm-space-sm);
     align-items: center;
 }
 
@@ -455,17 +500,31 @@ select.c-input option {
 
 /* ===== RESIZER HANDLE ===== */
 .resizer {
-    flex-basis: 8px;
-    flex-shrink: 0;
-    background: var(--nm-bg);
-    box-shadow: var(--nm-pressed-sm);
-    border-radius: var(--nm-radius-sm);
+    flex: 0 0 1px;
+    width: 1px;
+    align-self: stretch;
+    margin: var(--nm-space-md) 0;
+    background: rgba(0, 0, 0, 0.08);
     cursor: col-resize;
+    position: relative;
     z-index: 10;
-    transition: box-shadow 0.3s ease;
+    transition: background 0.2s ease;
+}
+.resizer::after {
+    /* wider invisible hitbox for easier grabbing */
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -5px;
+    right: -5px;
 }
 .resizer:hover {
-    box-shadow: var(--nm-pressed);
+    background: var(--nm-accent);
+}
+
+[data-global-theme="dark"] .resizer {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 /* ===== READER MODE ===== */
@@ -490,9 +549,21 @@ select.c-input option {
     display: none !important;
 }
 
+.reader-mode .main-container::before {
+    display: none;
+}
+
 .reader-mode .preview-pane {
     flex-basis: 100% !important;
     background: var(--reader-bg, #ffffff);
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.reader-mode .preview-iframe {
+    max-width: var(--reader-width, 800px);
+    aspect-ratio: auto;
+    height: calc(100vh - 80px);
     box-shadow: none;
     border-radius: 0;
 }
@@ -1006,13 +1077,14 @@ body.reader-active .theme-toggle-btn {
                 0 2px 0 rgba(0,0,0,0.3);
 }
 
-/* Dark: Split-pane layout */
-[data-global-theme="dark"] .editor-pane {
+/* Dark: Split-pane unified surface */
+[data-global-theme="dark"] .main-container::before {
     background: linear-gradient(145deg, #2e3142, #262936);
 }
 
+[data-global-theme="dark"] .editor-pane,
 [data-global-theme="dark"] .preview-pane {
-    background: linear-gradient(145deg, #2e3142, #262936);
+    background: transparent;
 }
 
 /* Dark: Type badges (adjusted for contrast) */

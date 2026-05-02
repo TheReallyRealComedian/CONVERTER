@@ -13,7 +13,7 @@ from rq.job import Job
 from io import BytesIO
 from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
 from html.parser import HTMLParser
@@ -142,6 +142,32 @@ def request_entity_too_large(error):
     if request.content_type and 'multipart/form-data' in request.content_type:
         return jsonify({'error': 'File too large. Maximum upload size is 500 MB.'}), 413
     return jsonify({'error': 'Request too large.'}), 413
+
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(error):
+    if request.accept_mimetypes.best == 'application/json' or request.path.startswith('/api/'):
+        return jsonify({'error': 'csrf_expired', 'message': str(error.description)}), 400
+    reload_url = request.referrer or url_for('markdown_converter')
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        '<title>Session expired</title>'
+        f'<meta http-equiv="refresh" content="2;url={reload_url}">'
+        '<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:4rem auto;'
+        'padding:2rem;color:#333;text-align:center;}h1{font-size:1.2rem;margin-bottom:1rem;}'
+        'p{color:#666;line-height:1.5;}</style></head><body>'
+        '<h1>Session expired</h1>'
+        '<p>Your security token expired. Reloading the page automatically&hellip;</p>'
+        f'<p><a href="{reload_url}">Click here if nothing happens.</a></p>'
+        '</body></html>'
+    )
+    return html, 400
+
+
+@app.route('/api/csrf-token', methods=['GET'])
+@login_required
+def get_csrf_token():
+    return jsonify({'csrf_token': generate_csrf()})
 
 
 # Initialize services
@@ -343,7 +369,7 @@ async def convert_markdown():
         },
         attributes={
             '*': {'class', 'id', 'style'},
-            'a': {'href', 'title', 'target', 'rel'},
+            'a': {'href', 'title', 'target'},
             'img': {'src', 'alt', 'title', 'width', 'height'},
             'th': {'colspan', 'rowspan', 'scope'},
             'td': {'colspan', 'rowspan'},
@@ -373,7 +399,9 @@ async def convert_markdown():
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             page = await browser.new_page()
-            await page.set_content(full_html)
+            await page.set_content(full_html, wait_until='networkidle')
+            # Wait until all web fonts (Google Fonts etc.) are loaded before rendering
+            await page.evaluate('document.fonts.ready')
             # Detect tables that overflow the page width (few but very wide columns)
             await page.evaluate('''() => {
                 document.querySelectorAll('table').forEach(table => {
