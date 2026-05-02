@@ -5,9 +5,9 @@ import os
 import wave
 import time
 from typing import List, Dict, Optional
-from google import genai
 from google.genai import types
 
+from services.gemini.client import create_client, is_pydub_available
 from services.gemini.dialogue import (
     filter_metadata_lines,
     parse_dialogue,
@@ -32,23 +32,9 @@ class GeminiService:
     RATE_LIMIT_DELAY = 0.4
 
     def __init__(self, api_key):
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY is required")
         self.api_key = api_key
-        self.client = genai.Client(api_key=api_key)
-        if hasattr(self.client, '_api_client'):
-            if hasattr(self.client._api_client, '_httpx_client'):
-                import httpx
-                self.client._api_client._httpx_client.timeout = httpx.Timeout(timeout=300.0)
-                logger.info("✅ Timeout auf 300 Sekunden erhöht")
-
-        # Check if pydub is available
-        try:
-            from pydub import AudioSegment
-            self.pydub_available = True
-        except ImportError:
-            logger.warning("PyDub not available - audio concatenation disabled")
-            self.pydub_available = False
+        self.client = create_client(api_key)
+        self.pydub_available = is_pydub_available()
 
     def format_dialogue_with_llm(self, raw_text, num_speakers=2, speaker_descriptions=None,
                                   language='en', narration_style='conversational',
