@@ -1,10 +1,7 @@
 import os
 import asyncio
 import tempfile
-import logging
-import sys
 import json
-import click
 from pathlib import Path
 from datetime import datetime, timezone
 from redis import Redis
@@ -12,9 +9,8 @@ from rq import Queue
 from rq.exceptions import NoSuchJobError
 from rq.job import Job
 from io import BytesIO
-from flask import Flask, render_template, request, flash, redirect, url_for, send_file, jsonify
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
+from flask import render_template, request, flash, redirect, url_for, send_file, jsonify
+from flask_login import login_user, logout_user, login_required, current_user
 from markdown_it import MarkdownIt
 from playwright.async_api import async_playwright
 from html.parser import HTMLParser
@@ -30,16 +26,12 @@ import re
 import traceback
 import time as _time
 import requests as http_requests
+
+from app_pkg import create_app
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 from tasks import generate_podcast_task
 from models import db, User, Conversion
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
 
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
@@ -105,71 +97,11 @@ def _get_select_options(db_id, prop_name):
             return [o['name'] for o in prop.get('select', {}).get('options', [])]
     return []
 
-app = Flask(__name__)
-csrf = CSRFProtect(app)
+app = create_app()
 
-_secret_key = os.environ.get('SECRET_KEY')
-if not _secret_key:
-    raise RuntimeError("SECRET_KEY environment variable must be set")
-app.config['SECRET_KEY'] = _secret_key
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB (large audio files)
-app.config['REMEMBER_COOKIE_HTTPONLY'] = True
-app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////app/data/converter.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Initialize database
-db.init_app(app)
-
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-login_manager.login_message_category = 'info'
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    try:
-        return db.session.get(User, int(user_id))
-    except (ValueError, TypeError):
-        return None
-
-
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    if request.content_type and 'multipart/form-data' in request.content_type:
-        return jsonify({'error': 'File too large. Maximum upload size is 500 MB.'}), 413
-    return jsonify({'error': 'Request too large.'}), 413
-
-
-@app.errorhandler(CSRFError)
-def handle_csrf_error(error):
-    if request.accept_mimetypes.best == 'application/json' or request.path.startswith('/api/'):
-        return jsonify({'error': 'csrf_expired', 'message': str(error.description)}), 400
-    reload_url = request.referrer or url_for('markdown_converter')
-    html = (
-        '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-        '<title>Session expired</title>'
-        f'<meta http-equiv="refresh" content="2;url={reload_url}">'
-        '<style>body{font-family:system-ui,sans-serif;max-width:520px;margin:4rem auto;'
-        'padding:2rem;color:#333;text-align:center;}h1{font-size:1.2rem;margin-bottom:1rem;}'
-        'p{color:#666;line-height:1.5;}</style></head><body>'
-        '<h1>Session expired</h1>'
-        '<p>Your security token expired. Reloading the page automatically&hellip;</p>'
-        f'<p><a href="{reload_url}">Click here if nothing happens.</a></p>'
-        '</body></html>'
-    )
-    return html, 400
-
-
-@app.route('/api/csrf-token', methods=['GET'])
-@login_required
-def get_csrf_token():
-    return jsonify({'csrf_token': generate_csrf()})
-
+# Re-export the CSRFProtect instance at module level so test code (and any
+# future caller that wants to exempt a route) can reach it via ``app.csrf``.
+csrf = app.extensions['csrf']
 
 # Initialize services
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
@@ -184,30 +116,6 @@ task_queue = Queue(connection=redis_conn)
 
 # Shared output directory (must match tasks.py and docker-compose volume)
 OUTPUT_DIR = '/app/output_podcasts'
-
-# --- Create DB tables on startup ---
-with app.app_context():
-    os.makedirs('/app/data', exist_ok=True)
-    db.create_all()
-
-
-# --- CLI Commands ---
-@app.cli.command('create-user')
-@click.argument('username')
-@click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True)
-def create_user_cmd(username, password):
-    """Create a new user account."""
-    if len(password) < 8:
-        click.echo('Error: Password must be at least 8 characters.')
-        return
-    if User.query.filter_by(username=username).first():
-        click.echo(f'Error: User "{username}" already exists.')
-        return
-    user = User(username=username)
-    user.set_password(password)
-    db.session.add(user)
-    db.session.commit()
-    click.echo(f'User "{username}" created successfully.')
 
 
 # --- Auth Routes ---
@@ -525,7 +433,7 @@ def get_deepgram_token():
     if not deepgram_service:
         app.logger.error("Deepgram service not configured")
         return jsonify({"error": "Audio transcription service is not configured."}), 503
-    
+
     try:
         temp_key = deepgram_service.create_temporary_key(ttl_seconds=60)
         return jsonify({"deepgram_token": temp_key})
@@ -583,7 +491,7 @@ def transcribe_audio_file():
 def generate_podcast():
     if not google_tts_service:
         return jsonify({"error": "Google Cloud TTS is not configured."}), 503
-    
+
     temp_audio_path = None
     try:
         data = request.get_json()
@@ -592,11 +500,11 @@ def generate_podcast():
         language_code = data.get('language_code', 'en-US')
         speaking_rate = float(data.get('speaking_rate', 1.0))
         pitch = float(data.get('pitch', 0.0))
-        
+
         temp_audio_path = google_tts_service.synthesize_speech(
             text, voice_name, language_code, speaking_rate, pitch
         )
-        
+
         audio_buffer = BytesIO()
         with open(temp_audio_path, 'rb') as f:
             audio_buffer.write(f.read())
@@ -625,7 +533,7 @@ def generate_podcast():
 def get_google_voices():
     if not google_tts_service:
         return jsonify({"error": "Google Cloud TTS is not configured."}), 503
-    
+
     try:
         voices = google_tts_service.list_voices()
         return jsonify(voices)
@@ -738,7 +646,7 @@ def podcast_download(job_id):
         mimetype='audio/wav'
     )
 
-            
+
 @app.route('/api/get-gemini-voices', methods=['GET'])
 @login_required
 def get_gemini_voices():
@@ -781,7 +689,7 @@ def get_gemini_voices():
             {"name": "Sulafat", "description": "Warm and inviting"}
         ]
     }
-    
+
     return jsonify(voices)
 
 
@@ -790,15 +698,15 @@ def get_gemini_voices():
 def format_dialogue_with_llm():
     if not gemini_service:
         return jsonify({"error": "Gemini API Key is not configured."}), 503
-    
+
     try:
         data = request.get_json()
-        
+
         raw_text_received = data.get('raw_text', '')
 
         if not raw_text_received or not raw_text_received.strip():
             return jsonify({"error": "No text provided for formatting"}), 400
-        
+
         result = gemini_service.format_dialogue_with_llm(
             raw_text=raw_text_received.strip(),
             num_speakers=int(data.get('num_speakers', 2)),
@@ -808,15 +716,15 @@ def format_dialogue_with_llm():
             script_length=data.get('script_length', 'medium'),
             custom_prompt=(data.get('custom_prompt') or '').strip() or None
         )
-        
+
         return jsonify(result)
-    
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         app.logger.error(f"Dialogue formatting failed: {e}", exc_info=True)
         return jsonify({"error": "An error occurred during dialogue formatting. Please try again."}), 500
-    
+
 
 
 
@@ -949,7 +857,8 @@ def api_notion_suggestions():
     try:
         return jsonify(_cached('suggestions', 300, fetch))
     except Exception as e:
-        logging.getLogger(__name__).warning(f'Notion suggestions failed: {e}')
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f'Notion suggestions failed: {e}')
         return jsonify({'people': [], 'projects': [], 'meeting_types': [], 'note_types': []})
 
 
