@@ -1,3 +1,29 @@
+/* ============================================================================
+   File Transformer — single stylesheet
+   ----------------------------------------------------------------------------
+   Sections (search for the marker, e.g. "===== SURFACE ====="):
+     NEOMORPHISM DESIGN SYSTEM   – CSS variables (light + dark), tokens
+     GLOBAL                      – html/body resets, scrollbars
+     SURFACE                     – .c-surface, .c-surface--raised, --flat
+     BUTTON                      – .c-btn (+ --primary, --danger)
+     INPUT                       – .c-input, select.c-input
+     CARD                        – .c-card
+     ALERTS                      – .c-alert (+ danger/success/warning/info)
+     DROP ZONE                   – .c-drop-zone
+     TAB & LANGUAGE TOGGLES      – .tab-active/.tab-inactive, .lang-*
+     SPLIT-PANE LAYOUT           – .main-container, .editor-pane, .preview-pane
+     PANE HEADERS                – .pane-header
+     PDF PAGE SIMULATION         – preview iframe styling
+     RESIZER HANDLE              – split-pane drag handle
+     READER MODE                 – .main-container.reader-mode + reader toolbar
+     DARK MODE (Reader only)     – data-theme="dark" overrides for reader
+     TOAST NOTIFICATION          – .toast-notification
+     UTILITY                     – misc helpers (line-clamp etc.)
+     THEME TOGGLE                – global theme toggle button
+     MOBILE HEADER               – sidebar toggle bar
+     DARK MODE                   – data-global-theme="dark" tokens
+     RESPONSIVE: HALVE SHADOWS   – mobile breakpoint shadow scaling
+   ============================================================================ */
 /* ===== NEOMORPHISM DESIGN SYSTEM ===== */
 :root {
     /* Font */
