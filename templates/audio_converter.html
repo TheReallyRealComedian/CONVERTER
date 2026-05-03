@@ -2,49 +2,6 @@
 
 {% block title %}Audio Tools{% endblock %}
 
-{% block head_extra %}
-<style>
-    #mic-button {
-        background: var(--nm-bg);
-        border: none;
-        box-shadow: var(--nm-raised-sm);
-        padding: 10px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--nm-text-muted);
-        border-radius: 50%;
-        transition: box-shadow 0.3s ease, color 0.15s ease, background-color 0.15s ease;
-    }
-    #mic-button:hover {
-        box-shadow: var(--nm-raised);
-        color: var(--nm-text);
-    }
-    #mic-button.recording {
-        color: #ffffff;
-        background-color: rgba(225, 112, 85, 0.85);
-        box-shadow: var(--nm-pressed-sm);
-    }
-    .mode-radio-input { display: none; }
-    .mode-radio-input:checked + .mode-radio-label {
-        background: var(--nm-tint-accent);
-        color: var(--nm-accent-hover);
-        box-shadow: var(--nm-pressed-sm);
-    }
-    .mode-radio-label {
-        box-shadow: var(--nm-raised-sm);
-        border: none !important;
-        background: var(--nm-bg);
-    }
-    .mode-radio-label:hover {
-        box-shadow: var(--nm-raised);
-    }
-    .prompt-editor-content { display: none; }
-    .prompt-editor-content.expanded { display: block; }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-4xl mx-auto">
