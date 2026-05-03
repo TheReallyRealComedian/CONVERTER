@@ -1,5 +1,7 @@
 # CONVERTER - Multimedia Converter & Podcast Generator
 
+> **🔁 Maschinen-Wechsel 2026-05-03:** Übernimmst du als Overseer in einer neuen Session? Lies zuerst [OVERSEER_HANDOFF.md](OVERSEER_HANDOFF.md) — vollständige Übergabe mit aktuellem Stand, offenen Aufgaben (incl. document_converter Production-Regression) und Sub-Thread-Vorlagen. Dann hier weiter für Live-Status der Stages.
+
 ## What is this?
 A Flask web app for multimedia conversion: Markdown-to-PDF, document-to-Markdown, audio transcription (Deepgram), and AI podcast generation (Google Gemini TTS). Runs in Docker with Redis/RQ for background jobs.
 
