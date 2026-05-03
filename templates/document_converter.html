@@ -26,7 +26,7 @@
                 <p class="text-sm font-medium text-neo-muted mb-1">Datei hier ablegen oder klicken zum Auswählen</p>
                 <p class="text-xs text-neo-faint">PDF, DOCX, PPTX, EML, HTML, TXT, MD — max. 100 MB</p>
                 <input type="file" id="document_file" name="document_file" class="hidden" required title="Datei auswählen"
-                       accept="{{ ','.join('.' + ext for ext in accepted_extensions) }}">
+                       accept="{{ accepted_extensions_accept }}">
                 <span class="c-drop-zone__overlay" aria-hidden="true">Loslassen, um hochzuladen</span>
                 <span class="c-drop-zone__warning-hint" aria-hidden="true">Dateityp nicht unterstützt</span>
                 <span class="c-drop-zone__loading" aria-hidden="true">

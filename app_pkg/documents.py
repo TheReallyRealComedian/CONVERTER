@@ -27,6 +27,7 @@ def register(app):
         return render_template(
             'document_converter.html',
             accepted_extensions=ACCEPTED_EXTENSIONS,
+            accepted_extensions_accept=','.join('.' + ext for ext in ACCEPTED_EXTENSIONS),
         )
 
     @app.route('/transform-document', methods=['POST'])
