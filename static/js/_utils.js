@@ -33,6 +33,19 @@
         });
     }
 
+    /* Render a persistent alert banner inside containerEl. Replaces any prior
+       content. Message is set via textContent (XSS-safe). No close button or
+       auto-dismiss — caller clears the container or calls showAlert again. */
+    function showAlert(containerEl, level, message) {
+        if (!containerEl) return null;
+        containerEl.innerHTML = '';
+        const banner = document.createElement('div');
+        banner.className = 'c-alert c-alert--' + level;
+        banner.textContent = message;
+        containerEl.appendChild(banner);
+        return banner;
+    }
+
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'toast-notification';
@@ -47,5 +60,6 @@
 
     window.safeJSON = safeJSON;
     window.fallbackCopyText = fallbackCopyText;
+    window.showAlert = showAlert;
     window.showToast = showToast;
 })();

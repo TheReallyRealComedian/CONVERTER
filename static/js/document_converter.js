@@ -6,6 +6,12 @@ const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('document_file');
 const fileInfo = document.getElementById('file-info');
 const fileName = document.getElementById('file-name');
+const alertContainer = document.getElementById('alert-container');
+
+function clearInvalidState() {
+    dropZone.classList.remove('c-drop-zone--invalid');
+    alertContainer.innerHTML = '';
+}
 
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -20,10 +26,14 @@ dropZone.addEventListener('drop', (e) => {
     if (e.dataTransfer.files.length) {
         fileInput.files = e.dataTransfer.files;
         showFileInfo(e.dataTransfer.files[0]);
+        clearInvalidState();
     }
 });
 fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) showFileInfo(fileInput.files[0]);
+    if (fileInput.files.length) {
+        showFileInfo(fileInput.files[0]);
+        clearInvalidState();
+    }
 });
 document.getElementById('clear-file').addEventListener('click', () => {
     fileInput.value = '';
@@ -48,7 +58,13 @@ function resetSaveBtn() {
 
 document.getElementById('convert-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    if (!fileInput.files.length) return;
+    if (!fileInput.files.length) {
+        showAlert(alertContainer, 'danger',
+            'Bitte zuerst eine Datei auswählen oder per Drag & Drop hineinziehen.');
+        dropZone.classList.add('c-drop-zone--invalid');
+        try { dropZone.focus(); } catch (_) { /* not focusable yet — Cluster E */ }
+        return;
+    }
 
     const file = fileInput.files[0];
     const formData = new FormData();
@@ -132,12 +148,24 @@ async function saveToLibrary() {
         if (response.ok) {
             btn.textContent = '✓ Gespeichert';
             btn.classList.add('saved');
-        } else {
-            throw new Error('Save failed');
+            return;
         }
-    } catch (err) {
+
+        let serverError = null;
+        try {
+            const errData = await safeJSON(response);
+            serverError = errData && errData.error;
+        } catch (_) { /* fall back to generic message */ }
+
+        const msg = serverError
+            ? 'Speichern in die Library fehlgeschlagen: ' + serverError + '. Bitte erneut versuchen.'
+            : 'Speichern in die Library fehlgeschlagen. Bitte erneut versuchen.';
+        showAlert(alertContainer, 'danger', msg);
         resetSaveBtn();
-        alert('Failed to save: ' + err.message);
+    } catch (_err) {
+        resetSaveBtn();
+        showAlert(alertContainer, 'danger',
+            'Speichern in die Library fehlgeschlagen. Bitte erneut versuchen.');
     }
 }
 

@@ -296,6 +296,10 @@ select.c-input option {
     box-shadow: var(--nm-pressed), 0 0 0 3px rgba(168,180,216,0.3);
 }
 
+.c-drop-zone.c-drop-zone--invalid {
+    box-shadow: var(--nm-pressed), 0 0 0 3px rgba(225, 112, 85, 0.5);
+}
+
 /* ===== TAB & LANGUAGE TOGGLES ===== */
 .tab-active {
     box-shadow: var(--nm-pressed-sm) !important;
