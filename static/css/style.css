@@ -326,6 +326,16 @@ select.c-input option {
     box-shadow: var(--nm-pressed), 0 0 0 2px rgba(143, 160, 196, 0.55);
 }
 
+.c-drop-zone:focus-visible {
+    box-shadow: var(--nm-pressed), 0 0 0 3px rgba(168, 180, 216, 0.55);
+    outline: none;
+}
+
+#result-content:focus-visible {
+    box-shadow: var(--nm-pressed-sm), 0 0 0 3px rgba(168, 180, 216, 0.3);
+    outline: none;
+}
+
 .c-drop-zone.drop-zone-active {
     box-shadow: var(--nm-raised-sm), 0 0 0 3px var(--nm-accent-hover);
 }

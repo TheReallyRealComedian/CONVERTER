@@ -51,6 +51,12 @@ function rejectUnsupported() {
     showWarningState();
 }
 
+dropZone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+    }
+});
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     // Browser security usually hides the file's MIME/name during dragover and
@@ -135,7 +141,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
         showAlert(alertContainer, 'danger',
             'Bitte zuerst eine Datei auswählen oder per Drag & Drop hineinziehen.');
         dropZone.classList.add('c-drop-zone--invalid');
-        try { dropZone.focus(); } catch (_) { /* not focusable yet — Cluster E */ }
+        dropZone.focus();
         return;
     }
 
