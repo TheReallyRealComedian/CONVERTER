@@ -28,11 +28,22 @@ fileInput.addEventListener('change', () => {
 document.getElementById('clear-file').addEventListener('click', () => {
     fileInput.value = '';
     fileInfo.classList.add('hidden');
+    document.getElementById('result-area').classList.add('hidden');
+    document.getElementById('alert-container').innerHTML = '';
+    lastResult = null;
+    resetSaveBtn();
 });
 
 function showFileInfo(file) {
     fileName.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
     fileInfo.classList.remove('hidden');
+}
+
+function resetSaveBtn() {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = false;
+    btn.textContent = 'In Library speichern';
+    btn.classList.remove('saved');
 }
 
 document.getElementById('convert-form').addEventListener('submit', async function(e) {
@@ -46,8 +57,10 @@ document.getElementById('convert-form').addEventListener('submit', async functio
     const btn = document.getElementById('convert-btn');
     btn.disabled = true;
     btn.textContent = 'Converting...';
-    document.getElementById('result-area').classList.add('hidden');
+    const resultArea = document.getElementById('result-area');
+    resultArea.classList.add('hidden');
     document.getElementById('alert-container').innerHTML = '';
+    resetSaveBtn();
 
     try {
         const response = await fetch(window.PageData.transformDocumentUrl, {
@@ -69,9 +82,8 @@ document.getElementById('convert-form').addEventListener('submit', async functio
         };
 
         document.getElementById('result-content').textContent = text;
-        document.getElementById('result-area').classList.remove('hidden');
-        document.getElementById('save-btn').textContent = 'Save to Library';
-        document.getElementById('save-btn').disabled = false;
+        resultArea.classList.remove('hidden');
+        resultArea.scrollIntoView({behavior: 'smooth', block: 'start'});
     } catch (err) {
         document.getElementById('alert-container').innerHTML =
             `<div class="c-alert c-alert--danger">${err.message}</div>`;
@@ -96,7 +108,7 @@ async function saveToLibrary() {
     if (!lastResult) return;
     const btn = document.getElementById('save-btn');
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.textContent = 'Speichert …';
 
     try {
         const stem = lastResult.filename.replace(/\.[^.]+$/, '');
@@ -118,14 +130,13 @@ async function saveToLibrary() {
         });
 
         if (response.ok) {
-            btn.textContent = 'Saved!';
+            btn.textContent = '✓ Gespeichert';
             btn.classList.add('saved');
         } else {
             throw new Error('Save failed');
         }
     } catch (err) {
-        btn.textContent = 'Save to Library';
-        btn.disabled = false;
+        resetSaveBtn();
         alert('Failed to save: ' + err.message);
     }
 }
