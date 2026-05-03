@@ -1356,17 +1356,66 @@ html.theme-transitioning *::after {
     justify-content: center;
     color: var(--nm-text-muted);
     border-radius: 50%;
+    position: relative;
     transition: box-shadow 0.3s ease, color 0.15s ease, background-color 0.15s ease;
 }
 #mic-button:hover {
     box-shadow: var(--nm-raised);
     color: var(--nm-text);
 }
+#mic-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: var(--nm-raised-sm);
+}
 #mic-button.recording {
     color: #ffffff;
     background-color: rgba(225, 112, 85, 0.85);
     box-shadow: var(--nm-pressed-sm);
 }
+
+/* Mic-loading state (P7): spinner overlay around mic icon during
+   token-fetch + WS-handshake + getUserMedia-prompt. */
+.mic-button__spinner {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--nm-accent-hover);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+#mic-button.mic-loading {
+    pointer-events: none;
+}
+#mic-button.mic-loading .mic-button__spinner {
+    opacity: 1;
+    animation: mic-button-spin 0.8s linear infinite;
+}
+@keyframes mic-button-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Language buttons disabled state (P9): visible recording-lock signal. */
+.language-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: var(--nm-pressed-sm) !important;
+}
+.language-btn:disabled:hover {
+    box-shadow: var(--nm-pressed-sm) !important;
+    transform: none;
+}
+
+/* Live transcript textarea readonly state (P10): subtle visual cue that
+   stream-write has priority during recording; user can read but not edit. */
+#live-transcript-output.is-readonly {
+    color: var(--nm-text-secondary);
+    cursor: default;
+}
+
 .mode-radio-input { display: none; }
 .mode-radio-input:checked + .mode-radio-label {
     background: var(--nm-tint-accent);

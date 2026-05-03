@@ -15,6 +15,7 @@ def register(app):
         return render_template(
             'audio_converter.html',
             deepgram_api_key_set=bool(_app_module.DEEPGRAM_API_KEY),
+            gemini_api_key_set=bool(_app_module.GEMINI_API_KEY),
         )
 
     @app.route('/api/get-deepgram-token', methods=['GET'])

@@ -1,8 +1,19 @@
 /* Audio converter page: live transcription, file transcription, podcast generator. */
 document.addEventListener('DOMContentLoaded', function() {
 
+    const PageData = window.PageData || {};
+    const deepgramAvailable = !!PageData.deepgramApiKeySet;
+    const geminiAvailable = !!PageData.geminiApiKeySet;
+
     // ==========================================================
-    // ===== CUSTOM TAB SWITCHING =====
+    // ===== ALERT CONTAINERS (P4) =====
+    // ==========================================================
+    const liveAlertContainer = document.getElementById('live-alert-container');
+    const fileAlertContainer = document.getElementById('file-alert-container');
+    const podcastAlertContainer = document.getElementById('podcast-alert-container');
+
+    // ==========================================================
+    // ===== TAB SWITCHING =====
     // ==========================================================
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabPanes = document.querySelectorAll('.tab-pane');
@@ -37,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     languageButtons.forEach(button => {
         button.addEventListener('click', function() {
+            if (this.disabled) return;
             languageButtons.forEach(btn => {
                 btn.classList.remove('lang-active');
                 btn.classList.add('lang-inactive');
@@ -47,11 +59,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    function lockLanguageButtons(locked) {
+        languageButtons.forEach(btn => {
+            btn.disabled = locked;
+            const baseLabel = btn.dataset.langLabel || btn.textContent.trim();
+            if (locked) {
+                btn.title = 'Während der Aufnahme gesperrt';
+                btn.setAttribute('aria-label', baseLabel + ' (während der Aufnahme gesperrt)');
+            } else {
+                btn.removeAttribute('title');
+                btn.setAttribute('aria-label', baseLabel);
+            }
+        });
+    }
+
+    // ==========================================================
+    // ===== SAVE-BUTTON LIFECYCLE HELPER (P6) =====
+    // ==========================================================
+    function resetSaveBtn(btn) {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.textContent = 'In Library speichern';
+        btn.classList.remove('saved');
+    }
+
     // ==========================================================
     // ===== LIVE TRANSCRIPTION LOGIC =====
     // ==========================================================
     const micButton = document.getElementById('mic-button');
     const transcriptOutput = document.getElementById('live-transcript-output');
+    const liveRecordingHint = document.getElementById('live-recording-hint');
 
     let mediaRecorder;
     let socket;
@@ -59,27 +96,89 @@ document.addEventListener('DOMContentLoaded', function() {
     let baseText = '';
     let keepAliveInterval;
 
-    async function getDeepgramToken() {
-        try {
-            const response = await fetch('/api/get-deepgram-token');
-            if (!response.ok) {
-                const errorData = await safeJSON(response);
-                throw new Error(errorData.error || 'Failed to get token');
-            }
-            const data = await safeJSON(response);
-            return data.deepgram_token;
-        } catch (error) {
-            console.error("Failed to get token:", error);
-            alert("Error getting API token. Check server configuration.");
-            throw error;
+    const livePlaceholder = 'Live-Transkription erscheint hier …';
+    const liveRecordingPlaceholder = 'Transkription läuft — bearbeitbar nach Stop';
+
+    function setMicLoading(loading) {
+        if (!micButton) return;
+        if (loading) {
+            micButton.classList.add('mic-loading');
+            micButton.disabled = true;
+            micButton.title = 'Verbindung wird aufgebaut …';
+            micButton.setAttribute('aria-label', 'Verbindung zur Transkription wird aufgebaut');
+        } else {
+            micButton.classList.remove('mic-loading');
+            micButton.disabled = false;
         }
     }
 
+    function setMicRecording(recording) {
+        if (!micButton) return;
+        if (recording) {
+            micButton.classList.add('recording');
+            micButton.title = 'Aufnahme stoppen';
+            micButton.setAttribute('aria-label', 'Aufnahme stoppen');
+            micButton.setAttribute('aria-pressed', 'true');
+        } else {
+            micButton.classList.remove('recording');
+            micButton.title = 'Aufnahme starten';
+            micButton.setAttribute('aria-label', 'Aufnahme starten');
+            micButton.setAttribute('aria-pressed', 'false');
+        }
+    }
+
+    function setLiveTextareaReadonly(readonly) {
+        if (!transcriptOutput) return;
+        if (readonly) {
+            transcriptOutput.readOnly = true;
+            transcriptOutput.placeholder = liveRecordingPlaceholder;
+            transcriptOutput.title = 'Während der Aufnahme schreibgeschützt';
+            transcriptOutput.classList.add('is-readonly');
+            if (liveRecordingHint) liveRecordingHint.classList.remove('hidden');
+        } else {
+            transcriptOutput.readOnly = false;
+            transcriptOutput.placeholder = livePlaceholder;
+            transcriptOutput.removeAttribute('title');
+            transcriptOutput.classList.remove('is-readonly');
+            if (liveRecordingHint) liveRecordingHint.classList.add('hidden');
+        }
+    }
+
+    async function getDeepgramToken() {
+        const response = await fetch('/api/get-deepgram-token');
+        if (!response.ok) {
+            const errorData = await safeJSON(response);
+            throw new Error(errorData.error || 'Token-Abruf fehlgeschlagen');
+        }
+        const data = await safeJSON(response);
+        return data.deepgram_token;
+    }
+
+    function teardownAudioPipeline() {
+        clearInterval(keepAliveInterval);
+        if (mediaRecorder) {
+            if (mediaRecorder.processor) {
+                mediaRecorder.processor.disconnect();
+                mediaRecorder.processor.onaudioprocess = null;
+            }
+            if (mediaRecorder.source) mediaRecorder.source.disconnect();
+            if (mediaRecorder.audioContext) mediaRecorder.audioContext.close();
+            if (mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+        mediaRecorder = null;
+    }
+
     const connectToDeepgram = async () => {
+        setMicLoading(true);
+
         let deepgramToken;
         try {
             deepgramToken = await getDeepgramToken();
         } catch (error) {
+            console.error('Failed to get token:', error);
+            setMicLoading(false);
+            showAlert(liveAlertContainer, 'danger',
+                'API-Token konnte nicht abgerufen werden. Server-Konfiguration prüfen.');
             return;
         }
 
@@ -102,12 +201,28 @@ document.addEventListener('DOMContentLoaded', function() {
         socket.onopen = async () => {
             baseText = transcriptOutput.value;
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    channelCount: 1,
-                    sampleRate: 16000
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { channelCount: 1, sampleRate: 16000 }
+                });
+            } catch (error) {
+                console.error('getUserMedia failed:', error);
+                setMicLoading(false);
+                if (socket && socket.readyState === WebSocket.OPEN) socket.close();
+                socket = null;
+
+                let msg;
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    msg = 'Mikrofon-Zugriff blockiert. Erlaube den Zugriff in den Browser-Site-Einstellungen und versuche es erneut.';
+                } else if (error.name === 'NotFoundError') {
+                    msg = 'Kein Mikrofon gefunden. Schließe ein Aufnahmegerät an und versuche es erneut.';
+                } else {
+                    msg = 'Mikrofon konnte nicht gestartet werden. Browser-Berechtigung und angeschlossenes Gerät prüfen.';
                 }
-            });
+                showAlert(liveAlertContainer, 'danger', msg);
+                return;
+            }
 
             const audioContext = new AudioContext({ sampleRate: 16000 });
             const source = audioContext.createMediaStreamSource(stream);
@@ -120,11 +235,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcmData = new Int16Array(inputData.length);
-
                     for (let i = 0; i < inputData.length; i++) {
                         pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
                     }
-
                     socket.send(pcmData.buffer);
                 }
             };
@@ -132,10 +245,17 @@ document.addEventListener('DOMContentLoaded', function() {
             mediaRecorder = { processor, source, stream, audioContext };
 
             isRecording = true;
-            micButton.classList.add('recording');
-            micButton.title = "Click to Stop Recording";
+            setMicLoading(false);
+            setMicRecording(true);
+            setLiveTextareaReadonly(true);
+            lockLanguageButtons(true);
 
-            languageButtons.forEach(btn => btn.disabled = true);
+            // Reset save-live button to neutral state for the new recording
+            const saveLiveBtnEl = document.getElementById('save-live-btn');
+            if (saveLiveBtnEl) {
+                saveLiveBtnEl.classList.add('hidden');
+                resetSaveBtn(saveLiveBtnEl);
+            }
 
             keepAliveInterval = setInterval(() => {
                 if (socket && socket.readyState === WebSocket.OPEN) {
@@ -157,197 +277,300 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
 
-        socket.onclose = (event) => {
+        socket.onclose = () => {
             if (isRecording) stopRecording(false);
         };
 
         socket.onerror = (error) => {
-            console.error("WebSocket error:", error);
-            alert("Connection failed. Check your network and API configuration.");
+            console.error('WebSocket error:', error);
+            setMicLoading(false);
+            showAlert(liveAlertContainer, 'danger',
+                'Verbindung zur Transkription fehlgeschlagen. Netzwerk und API-Konfiguration prüfen.');
         };
     };
 
     const stopRecording = (shouldCloseSocket = true) => {
         if (!isRecording && shouldCloseSocket) return;
 
-        clearInterval(keepAliveInterval);
-
-        if (mediaRecorder) {
-            if (mediaRecorder.processor) {
-                mediaRecorder.processor.disconnect();
-                mediaRecorder.processor.onaudioprocess = null;
-            }
-            if (mediaRecorder.source) {
-                mediaRecorder.source.disconnect();
-            }
-            if (mediaRecorder.audioContext) {
-                mediaRecorder.audioContext.close();
-            }
-            if (mediaRecorder.stream) {
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
-        }
+        teardownAudioPipeline();
 
         if (socket && socket.readyState === WebSocket.OPEN && shouldCloseSocket) {
             socket.close();
         }
 
-        mediaRecorder = null;
         if (shouldCloseSocket) socket = null;
         isRecording = false;
 
-        micButton.classList.remove('recording');
-        micButton.title = "Click to Start Recording";
-
-        languageButtons.forEach(btn => btn.disabled = false);
+        setMicRecording(false);
+        setLiveTextareaReadonly(false);
+        lockLanguageButtons(false);
 
         transcriptOutput.focus();
 
         const saveLiveBtn = document.getElementById('save-live-btn');
         if (saveLiveBtn && transcriptOutput.value.trim()) {
             saveLiveBtn.classList.remove('hidden');
-            saveLiveBtn.textContent = 'Save to Library';
-            saveLiveBtn.disabled = false;
-            saveLiveBtn.classList.remove('saved');
+            resetSaveBtn(saveLiveBtn);
         }
     };
 
-    micButton.addEventListener('click', () => {
-        if (isRecording) stopRecording();
-        else connectToDeepgram();
-    });
+    if (micButton) {
+        micButton.addEventListener('click', () => {
+            if (micButton.disabled) return;
+            if (isRecording) stopRecording();
+            else connectToDeepgram();
+        });
+    }
 
     // ==========================================================
-    // ===== FILE UPLOAD TRANSCRIPTION LOGIC =====
+    // ===== FILE UPLOAD TRANSCRIPTION LOGIC (P1, P2) =====
     // ==========================================================
     const uploadForm = document.getElementById('audio-upload-form');
     const fileInput = document.getElementById('file-upload-input');
     const fileUploadText = document.getElementById('file-upload-text');
+    const fileDropZone = document.getElementById('file-drop-zone');
     const resultContainer = document.getElementById('transcription-result-container');
     const transcribeBtn = document.getElementById('transcribe-file-btn');
 
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            fileUploadText.textContent = fileInput.files[0].name;
-        } else {
-            fileUploadText.textContent = 'Click to select an audio file or drag and drop';
+    const fileDefaultText = 'Audio-Datei hier ablegen oder klicken zum Auswählen';
+    const fileResultPlaceholder = 'Transkription erscheint hier nach der Verarbeitung.';
+    let fileWarningTimer = null;
+
+    function clearFileInvalidState() {
+        if (fileDropZone) fileDropZone.classList.remove('c-drop-zone--invalid');
+    }
+
+    function clearFileWarningState() {
+        if (fileDropZone) fileDropZone.classList.remove('c-drop-zone--warning');
+        if (fileWarningTimer) {
+            clearTimeout(fileWarningTimer);
+            fileWarningTimer = null;
         }
-    });
+    }
 
-    uploadForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        if (!fileInput.files[0]) {
-            alert("Please select an audio file first.");
-            return;
+    function resetFileResultArea() {
+        if (resultContainer) {
+            resultContainer.innerHTML = '';
+            const placeholder = document.createElement('span');
+            placeholder.className = 'text-neo-faint';
+            placeholder.dataset.placeholder = 'true';
+            placeholder.textContent = fileResultPlaceholder;
+            resultContainer.appendChild(placeholder);
         }
+        const saveBtn = document.getElementById('save-transcription-btn');
+        if (saveBtn) {
+            saveBtn.classList.add('hidden');
+            resetSaveBtn(saveBtn);
+            saveBtn._transcriptionData = null;
+        }
+    }
 
-        const formData = new FormData();
-        formData.append('audio_file', fileInput.files[0]);
-        formData.append('language', selectedLanguage);
+    if (fileInput) {
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                fileUploadText.textContent = fileInput.files[0].name;
+                clearFileInvalidState();
+                if (fileAlertContainer) fileAlertContainer.innerHTML = '';
+            } else {
+                fileUploadText.textContent = fileDefaultText;
+            }
+        });
+    }
 
-        transcribeBtn.disabled = true;
-        transcribeBtn.textContent = 'Transcribing...';
-        resultContainer.innerHTML = '<span class="text-neo-faint">Processing your audio file...</span>';
+    if (fileDropZone) {
+        fileDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            // Best-effort MIME-detection during dragover. Browser security often
+            // hides the file's type until drop, so we only flip into warning
+            // when the type is present and clearly not in our accept list.
+            let unsupported = false;
+            const items = e.dataTransfer && e.dataTransfer.items;
+            if (items && items.length === 1 && items[0].kind === 'file') {
+                const t = (items[0].type || '').toLowerCase();
+                if (t && t !== 'application/octet-stream') {
+                    unsupported = !t.startsWith('audio/');
+                }
+            }
+            if (unsupported) {
+                fileDropZone.classList.add('c-drop-zone--warning');
+                fileDropZone.classList.remove('drop-zone-active');
+            } else {
+                clearFileWarningState();
+                fileDropZone.classList.add('drop-zone-active');
+            }
+        });
 
-        try {
-            const response = await fetch('/transcribe-audio-file', {
-                method: 'POST',
-                body: formData
-            });
+        fileDropZone.addEventListener('dragleave', () => {
+            fileDropZone.classList.remove('drop-zone-active');
+            clearFileWarningState();
+        });
 
-            if (!response.ok) {
-                const result = await safeJSON(response);
-                throw new Error(result.error || `HTTP error! Status: ${response.status}`);
+        fileDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileDropZone.classList.remove('drop-zone-active');
+            clearFileWarningState();
+            if (!e.dataTransfer.files.length) return;
+            const file = e.dataTransfer.files[0];
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            fileUploadText.textContent = file.name;
+            clearFileInvalidState();
+            if (fileAlertContainer) fileAlertContainer.innerHTML = '';
+        });
+    }
+
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!fileInput.files[0]) {
+                showAlert(fileAlertContainer, 'danger',
+                    'Bitte zuerst eine Audio-Datei auswählen oder per Drag & Drop hineinziehen.');
+                if (fileDropZone) {
+                    fileDropZone.classList.add('c-drop-zone--invalid');
+                    setTimeout(() => clearFileInvalidState(), 2000);
+                    fileDropZone.focus();
+                }
+                return;
             }
 
-            const result = await safeJSON(response);
+            const formData = new FormData();
+            formData.append('audio_file', fileInput.files[0]);
+            formData.append('language', selectedLanguage);
 
-            resultContainer.textContent = result.transcript || 'No transcript was returned.';
+            transcribeBtn.disabled = true;
+            transcribeBtn.textContent = 'Wird umgewandelt …';
+            resultContainer.innerHTML = '';
+            const processingSpan = document.createElement('span');
+            processingSpan.className = 'text-neo-faint';
+            processingSpan.textContent = 'Audio-Datei wird verarbeitet …';
+            resultContainer.appendChild(processingSpan);
 
             const saveBtn = document.getElementById('save-transcription-btn');
-            saveBtn.classList.remove('hidden');
-            saveBtn.textContent = 'Save to Library';
-            saveBtn.disabled = false;
-            saveBtn._transcriptionData = {
-                content: result.transcript,
-                filename: fileInput.files[0].name,
-                mimetype: fileInput.files[0].type,
-                size: fileInput.files[0].size,
-                metadata: result.metadata || {}
-            };
+            if (saveBtn) {
+                saveBtn.classList.add('hidden');
+                resetSaveBtn(saveBtn);
+            }
 
-        } catch (error) {
-            console.error('Transcription error:', error);
-            resultContainer.innerHTML = `<span style="color: var(--nm-danger)"><strong>Error:</strong> ${error.message}</span>`;
-        } finally {
-            transcribeBtn.disabled = false;
-            transcribeBtn.textContent = 'Transcribe File';
-        }
-    });
+            try {
+                const response = await fetch('/transcribe-audio-file', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const result = await safeJSON(response);
+                    throw new Error(result.error || `Transkription fehlgeschlagen (${response.status})`);
+                }
+
+                const result = await safeJSON(response);
+                resultContainer.textContent = result.transcript || 'Es wurde kein Transkript zurückgegeben.';
+
+                if (saveBtn) {
+                    saveBtn.classList.remove('hidden');
+                    resetSaveBtn(saveBtn);
+                    saveBtn._transcriptionData = {
+                        content: result.transcript,
+                        filename: fileInput.files[0].name,
+                        mimetype: fileInput.files[0].type,
+                        size: fileInput.files[0].size,
+                        metadata: result.metadata || {}
+                    };
+                }
+
+            } catch (error) {
+                console.error('Transcription error:', error);
+                resetFileResultArea();
+                showAlert(fileAlertContainer, 'danger',
+                    'Transkription fehlgeschlagen. Datei prüfen und erneut versuchen.');
+            } finally {
+                transcribeBtn.disabled = !deepgramAvailable;
+                transcribeBtn.textContent = 'Datei umwandeln';
+            }
+        });
+    }
 
     // ==========================================================
-    // ===== COPY & CLEAR BUTTONS =====
+    // ===== COPY & CLEAR BUTTONS (P11) =====
     // ==========================================================
     const clearLiveBtn = document.getElementById('clear-live-btn');
     const clearFileBtn = document.getElementById('clear-file-btn');
     const copyLiveBtn = document.getElementById('copy-live-btn');
     const copyFileBtn = document.getElementById('copy-file-btn');
 
-    clearLiveBtn.addEventListener('click', () => {
-        transcriptOutput.value = '';
-        baseText = '';
-    });
+    if (clearLiveBtn) {
+        clearLiveBtn.addEventListener('click', () => {
+            transcriptOutput.value = '';
+            baseText = '';
+            const saveLiveBtn = document.getElementById('save-live-btn');
+            if (saveLiveBtn) {
+                saveLiveBtn.classList.add('hidden');
+                resetSaveBtn(saveLiveBtn);
+            }
+        });
+    }
 
-    clearFileBtn.addEventListener('click', () => {
-        resultContainer.innerHTML = '<span class="text-neo-faint">The transcription will appear here after processing.</span>';
-    });
+    if (clearFileBtn) {
+        clearFileBtn.addEventListener('click', () => {
+            resetFileResultArea();
+            if (fileInput) fileInput.value = '';
+            if (fileUploadText) fileUploadText.textContent = fileDefaultText;
+            if (fileAlertContainer) fileAlertContainer.innerHTML = '';
+        });
+    }
 
-    async function copyToClipboard(text, button) {
-        if (!text || text.trim() === '') {
-            alert('Nothing to copy!');
-            return;
-        }
+    function setCopySuccessLabel(button) {
+        const label = button.querySelector('.copy-btn__label');
+        if (!label) return;
+        const original = label.textContent;
+        label.textContent = '✓ Kopiert';
+        setTimeout(() => { label.textContent = original; }, 2000);
+    }
 
+    async function copyToClipboard(text, button, alertContainer) {
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 await navigator.clipboard.writeText(text);
             } else {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.position = 'fixed';
-                ta.style.opacity = '0';
-                document.body.appendChild(ta);
-                ta.select();
-                if (!document.execCommand('copy')) throw new Error('execCommand failed');
-                document.body.removeChild(ta);
+                await fallbackCopyText(text);
             }
-            const originalText = button.innerHTML;
-            button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
-
-            setTimeout(() => {
-                button.innerHTML = originalText;
-            }, 2000);
+            setCopySuccessLabel(button);
         } catch (err) {
             console.error('Failed to copy:', err);
-            alert('Failed to copy to clipboard');
+            showAlert(alertContainer, 'danger', 'Kopieren in die Zwischenablage fehlgeschlagen.');
         }
     }
 
-    copyLiveBtn.addEventListener('click', () => {
-        copyToClipboard(transcriptOutput.value, copyLiveBtn);
-    });
+    if (copyLiveBtn) {
+        copyLiveBtn.addEventListener('click', () => {
+            const text = transcriptOutput.value;
+            if (!text || !text.trim()) {
+                showAlert(liveAlertContainer, 'warning', 'Es gibt nichts zu kopieren.');
+                return;
+            }
+            copyToClipboard(text, copyLiveBtn, liveAlertContainer);
+        });
+    }
 
-    copyFileBtn.addEventListener('click', () => {
-        const text = resultContainer.textContent;
-        copyToClipboard(text, copyFileBtn);
-    });
+    if (copyFileBtn) {
+        copyFileBtn.addEventListener('click', () => {
+            // Sentinel-based empty-detection: placeholder span carries
+            // data-placeholder="true"; presence means "no real content".
+            const placeholder = resultContainer.querySelector('[data-placeholder="true"]');
+            const text = resultContainer.textContent;
+            if (placeholder || !text || !text.trim()) {
+                showAlert(fileAlertContainer, 'warning', 'Es gibt nichts zu kopieren.');
+                return;
+            }
+            copyToClipboard(text, copyFileBtn, fileAlertContainer);
+        });
+    }
 
     // ==========================================================
     // ===== PODCAST GENERATOR =====
     // ==========================================================
 
-    const podcastModeRadios = document.querySelectorAll('input[name="podcast-mode"]');
     const podcastLanguageSelect = document.getElementById('podcast-language');
     const podcastRawText = document.getElementById('podcast-raw-text');
     const podcastScript = document.getElementById('podcast-script');
@@ -364,275 +587,303 @@ document.addEventListener('DOMContentLoaded', function() {
     const customPromptEditor = document.getElementById('custom-prompt-editor');
     const resetPromptBtn = document.getElementById('reset-prompt-btn');
 
-    // Prompt editor toggle
-    promptEditorToggle.addEventListener('click', function() {
-        const isExpanded = promptEditorContent.classList.contains('expanded');
-        if (isExpanded) {
-            promptEditorContent.classList.remove('expanded');
-            promptToggleIcon.innerHTML = '&#9660;';
-        } else {
-            promptEditorContent.classList.add('expanded');
-            promptToggleIcon.innerHTML = '&#9650;';
-        }
-    });
-
-    // Reset prompt
-    resetPromptBtn.addEventListener('click', function() {
-        customPromptEditor.value = '';
-    });
-
-    // Generate script from raw text
-    generateScriptBtn.addEventListener('click', async () => {
-        const rawText = podcastRawText.value.trim();
-
-        if (!rawText) {
-            alert('Please enter some text in the Source Text field.');
-            return;
-        }
-
-        const mode = document.querySelector('input[name="podcast-mode"]:checked').value;
-        const numSpeakers = mode === 'monolog' ? 1 : 2;
-
-        const speakerDescriptions = numSpeakers === 1
-            ? [{ name: 'Kate', voice: 'Zephyr', personality: 'warm and professional' }]
-            : [
-                { name: 'Kate', voice: 'Zephyr', personality: 'warm and enthusiastic' },
-                { name: 'Max', voice: 'Charon', personality: 'professional and informative' }
-              ];
-
-        generateScriptBtn.disabled = true;
-        generateScriptBtn.textContent = 'Generating...';
-
-        try {
-            const customPrompt = customPromptEditor.value.trim() || null;
-
-            const response = await fetch('/format-dialogue-with-llm', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    raw_text: rawText,
-                    num_speakers: numSpeakers,
-                    speaker_descriptions: speakerDescriptions,
-                    language: podcastLanguageSelect.value,
-                    narration_style: document.getElementById('narration-style').value,
-                    script_length: 'medium',
-                    custom_prompt: customPrompt
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await safeJSON(response);
-                throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
-            }
-
-            const data = await safeJSON(response);
-            podcastScript.value = data.raw_formatted_text;
-
-        } catch (error) {
-            console.error('Script generation error:', error);
-            alert('Error generating script: ' + error.message);
-        } finally {
-            generateScriptBtn.disabled = false;
-            generateScriptBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> Generate Script from Text Above';
-        }
-    });
-
-    // Generate podcast from script
-    generatePodcastBtn.addEventListener('click', async () => {
-        const scriptText = podcastScript.value.trim();
-
-        if (!scriptText) {
-            alert('Please enter or generate a script first.');
-            return;
-        }
-
-        const mode = document.querySelector('input[name="podcast-mode"]:checked').value;
-
-        const dialogue = [];
-        const voiceMap = {
-            'Kate': 'Zephyr',
-            'Max': 'Charon'
-        };
-
-        for (const line of scriptText.split('\n')) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('**')) {
-                continue;
-            }
-
-            if (trimmedLine.includes(':')) {
-                const parts = trimmedLine.split(':', 1);
-                const speakerPart = parts[0].trim();
-                const textPart = trimmedLine.substring(parts[0].length + 1).trim();
-
-                let speaker = speakerPart;
-                let style = '';
-
-                if (speakerPart.includes('[') && speakerPart.includes(']')) {
-                    speaker = speakerPart.split('[')[0].trim();
-                    style = speakerPart.split('[')[1].split(']')[0].trim();
-                }
-
-                const voice = voiceMap[speaker] || 'Kore';
-
-                if (textPart) {
-                    dialogue.push({
-                        speaker: voice,
-                        style: style,
-                        text: textPart
-                    });
-                }
-            }
-        }
-
-        if (dialogue.length === 0) {
-            alert('Could not parse the script. Please check the format:\nSpeakerName [style]: Text');
-            return;
-        }
-
-        generatePodcastBtn.disabled = true;
-        generatePodcastBtn.textContent = 'Starting...';
-        podcastResultContainer.classList.add('hidden');
-
-        try {
-            const ttsModelSelect = document.getElementById('tts-model');
-            const startResponse = await fetch('/generate-gemini-podcast', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    dialogue: dialogue,
-                    language: podcastLanguageSelect.value,
-                    tts_model: ttsModelSelect.value
-                })
-            });
-
-            if (!startResponse.ok) {
-                const errorData = await safeJSON(startResponse);
-                throw new Error(errorData.error || `HTTP error! Status: ${startResponse.status}`);
-            }
-
-            const { job_id } = await safeJSON(startResponse);
-            generatePodcastBtn.textContent = 'Generating...';
-
-            let status = 'pending';
-            let pollCount = 0;
-            while (status === 'pending' || status === 'processing') {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                pollCount++;
-                generatePodcastBtn.textContent = `Generating... (${pollCount * 2}s)`;
-
-                const statusResponse = await fetch(`/podcast-status/${job_id}`);
-                const statusData = await safeJSON(statusResponse);
-                status = statusData.status;
-
-                if (status === 'failed') {
-                    throw new Error(statusData.error || 'Generation failed');
-                }
-            }
-
-            const downloadResponse = await fetch(`/podcast-download/${job_id}`);
-            if (!downloadResponse.ok) {
-                throw new Error('Failed to download podcast');
-            }
-
-            const audioBlob = await downloadResponse.blob();
-            const audioUrl = URL.createObjectURL(audioBlob);
-
-            podcastAudioSource.src = audioUrl;
-            podcastAudio.load();
-
-            downloadPodcastBtn.href = audioUrl;
-
-            podcastResultContainer.classList.remove('hidden');
-            podcastResultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        } catch (error) {
-            console.error('Podcast generation error:', error);
-            alert('Error generating podcast: ' + error.message);
-        } finally {
-            generatePodcastBtn.disabled = false;
-            generatePodcastBtn.textContent = 'Generate Podcast';
-        }
-    });
-
-    // ==========================================================
-    // ===== SAVE TO LIBRARY =====
-    // ==========================================================
-    document.getElementById('save-transcription-btn').addEventListener('click', async function() {
-        const btn = this;
-        const data = btn._transcriptionData;
-        if (!data) return;
-
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-
-        try {
-            const stem = data.filename.replace(/\.[^.]+$/, '');
-            const response = await fetch('/api/conversions', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    conversion_type: 'audio_transcription',
-                    title: stem,
-                    content: data.content,
-                    source_filename: data.filename,
-                    source_mimetype: data.mimetype,
-                    source_size_bytes: data.size,
-                    metadata: data.metadata
-                })
-            });
-            if (response.ok) {
-                btn.textContent = 'Saved!';
-                btn.classList.add('saved');
+    if (promptEditorToggle) {
+        promptEditorToggle.addEventListener('click', function() {
+            const isExpanded = promptEditorContent.classList.contains('expanded');
+            if (isExpanded) {
+                promptEditorContent.classList.remove('expanded');
+                promptToggleIcon.innerHTML = '&#9660;';
             } else {
-                throw new Error('Save failed');
+                promptEditorContent.classList.add('expanded');
+                promptToggleIcon.innerHTML = '&#9650;';
             }
-        } catch (err) {
-            btn.textContent = 'Save to Library';
-            btn.disabled = false;
-            alert('Failed to save: ' + err.message);
-        }
-    });
+        });
+    }
 
-    // ===== SAVE LIVE TRANSCRIPTION TO LIBRARY =====
+    if (resetPromptBtn) {
+        resetPromptBtn.addEventListener('click', function() {
+            customPromptEditor.value = '';
+        });
+    }
+
+    if (generateScriptBtn) {
+        generateScriptBtn.addEventListener('click', async () => {
+            const rawText = podcastRawText.value.trim();
+
+            if (!rawText) {
+                showAlert(podcastAlertContainer, 'warning',
+                    'Bitte erst Quelltext im Feld oben eintragen.');
+                return;
+            }
+
+            const mode = document.querySelector('input[name="podcast-mode"]:checked').value;
+            const numSpeakers = mode === 'monolog' ? 1 : 2;
+
+            const speakerDescriptions = numSpeakers === 1
+                ? [{ name: 'Kate', voice: 'Zephyr', personality: 'warm and professional' }]
+                : [
+                    { name: 'Kate', voice: 'Zephyr', personality: 'warm and enthusiastic' },
+                    { name: 'Max', voice: 'Charon', personality: 'professional and informative' }
+                  ];
+
+            const labelEl = generateScriptBtn.querySelector('.generate-script-btn__label');
+            generateScriptBtn.disabled = true;
+            if (labelEl) labelEl.textContent = 'Generiert …';
+
+            try {
+                const customPrompt = customPromptEditor.value.trim() || null;
+
+                const response = await fetch('/format-dialogue-with-llm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        raw_text: rawText,
+                        num_speakers: numSpeakers,
+                        speaker_descriptions: speakerDescriptions,
+                        language: podcastLanguageSelect.value,
+                        narration_style: document.getElementById('narration-style').value,
+                        script_length: 'medium',
+                        custom_prompt: customPrompt
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await safeJSON(response);
+                    throw new Error(errorData.error || `HTTP-Fehler! Status: ${response.status}`);
+                }
+
+                const data = await safeJSON(response);
+                podcastScript.value = data.raw_formatted_text;
+
+            } catch (error) {
+                console.error('Script generation error:', error);
+                showAlert(podcastAlertContainer, 'danger',
+                    'Skript-Generierung fehlgeschlagen. Bitte erneut versuchen.');
+            } finally {
+                generateScriptBtn.disabled = !geminiAvailable;
+                if (labelEl) labelEl.textContent = 'Skript aus Quelltext generieren';
+            }
+        });
+    }
+
+    if (generatePodcastBtn) {
+        generatePodcastBtn.addEventListener('click', async () => {
+            const scriptText = podcastScript.value.trim();
+
+            if (!scriptText) {
+                showAlert(podcastAlertContainer, 'warning',
+                    'Bitte erst ein Skript eintragen oder generieren lassen.');
+                return;
+            }
+
+            const mode = document.querySelector('input[name="podcast-mode"]:checked').value;
+
+            const dialogue = [];
+            const voiceMap = { 'Kate': 'Zephyr', 'Max': 'Charon' };
+
+            for (const line of scriptText.split('\n')) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('**')) continue;
+
+                if (trimmedLine.includes(':')) {
+                    const parts = trimmedLine.split(':', 1);
+                    const speakerPart = parts[0].trim();
+                    const textPart = trimmedLine.substring(parts[0].length + 1).trim();
+
+                    let speaker = speakerPart;
+                    let style = '';
+
+                    if (speakerPart.includes('[') && speakerPart.includes(']')) {
+                        speaker = speakerPart.split('[')[0].trim();
+                        style = speakerPart.split('[')[1].split(']')[0].trim();
+                    }
+
+                    const voice = voiceMap[speaker] || 'Kore';
+
+                    if (textPart) {
+                        dialogue.push({ speaker: voice, style: style, text: textPart });
+                    }
+                }
+            }
+
+            if (dialogue.length === 0) {
+                showAlert(podcastAlertContainer, 'danger',
+                    'Skript konnte nicht gelesen werden. Format prüfen: Sprecher [stil]: Text.');
+                return;
+            }
+
+            generatePodcastBtn.disabled = true;
+            generatePodcastBtn.textContent = 'Generiert …';
+            podcastResultContainer.classList.add('hidden');
+
+            try {
+                const ttsModelSelect = document.getElementById('tts-model');
+                const startResponse = await fetch('/generate-gemini-podcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dialogue: dialogue,
+                        language: podcastLanguageSelect.value,
+                        tts_model: ttsModelSelect.value
+                    })
+                });
+
+                if (!startResponse.ok) {
+                    const errorData = await safeJSON(startResponse);
+                    throw new Error(errorData.error || `HTTP-Fehler! Status: ${startResponse.status}`);
+                }
+
+                const { job_id } = await safeJSON(startResponse);
+                generatePodcastBtn.textContent = 'Generiert …';
+
+                let status = 'pending';
+                let pollCount = 0;
+                while (status === 'pending' || status === 'processing') {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    pollCount++;
+                    generatePodcastBtn.textContent = `Generiert … (${pollCount * 2} s)`;
+
+                    const statusResponse = await fetch(`/podcast-status/${job_id}`);
+                    const statusData = await safeJSON(statusResponse);
+                    status = statusData.status;
+
+                    if (status === 'failed') {
+                        throw new Error(statusData.error || 'Generierung fehlgeschlagen');
+                    }
+                }
+
+                const downloadResponse = await fetch(`/podcast-download/${job_id}`);
+                if (!downloadResponse.ok) {
+                    throw new Error('Podcast-Download fehlgeschlagen');
+                }
+
+                const audioBlob = await downloadResponse.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                podcastAudioSource.src = audioUrl;
+                podcastAudio.load();
+
+                downloadPodcastBtn.href = audioUrl;
+
+                podcastResultContainer.classList.remove('hidden');
+                podcastResultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            } catch (error) {
+                console.error('Podcast generation error:', error);
+                showAlert(podcastAlertContainer, 'danger',
+                    'Podcast-Generierung fehlgeschlagen. Bitte erneut versuchen.');
+            } finally {
+                generatePodcastBtn.disabled = !geminiAvailable;
+                generatePodcastBtn.textContent = 'Podcast generieren';
+            }
+        });
+    }
+
+    // ==========================================================
+    // ===== SAVE TO LIBRARY (P6 lifecycle) =====
+    // ==========================================================
+    const saveTranscriptionBtn = document.getElementById('save-transcription-btn');
+    if (saveTranscriptionBtn) {
+        saveTranscriptionBtn.addEventListener('click', async function() {
+            const btn = this;
+            const data = btn._transcriptionData;
+            if (!data) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Speichert …';
+
+            try {
+                const stem = data.filename.replace(/\.[^.]+$/, '');
+                const response = await fetch('/api/conversions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        conversion_type: 'audio_transcription',
+                        title: stem,
+                        content: data.content,
+                        source_filename: data.filename,
+                        source_mimetype: data.mimetype,
+                        source_size_bytes: data.size,
+                        metadata: data.metadata
+                    })
+                });
+                if (response.ok) {
+                    btn.textContent = '✓ Gespeichert';
+                    btn.classList.add('saved');
+                    return;
+                }
+
+                let serverError = null;
+                try {
+                    const errData = await safeJSON(response);
+                    serverError = errData && errData.error;
+                } catch (_) { /* fall back to generic message */ }
+
+                resetSaveBtn(btn);
+                const msg = serverError
+                    ? 'Speichern in die Library fehlgeschlagen: ' + serverError + '.'
+                    : 'Speichern in die Library fehlgeschlagen. Bitte erneut versuchen.';
+                showAlert(fileAlertContainer, 'danger', msg);
+            } catch (_err) {
+                resetSaveBtn(btn);
+                showAlert(fileAlertContainer, 'danger',
+                    'Speichern in die Library fehlgeschlagen. Bitte erneut versuchen.');
+            }
+        });
+    }
+
     const saveLiveBtn = document.getElementById('save-live-btn');
     if (saveLiveBtn) {
         saveLiveBtn.addEventListener('click', async function() {
             const btn = this;
             const content = document.getElementById('live-transcript-output').value.trim();
-            if (!content) return;
+            if (!content) {
+                showAlert(liveAlertContainer, 'warning',
+                    'Es gibt nichts zu speichern. Erst eine Live-Transkription aufnehmen.');
+                return;
+            }
 
             btn.disabled = true;
-            btn.textContent = 'Saving...';
+            btn.textContent = 'Speichert …';
 
             try {
-                const now = new Date();
-                const title = `Live Transcription ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+                const dateStr = new Intl.DateTimeFormat('de-DE', {
+                    dateStyle: 'short',
+                    timeStyle: 'short'
+                }).format(new Date());
+                const title = `Live-Transkription ${dateStr}`;
                 const response = await fetch('/api/conversions', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         conversion_type: 'audio_transcription',
                         title: title,
                         content: content,
                         source_filename: 'live-recording',
-                        metadata: {source: 'live_transcription'}
+                        metadata: { source: 'live_transcription' }
                     })
                 });
                 if (response.ok) {
-                    btn.textContent = 'Saved!';
+                    btn.textContent = '✓ Gespeichert';
                     btn.classList.add('saved');
-                } else {
-                    throw new Error('Save failed');
+                    return;
                 }
-            } catch (err) {
-                btn.textContent = 'Save to Library';
-                btn.disabled = false;
-                alert('Failed to save: ' + err.message);
+
+                let serverError = null;
+                try {
+                    const errData = await safeJSON(response);
+                    serverError = errData && errData.error;
+                } catch (_) { /* fall back to generic message */ }
+
+                resetSaveBtn(btn);
+                const msg = serverError
+                    ? 'Speichern in die Library fehlgeschlagen: ' + serverError + '.'
+                    : 'Speichern in die Library fehlgeschlagen. Bitte erneut versuchen.';
+                showAlert(liveAlertContainer, 'danger', msg);
+            } catch (_err) {
+                resetSaveBtn(btn);
+                showAlert(liveAlertContainer, 'danger',
+                    'Speichern in die Library fehlgeschlagen. Bitte erneut versuchen.');
             }
         });
     }

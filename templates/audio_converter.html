@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Audio Tools{% endblock %}
+{% block title %}Audio-Werkzeuge{% endblock %}
 
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-4xl mx-auto">
-        <h2 class="text-lg font-semibold text-neo-text mb-1">Audio Tools</h2>
-        <p class="text-sm text-neo-muted mb-6">Transcription, file processing, and AI podcast generation.</p>
-
-        {% if not deepgram_api_key_set %}
-        <div class="c-alert c-alert--danger">
-            <strong>Configuration Error:</strong> Audio services are not configured. Please set API keys.
-        </div>
-        {% else %}
+        <h2 class="text-lg font-semibold text-neo-text mb-1">Audio-Werkzeuge</h2>
+        <p class="text-sm text-neo-muted mb-6">Transkription, Datei-Verarbeitung und KI-Podcast-Generierung.</p>
 
         <!-- TABS -->
         <div class="flex gap-1 mb-6" id="transcriptionTabs">
-            <button type="button" data-tab="live" class="tab-btn tab-active px-4 py-2.5 text-sm font-medium rounded-xl transition-all">
-                Live Transcription
+            <button type="button" data-tab="live"
+                class="tab-btn tab-active px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
+                {% if not deepgram_api_key_set %}aria-disabled="true" title="Service nicht konfiguriert"{% endif %}>
+                Live-Transkription
             </button>
-            <button type="button" data-tab="file" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all">
-                Transcribe File
+            <button type="button" data-tab="file"
+                class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
+                {% if not deepgram_api_key_set %}aria-disabled="true" title="Service nicht konfiguriert"{% endif %}>
+                Datei umwandeln
             </button>
-            <button type="button" data-tab="podcast" class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all">
-                Text to Podcast
+            <button type="button" data-tab="podcast"
+                class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
+                {% if not gemini_api_key_set %}aria-disabled="true" title="Service nicht konfiguriert"{% endif %}>
+                Text zu Podcast
             </button>
         </div>
 
         <!-- TRANSCRIPTION LANGUAGE (only for Live & File tabs) -->
         <div class="mb-4" id="transcription-language-selector">
-            <label class="block text-sm font-medium text-neo-muted mb-2">Transcription Language</label>
+            <label class="block text-sm font-medium text-neo-muted mb-2">Transkriptions-Sprache</label>
             <div class="flex gap-2">
-                <button type="button" class="language-btn lang-active px-3 py-1.5 text-sm font-medium rounded-xl transition-all" data-lang="en">English</button>
-                <button type="button" class="language-btn lang-inactive px-3 py-1.5 text-sm font-medium rounded-xl transition-all" data-lang="de">German</button>
+                <button type="button" class="language-btn lang-active px-3 py-1.5 text-sm font-medium rounded-xl transition-all" data-lang="en" data-lang-label="Englisch">Englisch</button>
+                <button type="button" class="language-btn lang-inactive px-3 py-1.5 text-sm font-medium rounded-xl transition-all" data-lang="de" data-lang-label="Deutsch">Deutsch</button>
             </div>
         </div>
 
@@ -40,25 +40,33 @@
 
         <!-- LIVE TRANSCRIPTION PANE -->
         <div class="tab-pane" id="live-pane">
-            <p class="text-sm text-neo-muted mb-4">Click the microphone button to start and stop real-time transcription.</p>
+            <div id="live-alert-container"></div>
+            {% if not deepgram_api_key_set %}
+            <div class="c-alert c-alert--warning">
+                Transkription nicht verfügbar — Deepgram-API-Key fehlt. Setze <code>DEEPGRAM_API_KEY</code> in der <code>.env</code> und starte den Container neu.
+            </div>
+            {% endif %}
+            <p class="text-sm text-neo-muted mb-4">Klicke auf das Mikrofon, um die Aufnahme zu starten oder zu stoppen.</p>
             <div class="flex items-start gap-3">
-                <button type="button" id="mic-button" title="Click to Start Recording">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                <button type="button" id="mic-button" title="Aufnahme starten" aria-label="Aufnahme starten" aria-pressed="false" {% if not deepgram_api_key_set %}disabled{% endif %}>
+                    <span class="mic-button__spinner" aria-hidden="true"></span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
                 </button>
                 <div class="flex-1">
-                    <textarea id="live-transcript-output" rows="8" placeholder="Live transcription will appear here..."
+                    <textarea id="live-transcript-output" rows="8" placeholder="Live-Transkription erscheint hier …"
                         class="c-input w-full"></textarea>
+                    <p id="live-recording-hint" class="hidden mt-1 text-xs text-neo-faint italic">Live-Update läuft — Stop drücken, um zu bearbeiten</p>
                     <div class="flex gap-2 mt-2">
                         <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-live-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                            Copy
+                            <span class="copy-btn__label">Kopieren</span>
                         </button>
                         <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-live-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                            Clear
+                            Leeren
                         </button>
                         {% if current_user.is_authenticated %}
-                        <button type="button" class="save-library-btn hidden" id="save-live-btn">Save to Library</button>
+                        <button type="button" class="save-library-btn hidden" id="save-live-btn">In Library speichern</button>
                         {% endif %}
                     </div>
                 </div>
@@ -67,42 +75,57 @@
 
         <!-- FILE UPLOAD PANE -->
         <div class="tab-pane hidden" id="file-pane">
+            <div id="file-alert-container"></div>
+            {% if not deepgram_api_key_set %}
+            <div class="c-alert c-alert--warning">
+                Transkription nicht verfügbar — Deepgram-API-Key fehlt. Setze <code>DEEPGRAM_API_KEY</code> in der <code>.env</code> und starte den Container neu.
+            </div>
+            {% endif %}
             <form id="audio-upload-form">
                 <div class="mb-4">
-                    <label for="file-upload-input"
+                    <label for="file-upload-input" id="file-drop-zone"
                         class="c-drop-zone block cursor-pointer">
-                        <p id="file-upload-text" class="text-sm font-medium text-neo-muted">Click to select an audio file or drag and drop</p>
+                        <p id="file-upload-text" class="text-sm font-medium text-neo-muted">Audio-Datei hier ablegen oder klicken zum Auswählen</p>
+                        <p class="text-xs text-neo-faint mt-1">MP3, WAV, M4A, OGG, FLAC, WEBM — max. 500 MB</p>
+                        <span class="c-drop-zone__overlay" aria-hidden="true">Loslassen, um hochzuladen</span>
+                        <span class="c-drop-zone__warning-hint" aria-hidden="true">Dateityp nicht unterstützt</span>
                     </label>
-                    <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required class="hidden" title="Select an audio file">
+                    <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required class="hidden" title="Audio-Datei auswählen">
                 </div>
-                <button type="submit" class="c-btn c-btn--primary w-full text-center mb-4" id="transcribe-file-btn">
-                    Transcribe File
+                <button type="submit" class="c-btn c-btn--primary w-full text-center mb-4" id="transcribe-file-btn" {% if not deepgram_api_key_set %}disabled{% endif %}>
+                    Datei umwandeln
                 </button>
             </form>
-            <h5 class="text-sm font-semibold text-neo-text mb-2">Transcription Result:</h5>
+            <h5 class="text-sm font-semibold text-neo-text mb-2">Transkriptions-Ergebnis:</h5>
             <div id="transcription-result-container" class="c-surface--flat p-4 min-h-[150px] whitespace-pre-wrap break-words text-sm text-neo-muted">
-                <span class="text-neo-faint">The transcription will appear here after processing.</span>
+                <span class="text-neo-faint" data-placeholder="true">Transkription erscheint hier nach der Verarbeitung.</span>
             </div>
             <div class="flex gap-2 mt-2">
                 <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-file-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    Copy
+                    <span class="copy-btn__label">Kopieren</span>
                 </button>
                 <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="clear-file-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                    Clear
+                    Leeren
                 </button>
-                <button type="button" class="save-library-btn hidden" id="save-transcription-btn">Save to Library</button>
+                <button type="button" class="save-library-btn hidden" id="save-transcription-btn">In Library speichern</button>
             </div>
         </div>
 
         <!-- PODCAST GENERATOR PANE -->
         <div class="tab-pane hidden" id="podcast-pane">
-            <p class="text-sm text-neo-muted mb-4">Convert your text into a natural-sounding podcast with AI-powered voices.</p>
+            <div id="podcast-alert-container"></div>
+            {% if not gemini_api_key_set %}
+            <div class="c-alert c-alert--warning">
+                Podcast-Generierung nicht verfügbar — Gemini-API-Key fehlt. Setze <code>GEMINI_API_KEY</code> in der <code>.env</code> und starte den Container neu.
+            </div>
+            {% endif %}
+            <p class="text-sm text-neo-muted mb-4">Wandle deinen Text in einen natürlich klingenden Podcast mit KI-Stimmen um.</p>
 
             <!-- Step 1: Choose Format & Language -->
             <div class="c-surface--flat p-5 mb-4">
-                <h5 class="text-sm font-semibold text-neo-text mb-4">Step 1: Setup</h5>
+                <h5 class="text-sm font-semibold text-neo-text mb-4">Schritt 1: Setup</h5>
 
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-neo-muted mb-2">Format</label>
@@ -111,14 +134,14 @@
                             <input type="radio" id="mode-monolog" name="podcast-mode" value="monolog" class="mode-radio-input" checked>
                             <label for="mode-monolog" class="mode-radio-label block p-3 rounded-xl cursor-pointer text-center transition-all">
                                 <div class="font-semibold text-sm mb-0.5 text-neo-text">Monolog</div>
-                                <div class="text-xs text-neo-muted">Single narrator (Kate)</div>
+                                <div class="text-xs text-neo-muted">Einzelne Stimme (Kate)</div>
                             </label>
                         </div>
                         <div class="flex-1">
                             <input type="radio" id="mode-dialogue" name="podcast-mode" value="dialogue" class="mode-radio-input">
                             <label for="mode-dialogue" class="mode-radio-label block p-3 rounded-xl cursor-pointer text-center transition-all">
-                                <div class="font-semibold text-sm mb-0.5 text-neo-text">Dialogue</div>
-                                <div class="text-xs text-neo-muted">Conversation (Kate & Max)</div>
+                                <div class="font-semibold text-sm mb-0.5 text-neo-text">Dialog</div>
+                                <div class="text-xs text-neo-muted">Gespräch (Kate &amp; Max)</div>
                             </label>
                         </div>
                     </div>
@@ -126,26 +149,26 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label for="podcast-language" class="block text-sm font-medium text-neo-muted mb-1.5">Language</label>
+                        <label for="podcast-language" class="block text-sm font-medium text-neo-muted mb-1.5">Sprache</label>
                         <select class="c-input w-full" id="podcast-language">
-                            <option value="en">English</option>
-                            <option value="de" selected>German</option>
-                            <option value="es">Spanish</option>
-                            <option value="fr">French</option>
+                            <option value="en">Englisch</option>
+                            <option value="de" selected>Deutsch</option>
+                            <option value="es">Spanisch</option>
+                            <option value="fr">Französisch</option>
                         </select>
                     </div>
                     <div>
-                        <label for="narration-style" class="block text-sm font-medium text-neo-muted mb-1.5">Narration Style</label>
+                        <label for="narration-style" class="block text-sm font-medium text-neo-muted mb-1.5">Sprech-Stil</label>
                         <select class="c-input w-full" id="narration-style">
-                            <option value="documentary">Documentary</option>
-                            <option value="conversational" selected>Conversational</option>
-                            <option value="academic">Academic</option>
-                            <option value="satirical">Satirical</option>
-                            <option value="dramatic">Dramatic</option>
+                            <option value="documentary">Dokumentarisch</option>
+                            <option value="conversational" selected>Gesprächig</option>
+                            <option value="academic">Akademisch</option>
+                            <option value="satirical">Satirisch</option>
+                            <option value="dramatic">Dramatisch</option>
                         </select>
                     </div>
                     <div>
-                        <label for="tts-model" class="block text-sm font-medium text-neo-muted mb-1.5">TTS Model</label>
+                        <label for="tts-model" class="block text-sm font-medium text-neo-muted mb-1.5">TTS-Modell</label>
                         <select class="c-input w-full" id="tts-model">
                             <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
                             <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS</option>
@@ -156,71 +179,76 @@
 
             <!-- Step 2: Script -->
             <div class="c-surface--flat p-5 mb-4">
-                <h5 class="text-sm font-semibold text-neo-text mb-4">Step 2: Create Your Podcast</h5>
+                <h5 class="text-sm font-semibold text-neo-text mb-4">Schritt 2: Podcast erstellen</h5>
 
                 <div class="mb-4">
-                    <label for="podcast-raw-text" class="block text-sm font-medium text-neo-muted mb-1.5">Source Text</label>
-                    <textarea id="podcast-raw-text" rows="6" placeholder="Paste your text here, or generate a script below..."
+                    <label for="podcast-raw-text" class="block text-sm font-medium text-neo-muted mb-1.5">Quelltext</label>
+                    <textarea id="podcast-raw-text" rows="6" placeholder="Quelltext hier einfügen — oder direkt unten ein Skript schreiben."
                         class="c-input w-full"></textarea>
-                    <p class="mt-1 text-xs text-neo-faint">Paste your content or leave empty to work directly with the script below</p>
+                    <p class="mt-1 text-xs text-neo-faint">Quelltext einfügen oder leer lassen, um direkt mit dem Skript darunter zu arbeiten.</p>
                 </div>
 
-                <button type="button" class="c-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
-                    Generate Script from Text Above
+                <button type="button" class="c-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
+                    <span class="generate-script-btn__icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                    </span>
+                    <span class="generate-script-btn__label">Skript aus Quelltext generieren</span>
                 </button>
 
                 <div class="mb-4">
-                    <label for="podcast-script" class="block text-sm font-medium text-neo-muted mb-1.5">Podcast Script</label>
-                    <textarea id="podcast-script" rows="12" placeholder="Edit your script here or generate one from the text above.&#10;&#10;Format:&#10;Kate [warmly]: Welcome to today's show!&#10;Max [professionally]: Thanks for joining us."
+                    <label for="podcast-script" class="block text-sm font-medium text-neo-muted mb-1.5">Podcast-Skript</label>
+                    <textarea id="podcast-script" rows="12" placeholder="Skript hier bearbeiten oder aus dem Quelltext oben generieren.&#10;&#10;Format:&#10;Kate [warm]: Willkommen zur heutigen Folge!&#10;Max [sachlich]: Schön, dass du dabei bist."
                         class="c-input w-full font-mono"></textarea>
-                    <p class="mt-1 text-xs text-neo-faint">Format: SpeakerName [style]: Text</p>
+                    <p class="mt-1 text-xs text-neo-faint">Format: <code>Sprecher [stil]: Text</code></p>
                 </div>
 
                 <!-- Advanced: Custom Prompt Editor -->
                 <div class="c-surface--flat">
                     <div class="px-3 py-2.5 neo-separator-bottom cursor-pointer flex justify-between items-center text-sm font-medium text-neo-muted hover:text-neo-text transition-colors" id="prompt-editor-toggle">
-                        <span>Advanced: Custom Prompt</span>
+                        <span>Erweitert: Eigener Prompt</span>
                         <span id="prompt-toggle-icon" class="text-xs">&#9660;</span>
                     </div>
                     <div class="prompt-editor-content p-3" id="prompt-editor-content">
                         <p class="text-xs text-neo-faint mb-2">
-                            Customize the AI instruction for script generation. Leave empty to use the built-in prompt.
+                            Passe die KI-Anweisung für die Skript-Generierung an. Leer lassen, um den Standard-Prompt zu verwenden.
                         </p>
-                        <textarea id="custom-prompt-editor" placeholder="Enter custom prompt with placeholders: {raw_text}, {speakers_info}, {language_name}, {tone}, etc."
+                        <textarea id="custom-prompt-editor" placeholder="Eigenen Prompt mit Platzhaltern eingeben: {raw_text}, {speakers_info}, {language_name}, {tone} usw."
                             class="c-input w-full min-h-[200px] text-xs font-mono"></textarea>
-                        <button type="button" class="c-btn mt-2 text-xs py-1.5 px-3" id="reset-prompt-btn">Reset to Default</button>
+                        <button type="button" class="c-btn mt-2 text-xs py-1.5 px-3" id="reset-prompt-btn">Auf Standard zurücksetzen</button>
                     </div>
                 </div>
 
-                <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center" id="generate-podcast-btn">
-                    Generate Podcast
+                <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center" id="generate-podcast-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
+                    Podcast generieren
                 </button>
             </div>
 
             <!-- Result Container -->
             <div id="podcast-result-container" class="hidden">
-                <h5 class="text-sm font-semibold text-neo-text mb-2">Your Podcast:</h5>
+                <h5 class="text-sm font-semibold text-neo-text mb-2">Dein Podcast:</h5>
                 <audio id="podcast-audio" controls class="w-full mb-3">
                     <source id="podcast-audio-source" type="audio/wav">
-                    Your browser does not support the audio element.
+                    Dein Browser unterstützt das Audio-Element nicht.
                 </audio>
                 <div class="flex gap-2">
                     <a id="download-podcast-btn" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Download
+                        Herunterladen
                     </a>
                 </div>
             </div>
         </div>
 
-        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-{% if deepgram_api_key_set %}
+<script>
+    window.PageData = {
+        deepgramApiKeySet: {{ 'true' if deepgram_api_key_set else 'false' }},
+        geminiApiKeySet: {{ 'true' if gemini_api_key_set else 'false' }}
+    };
+</script>
 <script src="{{ url_for('static', filename='js/audio_converter.js') }}"></script>
-{% endif %}
 {% endblock %}
