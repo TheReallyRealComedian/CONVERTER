@@ -69,7 +69,7 @@ UX-Verbesserung läuft als 3-Schritt-Kaskade pro Feature (Methodik: Duan et al. 
 
 ### F-1: document_converter
 **Status:**
-- F-1.1 Inventur: ☐ not started
+- F-1.1 Inventur: ☑ done 2026-05-03 → [docs/ui_inventory_document_converter_2026-05.md](docs/ui_inventory_document_converter_2026-05.md). Live-Walkthrough via Claude in Chrome auf Mintbox. 24 Elemente, 6 fehlende States im Code, 5 Code↔live-Divergenzen, 9 separate Befunde (3 davon vom Sub-Thread als wahrscheinliche Bugs flagged: Drop-Zone-Active-Highlight transparent, Save-Btn `.saved`-Klasse stale, Empty-Submit visuell silent). Disposition Bug-vs-Heuristik-Finding wird in F-1.2 entschieden.
 - F-1.2 Heuristik-Review: ☐ not started
 - F-1.3 Patterns + Microcopy: ☐ not started
 - Implementation: ☐ not started
