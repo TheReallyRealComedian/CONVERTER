@@ -24,6 +24,9 @@ __pycache__/
 # Local tool caches
 .codebuddy/
 
+# Claude Code worktrees (registered via .git/worktrees, never tracked)
+.claude/worktrees/
+
 # Runtime PDF outputs (not tracked in git)
 output_pdfs/*
 
