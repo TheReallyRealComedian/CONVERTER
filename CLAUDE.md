@@ -282,6 +282,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 - **Pattern:** Copy-paste
 - **Observation:** The helper that gracefully turns redirect-to-login HTML responses into a typed error is reproduced verbatim in both templates. Any change to redirect handling has to be made twice.
 - **Action:** Defer-to-Stage-5 — move into `static/js/_helpers.js` when inline scripts are extracted.
+- **Status:** ☑ resolved in Stage 5. The shared helper now lives in `static/js/_utils.js` (commit `d089e01`), loaded by `base.html` for every authenticated page. The audio-page duplicate was dropped in commit `c71053a` (Stage 5 / step 2) and the document-page duplicate in commit `53754d6` (step 4). Both pages now call the global `window.safeJSON` from the shared module.
 
 ---
 
