@@ -10,10 +10,10 @@
 
 1. **Lese dieses Dokument vollständig.** Es ist selbsterklärend gestaltet, du brauchst keinen Vorwissen-Kontext aus der vorigen Session. Anschließend `CLAUDE.md` für den Live-Status der Stages.
 2. **Schreibe keine Code-Änderungen selbst.** Du bist Overseer — du draftest Sub-Thread-Prompts, mergst deren Output, pflegst Status. Code-Arbeit machen frische Sub-Threads in eigenen Worktrees.
-3. **Drei offene Aufgaben warten:**
-   - (a) **`document_converter` ist broken** (von Oliver gemeldet, Ursache unbekannt) → Diagnose-Stage drafften, sobald Oliver da ist
-   - (b) **F-2 Cluster I Live-Smoke** noch nicht durchgeführt — Container muss rebuilt + manuell geklickt werden bevor Cluster II startet
-   - (c) **F-2 Cluster II** (P13–P21, Polish + a11y) — drafften nach Smoke-Confirmation
+3. **Zwei offene Aufgaben warten:**
+   - (a) **F-2 Cluster I Live-Smoke** noch nicht durchgeführt — Container muss rebuilt + manuell geklickt werden bevor Cluster II startet
+   - (b) **F-2 Cluster II** (P13–P21, Polish + a11y) — drafften nach Smoke-Confirmation
+   - ~~(c)~~ **`document_converter`-Regression — gefixt 2026-05-03** (Jinja2-Generator-Expression in `templates/document_converter.html:29`, eingeführt durch Cluster D `e68b6dd`). Resolution-Details siehe Sektion 5.
 
 ---
 
@@ -102,20 +102,18 @@ Das verlangsamt Stage F-X.1 leicht, ist aber sauber. Heuristik-Review (F-X.2) un
 
 ## 5. Aktueller Stand (Stand 2026-05-03)
 
-### F-1 `document_converter` — strukturell durch, aber ⚠️ broken in Production
+### F-1 `document_converter` — strukturell durch + Hot-Fix angewendet
 
 - **Cascade:** alle drei Stages ☑
 - **Implementation:** alle 7 Cluster ☑ (A, B, C, D, E, Polish-1, Polish-2)
   - 14 Patterns implementiert, 3 Bug-Tickets (B1–B3) strukturell mitgelöst
   - Pytest 37/37 grün durchgängig
-- **⚠️ PRODUCTION-REGRESSION:** Oliver berichtet `document_converter` ist aktuell nicht funktional. Keine Detail-Diagnose verfügbar — die Information kam erst beim Maschinen-Wechsel.
-  - **Vermutung:** eine der 7 Cluster-Implementierungen hat eine Regression eingeführt, die `pytest` nicht fängt. Pytest mockt SDK-Boundaries (`app.deepgram_service`, `app.gemini_service`, `app.task_queue`) und testet HTTP-Boundary, **nicht** UI/JS/Browser-Verhalten.
-  - **Wahrscheinliche Kandidaten:**
-    - Cluster D Backend-Whitelist (`ACCEPTED_EXTENSIONS` in `app_pkg/documents.py`) hat eine Datei-Endung blockiert die früher funktionierte — z.B. wenn Oliver eine `.htm`/`.html` (oder anderes) submittet
-    - Cluster A `resetSaveBtn()` Helper hat Save-Btn-Selektor zerstört
-    - Cluster B/C `showAlert`-Migration hat Container-ID falsch
-    - Polish-1 DE-String hat Selektor in JS getroffen (z.B. `if (button.textContent === 'Save to Library')` jetzt nicht mehr matcht)
-  - **Empfehlung erste Aufgabe:** Diagnose-Sub-Thread (Prompt-Vorlage in Sektion 11 unten). Oliver beschreibt Symptome, Sub-Thread reproduziert + bisect.
+- **✅ Hot-Fix 2026-05-03 — Production-Regression aus Cluster D geschlossen.**
+  - **Symptom:** GET `/document-converter` lieferte konsequent 500 (Internal Server Error). Container-Logs zeigten `jinja2.exceptions.TemplateSyntaxError: expected token ',', got 'for'` an `templates/document_converter.html:29`.
+  - **Root-Cause:** Zeile 29 enthielt `accept="{{ ','.join('.' + ext for ext in accepted_extensions) }}"`. Jinja2 unterstützt **keine** Generator-Expressions und **keine** List-Comprehensions in Expressions — der Parser verschluckt sich am `for`-Keyword schon zur Compile-Zeit. Eingeführt durch Cluster D `e68b6dd`.
+  - **Fix:** `accept`-String im Route-Handler ([app_pkg/documents.py:30](app_pkg/documents.py#L30)) precomputen (`','.join('.' + ext for ext in ACCEPTED_EXTENSIONS)`), Template konsumiert nur den fertigen String als `{{ accepted_extensions_accept }}`. `accepted_extensions|tojson` (Zeile 74) bleibt unverändert — `|tojson` ist Standard-Jinja-Filter, keine Generator-Expression.
+  - **Verifikation:** Jinja2-Compile direkt geprüft (Template lädt sauber); Render im laufenden Container via `app.test_request_context()` → `accept`-Attribut korrekt: `.pdf,.docx,.pptx,.eml,.html,.htm,.txt,.md`. Container neu gebaut, `curl /document-converter` liefert jetzt 302→login statt 500. Pytest 37/37 grün.
+  - **Lesson Reinforcement:** Pytest hat den Bug nicht gefangen, weil die Test-Suite das Template nicht rendert (mockt nur SDK-Boundary + HTTP-Boundary). Genau Lesson #4 aus Sektion 8 in Aktion. Vorschlag für später: einen minimalen Smoke-Test, der `client.get('/document-converter')` mit gemocktem Login macht — würde diese Klasse von Bugs (Template-Compile-Fehler) zu null Aufwand fangen. **Kein Diagnose-Sub-Thread nötig** — direkt im Overseer-Thread vom User-Symptom-Report aus repariert.
 
 ### F-2 `audio_converter` — Cluster I done, Live-Smoke ausstehend
 
@@ -148,14 +146,11 @@ Vor F-1 lief eine separate Code-Cleanup-Welle (Stages 0–7) — komplett abgesc
 
 ## 6. Konkrete nächste Schritte (in priorisierter Reihenfolge)
 
-### Schritt 1 — `document_converter` Regression diagnostizieren
+### ~~Schritt 1~~ — `document_converter` Regression ☑ gefixt 2026-05-03
 
-Sobald Oliver wieder am Rechner ist:
-- Frag ihn: **welche Symptome zeigt `document_converter`?** (Crash? Stille? Falsche Daten? Welcher Pfad — Submit, Save, Clear?)
-- Dann drafte einen Diagnose-Sub-Thread-Prompt (Vorlage in Sektion 11). Output: `docs/regression_document_converter_2026-05.md` mit Befund + Reproduktion + vermuteter Cluster.
-- Basierend auf Befund: Hot-Fix-Stage drafften (Microscope auf einen Cluster) ODER Revert-Stage falls die Regression diffus ist.
+Hot-Fix direkt im Overseer-Thread angewendet (Single-Line Jinja2-Bug, Diagnose offensichtlich aus dem Container-Log). Details in Sektion 5. Kein Sub-Thread nötig.
 
-### Schritt 2 — F-2 Cluster I Live-Smoke
+### Schritt 1 — F-2 Cluster I Live-Smoke
 
 Wenn der document_converter-Befund das nicht blockiert, Oliver bittet manuell zu smoken:
 
@@ -176,14 +171,14 @@ Smoke-Pfad (13 Steps) ist im letzten Overseer-Commit-Body und in der Conversatio
 
 **DE-Microcopy quer:** alle UI-Strings deutsch
 
-### Schritt 3 — F-2 Cluster II drafften
+### Schritt 2 — F-2 Cluster II drafften
 
 Nach erfolgreichem Smoke (oder dokumentiertem Hot-Fix für etwaige Befunde):
 - Lies `docs/ui_patterns_audio_converter_2026-05.md` § Pattern-Blöcke P13–P21 + § Cluster-Vorbereitung
 - Drafte einen self-contained Implementation-Prompt nach dem Muster aus den vorigen Cluster-Prompts (Vorlage in Sektion 11)
 - Microcopy-Konventionen (Sektion 3) bleiben
 
-### Schritt 4 — F-3 Auswahl
+### Schritt 3 — F-3 Auswahl
 
 Nach F-2 Cluster II + Live-Smoke + Status-Update:
 - Frag Oliver welches Feature als nächstes
@@ -511,7 +506,6 @@ Single-Source-of-Truth. Template rendert `accept`-Attribut + `window.PageData.ac
 
 ## 13. Bekannte offene Backlog-Items (außer F-2 Cluster II + F-3+)
 
-- **`document_converter` Regression** (NEU — siehe Schritt 1 in Sektion 6)
 - **Architektur-Quirk:** `getUserMedia` wird in `audio_converter.js` innerhalb `socket.onopen` aufgerufen — Permission-Prompt erscheint erst nach erfolgreichem WS-Handshake. Vom F-2 Cluster I Sub-Thread als Out-of-Scope respektiert. Wenn Oliver einen "Architektur-Review"-Stage will, das ist ein Kandidat.
 - **Englische Strings in `library.js` und `library_detail.js`** — vom F-1 Polish-1 Sub-Thread benannt aber nicht gefixt (waren out-of-scope: Polish-1 betraf nur `document_converter`). Werden in F-N für `library`/`library_detail` mit-adressiert.
 - **F-006 (Cleanup-Plan-Finding) noch offen** für `markdown_converter` und `audio_converter` Endpoints — Backend-Whitelist + Validierung. Wird in deren UX-Stages mit-adressiert wenn passend.
