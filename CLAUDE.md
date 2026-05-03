@@ -70,7 +70,7 @@ UX-Verbesserung läuft als 3-Schritt-Kaskade pro Feature (Methodik: Duan et al. 
 ### F-1: document_converter
 **Status:**
 - F-1.1 Inventur: ☑ done 2026-05-03 → [docs/ui_inventory_document_converter_2026-05.md](docs/ui_inventory_document_converter_2026-05.md). Live-Walkthrough via Claude in Chrome auf Mintbox. 24 Elemente, 6 fehlende States im Code, 5 Code↔live-Divergenzen, 9 separate Befunde (3 davon vom Sub-Thread als wahrscheinliche Bugs flagged: Drop-Zone-Active-Highlight transparent, Save-Btn `.saved`-Klasse stale, Empty-Submit visuell silent). Disposition Bug-vs-Heuristik-Finding wird in F-1.2 entschieden.
-- F-1.2 Heuristik-Review: ☐ not started
+- F-1.2 Heuristik-Review: ☑ done 2026-05-03 → [docs/ui_findings_document_converter_2026-05.md](docs/ui_findings_document_converter_2026-05.md). 19 Findings (Sev 4: 2, Sev 3: 7, Sev 2: 7, Sev 1: 3) + 3 reine Bug-Tickets (B1 CSS-Override, B2 `.saved`-Klasse-Reset, B3 clear-file-Handler-Scope). Disposition der 9 Stufe-1-Bemerkungen: 6 nur Findings, 3 Findings + Bug-Tickets, 0 nur Bugs. Schwere Findings konzentrieren sich auf Empty-Submit-Silent (F1/F2 H1+H9 Sev 4), Result-Persistenz nach Clear (F3/F4), Save-Button Stale-Visual (F5/F6), Save-Failure-Inkonsistenz `alert()` vs Banner (F7/F8), Format-Label-Mismatch (F9).
 - F-1.3 Patterns + Microcopy: ☐ not started
 - Implementation: ☐ not started
 
