@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Library{% endblock %}
+
+{% block content %}
+<div class="flex-1 p-6 lg:p-8 overflow-auto">
+    <div class="max-w-6xl mx-auto">
+        <!-- Filter Bar -->
+        <div class="c-surface p-4 md:p-5 mb-8">
+            <form method="GET" action="{{ url_for('library') }}" class="flex flex-wrap items-center gap-4">
+                <select name="type" class="c-input" onchange="this.form.submit()" title="Filter by type">
+                    <option value="">All Types</option>
+                    <option value="document_to_markdown" {% if current_type == 'document_to_markdown' %}selected{% endif %}>Document</option>
+                    <option value="audio_transcription" {% if current_type == 'audio_transcription' %}selected{% endif %}>Audio</option>
+                    <option value="dialogue_formatting" {% if current_type == 'dialogue_formatting' %}selected{% endif %}>Dialogue</option>
+                    <option value="markdown_input" {% if current_type == 'markdown_input' %}selected{% endif %}>Markdown</option>
+                </select>
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" name="search"
+                        class="c-input w-full"
+                        placeholder="Search title, content, tags..." value="{{ current_search }}">
+                </div>
+                <label class="flex items-center gap-1.5 text-sm text-neo-muted cursor-pointer whitespace-nowrap">
+                    <input type="checkbox" name="favorites" value="1" {% if current_favorites %}checked{% endif %} onchange="this.form.submit()"
+                        class="rounded bg-neo-surface text-neo-accent focus:ring-neo-accent/50">
+                    <span>Favorites</span>
+                </label>
+                <select name="sort" class="c-input" onchange="this.form.submit()" title="Sort order">
+                    <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest</option>
+                    <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest</option>
+                    <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Title A-Z</option>
+                </select>
+                <button type="submit" class="c-btn c-btn--primary py-1.5 px-4 text-sm">Search</button>
+            </form>
+        </div>
+
+        <!-- Results -->
+        {% if conversions %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {% for conv in conversions %}
+            <div class="c-card flex flex-col" data-id="{{ conv.id }}">
+                <div class="flex justify-between items-center px-4 pt-3">
+                    <span class="type-badge type-{{ conv.conversion_type }}">
+                        {% if conv.conversion_type == 'document_to_markdown' %}Document
+                        {% elif conv.conversion_type == 'audio_transcription' %}Audio
+                        {% elif conv.conversion_type == 'dialogue_formatting' %}Dialogue
+                        {% elif conv.conversion_type == 'markdown_input' %}Markdown
+                        {% else %}{{ conv.conversion_type }}{% endif %}
+                    </span>
+                    <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Toggle favorite">
+                        {{ '★' if conv.is_favorite else '☆' }}
+                    </button>
+                </div>
+                <a href="{{ url_for('library_detail', conversion_id=conv.id) }}" class="px-4 py-2 flex-1 no-underline">
+                    <h5 class="text-sm font-semibold text-neo-text mb-1 leading-snug">{{ conv.title }}</h5>
+                    {% if conv.source_filename %}
+                    <div class="text-xs text-neo-faint mb-1.5">{{ conv.source_filename }}</div>
+                    {% endif %}
+                    <p class="text-xs text-neo-muted leading-relaxed line-clamp-3">{{ conv.content[:200] }}{% if conv.content|length > 200 %}...{% endif %}</p>
+                </a>
+                <div class="px-4 py-2.5 neo-separator-top flex items-center gap-2 flex-wrap">
+                    <span class="text-[11px] text-neo-faint" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
+                        {{ conv.created_at.strftime('%d %b %Y, %H:%M') }}
+                    </span>
+                    {% if conv.tags %}
+                    <div class="flex gap-1 flex-wrap">
+                        {% for tag in conv.tags.split(',') %}
+                            {% if tag.strip() %}
+                            <span class="c-tag text-[10px] px-1.5 py-0.5 rounded-full text-neo-muted">{{ tag.strip() }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="ml-auto flex gap-1">
+                        <button type="button" class="c-btn text-xs py-1 px-2" onclick="copyContent({{ conv.id }})" title="Copy content">Copy</button>
+                        <button type="button" class="c-btn c-btn--danger text-xs py-1 px-2" onclick="deleteConversion({{ conv.id }}, this)" title="Delete">Delete</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <nav class="flex justify-center gap-1 mt-6">
+            {% if pagination.has_prev %}
+            <a href="{{ url_for('library', page=pagination.prev_num, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}"
+               class="c-btn text-sm py-1.5 px-3 no-underline">Prev</a>
+            {% endif %}
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                <a href="{{ url_for('library', page=p, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}"
+                   class="text-sm py-1.5 px-3 rounded-full no-underline transition-all
+                   {% if p == pagination.page %}c-btn c-btn--primary{% else %}c-btn{% endif %}">{{ p }}</a>
+                {% else %}
+                <span class="px-3 py-1.5 text-sm text-neo-faint">...</span>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <a href="{{ url_for('library', page=pagination.next_num, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}"
+               class="c-btn text-sm py-1.5 px-3 no-underline">Next</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-16 text-neo-muted">
+            <h5 class="text-base font-semibold text-neo-text mb-1">No saved conversions yet</h5>
+            <p class="text-sm">Use "Save to Library" on any converter page to start building your library.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/library.js') }}"></script>
+{% endblock %}

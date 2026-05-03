@@ -1,0 +1,140 @@
+/* Academic LaTeX — Computer Modern feel, emulates LaTeX article class */
+@import url('https://cdn.jsdelivr.net/gh/aaaakshat/cm-web-fonts@latest/fonts.css');
+@import url('https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;500&display=swap');
+
+@page {
+    size: A4;
+    margin: 2.8cm 2.5cm;
+    @bottom-center {
+        content: counter(page);
+        font-family: 'Computer Modern Serif', serif;
+        font-size: 10pt;
+        color: #333;
+    }
+}
+
+@page landscape-page { size: A4 landscape; margin: 2.8cm 2.5cm; }
+.landscape-table { page: landscape-page; }
+.landscape-table table { font-size: 0.85em; }
+
+body {
+    font-family: 'Computer Modern Serif', 'Latin Modern Roman', 'STIX Two Text', Georgia, serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #111;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    text-align: justify;
+    hyphens: auto;
+    font-feature-settings: 'liga', 'kern';
+    text-rendering: optimizeLegibility;
+    counter-reset: section;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Computer Modern Serif', 'STIX Two Text', Georgia, serif;
+    color: #000;
+    line-height: 1.3;
+    page-break-after: avoid;
+    text-align: left;
+}
+
+h1 {
+    font-size: 20pt;
+    font-weight: 700;
+    margin: 0 0 2em;
+    text-align: center;
+    letter-spacing: 0.01em;
+}
+
+h2 {
+    font-size: 13pt;
+    font-weight: 700;
+    margin: 1.8em 0 0.6em;
+    counter-increment: section;
+    counter-reset: subsection;
+}
+h2::before { content: counter(section) "  "; }
+
+h3 {
+    font-size: 11.5pt;
+    font-weight: 700;
+    margin: 1.3em 0 0.4em;
+    counter-increment: subsection;
+}
+h3::before { content: counter(section) "." counter(subsection) "  "; }
+
+h4 {
+    font-size: 11pt;
+    font-weight: 700;
+    font-style: italic;
+    margin: 1em 0 0.3em;
+}
+
+p {
+    margin: 0;
+    text-indent: 1.5em;
+    orphans: 3;
+    widows: 3;
+}
+h1 + p, h2 + p, h3 + p, h4 + p, blockquote + p, pre + p, figure + p, hr + p, ul + p, ol + p, table + p {
+    text-indent: 0;
+}
+
+em, i { font-style: italic; }
+strong, b { font-weight: 700; }
+a { color: #000; text-decoration: underline; }
+
+blockquote {
+    margin: 0.8em 2.5em;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #222;
+    padding-left: 0;
+    border: none;
+}
+
+code {
+    font-family: 'Computer Modern Typewriter', 'Inconsolata', 'Menlo', monospace;
+    font-size: 0.95em;
+    background: transparent;
+    padding: 0;
+}
+pre {
+    font-family: 'Computer Modern Typewriter', 'Inconsolata', 'Menlo', monospace;
+    font-size: 9.5pt;
+    line-height: 1.4;
+    background: #fafafa;
+    padding: 0.6em 0.9em;
+    border: 0.5pt solid #ccc;
+    overflow: auto;
+    page-break-inside: avoid;
+    text-align: left;
+    text-indent: 0;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+ul, ol { margin: 0.5em 0 0.8em; padding-left: 2em; text-align: left; }
+li { margin-bottom: 0.2em; text-align: justify; }
+
+table {
+    border-collapse: collapse;
+    margin: 1.2em auto;
+    font-size: 10pt;
+    border-top: 1pt solid #000;
+    border-bottom: 1pt solid #000;
+}
+caption { font-style: italic; font-size: 10pt; margin-bottom: 0.4em; caption-side: top; }
+th, td { padding: 5px 12px; text-align: left; vertical-align: top; border: none; }
+th { font-weight: 700; border-bottom: 0.5pt solid #000; }
+
+img { max-width: 100%; height: auto; }
+figure { margin: 1.2em 0; text-align: center; }
+figcaption { font-size: 10pt; font-style: italic; color: #333; margin-top: 0.4em; }
+
+hr {
+    border: none;
+    border-top: 0.5pt solid #000;
+    margin: 2em 15%;
+}

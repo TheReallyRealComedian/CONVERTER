@@ -311,35 +311,8 @@ The cleanup wave is structurally complete (Stages 0–7 all ☑). These items re
 
 ---
 
-## UX Review (started 2026-05-03)
-
-After the cleanup wave (Stages 0–7 above), the next pass is a structured UX review of the actual UI. Methodology: 3-stage cascading prompts based on Duan et al. (CHI 2024) plus Nielsen's classic heuristics. Same overseer-pattern as the cleanup — one sub-thread per stage, status tracked here.
-
-**Methodology note:** sub-threads run on Mintbox itself with browser access (Chrome). The live app at `http://localhost:5656` is part of the inventory/review process — many UI states (loading, error, hover) are runtime-only and not derivable from code reading alone. Sub-threads combine static read (templates + JS) with live walkthrough: click through every flow, submit forms, deliberately trigger error/loading states (large uploads, network throttling, backend kill).
-
-### Stage 1 — UI Inventory (no judgement, only mapping)
-**Status:** ☐ briefed, sub-thread executing
-**Output:** `docs/ui_inventory_2026-05.md` — table of every interactive element across all 8 templates with implemented vs. verified-live state coverage; 3 summary numbers (total elements, missing states, unverifiable states).
-**Acceptance:** every element has both static + live columns; differences flagged for Stage 2.
-
-### Stage 2 — Heuristic Review (Nielsen filter)
-**Status:** ☐ not started
-**Prereq:** Stage 1 inventory
-**Goal:** filter the inventory through Nielsen's four highest-yield heuristics — Visibility of System Status (H1), Help with Errors (H9), Consistency and Standards (H4), Recognition over Recall (H6). Output: severity-ranked findings table (1=cosmetic … 4=critical).
-**Output:** `docs/ui_findings_2026-05.md`
-
-### Stage 3 — Concrete Patterns + Microcopy
-**Status:** ☐ not started
-**Prereq:** Stage 2 findings
-**Goal:** per finding produce concrete UI pattern, German microcopy (max 2 sentences for errors, 3 for empty-states, 3 words for buttons, no emojis in errors), visual cues, effort estimate (XS/S/M/L). End with Top-5 quick-wins by impact-score (severity × 5 / effort-weight).
-**Output:** `docs/ui_patterns_2026-05.md`
-
-**Source:** Duan et al. CHI 2024 (Heuristic Evaluation with LLMs). Cascade is preferred over a monster-prompt because it lets the overseer correct between stages and keeps each step's focus narrow.
-
----
-
 ## How to launch a stage in a fresh thread
 
 Open a new Claude Code session in this repo and paste:
 
-> Read `CLAUDE.md` § <section> (e.g. *Cleanup Plan*, *UX Review*). Execute **Stage N** only. Do not touch other stages. When done, post a short summary (what changed, what you skipped, what you found) and stop — I'll update Status from the overseer thread.
+> Read `CLAUDE.md` § Cleanup Plan. Execute **Stage N** only. Do not touch other stages. When done, post a short summary (what changed, what you skipped, what you found) and stop — I'll update Status from the overseer thread.

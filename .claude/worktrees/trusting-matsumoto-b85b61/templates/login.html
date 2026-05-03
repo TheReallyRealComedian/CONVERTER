@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - File Transformer</title>
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'neo-text': 'var(--nm-text)',
+                        'neo-muted': 'var(--nm-text-secondary)',
+                        'neo-faint': 'var(--nm-text-muted)',
+                        'neo-surface': 'var(--nm-bg)',
+                        'neo-accent': 'var(--nm-accent-hover)',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        (function(){
+            var t = localStorage.getItem('globalTheme');
+            if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            if (t === 'dark') document.documentElement.setAttribute('data-global-theme', 'dark');
+        })();
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center font-sans">
+    <div class="w-full max-w-sm px-4">
+        <div class="c-surface p-8">
+            <h2 class="text-center text-xl font-bold text-neo-text mb-1">File Transformer</h2>
+            <p class="text-center text-sm text-neo-muted mb-6">Sign in to continue</p>
+
+            {% include '_partials/flash_messages.html' %}
+
+            <form method="POST" action="{{ url_for('login') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-neo-muted mb-1.5">Username</label>
+                    <input type="text" id="username" name="username" required autofocus
+                        class="c-input w-full">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-neo-muted mb-1.5">Password</label>
+                    <input type="password" id="password" name="password" required
+                        class="c-input w-full">
+                </div>
+                <button type="submit" class="c-btn c-btn--primary w-full text-center">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
