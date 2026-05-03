@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Document Converter{% endblock %}
+{% block title %}Dokument-Konverter{% endblock %}
 
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-2xl mx-auto">
-        <h2 class="text-lg font-semibold text-neo-text mb-1">Document to Text Converter</h2>
-        <p class="text-sm text-neo-muted mb-6">Upload PDF, DOCX, PPTX, EML, HTML, TXT, MD and convert to structured text.</p>
+        <h2 class="text-lg font-semibold text-neo-text mb-1">Dokument-Konverter</h2>
+        <p class="text-sm text-neo-muted mb-6">Lade PDF, DOCX, PPTX, EML, HTML, TXT, MD hoch und wandle sie in strukturierten Text um.</p>
 
         <div id="alert-container"></div>
 
@@ -34,11 +34,11 @@
             <!-- File selected indicator -->
             <div id="file-info" class="hidden mb-4 px-3 py-2 c-surface--flat text-sm text-neo-muted flex items-center justify-between">
                 <span id="file-name" class="truncate"></span>
-                <button type="button" id="clear-file" class="text-neo-faint hover:text-neo-text ml-2 flex-shrink-0" title="Clear file">&times;</button>
+                <button type="button" id="clear-file" class="text-neo-faint hover:text-neo-text ml-2 flex-shrink-0" title="Datei entfernen">&times;</button>
             </div>
 
             <button type="submit" class="c-btn c-btn--primary w-full text-center" id="convert-btn">
-                Transform to Text
+                Dokument umwandeln
             </button>
         </form>
 
@@ -46,9 +46,9 @@
         <div id="result-area" class="hidden mt-6">
             <div class="pt-6 neo-separator-top">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-base font-semibold text-neo-text">Conversion Result</h3>
+                    <h3 class="text-base font-semibold text-neo-text">Ergebnis</h3>
                     <div class="flex gap-2">
-                        <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="downloadResult()">Download .md</button>
+                        <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="downloadResult()">Markdown herunterladen</button>
                         <button type="button" class="save-library-btn" id="save-btn" onclick="saveToLibrary()">In Library speichern</button>
                     </div>
                 </div>

@@ -77,20 +77,48 @@
         return banner;
     }
 
-    function showToast(message) {
+    /* Format a byte count with a sensible unit (B / KB / MB) and DE decimal
+       comma. Examples: 222 → "222 B", 4731 → "4,6 KB", 1234567 → "1,2 MB". */
+    function formatFileSize(bytes) {
+        const n = Number(bytes) || 0;
+        if (n < 1024) return n.toFixed(0) + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1).replace('.', ',') + ' KB';
+        return (n / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB';
+    }
+
+    /* Singleton toast: removes any visible toast before showing a new one.
+       Message is set via textContent (XSS-safe). Defaults: level='success',
+       durationMs=2500. */
+    function showToast(message, options) {
+        const opts = options || {};
+        const level = opts.level || 'success';
+        const durationMs = Object.prototype.hasOwnProperty.call(opts, 'durationMs')
+            ? opts.durationMs
+            : 2500;
+
+        document.querySelectorAll('.toast-notification').forEach(el => el.remove());
+
         const toast = document.createElement('div');
-        toast.className = 'toast-notification';
+        toast.className = 'toast-notification toast-notification--' + level;
         toast.textContent = message;
         document.body.appendChild(toast);
-        setTimeout(() => toast.classList.add('show'), 10);
+
+        // Force a reflow so the .show transition runs from the initial state.
+        // eslint-disable-next-line no-unused-expressions
+        toast.offsetHeight;
+        toast.classList.add('show');
+
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
-        }, 2000);
+        }, durationMs);
+
+        return toast;
     }
 
     window.safeJSON = safeJSON;
     window.fallbackCopyText = fallbackCopyText;
     window.showAlert = showAlert;
     window.showToast = showToast;
+    window.formatFileSize = formatFileSize;
 })();

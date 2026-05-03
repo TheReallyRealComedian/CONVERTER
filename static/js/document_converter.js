@@ -124,7 +124,7 @@ document.getElementById('clear-file').addEventListener('click', () => {
 });
 
 function showFileInfo(file) {
-    fileName.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+    fileName.textContent = `${file.name} (${formatFileSize(file.size)})`;
     fileInfo.classList.remove('hidden');
 }
 
@@ -151,7 +151,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
 
     const btn = document.getElementById('convert-btn');
     btn.disabled = true;
-    btn.textContent = 'Converting...';
+    btn.textContent = 'Wird umgewandelt …';
     const resultArea = document.getElementById('result-area');
     resultArea.classList.add('hidden');
     document.getElementById('alert-container').innerHTML = '';
@@ -183,7 +183,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
         showAlert(alertContainer, 'danger', err.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Transform to Text';
+        btn.textContent = 'Dokument umwandeln';
     }
 });
 
@@ -196,6 +196,7 @@ function downloadResult() {
     a.download = stem + '.md';
     a.click();
     URL.revokeObjectURL(a.href);
+    showToast('✓ Markdown heruntergeladen');
 }
 
 async function saveToLibrary() {
