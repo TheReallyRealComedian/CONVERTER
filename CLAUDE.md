@@ -10,11 +10,17 @@ A Flask web app for multimedia conversion: Markdown-to-PDF, document-to-Markdown
 - **Frontend**: Bootstrap + vanilla JS (Jinja2 templates)
 
 ## Key Files
-- `app.py` — Main Flask app, all routes
-- `services/gemini_service.py` — Gemini LLM script generation + TTS podcast synthesis
+- `app.py` — Bootstrap shim (~70 LOC); imports `app_pkg`, holds service singletons that tests patch at `app.<name>`
+- `app_pkg/` — App factory + per-feature route modules (auth, library, markdown, documents, audio, podcasts, mermaid, `integrations/notion`). Each module exposes a `register(app)` function; **no Flask `Blueprint(...)`** — endpoint names stay flat so templates' `url_for("login")` etc. don't need rewrites
+- `app_pkg/config.py` — Shared constants (e.g. `OUTPUT_DIR`)
+- `services/gemini/` — Gemini package: `client`, `script`, `tts`, `synthesis`, `audio`, `dialogue`, `prompts`. Public API as `GeminiService` via `services/gemini/__init__.py`
+- `services/deepgram_service.py`, `services/google_tts_service.py`, `services/audio_chunker.py`, `services/pdf_extraction/` — Other services (untouched in cleanup)
 - `tasks.py` — RQ background tasks (podcast generation)
 - `worker.py` — RQ worker process
 - `models.py` — SQLAlchemy models (User, ConversionHistory)
+- `tests/` — Characterization tests (36 tests, ~5s); mocks at SDK-singleton boundary so they survive future service splits
+- `static/js/` — Per-feature JS modules + shared `_utils.js`; templates inline only small `window.PageData = {…}` blocks
+- `static/css/style.css` — Single stylesheet with TOC + section comments (not split by design)
 
 ## Running
 ```bash
@@ -30,6 +36,8 @@ App runs on `localhost:5656`. Requires `.env` with `GEMINI_API_KEY`, `DEEPGRAM_A
 - Podcast generation is async: web enqueues job via Redis, worker processes it, result shared via `podcast_data` Docker volume
 - Long podcasts are chunked (max 80 lines / 3000 chars per chunk) and concatenated with pydub
 - Frontend polls `/podcast-status/<job_id>` until complete
+- **Routing pattern:** route modules in `app_pkg/` expose a `register(app)` function rather than Flask `Blueprint(...)` objects, to keep endpoint names flat. New routes must follow the same pattern (decided in Stage 2 of the cleanup; see Cleanup Plan below).
+- **Service-singleton pattern:** SDK clients (`deepgram_service`, `gemini_service`, `google_tts_service`, `task_queue`, `async_playwright`, `partition`) are bound at the top level of `app.py` so tests patch them at `app.<name>`. New SDK integrations must follow this convention or update test patches.
 
 ---
 
@@ -89,7 +97,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 **Acceptance:** `app.py` shrinks to <100 LOC (factory + run), every blueprint <250 LOC, all routes still respond, characterization tests still green.
 
 ## Stage 3 — Decompose `services/gemini_service.py` (1021 LOC)
-**Status:** ☐ not started
+**Status:** ☑ done 2026-05-03 → branch `cleanup/stage-3-gemini` (9 commits, on top of `cleanup/stage-2-blueprints`). 1021 → 6 submodules (largest `tts.py` at 271 LOC; plan called for 5 modules but `tts.py` would have been 370 LOC, so split into `tts.py` + `synthesis.py` + `audio.py`). Public API (`GeminiService` with `format_dialogue_with_llm`, `generate_podcast`, plus `TTS_MODELS`/`DEFAULT_TTS_MODEL` class-attrs) preserved exactly. Old `services/gemini_service.py` deleted. Tests: 36/36 green, 4.5s. Mocking unaffected (singleton-boundary patches don't see internal split). Findings resolved: F-009 (local `re` import). Deferred with rationale: F-015 (cross-service timeout coordination, out of scope), F-016 (would change observable log output).
 **Prereq:** Stage 6 characterization tests for podcast generation must exist.
 **Goal:** split the god-service into cohesive modules.
 **Proposed split:**
@@ -116,7 +124,7 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 **Acceptance:** Findings list populated; Critical items have follow-up tickets/stages.
 
 ## Stage 5 — Templates & CSS
-**Status:** ☐ not started
+**Status:** ☑ done 2026-05-03 → branch `cleanup/stage-5-templates` (12 commits, on top of `cleanup/stage-7-deps`). All templates now <15 KB (`audio_converter.html` 41→14.7 KB, `markdown_converter.html` 23→8.2 KB, etc.). 8 new JS files in `static/js/` (largest `audio_converter.js` at 25 KB). Inline `<script>` max 17 LOC (Tailwind config in `base.html`, must stay inline for FOUC). F-018 resolved via shared `static/js/_utils.js` (commit `022bfb0`). CSS strategy: TOC + section comments in `style.css` (29→33 KB), no split (rationale: avoiding new design system as plan requires). Tests: 36/36 green, 4.7s. UI smoke: only static (Option C) — no Docker access. **⚠️ Pre-merge manual UI pass required** (see Outstanding work below).
 **Goal:** large templates with embedded `<script>` blocks become unmaintainable. Extract.
 **Tasks:**
 - `audio_converter.html` (42 KB) and `markdown_converter.html` (24 KB): extract embedded JS into `static/js/<feature>.js`
@@ -138,7 +146,12 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 **Acceptance:** `pytest` green locally and inside the container; CI not required.
 
 ## Stage 7 — Dependency Audit
-**Status:** ☐ not started
+**Status:** ☑ done 2026-05-03 → branch `cleanup/stage-7-deps`. 27 → 25 production deps. Removed: `gevent` (unused; Dockerfile uses uvicorn worker), `mermaid` (frontend renders via CDN — and the PyPI package has broken metadata, uninstallable via modern pip). Comment-only kept: `gunicorn`, `uvicorn`, `opencv-python-headless` (transitive cv2 ABI pin). Full report: [docs/dependency_audit_2026-05.md](docs/dependency_audit_2026-05.md). Tests: 36/36 green, 5.2s.
+
+### Deferred risk items (out of Stage 7 scope, future upgrade stage)
+- **CVEs (5 packages, 8 advisories):** `Flask 3.0.3` (CVE-2026-27205 → 3.1.3), `Pygments 2.18.0` (CVE-2026-4539 → 2.20.0), `unstructured 0.14.5` (CVE-2025-64712 → 0.18.18, **on user-upload path**), `pdfminer.six 20221105` (2 CVEs → 20251230, also user-upload path), `requests 2.31.0` (3 CVEs → 2.33.0).
+- **Major skew top 3:** `unstructured[all-docs] 0.14.5 → 0.22.26` (8 minor versions, doc-partition API changed), `rq 1.16.0 → 2.8.0` (major; needs parallel `redis` bump), `deepgram-sdk 5.1.0 → 7.0.0` (two majors, client surface reorganized).
+- These need a dedicated upgrade stage with characterization-test re-runs after each bump. Not folded into Stage 7 because each is a real behavior-change risk.
 **Goal:** trim `requirements.txt`. 28 deps; some are likely transitive or unused after past refactors.
 **Tasks:**
 - `pip-deptree` to see who pulls what
@@ -146,6 +159,18 @@ The app works but has accumulated hotfixes, pasted-in docs, debug leftovers, and
 - Check version skew: `unstructured[all-docs]==0.14.5` (June 2024) vs `redis==5.0.1` etc. — anything with known CVE?
 - `playwright==1.44.0` matches Dockerfile base image — keep in sync
 **Acceptance:** `requirements.txt` only contains directly-imported packages, with a one-line comment per non-obvious dep.
+
+---
+
+## Outstanding work (post-cleanup)
+
+The cleanup wave is structurally complete (Stages 0–7 all ☑). These items remain:
+
+1. **Pre-merge manual UI smoke for `cleanup/stage-5-templates`.** Static checks passed but Docker wasn't accessible from the Stage-5 thread. Required: `docker compose up --build`, click through each route (`/login`, `/library`, `/library/<id>`, `/`, `/document-converter`, `/audio-converter`, `/mermaid-converter`), DevTools console clean, forms submit, save-to-library works.
+2. **Branch merge strategy.** Eight stage branches form a linear chain: `stage-1-hygiene` → `stage-4-anomalies` → `stage-6-tests` → `stage-2-blueprints` → `stage-3-gemini` → `stage-7-deps` → `stage-5-templates`. Merging `stage-5-templates` to `main` brings everything in one go (recommended — stages are already micro-committed). Per-stage PRs would only add bureaucracy.
+3. **CVE-upgrade stage** — see Stage 7's deferred risk items above. Each upgrade needs a characterization-test re-run. Suggested order, lowest risk first: `Pygments` → `requests` → `Flask` → `pdfminer.six` → `unstructured`. `rq`/`redis` and `deepgram-sdk` major bumps should be their own work item each.
+4. **Remaining findings** in the list below: F-002, F-005, F-006, F-007, F-008 (partial — 4 logging sites still drop stacktrace), F-011, F-012, F-013, F-015, F-016, F-017. None are blocking; each has a noted target stage or a "future logging-pass" tag.
+5. **Test-coverage gap:** characterization tests live at the HTTP boundary; UI/JS behaviour is not covered. Adding Playwright-based smoke tests would close this gap but is its own scope.
 
 ---
 
