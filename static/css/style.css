@@ -253,6 +253,36 @@ select.c-input option {
     box-shadow: var(--nm-raised-sm);
     margin-bottom: 0.75rem;
     border-left: 4px solid;
+    position: relative;
+}
+
+.c-alert:has(.c-alert__close) {
+    padding-right: 2.5rem;
+}
+
+.c-alert__close {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.4rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--nm-radius-sm);
+    opacity: 0.55;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.c-alert__close:hover,
+.c-alert__close:focus-visible {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
 }
 
 .c-alert--danger {
@@ -288,16 +318,41 @@ select.c-input option {
     padding: 2rem;
     text-align: center;
     cursor: pointer;
-    transition: box-shadow 0.3s ease;
+    transition: box-shadow 0.15s ease;
+    position: relative;
 }
 
-.c-drop-zone:hover,
+.c-drop-zone:hover {
+    box-shadow: var(--nm-pressed), 0 0 0 2px rgba(143, 160, 196, 0.55);
+}
+
 .c-drop-zone.drop-zone-active {
-    box-shadow: var(--nm-pressed), 0 0 0 3px rgba(168,180,216,0.3);
+    box-shadow: var(--nm-raised-sm), 0 0 0 3px var(--nm-accent-hover);
 }
 
 .c-drop-zone.c-drop-zone--invalid {
     box-shadow: var(--nm-pressed), 0 0 0 3px rgba(225, 112, 85, 0.5);
+}
+
+.c-drop-zone__overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--nm-bg);
+    color: var(--nm-accent-hover);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: var(--nm-radius-sm);
+    box-shadow: var(--nm-raised-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+}
+
+.c-drop-zone.drop-zone-active .c-drop-zone__overlay {
+    opacity: 1;
 }
 
 /* ===== TAB & LANGUAGE TOGGLES ===== */

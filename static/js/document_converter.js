@@ -101,8 +101,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
         resultArea.classList.remove('hidden');
         resultArea.scrollIntoView({behavior: 'smooth', block: 'start'});
     } catch (err) {
-        document.getElementById('alert-container').innerHTML =
-            `<div class="c-alert c-alert--danger">${err.message}</div>`;
+        showAlert(alertContainer, 'danger', err.message);
     } finally {
         btn.disabled = false;
         btn.textContent = 'Transform to Text';

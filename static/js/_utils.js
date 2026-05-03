@@ -33,16 +33,47 @@
         });
     }
 
-    /* Render a persistent alert banner inside containerEl. Replaces any prior
-       content. Message is set via textContent (XSS-safe). No close button or
-       auto-dismiss — caller clears the container or calls showAlert again. */
-    function showAlert(containerEl, level, message) {
+    /* Render an alert banner inside containerEl. Replaces any prior content.
+       Message is set via textContent (XSS-safe). Defaults: closable=true and
+       autoDismissMs=6000 for non-danger levels (danger persists until closed). */
+    function showAlert(containerEl, level, message, options) {
         if (!containerEl) return null;
+        const opts = options || {};
+        const closable = opts.closable !== false;
+        const autoDismissMs = Object.prototype.hasOwnProperty.call(opts, 'autoDismissMs')
+            ? opts.autoDismissMs
+            : (level === 'danger' ? null : 6000);
+
         containerEl.innerHTML = '';
         const banner = document.createElement('div');
         banner.className = 'c-alert c-alert--' + level;
-        banner.textContent = message;
+
+        const messageEl = document.createElement('span');
+        messageEl.className = 'c-alert__message';
+        messageEl.textContent = message;
+        banner.appendChild(messageEl);
+
+        let dismissTimer = null;
+
+        if (closable) {
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'c-alert__close';
+            closeBtn.setAttribute('aria-label', 'Meldung schließen');
+            closeBtn.textContent = '×';
+            closeBtn.addEventListener('click', () => {
+                if (dismissTimer) clearTimeout(dismissTimer);
+                banner.remove();
+            });
+            banner.appendChild(closeBtn);
+        }
+
         containerEl.appendChild(banner);
+
+        if (autoDismissMs) {
+            dismissTimer = setTimeout(() => banner.remove(), autoDismissMs);
+        }
+
         return banner;
     }
 
