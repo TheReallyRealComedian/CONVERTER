@@ -29,6 +29,10 @@
                        accept="{{ ','.join('.' + ext for ext in accepted_extensions) }}">
                 <span class="c-drop-zone__overlay" aria-hidden="true">Loslassen, um hochzuladen</span>
                 <span class="c-drop-zone__warning-hint" aria-hidden="true">Dateityp nicht unterstützt</span>
+                <span class="c-drop-zone__loading" aria-hidden="true">
+                    <span class="c-drop-zone__spinner"></span>
+                    <span class="c-drop-zone__loading-text">Wird verarbeitet …</span>
+                </span>
             </div>
 
             <!-- File selected indicator -->

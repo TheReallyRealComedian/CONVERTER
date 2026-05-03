@@ -152,6 +152,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
     const btn = document.getElementById('convert-btn');
     btn.disabled = true;
     btn.textContent = 'Wird umgewandelt …';
+    dropZone.classList.add('c-drop-zone--loading');
     const resultArea = document.getElementById('result-area');
     resultArea.classList.add('hidden');
     document.getElementById('alert-container').innerHTML = '';
@@ -184,6 +185,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
     } finally {
         btn.disabled = false;
         btn.textContent = 'Dokument umwandeln';
+        dropZone.classList.remove('c-drop-zone--loading');
     }
 });
 

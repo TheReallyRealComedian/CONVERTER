@@ -391,6 +391,56 @@ select.c-input option {
     opacity: 1;
 }
 
+.c-drop-zone.c-drop-zone--loading {
+    pointer-events: none;
+}
+
+.c-drop-zone__loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--nm-bg);
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--nm-radius-sm);
+    box-shadow: var(--nm-raised-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.c-drop-zone.c-drop-zone--loading .c-drop-zone__loading {
+    opacity: 1;
+}
+
+.c-drop-zone__spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(143, 160, 196, 0.25);
+    border-top-color: var(--nm-accent-hover);
+    border-radius: 50%;
+    animation: c-drop-zone-spin 0.8s linear infinite;
+}
+
+.c-drop-zone__loading-text {
+    font-size: 0.875rem;
+    color: var(--nm-text-muted);
+}
+
+@keyframes c-drop-zone-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Loading dominates visually — suppress dragover/warning overlays if they linger. */
+.c-drop-zone.c-drop-zone--loading .c-drop-zone__overlay,
+.c-drop-zone.c-drop-zone--loading .c-drop-zone__warning-hint {
+    opacity: 0;
+}
+
 /* ===== TAB & LANGUAGE TOGGLES ===== */
 .tab-active {
     box-shadow: var(--nm-pressed-sm) !important;
