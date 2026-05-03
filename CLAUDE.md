@@ -82,8 +82,15 @@ UX-Verbesserung läuft als 3-Schritt-Kaskade pro Feature (Methodik: Duan et al. 
   - Polish-2 (P9 Drop-Zone-Loading-Indikation, Single-Phase): ☑ done 2026-05-03 → commit `37f8420`. Pytest 37/37 grün. CSS-only Spinner + Overlay analog Cluster-C-Pattern; `pointer-events: none` während Loading verhindert dass Cluster-B/D-States sich überlagern. Defense-in-depth Cascade falls eine State-Klasse aus früherer Interaktion stehengeblieben ist. Microcopy Drop-Zone "Wird verarbeitet …" ergänzt Convert-Btn "Wird umgewandelt …" (verschiedene Metaphern, beide gleichzeitig sichtbar sinnvoll).
 - **F-1 strukturell abgeschlossen 2026-05-03.** Alle 14 Patterns + 3 Bug-Tickets implementiert. 6 Implementierungs-Cluster (A, B, C, D, E, Polish-1, Polish-2). Höchster Schweregrad-Befund (F1/F2 Empty-Submit silent, Sev 4) gefixt durch Pattern 1 in Cluster B. Alle Findings, deren Bug-Bestandteil F-006 für `document_converter` adressiert war, sind durch Cluster D's Backend-Whitelist mitgelöst. Pytest 37/37 grün durchgängig. **F-2 Feature-Wahl ausstehend.**
 
-### F-2..F-N: queued
-Reihenfolge wird nach Abschluss von F-1.3 entschieden, basierend auf Pilot-Erfahrung. Kandidaten in grober Komplexitäts-Reihenfolge: `audio_converter` (komplex, Recording + Upload + Live-Transkription), `markdown_converter` (Editor + Preview + PDF + Reader-Mode), `library_detail` (View/Edit/Delete/Notion-Integration), `library` (Liste + Filter + Empty-State), `mermaid_converter`, `login`, podcast-generation flow (cross-template async).
+### F-2: audio_converter
+**Status:**
+- F-2.1 Inventur: ☑ done 2026-05-03 → [docs/ui_inventory_audio_converter_2026-05.md](docs/ui_inventory_audio_converter_2026-05.md). 47 Elemente (42 ohne Headings/Feedback), 13 fehlende States im Code, 7 live-verifizierte Code↔live-Divergenzen, 6 unverifizierbare States, 6 audio-spezifische States. **Vier prominente Surprises:** (1) Drag-Drop ist eine Lüge — Label verspricht es, JS hat keine Handler; deutliche Inkonsistenz vs document_converter. (2) 11+ `alert()`-Call-Sites + Inline-Span + c-alert-Banner → drei konkurrierende Error-UI-Patterns ohne Verwendung des in F-1 etablierten `showAlert()`-Helpers. (3) Configuration-Error-Banner kippt die ganze Seite (Podcast-Tab tot obwohl der nur Gemini braucht). (4) Englische Strings flächendeckend.
+- F-2.2 Heuristik-Review: ☐ not started
+- F-2.3 Patterns + Microcopy: ☐ not started
+- Implementation: ☐ awaiting F-2.3. **Sprint-Strategie F-2:** statt F-1's 7 Mikro-Cluster zwei größere — Cluster I (Sev 4 + Sev 3 fixes) und Cluster II (Sev 2 + Sev 1 + Microcopy). Pre-merge Live-Smoke gate zwischen I und II (verhindert F-1's "alle Cluster un-smoked"-Risiko).
+
+### F-3..F-N: queued
+Wird nach F-2-Abschluss entschieden. Kandidaten: `markdown_converter`, `library_detail`, `library`, `mermaid_converter`, `login`, podcast-flow.
 
 ---
 
