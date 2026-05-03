@@ -271,7 +271,11 @@ Die F-1-Erfahrung hat fünf konkrete Lehren produziert:
 
 ## 9. Memory-System (User-Profil + Feedback-Knowledge)
 
-Persistente Memory unter `/home/oliver/.claude/projects/-home-oliver-CODE-CONVERTER/memory/`. Auf neuer Maschine vermutlich anderer Pfad — Oliver muss synchronisieren oder die Inhalte liegen hier inline (Sicherheits-Backup):
+Persistente Memory unter `/home/oliver/.claude/projects/-home-oliver-CODE-CONVERTER/memory/`.
+
+**Setup-Hinweis 2026-05-03:** der Maschinen-Wechsel betraf nur den Client (Oliver greift jetzt per SSH auf dieselbe Mintbox zu, wo Code + Container + Memory bleiben). Daher **kein Sync nötig** — Memory liegt schon richtig vor Ort, einfach einlesen. Der rsync-Block am Ende dieser Sektion ist nur Backup-Anleitung für einen späteren echten Cross-Machine-Wechsel.
+
+**Inline-Snapshot der Memory-Inhalte** (Sicherheit gegen Verlust):
 
 ### `user_overseer_pattern.md` (User-Memory)
 > Für nicht-triviale mehrstufige Arbeiten arbeitet Oliver als Overseer im Hauptthread: ich entwerfe einen self-contained Stage-Prompt, er öffnet eine frische Claude-Code-Session im Repo und paste'n den Prompt rein, der Sub-Thread arbeitet ab und meldet zurück, der Overseer-Thread aktualisiert Status und entwirft die nächste Stage. Stages werden in CLAUDE.md gepflegt.
