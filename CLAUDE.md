@@ -74,11 +74,11 @@ UX-Verbesserung läuft als 3-Schritt-Kaskade pro Feature (Methodik: Duan et al. 
 - F-1.3 Patterns + Microcopy: ☑ done 2026-05-03 → [docs/ui_patterns_document_converter_2026-05.md](docs/ui_patterns_document_converter_2026-05.md). 14 Pattern-Blöcke (5 konsolidiert + 9 einzeln). Alle Patterns mit existierenden Neomorphism-Komponenten realisierbar; höchster Aufwand M (Pattern 9 Drop-Zone-Loading), Rest S/XS. Top-5 Quick-Wins (nach Impact-Score): Pattern 2 (Clear-Reset, 15.0, XS), Pattern 3 (Save-Btn-Lifecycle, 15.0, XS), Pattern 1 (Empty-Submit-Banner, 10.0, S), Pattern 10 (Auto-Scroll, 10.0, XS), Pattern 4 (Save-Failure-Banner, 7.5, S).
 - Implementation:
   - Cluster A (P2 + P3 + P10, schließt B2 + B3): ☑ done 2026-05-03 → commit `153d418`. Statisch verifiziert (`pytest tests/` 36/36 grün, 6.05s); Live-Smoke ausstehend (Container hat keinen Source-Bind-Mount, Sub-Thread hielt `docker cp`/Rebuild zurück). Eine Side-Note: Template-Static-Text "Save to Library" in `templates/document_converter.html` wird zwar nie sichtbar (JS überschreibt vor Anzeige), aber inhaltlich falsch → folded into Cluster B.
-  - Cluster B (P1 + P4 + Helper `showAlert`): ☐ not started
-  - Cluster C (P5 + P7 + P8 — Drop-Zone-Family + B1): ☐ not started
-  - Cluster D (P6 — Format-Mismatch, Backend-Whitelist): ☐ not started
+  - Cluster B (P1 + P4 + Helper `showAlert`): ☑ done 2026-05-03 → commit `1242e48`. Pytest 36/36 grün; `docker cp`-Smoke verifizierte ausgelieferte Assets (Strings + CSS-Regel + Helper-Export). Live-Browser-Walkthrough zurückgehalten (Login-Flow als oversized für client-only-Patch). Sub-Thread-Befund: Conversion-Error-Pfad nutzt noch raw `innerHTML` statt `showAlert` — sollte zu Cluster C gefoldet werden (gleiche Code-Pfade wie P7).
+  - Cluster C (P5 + P7 + B1 + Conversion-Error-Fold — Alert + Drop-Zone-Highlight Polish): ☐ not started. P8 wandert nach Cluster D (depends on P6's accept-list).
+  - Cluster D (P6 + P8 — Format-Honesty + Unsupported-Drag-Warning): ☐ not started
   - Cluster E (P11 + P13 — a11y): ☐ not started
-  - Polish (P9 + P12 + P14): ☐ not started
+  - Polish (P9 + P12 + P14 + remaining DE-string pass — z.B. "Transform to Text" Convert-Btn): ☐ not started
 
 ### F-2..F-N: queued
 Reihenfolge wird nach Abschluss von F-1.3 entschieden, basierend auf Pilot-Erfahrung. Kandidaten in grober Komplexitäts-Reihenfolge: `audio_converter` (komplex, Recording + Upload + Live-Transkription), `markdown_converter` (Editor + Preview + PDF + Reader-Mode), `library_detail` (View/Edit/Delete/Notion-Integration), `library` (Liste + Filter + Empty-State), `mermaid_converter`, `login`, podcast-generation flow (cross-template async).
