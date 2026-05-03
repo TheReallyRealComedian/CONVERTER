@@ -10,18 +10,7 @@
 
         <div id="alert-container"></div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="c-alert
-                        {% if category == 'danger' %}c-alert--danger
-                        {% elif category == 'success' %}c-alert--success
-                        {% else %}c-alert--info{% endif %}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+        {% include '_partials/flash_messages.html' %}
 
         <form id="convert-form" enctype="multipart/form-data">
             <!-- Drop zone -->
