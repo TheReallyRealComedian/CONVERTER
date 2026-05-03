@@ -334,6 +334,32 @@ select.c-input option {
     box-shadow: var(--nm-pressed), 0 0 0 3px rgba(225, 112, 85, 0.5);
 }
 
+.c-drop-zone.c-drop-zone--warning {
+    box-shadow: var(--nm-pressed), 0 0 0 3px rgba(246, 185, 59, 0.55);
+    background: var(--nm-tint-warning);
+}
+
+.c-drop-zone__warning-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--nm-bg);
+    color: #a07828;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: var(--nm-radius-sm);
+    box-shadow: var(--nm-raised-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+}
+
+.c-drop-zone.c-drop-zone--warning .c-drop-zone__warning-hint {
+    opacity: 1;
+}
+
 .c-drop-zone__overlay {
     position: absolute;
     top: 50%;

@@ -8,38 +8,111 @@ const fileInfo = document.getElementById('file-info');
 const fileName = document.getElementById('file-name');
 const alertContainer = document.getElementById('alert-container');
 
+const acceptedExtensions = (window.PageData && window.PageData.acceptedExtensions) || [];
+const acceptedExtensionsLabel = 'PDF, DOCX, PPTX, EML, HTML, TXT, MD';
+let warningTimer = null;
+
+function getExtension(filename) {
+    const m = /\.([^.\\/]+)$/.exec(filename || '');
+    return m ? m[1].toLowerCase() : '';
+}
+
+function isAcceptedFilename(filename) {
+    if (!acceptedExtensions.length) return true;
+    const ext = getExtension(filename);
+    return acceptedExtensions.includes(ext);
+}
+
 function clearInvalidState() {
     dropZone.classList.remove('c-drop-zone--invalid');
     alertContainer.innerHTML = '';
 }
 
+function showWarningState() {
+    dropZone.classList.add('c-drop-zone--warning');
+    if (warningTimer) clearTimeout(warningTimer);
+    warningTimer = setTimeout(() => {
+        dropZone.classList.remove('c-drop-zone--warning');
+        warningTimer = null;
+    }, 2000);
+}
+
+function clearWarningState() {
+    dropZone.classList.remove('c-drop-zone--warning');
+    if (warningTimer) {
+        clearTimeout(warningTimer);
+        warningTimer = null;
+    }
+}
+
+function rejectUnsupported() {
+    showAlert(alertContainer, 'warning',
+        'Dieser Dateityp wird nicht unterstützt. Erlaubt: ' + acceptedExtensionsLabel + '.');
+    showWarningState();
+}
+
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dropZone.classList.add('drop-zone-active');
+    // Browser security usually hides the file's MIME/name during dragover and
+    // exposes only `kind === 'file'` plus a (sometimes generic) `.type`. So we
+    // only flip into the warning tint when the type is present and clearly not
+    // in our accept list — otherwise we wait for the actual drop to validate.
+    let unsupported = false;
+    const items = e.dataTransfer && e.dataTransfer.items;
+    if (items && items.length === 1 && items[0].kind === 'file') {
+        const t = (items[0].type || '').toLowerCase();
+        if (t && t !== 'application/octet-stream') {
+            const acceptedMimeFragments = ['pdf', 'word', 'officedocument', 'message/rfc822',
+                'html', 'plain', 'markdown'];
+            unsupported = !acceptedMimeFragments.some(frag => t.includes(frag));
+        }
+    }
+    if (unsupported) {
+        dropZone.classList.add('c-drop-zone--warning');
+        dropZone.classList.remove('drop-zone-active');
+    } else {
+        clearWarningState();
+        dropZone.classList.add('drop-zone-active');
+    }
 });
 dropZone.addEventListener('dragleave', () => {
     dropZone.classList.remove('drop-zone-active');
+    clearWarningState();
 });
 dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('drop-zone-active');
-    if (e.dataTransfer.files.length) {
-        fileInput.files = e.dataTransfer.files;
-        showFileInfo(e.dataTransfer.files[0]);
-        clearInvalidState();
+    if (!e.dataTransfer.files.length) return;
+    const file = e.dataTransfer.files[0];
+    if (!isAcceptedFilename(file.name)) {
+        rejectUnsupported();
+        return;
     }
+    fileInput.files = e.dataTransfer.files;
+    showFileInfo(file);
+    clearInvalidState();
+    clearWarningState();
 });
 fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) {
-        showFileInfo(fileInput.files[0]);
-        clearInvalidState();
+    if (!fileInput.files.length) return;
+    const file = fileInput.files[0];
+    if (!isAcceptedFilename(file.name)) {
+        // User picked "All files" in the system picker and chose something the
+        // accept-attribute would otherwise have hidden.
+        fileInput.value = '';
+        rejectUnsupported();
+        return;
     }
+    showFileInfo(file);
+    clearInvalidState();
+    clearWarningState();
 });
 document.getElementById('clear-file').addEventListener('click', () => {
     fileInput.value = '';
     fileInfo.classList.add('hidden');
     document.getElementById('result-area').classList.add('hidden');
     document.getElementById('alert-container').innerHTML = '';
+    clearWarningState();
     lastResult = null;
     resetSaveBtn();
 });

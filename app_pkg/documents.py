@@ -9,6 +9,12 @@ from flask_login import login_required
 from werkzeug.utils import secure_filename
 
 
+# Single source of truth for what /transform-document accepts. The template
+# reads this via the route context and exposes it to JS as
+# window.PageData.acceptedExtensions for client-side prevalidation.
+ACCEPTED_EXTENSIONS = ('pdf', 'docx', 'pptx', 'eml', 'html', 'htm', 'txt', 'md')
+
+
 def register(app):
     # Late import: tests patch ``app.partition`` and
     # ``app.pdf_extraction_service`` on the top-level app.py module, so
@@ -18,7 +24,10 @@ def register(app):
     @app.route('/document-converter')
     @login_required
     def document_converter():
-        return render_template('document_converter.html')
+        return render_template(
+            'document_converter.html',
+            accepted_extensions=ACCEPTED_EXTENSIONS,
+        )
 
     @app.route('/transform-document', methods=['POST'])
     @login_required
@@ -34,6 +43,12 @@ def register(app):
             return jsonify({'error': 'No file provided.'}), 400
 
         original_filename = secure_filename(file.filename)
+        ext = os.path.splitext(original_filename)[1].lstrip('.').lower()
+        if ext not in ACCEPTED_EXTENSIONS:
+            return jsonify({
+                'error': 'Dieser Dateityp wird nicht unterstützt. '
+                         'Erlaubt: PDF, DOCX, PPTX, EML, HTML, TXT, MD.'
+            }), 400
         temp_file_path = None
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=Path(original_filename).suffix) as temp_f:

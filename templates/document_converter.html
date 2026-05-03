@@ -6,7 +6,7 @@
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-2xl mx-auto">
         <h2 class="text-lg font-semibold text-neo-text mb-1">Document to Text Converter</h2>
-        <p class="text-sm text-neo-muted mb-6">Upload PDF, DOCX, PPTX, EML, HTML and convert to structured text.</p>
+        <p class="text-sm text-neo-muted mb-6">Upload PDF, DOCX, PPTX, EML, HTML, TXT, MD and convert to structured text.</p>
 
         <div id="alert-container"></div>
 
@@ -20,10 +20,12 @@
                 <svg class="w-12 h-12 mx-auto mb-3 text-neo-faint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                <p class="text-sm font-medium text-neo-muted mb-1">Drop file here or click to browse</p>
-                <p class="text-xs text-neo-faint">PDF, DOCX, PPTX, EML, HTML -- Max 100MB</p>
-                <input type="file" id="document_file" name="document_file" class="hidden" required title="Select a document file">
+                <p class="text-sm font-medium text-neo-muted mb-1">Datei hier ablegen oder klicken zum Auswählen</p>
+                <p class="text-xs text-neo-faint">PDF, DOCX, PPTX, EML, HTML, TXT, MD — max. 100 MB</p>
+                <input type="file" id="document_file" name="document_file" class="hidden" required title="Datei auswählen"
+                       accept="{{ ','.join('.' + ext for ext in accepted_extensions) }}">
                 <span class="c-drop-zone__overlay" aria-hidden="true">Loslassen, um hochzuladen</span>
+                <span class="c-drop-zone__warning-hint" aria-hidden="true">Dateityp nicht unterstützt</span>
             </div>
 
             <!-- File selected indicator -->
@@ -58,6 +60,7 @@
 <script>
     window.PageData = {
         transformDocumentUrl: '{{ url_for("transform_document") }}',
+        acceptedExtensions: {{ accepted_extensions|tojson }},
     };
 </script>
 <script src="{{ url_for('static', filename='js/document_converter.js') }}"></script>

@@ -60,3 +60,17 @@ def test_transform_document_missing_file_returns_400(authenticated_client):
     )
     assert resp.status_code == 400
     assert resp.get_json()['error'].lower().startswith('no file')
+
+
+def test_transform_document_unsupported_extension_returns_400(authenticated_client):
+    """Files with an extension outside ACCEPTED_EXTENSIONS get rejected before
+    they reach the unstructured/PDF pipelines (Cluster D / Pattern 6 backstop)."""
+    resp = authenticated_client.post(
+        '/transform-document',
+        data={'document_file': (BytesIO(b'irrelevant bytes'), 'evil.xyz')},
+        content_type='multipart/form-data',
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'nicht unterstützt' in body['error']
+    assert 'PDF, DOCX, PPTX, EML, HTML, TXT, MD' in body['error']
