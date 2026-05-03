@@ -10,10 +10,10 @@
 
 1. **Lese dieses Dokument vollständig.** Es ist selbsterklärend gestaltet, du brauchst keinen Vorwissen-Kontext aus der vorigen Session. Anschließend `CLAUDE.md` für den Live-Status der Stages.
 2. **Schreibe keine Code-Änderungen selbst.** Du bist Overseer — du draftest Sub-Thread-Prompts, mergst deren Output, pflegst Status. Code-Arbeit machen frische Sub-Threads in eigenen Worktrees.
-3. **Zwei offene Aufgaben warten:**
-   - (a) **F-2 Cluster I Live-Smoke** noch nicht durchgeführt — Container muss rebuilt + manuell geklickt werden bevor Cluster II startet
-   - (b) **F-2 Cluster II** (P13–P21, Polish + a11y) — drafften nach Smoke-Confirmation
-   - ~~(c)~~ **`document_converter`-Regression — gefixt 2026-05-03** (Jinja2-Generator-Expression in `templates/document_converter.html:29`, eingeführt durch Cluster D `e68b6dd`). Resolution-Details siehe Sektion 5.
+3. **Eine offene Aufgabe wartet:**
+   - (a) **F-2 Cluster II** (P13–P21, Polish + a11y) — Sub-Thread-Prompt drafften, dann implementieren lassen
+   - ~~(b)~~ **F-2 Cluster I Live-Smoke ☑ done 2026-05-03** — von Oliver manuell verifiziert
+   - ~~(c)~~ **`document_converter`-Regression ☑ gefixt 2026-05-03** (Jinja2-Generator-Expression in `templates/document_converter.html:29`, eingeführt durch Cluster D `e68b6dd`). Details siehe Sektion 5.
 
 ---
 
