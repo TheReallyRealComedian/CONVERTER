@@ -104,6 +104,28 @@ def test_convert_markdown_invalid_filename_redirects(authenticated_client):
     assert resp.status_code == 302
 
 
+def test_convert_markdown_missing_filename_field_handled(authenticated_client):
+    """F-007: a POST without an ``output_filename`` form field used to crash
+    inside the broad ``except`` (``secure_filename(None)`` raised
+    AttributeError, which surfaced as a generic "Could not generate PDF"
+    flash). Now the missing field is treated like an empty one, so the
+    invalid-filename branch handles it cleanly with a 302 redirect.
+    """
+    resp = authenticated_client.post(
+        '/convert-markdown',
+        data={
+            'markdown_text': '# Some content',
+            # 'output_filename' intentionally omitted
+            'orientation': 'portrait',
+            'style_theme': 'none',
+        },
+        content_type='multipart/form-data',
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith('/')
+
+
 def test_convert_markdown_unsupported_extension_returns_400(authenticated_client):
     """F-006: file uploads with extensions outside ACCEPTED_EXTENSIONS must be
     rejected with 400 + DE-JSON. Previously, .read().decode('utf-8') on a

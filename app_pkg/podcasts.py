@@ -7,7 +7,8 @@ from flask import jsonify, request, send_file
 from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 
-from app_pkg.config import OUTPUT_DIR
+from app_pkg.config import OUTPUT_DIR, TIMEOUT_RQ_JOB_SECONDS
+from app_pkg.decorators import require_service
 from services.gemini.prompts import STYLE_DIRECTIVES
 from services.gemini.script import LANGUAGE_NAMES, LENGTH_INFO
 from tasks import generate_podcast_task
@@ -70,13 +71,13 @@ def register(app):
 
     @app.route('/generate-podcast', methods=['POST'])
     @login_required
+    @require_service('google_tts')
     def generate_podcast():
-        if not _app_module.google_tts_service:
-            return jsonify({"error": "Google Cloud TTS is not configured."}), 503
-
         temp_audio_path = None
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True)
+            if not isinstance(data, dict):
+                return jsonify({"error": "Ungültiger Request-Body. JSON-Objekt erwartet."}), 400
             text = data.get('text', '').strip()
             voice_name = data.get('voice_name', 'en-US-Neural2-C')
             language_code = data.get('language_code', 'en-US')
@@ -121,14 +122,12 @@ def register(app):
                 try:
                     os.unlink(temp_audio_path)
                 except Exception as e:
-                    app.logger.error(f"Error cleaning up temp file: {e}")
+                    app.logger.error(f"Error cleaning up temp file: {e}", exc_info=True)
 
     @app.route('/api/get-google-voices', methods=['GET'])
     @login_required
+    @require_service('google_tts')
     def get_google_voices():
-        if not _app_module.google_tts_service:
-            return jsonify({"error": "Google Cloud TTS is not configured."}), 503
-
         try:
             voices = _app_module.google_tts_service.list_voices()
             return jsonify(voices)
@@ -138,13 +137,13 @@ def register(app):
 
     @app.route('/generate-gemini-podcast', methods=['POST'])
     @login_required
+    @require_service('gemini')
     def generate_gemini_podcast():
         """Queue a podcast generation job to Redis."""
-        if not _app_module.GEMINI_API_KEY:
-            return jsonify({"error": "Gemini API Key is not configured."}), 503
-
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True)
+            if not isinstance(data, dict):
+                return jsonify({"error": "Ungültiger Request-Body. JSON-Objekt erwartet."}), 400
             dialogue = data.get('dialogue', [])
             language = data.get('language', 'en')
             tts_model = data.get('tts_model', None)
@@ -153,7 +152,7 @@ def register(app):
             job = _app_module.task_queue.enqueue(
                 generate_podcast_task,
                 args=(dialogue, language, tts_model),
-                job_timeout=600,  # 10 minutes max
+                job_timeout=TIMEOUT_RQ_JOB_SECONDS,
                 meta={'user_id': current_user.id}
             )
 
@@ -247,12 +246,12 @@ def register(app):
 
     @app.route('/format-dialogue-with-llm', methods=['POST'])
     @login_required
+    @require_service('gemini')
     def format_dialogue_with_llm():
-        if not _app_module.gemini_service:
-            return jsonify({"error": "Gemini API Key is not configured."}), 503
-
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True)
+            if not isinstance(data, dict):
+                return jsonify({"error": "Ungültiger Request-Body. JSON-Objekt erwartet."}), 400
 
             raw_text_received = data.get('raw_text', '')
 

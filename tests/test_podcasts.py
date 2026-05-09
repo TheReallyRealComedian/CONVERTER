@@ -58,6 +58,44 @@ def test_generate_gemini_podcast_503_without_api_key(authenticated_client):
     assert resp.status_code == 503
 
 
+def test_generate_gemini_podcast_503_de_microcopy(authenticated_client):
+    """F-011: the shared ``require_service('gemini')`` decorator returns
+    a DE-microcopy JSON body when GEMINI_API_KEY is unset."""
+    import app as app_module
+    original = app_module.GEMINI_API_KEY
+    app_module.GEMINI_API_KEY = None
+    try:
+        resp = authenticated_client.post(
+            '/generate-gemini-podcast',
+            json={'dialogue': []},
+        )
+    finally:
+        app_module.GEMINI_API_KEY = original
+    assert resp.status_code == 503
+    body = resp.get_json()
+    assert 'Gemini-API-Key' in body['error']
+    assert 'nicht konfiguriert' in body['error']
+
+
+def test_generate_podcast_503_when_google_tts_not_configured(authenticated_client):
+    """F-011: ``require_service('google_tts')`` returns 503 + DE-JSON when
+    ``google_tts_service`` is None (no Google credentials)."""
+    import app as app_module
+    original = app_module.google_tts_service
+    app_module.google_tts_service = None
+    try:
+        resp = authenticated_client.post(
+            '/generate-podcast',
+            json={'text': 'hello world'},
+        )
+    finally:
+        app_module.google_tts_service = original
+    assert resp.status_code == 503
+    body = resp.get_json()
+    assert 'Google Cloud TTS' in body['error']
+    assert 'nicht konfiguriert' in body['error']
+
+
 def test_podcast_status_queued_reports_processing(
     authenticated_client, mock_redis_queue, test_user
 ):

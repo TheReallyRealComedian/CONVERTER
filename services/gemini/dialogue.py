@@ -82,7 +82,6 @@ def filter_metadata_lines(dialogue_lines):
         if not is_metadata:
             filtered.append(line)
 
-    logger.info(f"Filtered {len(dialogue_lines) - len(filtered)} metadata lines")
     return filtered
 
 

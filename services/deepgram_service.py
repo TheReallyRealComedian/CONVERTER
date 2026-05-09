@@ -8,6 +8,8 @@ from typing import Optional
 import requests as http_requests
 from deepgram import DeepgramClient
 
+from app_pkg.config import TIMEOUT_DEEPGRAM_SECONDS
+
 from .audio_chunker import AudioChunker, TranscriptMerger, AudioChunk
 
 logger = logging.getLogger(__name__)
@@ -152,7 +154,7 @@ class DeepgramService:
                 numerals=True,
                 paragraphs=True,
                 keyterm=keyterms,
-                request_options={"timeout_in_seconds": 600},
+                request_options={"timeout_in_seconds": TIMEOUT_DEEPGRAM_SECONDS},
             )
 
             # Extract transcript

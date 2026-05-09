@@ -99,7 +99,9 @@ def register(app):
     @login_required
     def api_send_to_notion(conversion_id):
         get_owned_conversion(conversion_id)
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
         target = data.get('target')
         if target not in ('meetings', 'notes', 'inbox'):
             return jsonify({'error': 'Invalid target'}), 400
@@ -118,5 +120,5 @@ def register(app):
                 return jsonify({'error': result.get('error', result.get('detail', 'Notion API error'))}), resp.status_code
             return jsonify(result), resp.status_code
         except http_requests.RequestException as e:
-            app.logger.error(f"Failed to reach Notion server: {e}")
+            app.logger.error(f"Failed to reach Notion server: {e}", exc_info=True)
             return jsonify({'error': 'Failed to reach Notion server.'}), 502

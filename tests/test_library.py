@@ -82,6 +82,20 @@ def test_api_create_conversion_rejects_missing_content(authenticated_client):
     assert resp.status_code == 400
 
 
+def test_api_create_conversion_rejects_non_dict_body(authenticated_client):
+    """F-017: a JSON list / scalar body used to crash the route on
+    ``data.get(...)`` with an AttributeError surfacing as 500. The shared
+    inline guard now returns 400 + DE-microcopy instead.
+    """
+    resp = authenticated_client.post(
+        '/api/conversions',
+        json=['not', 'a', 'dict'],
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'JSON-Objekt' in body['error']
+
+
 def test_api_update_conversion_changes_title(app, authenticated_client, test_user):
     cid = _make_conversion(app, test_user['id'], title='Original')
     resp = authenticated_client.put(

@@ -10,6 +10,8 @@ import logging
 
 from google import genai
 
+from app_pkg.config import TIMEOUT_GEMINI_SECONDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,9 +19,9 @@ def create_client(api_key):
     """Build a ``google.genai.Client`` with an extended HTTP timeout.
 
     Mirrors the legacy ``GeminiService.__init__`` behaviour: bumps the
-    underlying httpx client timeout to 300s when the SDK exposes it. The
-    extra timeout is required because podcast TTS generations regularly
-    exceed the SDK's default.
+    underlying httpx client timeout to ``TIMEOUT_GEMINI_SECONDS`` when the
+    SDK exposes it. The extra timeout is required because podcast TTS
+    generations regularly exceed the SDK's default.
     """
     if not api_key:
         raise ValueError("GEMINI_API_KEY is required")
@@ -28,8 +30,8 @@ def create_client(api_key):
     if hasattr(client, '_api_client'):
         if hasattr(client._api_client, '_httpx_client'):
             import httpx
-            client._api_client._httpx_client.timeout = httpx.Timeout(timeout=300.0)
-            logger.info("✅ Timeout auf 300 Sekunden erhöht")
+            client._api_client._httpx_client.timeout = httpx.Timeout(timeout=float(TIMEOUT_GEMINI_SECONDS))
+            logger.info(f"✅ Timeout auf {TIMEOUT_GEMINI_SECONDS} Sekunden erhöht")
     return client
 
 

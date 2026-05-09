@@ -1,24 +1,24 @@
 # STATUS
 
 **Stand**: 2026-05-09
-**Live**: `localhost:5656` im Docker-Stack auf Mintbox + `converter.smallpieces.de`. Pytest 43/43 grün.
+**Live**: `localhost:5656` im Docker-Stack auf Mintbox + `converter.smallpieces.de`. Pytest 48/48 grün.
 
 ## Aktueller Sprint
-_Keiner aktiv. SEC ☑ done 2026-05-09 → commit `6a18086`. Master entwirft als nächstes `HYG`._
+_Keiner aktiv. HYG ☑ done 2026-05-09. Stage-4-Findings-Block damit durch (F-014 wontfix). Verbleibende Sequenz: CVE-LOW → CVE-PDF → CVE-RQ → CVE-DG → F3-* → WAVE-CLOSE._
 
 ## Sequenz-Plan
 Wir arbeiten den **Cleanup-Abschluss** als sequenzielle Sprint-Roadmap ab (Reihenfolge in [BACKLOG.md](BACKLOG.md)):
 
 ```
-[1] HYG      →
-[2] CVE-LOW  →   [3] CVE-PDF  →   [4] CVE-RQ  →   [5] CVE-DG   →
-[6] F3-PICK  →   [7] F3-REVIEW →  [8] F3-PATTERNS  →  [9] F3-IMPL-* →
-[10] F-N…    →   [11] WAVE-CLOSE
+[1] CVE-LOW  →   [2] CVE-PDF  →   [3] CVE-RQ  →   [4] CVE-DG   →
+[5] F3-PICK  →   [6] F3-REVIEW →  [7] F3-PATTERNS  →  [8] F3-IMPL-* →
+[9] F-N…     →   [10] WAVE-CLOSE
 ```
 
 Sprints werden jeweils als Sprint-Prompt-Doc unter [docs/archive/sprint-prompts/](docs/archive/sprint-prompts/) angelegt, dann als frische Sub-Session ausgeführt. Master macht keine Code-Edits.
 
 ## Zuletzt durch
+- **HYG** (F-002 Pygments narrow-except, F-007 secure_filename(None) guard, F-008 5 Logging-Sites mit exc_info, F-011 `require_service`-Decorator + DE-Microcopy für 3 Services × 6 Endpoints, F-012 dead `if not file:` raus, F-015 Timeout-Konstanten in `app_pkg/config.py` zentralisiert, F-016 Doppel-Log raus, F-017 `isinstance(data, dict)`-Inline-Check an 6 Stellen; +5 Tests, 48/48 grün) — 2026-05-09.
 - **SEC** (F-005 Path-Traversal `Path.is_relative_to`, F-006 markdown Backend-Whitelist, F-013 Input-Allowlists für Deepgram/Google-TTS/Gemini; +5 Tests, 43/43 grün) — 2026-05-09, commit `6a18086`.
 - **F-2 Cluster II** (audio_converter Sev 2+1 Patterns P13–P21, F-2 strukturell abgeschlossen) — 2026-05-09.
 - **Working-Practice-Bootstrap** (CLAUDE.md slim, STATUS.md, BACKLOG.md als Roadmap, Sprint-Prompt-Template) — 2026-05-09.

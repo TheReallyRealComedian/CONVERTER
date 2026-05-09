@@ -5,6 +5,8 @@ from flask import jsonify, render_template, request
 from flask_login import login_required
 from werkzeug.utils import secure_filename
 
+from app_pkg.decorators import require_service
+
 
 # Single source of truth for what /transcribe-audio-file accepts. The template
 # reads this via the route context for the file-input ``accept`` attribute and
@@ -38,24 +40,19 @@ def register(app):
 
     @app.route('/api/get-deepgram-token', methods=['GET'])
     @login_required
+    @require_service('deepgram')
     def get_deepgram_token():
-        if not _app_module.deepgram_service:
-            app.logger.error("Deepgram service not configured")
-            return jsonify({"error": "Audio transcription service is not configured."}), 503
-
         try:
             temp_key = _app_module.deepgram_service.create_temporary_key(ttl_seconds=60)
             return jsonify({"deepgram_token": temp_key})
         except Exception as e:
-            app.logger.error(f"Failed to create temporary Deepgram key: {e}")
+            app.logger.error(f"Failed to create temporary Deepgram key: {e}", exc_info=True)
             return jsonify({"error": "Failed to create transcription token."}), 500
 
     @app.route('/transcribe-audio-file', methods=['POST'])
     @login_required
+    @require_service('deepgram')
     def transcribe_audio_file():
-        if not _app_module.deepgram_service:
-            return jsonify({"error": "Audio transcription service is not configured."}), 503
-
         if 'audio_file' not in request.files:
             return jsonify({"error": "No audio file part in the request."}), 400
 

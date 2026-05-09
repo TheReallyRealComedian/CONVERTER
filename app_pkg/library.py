@@ -81,8 +81,10 @@ def register(app):
     @app.route('/api/conversions', methods=['POST'])
     @login_required
     def api_create_conversion():
-        data = request.get_json()
-        if not data or not data.get('content'):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        if not data.get('content'):
             return jsonify({'error': 'Content is required'}), 400
 
         conversion_type = data.get('conversion_type', 'unknown')
@@ -110,7 +112,9 @@ def register(app):
     @login_required
     def api_update_conversion(conversion_id):
         conversion = get_owned_conversion(conversion_id)
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
         if 'title' in data:
             conversion.title = str(data['title'])[:255]

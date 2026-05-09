@@ -107,3 +107,23 @@ def test_transcribe_audio_503_when_service_not_configured(authenticated_client):
     finally:
         app_module.deepgram_service = original
     assert resp.status_code == 503
+
+
+def test_audio_transcribe_returns_503_when_deepgram_not_configured(authenticated_client):
+    """F-011: the shared ``require_service('deepgram')`` decorator returns
+    a DE-microcopy JSON body when the singleton is None."""
+    import app as app_module
+    original = app_module.deepgram_service
+    app_module.deepgram_service = None
+    try:
+        resp = authenticated_client.post(
+            '/transcribe-audio-file',
+            data={'language': 'en'},
+            content_type='multipart/form-data',
+        )
+    finally:
+        app_module.deepgram_service = original
+    assert resp.status_code == 503
+    body = resp.get_json()
+    assert 'Audio-Transkriptions-Service' in body['error']
+    assert 'nicht konfiguriert' in body['error']

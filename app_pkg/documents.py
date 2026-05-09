@@ -40,9 +40,6 @@ def register(app):
         if file.filename == '':
             return jsonify({'error': 'No file selected.'}), 400
 
-        if not file:
-            return jsonify({'error': 'No file provided.'}), 400
-
         original_filename = secure_filename(file.filename)
         ext = os.path.splitext(original_filename)[1].lstrip('.').lower()
         if ext not in ACCEPTED_EXTENSIONS:

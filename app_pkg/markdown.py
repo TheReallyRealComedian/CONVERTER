@@ -12,6 +12,7 @@ from markdown_it import MarkdownIt
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
+from pygments.util import ClassNotFound
 from werkzeug.utils import secure_filename
 
 
@@ -27,7 +28,7 @@ ACCEPTED_EXTENSIONS = ('md', 'markdown')
 def highlight_code(code, lang, _):
     try:
         lexer = get_lexer_by_name(lang, stripall=True)
-    except Exception:
+    except ClassNotFound:
         lexer = get_lexer_by_name('text', stripall=True)
     formatter = HtmlFormatter(style='default', cssclass='highlight', noclasses=True)
     return highlight(code, lexer, formatter)
@@ -136,7 +137,7 @@ def register(app):
             flash('Error: No Markdown content provided. Please paste text or upload a file.', 'danger')
             return redirect(url_for('markdown_converter'))
 
-        output_filename = request.form.get('output_filename')
+        output_filename = request.form.get('output_filename') or ''
         safe_filename = secure_filename(output_filename)
         if not safe_filename:
             flash('Error: Invalid filename provided.', 'danger')
@@ -240,7 +241,7 @@ def register(app):
             )
 
         except Exception as e:
-            app.logger.error(f"PDF generation failed: {e}")
+            app.logger.error(f"PDF generation failed: {e}", exc_info=True)
             flash('Error: Could not generate PDF. Please try again.', 'danger')
             return render_template('markdown_converter.html', markdown_text=markdown_text)
         finally:
@@ -248,4 +249,4 @@ def register(app):
                 try:
                     os.unlink(temp_pdf_path)
                 except Exception as e:
-                    app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}")
+                    app.logger.error(f"Error cleaning up temp file {temp_pdf_path}: {e}", exc_info=True)
