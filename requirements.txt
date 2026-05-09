@@ -6,7 +6,7 @@ playwright==1.44.0
 gunicorn==22.0.0  # WSGI/ASGI server (Dockerfile CMD); not imported
 uvicorn==0.30.1  # provides uvicorn.workers.UvicornWorker for gunicorn (Dockerfile CMD); not imported
 asgiref==3.8.1
-unstructured[all-docs]==0.14.5
+unstructured[all-docs]==0.18.32
 pdfminer.six==20221105
 PyMuPDF==1.24.1
 deepgram-sdk==5.1.0
