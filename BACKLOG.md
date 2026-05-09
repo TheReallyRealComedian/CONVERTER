@@ -8,23 +8,20 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ## In Sequenz — UX-Cascade-Fortsetzung
 
-### 1. `F3-REVIEW` — F-3 Heuristik-Review (`library_detail`) · P2 · S
-Stufe 2: Findings-Tabelle Sev 1–4 nach Nielsen H1/H4/H6/H9. Eingabe: [docs/ui_inventory_library_detail_2026-05.md](docs/ui_inventory_library_detail_2026-05.md) (18 Befunde, davon 6 Bug-Ticket-Kandidaten + 11 Finding-only + 1 Pre-Existing). Erwartung: ~30–50% Cross-Feature-H4 (Helper-Reuse aus F-1/F-2). Master macht ggf. Live-Walkthrough-Nachreichung für die 10 Code-deduced-Punkte aus der Inventur-Doc — Schwerpunkt Befund 1 (Sidebar-Active-State auf Detail-Seite, vermutet fehlend).
+### 1. `F3-PATTERNS` — F-3 Patterns + Microcopy (`library_detail`) · P2 · S
+Stufe 3: Pattern-Blöcke + DE-Microcopy + Top-N Quick-Wins per Impact-Score. Eingabe: [docs/ui_findings_library_detail_2026-05.md](docs/ui_findings_library_detail_2026-05.md) (17 Findings, davon 8 Sev 3 + 4 Sev 2 + 5 Sev 1; 8 Bug-Tickets BT1–BT8; drei Schwerpunkt-Cluster vorgeschlagen). Cluster-Vorschlag für Implementation am Ende. **Vor Sprintstart Master-Walkthrough-Entscheidung:** Findings-Doc empfiehlt 15–30 Min Walkthrough für die 9 ⚠️ code-only-Findings (Schwerpunkt F6/F11 Re-Toggle/Target-Switch-Wipe, F8 UTC-Datum, F14 Sidebar-Active-Endpoint-Match) plus 5-Min DevTools-Throttle-Verifikation der Silent-Failure-Familie. Wenn Master-Bandwidth knapp ist: F-3.3 kann ohne starten, dann müssen Pattern-Vorschläge das code-only-Risiko für Cluster 1+2 als Implementierungs-Smoke-Pflicht durchreichen.
 
-### 2. `F3-PATTERNS` — F-3 Patterns + Microcopy · P2 · S
-Stufe 3: Pattern-Blöcke + DE-Microcopy + Top-N Quick-Wins per Impact-Score. Cluster-Vorschlag für Implementation am Ende.
-
-### 3. `F3-IMPL-*` — F-3 Implementation-Cluster · P2 · M-L
+### 2. `F3-IMPL-*` — F-3 Implementation-Cluster · P2 · M-L
 1 bis N Sprints je nach Pattern-Menge (F-1 hatte 6 Cluster, F-2 Cluster I bündelte 12). Code-Sprint-Erfahrung: bei stark verkoppelten Patterns + ~40% Cross-Feature-H4 ist Holistic-Rewrite effizienter als sequentielle Edits.
 
-### 4. `F-N…` — Folge-Wellen für Restfeatures · P2 · je L
+### 3. `F-N…` — Folge-Wellen für Restfeatures · P2 · je L
 Pro Restfeature wieder die 3 Methodik-Stufen + Implementation-Cluster. Verbleibende Kandidaten: `markdown_converter`, `library` (List-View), `mermaid_converter`, `login`, podcast-flow. Reihenfolge wird am Ende von F-3 entschieden.
 
 ---
 
 ## In Sequenz — Wave-Close
 
-### 5. `WAVE-CLOSE` — Strukturelles Closing · P3 · XS
+### 4. `WAVE-CLOSE` — Strukturelles Closing · P3 · XS
 - `docs/cleanup_plan.md` Header auf "fully closed" updaten (alle Findings + Outstanding work durch).
 - `OVERSEER_HANDOFF.md` archivieren oder löschen (durch CLAUDE.md/STATUS.md/BACKLOG.md ersetzt).
 - Ggf. UX-Cascade-Doku-Convention dokumentieren (für künftige Wellen).
@@ -42,6 +39,7 @@ Pro Restfeature wieder die 3 Methodik-Stufen + Implementation-Cluster. Verbleibe
 
 ## Erledigt (rolling, älteste fallen raus)
 
+- ☑ F3-REVIEW (Heuristik-Review `library_detail`, Stufe 2 der Duan-Kaskade — analog F-1.2 / F-2.2; 17 Findings mit Sev-Verteilung 0/8/4/5 plus 8 Bug-Tickets BT1–BT8 (6 finding-linked, 2 pure: BT7 textarea-escape und BT8 window.open-noopener); Cross-Feature-H4-Quote 35% — strukturell niedriger als F-2.2's 41%, weil library_detail keine Drop-Zone / keine `.saved`-Klasse / keine Backend-Whitelist hat; drei Schwerpunkt-Cluster Silent-Failure-Familie (F1/F2/F4/F5 Auto-Save+Delete) + Notion-Side-State-Wipe-und-UTC (F6/F11/F8) + Cross-Feature-Helper-Drift (F7/F9/F12/F15); 9 Findings mit ⚠️ code-only-Marker, weil zwischen F3-PICK und F3-REVIEW kein Live-Walkthrough nachgereicht — Master-Walkthrough vor F3-PATTERNS empfohlen für F6/F11/F8/F14, plus 5-Min DevTools-Network-Throttle-Verifikation der Silent-Failure-Familie; zwei F-3.1-Pre-Dispositionen abgewichen (Bem 9 textarea-escape und Bem 14 window.open-noopener fielen zu Bug-only, weil keine UX-H-Komponente); Output [docs/ui_findings_library_detail_2026-05.md](docs/ui_findings_library_detail_2026-05.md)) — 2026-05-09, commit `82f6fd8`
 - ☑ F3-PICK (UX-Inventur `library_detail`, Stufe 1 der Duan-Kaskade — analog F-1.1 / F-2.1; 21 interaktive Elemente in 32 Tabellenzeilen kartiert, ~12 fehlende States identifiziert, ~7 vermutete Code↔live-Divergenzen, 18 separate Befunde mit Code-Ankern; Disposition vorläufig: 6 Bug-Ticket-Kandidaten + 11 Finding-only + 1 Pre-Existing-Erwähnung; Sub-Thread ohne Browser-Access → 10 Live-Walkthrough-Lücken zur Master-Nachreichung gelistet, Schwerpunkt Befund 1 Sidebar-Active-State auf Detail-Seite; Output [docs/ui_inventory_library_detail_2026-05.md](docs/ui_inventory_library_detail_2026-05.md)) — 2026-05-09, commit `e9cfd1a`
 - ☑ CVE-DG (deepgram-sdk 5.1.0 → 7.1.0 — drei Majors über 6.0/7.0/7.1, **kein Service-Refactor nötig** weil `client.listen.v1.media.transcribe_file` mit allen 8 verwendeten Kwargs surface-stable ist; die 6.0/7.0-Major-Breakages liegen WebSocket-seitig (regenerated WS-Clients, `send_media`-bytes, `deepgram.listen.v1.types`-Reorg), das nutzt CONVERTER nicht; `create_temporary_key` returnt nur `self.api_key` ohne SDK-Call; Pre-Flight: `requires_python<4.0,>=3.10` ✓, keine Hard-Pin-Konflikte mit installierten Packages; pytest 48/48 grün im Container, Container-SDK-Smoke clean (echte `client.listen.v1.media`-Surface, kein MagicMock-Pseudo-Pass), Live-Roundtrip 25.9s real-speech → 334 Char + Chunking-Pfad 34.6min concat → 2 Chunks à HTTP 200 → 26621 Char Final-Transcript, beide Container-Logs clean; Live-Tab-Browser-WS-Pfad nicht durchgeführt mangels Browser-Access — `create_temporary_key` ist tested-trivial) — 2026-05-09, commit `74589e3`
 - ☑ CVE-RQ (redis-py 5.0.1 → 7.4.0 — redis 6.x übersprungen wegen rq-2.x-Constraint `redis!=6,>=3.5`; rq 1.16.0 → 2.8.0 mit atomic worker.py-Refactor wegen `Connection`-Removal in rq 2.0; während Live-Smoke API-Drift entdeckt: `Job.get_id()` in rq 2.x entfernt → 2-Zeilen-Patch in `app_pkg/podcasts.py` plus 1-Zeile-Sync in `tests/conftest.py` weil MagicMock-Auto-Attribute den Drift in der Test-Suite versteckt hatten; pytest 48/48 grün; Live-Smoke clean inkl. F-001 narrow → 404 und F-001 broad → 500; Größe mid-sprint von L auf XL hochgestuft) — 2026-05-09, commits `513844e` / `3cfebbe`
