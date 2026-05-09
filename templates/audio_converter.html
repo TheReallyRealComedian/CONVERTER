@@ -54,7 +54,10 @@
                 </button>
                 <div class="flex-1">
                     <textarea id="live-transcript-output" rows="8" placeholder="Live-Transkription erscheint hier …"
-                        class="c-input w-full"></textarea>
+                        class="c-input w-full"
+                        aria-label="Live-Transkription, fortlaufend aktualisiert"
+                        aria-live="polite"
+                        aria-busy="false"></textarea>
                     <p id="live-recording-hint" class="hidden mt-1 text-xs text-neo-faint italic">Live-Update läuft — Stop drücken, um zu bearbeiten</p>
                     <div class="flex gap-2 mt-2">
                         <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-live-btn">
@@ -90,7 +93,7 @@
                         <span class="c-drop-zone__overlay" aria-hidden="true">Loslassen, um hochzuladen</span>
                         <span class="c-drop-zone__warning-hint" aria-hidden="true">Dateityp nicht unterstützt</span>
                     </label>
-                    <input type="file" id="file-upload-input" name="audio_file" accept="audio/*" required class="hidden" title="Audio-Datei auswählen">
+                    <input type="file" id="file-upload-input" name="audio_file" accept="{{ accepted_audio_extensions_accept }}" required class="hidden" title="Audio-Datei auswählen">
                 </div>
                 <button type="submit" class="c-btn c-btn--primary w-full text-center mb-4" id="transcribe-file-btn" {% if not deepgram_api_key_set %}disabled{% endif %}>
                     Datei umwandeln
@@ -204,10 +207,14 @@
 
                 <!-- Advanced: Custom Prompt Editor -->
                 <div class="c-surface--flat">
-                    <div class="px-3 py-2.5 neo-separator-bottom cursor-pointer flex justify-between items-center text-sm font-medium text-neo-muted hover:text-neo-text transition-colors" id="prompt-editor-toggle">
+                    <button type="button"
+                        class="prompt-editor-toggle w-full px-3 py-2.5 neo-separator-bottom flex justify-between items-center text-sm font-medium text-neo-muted hover:text-neo-text transition-colors"
+                        id="prompt-editor-toggle"
+                        aria-expanded="false"
+                        aria-controls="prompt-editor-content">
                         <span>Erweitert: Eigener Prompt</span>
-                        <span id="prompt-toggle-icon" class="text-xs">&#9660;</span>
-                    </div>
+                        <span id="prompt-toggle-icon" class="text-xs" aria-hidden="true">&#9660;</span>
+                    </button>
                     <div class="prompt-editor-content p-3" id="prompt-editor-content">
                         <p class="text-xs text-neo-faint mb-2">
                             Passe die KI-Anweisung für die Skript-Generierung an. Leer lassen, um den Standard-Prompt zu verwenden.
@@ -221,6 +228,9 @@
                 <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center" id="generate-podcast-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
                     Podcast generieren
                 </button>
+                <button type="button" class="c-btn c-btn--danger w-full mt-4 text-center hidden" id="cancel-podcast-btn">
+                    Abbrechen
+                </button>
             </div>
 
             <!-- Result Container -->
@@ -230,6 +240,7 @@
                     <source id="podcast-audio-source" type="audio/wav">
                     Dein Browser unterstützt das Audio-Element nicht.
                 </audio>
+                <div id="podcast-audio-error" class="hidden mb-3"></div>
                 <div class="flex gap-2">
                     <a id="download-podcast-btn" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -247,7 +258,9 @@
 <script>
     window.PageData = {
         deepgramApiKeySet: {{ 'true' if deepgram_api_key_set else 'false' }},
-        geminiApiKeySet: {{ 'true' if gemini_api_key_set else 'false' }}
+        geminiApiKeySet: {{ 'true' if gemini_api_key_set else 'false' }},
+        acceptedAudioExtensions: {{ accepted_audio_extensions|tojson }},
+        maxAudioFileSizeMb: {{ max_audio_file_size_mb }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/audio_converter.js') }}"></script>

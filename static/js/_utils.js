@@ -116,9 +116,25 @@
         return toast;
     }
 
+    /* Native confirm() prompt that only fires when ``text`` exceeds a length
+       threshold (default 200 chars). Below the threshold, returns true so the
+       caller can just clear without bothering the user. Used for destructive
+       actions where the cost of accidental loss only matters past some length
+       (e.g. "Leeren" buttons on transcripts and prompt editors). */
+    function confirmIfLong(text, message, options) {
+        const opts = options || {};
+        const threshold = Object.prototype.hasOwnProperty.call(opts, 'threshold')
+            ? opts.threshold
+            : 200;
+        const value = (text == null) ? '' : String(text);
+        if (value.length <= threshold) return true;
+        return window.confirm(message);
+    }
+
     window.safeJSON = safeJSON;
     window.fallbackCopyText = fallbackCopyText;
     window.showAlert = showAlert;
     window.showToast = showToast;
     window.formatFileSize = formatFileSize;
+    window.confirmIfLong = confirmIfLong;
 })();

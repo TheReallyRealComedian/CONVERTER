@@ -56,6 +56,24 @@ def test_transcribe_audio_missing_file_returns_400(authenticated_client, mock_de
     assert resp.get_json()['error'].lower().startswith('no audio file')
 
 
+def test_transcribe_audio_unsupported_extension_returns_400(authenticated_client, mock_deepgram):
+    """Files with an extension outside ACCEPTED_AUDIO_EXTENSIONS get rejected
+    before reaching the Deepgram pipeline (Cluster II / Pattern 13 backstop)."""
+    resp = authenticated_client.post(
+        '/transcribe-audio-file',
+        data={
+            'audio_file': (BytesIO(b'irrelevant bytes'), 'evil.xyz'),
+            'language': 'en',
+        },
+        content_type='multipart/form-data',
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'nicht unterstützt' in body['error']
+    assert 'MP3, WAV, M4A, OGG, FLAC, WEBM' in body['error']
+    mock_deepgram.transcribe_file.assert_not_called()
+
+
 def test_transcribe_audio_503_when_service_not_configured(authenticated_client):
     """If ``deepgram_service`` is None (no API key), the route returns 503."""
     import app as app_module

@@ -1369,6 +1369,10 @@ html.theme-transitioning *::after {
     transform: none;
     box-shadow: var(--nm-raised-sm);
 }
+#mic-button:focus-visible {
+    box-shadow: var(--nm-raised-sm), 0 0 0 3px rgba(168, 180, 216, 0.55);
+    outline: none;
+}
 #mic-button.recording {
     color: #ffffff;
     background-color: rgba(225, 112, 85, 0.85);
@@ -1416,11 +1420,30 @@ html.theme-transitioning *::after {
     cursor: default;
 }
 
-.mode-radio-input { display: none; }
+/* Mode-radio inputs are visually hidden but kept in the tab-order so keyboard
+   users can focus them; the :checked / :focus-visible state on the input flows
+   into the adjacent label via sibling selectors (P15). */
+.mode-radio-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .mode-radio-input:checked + .mode-radio-label {
     background: var(--nm-tint-accent);
     color: var(--nm-accent-hover);
-    box-shadow: var(--nm-pressed-sm);
+    box-shadow: var(--nm-pressed-sm), inset 4px 0 0 var(--nm-accent-hover);
+}
+.mode-radio-input:focus-visible + .mode-radio-label {
+    box-shadow: var(--nm-raised-sm), 0 0 0 3px rgba(168, 180, 216, 0.55);
+}
+.mode-radio-input:checked:focus-visible + .mode-radio-label {
+    box-shadow: var(--nm-pressed-sm), inset 4px 0 0 var(--nm-accent-hover), 0 0 0 3px rgba(168, 180, 216, 0.55);
 }
 .mode-radio-label {
     box-shadow: var(--nm-raised-sm);
@@ -1432,3 +1455,16 @@ html.theme-transitioning *::after {
 }
 .prompt-editor-content { display: none; }
 .prompt-editor-content.expanded { display: block; }
+
+/* Custom-prompt toggle as real <button> (P16): strip default button chrome
+   and keep the original block-look, but with proper :focus-visible. */
+.prompt-editor-toggle {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+}
+.prompt-editor-toggle:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px rgba(168, 180, 216, 0.55);
+}

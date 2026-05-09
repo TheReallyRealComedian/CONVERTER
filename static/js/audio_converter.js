@@ -4,6 +4,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const PageData = window.PageData || {};
     const deepgramAvailable = !!PageData.deepgramApiKeySet;
     const geminiAvailable = !!PageData.geminiApiKeySet;
+    const acceptedAudioExtensions = PageData.acceptedAudioExtensions || [];
+    const maxAudioFileSizeMb = Number(PageData.maxAudioFileSizeMb) || 500;
+    const acceptedAudioExtensionsLabel = 'MP3, WAV, M4A, OGG, FLAC, WEBM';
+
+    function getFileExtension(filename) {
+        const m = /\.([^.\\/]+)$/.exec(filename || '');
+        return m ? m[1].toLowerCase() : '';
+    }
+
+    function isAcceptedAudioFilename(filename) {
+        if (!acceptedAudioExtensions.length) return true;
+        return acceptedAudioExtensions.includes(getFileExtension(filename));
+    }
 
     // ==========================================================
     // ===== ALERT CONTAINERS (P4) =====
@@ -134,12 +147,14 @@ document.addEventListener('DOMContentLoaded', function() {
             transcriptOutput.placeholder = liveRecordingPlaceholder;
             transcriptOutput.title = 'Während der Aufnahme schreibgeschützt';
             transcriptOutput.classList.add('is-readonly');
+            transcriptOutput.setAttribute('aria-busy', 'true');
             if (liveRecordingHint) liveRecordingHint.classList.remove('hidden');
         } else {
             transcriptOutput.readOnly = false;
             transcriptOutput.placeholder = livePlaceholder;
             transcriptOutput.removeAttribute('title');
             transcriptOutput.classList.remove('is-readonly');
+            transcriptOutput.setAttribute('aria-busy', 'false');
             if (liveRecordingHint) liveRecordingHint.classList.add('hidden');
         }
     }
@@ -368,7 +383,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fileInput) {
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length > 0) {
-                fileUploadText.textContent = fileInput.files[0].name;
+                const f = fileInput.files[0];
+                fileUploadText.textContent = `${f.name} (${formatFileSize(f.size)})`;
                 clearFileInvalidState();
                 if (fileAlertContainer) fileAlertContainer.innerHTML = '';
             } else {
@@ -411,10 +427,19 @@ document.addEventListener('DOMContentLoaded', function() {
             clearFileWarningState();
             if (!e.dataTransfer.files.length) return;
             const file = e.dataTransfer.files[0];
+            if (!isAcceptedAudioFilename(file.name)) {
+                showAlert(fileAlertContainer, 'danger',
+                    'Dieses Dateiformat wird nicht unterstützt. Erlaubt: '
+                    + acceptedAudioExtensionsLabel + '.');
+                fileDropZone.classList.add('c-drop-zone--warning');
+                if (fileWarningTimer) clearTimeout(fileWarningTimer);
+                fileWarningTimer = setTimeout(() => clearFileWarningState(), 2000);
+                return;
+            }
             const dt = new DataTransfer();
             dt.items.add(file);
             fileInput.files = dt.files;
-            fileUploadText.textContent = file.name;
+            fileUploadText.textContent = `${file.name} (${formatFileSize(file.size)})`;
             clearFileInvalidState();
             if (fileAlertContainer) fileAlertContainer.innerHTML = '';
         });
@@ -432,6 +457,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(() => clearFileInvalidState(), 2000);
                     fileDropZone.focus();
                 }
+                return;
+            }
+
+            const selectedFile = fileInput.files[0];
+            if (!isAcceptedAudioFilename(selectedFile.name)) {
+                showAlert(fileAlertContainer, 'danger',
+                    'Dieses Dateiformat wird nicht unterstützt. Erlaubt: '
+                    + acceptedAudioExtensionsLabel + '.');
+                return;
+            }
+            if (selectedFile.size > maxAudioFileSizeMb * 1024 * 1024) {
+                showAlert(fileAlertContainer, 'danger',
+                    'Datei ist zu groß. Maximum: ' + maxAudioFileSizeMb + ' MB.');
                 return;
             }
 
@@ -501,6 +539,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (clearLiveBtn) {
         clearLiveBtn.addEventListener('click', () => {
+            if (!confirmIfLong(transcriptOutput.value,
+                'Live-Transkription wirklich leeren? Der Text geht verloren.')) {
+                return;
+            }
             transcriptOutput.value = '';
             baseText = '';
             const saveLiveBtn = document.getElementById('save-live-btn');
@@ -513,6 +555,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (clearFileBtn) {
         clearFileBtn.addEventListener('click', () => {
+            const placeholder = resultContainer && resultContainer.querySelector('[data-placeholder="true"]');
+            const currentText = placeholder ? '' : (resultContainer ? resultContainer.textContent : '');
+            if (!confirmIfLong(currentText,
+                'Transkriptions-Ergebnis wirklich leeren? Der Text geht verloren.')) {
+                return;
+            }
             resetFileResultArea();
             if (fileInput) fileInput.value = '';
             if (fileUploadText) fileUploadText.textContent = fileDefaultText;
@@ -576,10 +624,55 @@ document.addEventListener('DOMContentLoaded', function() {
     const podcastScript = document.getElementById('podcast-script');
     const generateScriptBtn = document.getElementById('generate-script-btn');
     const generatePodcastBtn = document.getElementById('generate-podcast-btn');
+    const cancelPodcastBtn = document.getElementById('cancel-podcast-btn');
     const podcastResultContainer = document.getElementById('podcast-result-container');
     const podcastAudio = document.getElementById('podcast-audio');
     const podcastAudioSource = document.getElementById('podcast-audio-source');
     const downloadPodcastBtn = document.getElementById('download-podcast-btn');
+    let podcastCancelRequested = false;
+
+    function setPodcastGenerating(isGenerating) {
+        if (isGenerating) {
+            if (generatePodcastBtn) generatePodcastBtn.classList.add('hidden');
+            if (cancelPodcastBtn) cancelPodcastBtn.classList.remove('hidden');
+        } else {
+            if (cancelPodcastBtn) cancelPodcastBtn.classList.add('hidden');
+            if (generatePodcastBtn) {
+                generatePodcastBtn.classList.remove('hidden');
+                generatePodcastBtn.disabled = !geminiAvailable;
+                generatePodcastBtn.textContent = 'Podcast generieren';
+            }
+        }
+    }
+
+    if (cancelPodcastBtn) {
+        cancelPodcastBtn.addEventListener('click', () => {
+            podcastCancelRequested = true;
+        });
+    }
+
+    if (downloadPodcastBtn) {
+        downloadPodcastBtn.addEventListener('click', () => {
+            if (!downloadPodcastBtn.getAttribute('href')) return;
+            showToast('✓ Podcast heruntergeladen');
+        });
+    }
+
+    const podcastAudioError = document.getElementById('podcast-audio-error');
+    if (podcastAudio) {
+        podcastAudio.addEventListener('error', () => {
+            if (!podcastAudioError) return;
+            showAlert(podcastAudioError, 'info',
+                'Audio nicht mehr verfügbar — bitte erneut generieren.',
+                { closable: false, autoDismissMs: null });
+            podcastAudioError.classList.remove('hidden');
+        });
+        podcastAudio.addEventListener('loadeddata', () => {
+            if (!podcastAudioError) return;
+            podcastAudioError.innerHTML = '';
+            podcastAudioError.classList.add('hidden');
+        });
+    }
 
     const promptEditorToggle = document.getElementById('prompt-editor-toggle');
     const promptEditorContent = document.getElementById('prompt-editor-content');
@@ -593,15 +686,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isExpanded) {
                 promptEditorContent.classList.remove('expanded');
                 promptToggleIcon.innerHTML = '&#9660;';
+                promptEditorToggle.setAttribute('aria-expanded', 'false');
             } else {
                 promptEditorContent.classList.add('expanded');
                 promptToggleIcon.innerHTML = '&#9650;';
+                promptEditorToggle.setAttribute('aria-expanded', 'true');
             }
         });
     }
 
     if (resetPromptBtn) {
         resetPromptBtn.addEventListener('click', function() {
+            if (!confirmIfLong(customPromptEditor.value,
+                'Eigenen Prompt wirklich auf Standard zurücksetzen? Dein Text geht verloren.')) {
+                return;
+            }
             customPromptEditor.value = '';
         });
     }
@@ -712,8 +811,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            generatePodcastBtn.disabled = true;
-            generatePodcastBtn.textContent = 'Generiert …';
+            podcastCancelRequested = false;
+            setPodcastGenerating(true);
             podcastResultContainer.classList.add('hidden');
 
             try {
@@ -734,14 +833,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 const { job_id } = await safeJSON(startResponse);
-                generatePodcastBtn.textContent = 'Generiert …';
 
                 let status = 'pending';
                 let pollCount = 0;
                 while (status === 'pending' || status === 'processing') {
                     await new Promise(resolve => setTimeout(resolve, 2000));
+                    if (podcastCancelRequested) break;
                     pollCount++;
-                    generatePodcastBtn.textContent = `Generiert … (${pollCount * 2} s)`;
+                    if (cancelPodcastBtn) cancelPodcastBtn.textContent = `Abbrechen (${pollCount * 2} s)`;
 
                     const statusResponse = await fetch(`/podcast-status/${job_id}`);
                     const statusData = await safeJSON(statusResponse);
@@ -750,6 +849,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (status === 'failed') {
                         throw new Error(statusData.error || 'Generierung fehlgeschlagen');
                     }
+                }
+
+                if (podcastCancelRequested) {
+                    showAlert(podcastAlertContainer, 'warning',
+                        'Generierung abgebrochen. Backend-Job läuft im Hintergrund weiter.');
+                    return;
                 }
 
                 const downloadResponse = await fetch(`/podcast-download/${job_id}`);
@@ -773,8 +878,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 showAlert(podcastAlertContainer, 'danger',
                     'Podcast-Generierung fehlgeschlagen. Bitte erneut versuchen.');
             } finally {
-                generatePodcastBtn.disabled = !geminiAvailable;
-                generatePodcastBtn.textContent = 'Podcast generieren';
+                setPodcastGenerating(false);
+                if (cancelPodcastBtn) cancelPodcastBtn.textContent = 'Abbrechen';
             }
         });
     }

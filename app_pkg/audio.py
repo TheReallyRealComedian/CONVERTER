@@ -1,6 +1,16 @@
 """Audio transcription routes (Deepgram-backed)."""
+import os
+
 from flask import jsonify, render_template, request
 from flask_login import login_required
+from werkzeug.utils import secure_filename
+
+
+# Single source of truth for what /transcribe-audio-file accepts. The template
+# reads this via the route context for the file-input ``accept`` attribute and
+# for ``window.PageData.acceptedAudioExtensions`` (frontend pre-submit check).
+ACCEPTED_AUDIO_EXTENSIONS = ('mp3', 'wav', 'm4a', 'ogg', 'flac', 'webm')
+MAX_AUDIO_FILE_SIZE_MB = 500
 
 
 def register(app):
@@ -16,6 +26,9 @@ def register(app):
             'audio_converter.html',
             deepgram_api_key_set=bool(_app_module.DEEPGRAM_API_KEY),
             gemini_api_key_set=bool(_app_module.GEMINI_API_KEY),
+            accepted_audio_extensions=ACCEPTED_AUDIO_EXTENSIONS,
+            accepted_audio_extensions_accept=','.join('.' + ext for ext in ACCEPTED_AUDIO_EXTENSIONS),
+            max_audio_file_size_mb=MAX_AUDIO_FILE_SIZE_MB,
         )
 
     @app.route('/api/get-deepgram-token', methods=['GET'])
@@ -46,6 +59,14 @@ def register(app):
 
         if file.filename == '':
             return jsonify({"error": "No file selected."}), 400
+
+        original_filename = secure_filename(file.filename)
+        ext = os.path.splitext(original_filename)[1].lstrip('.').lower()
+        if ext not in ACCEPTED_AUDIO_EXTENSIONS:
+            return jsonify({
+                "error": "Dieses Dateiformat wird nicht unterstützt. "
+                         "Erlaubt: MP3, WAV, M4A, OGG, FLAC, WEBM."
+            }), 400
 
         try:
             buffer_data = file.read()
