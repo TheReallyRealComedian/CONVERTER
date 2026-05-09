@@ -151,12 +151,12 @@ Nach Phase 2: STOP — Bericht. Liste der gesmokten Pfade, eventuelle Auffällig
 
 ---
 
-## Phase 3 — Commit (lokal — KEIN Push)
+## Phase 3 — Commit + Push
 
 - Plain-prose Commit-Message, mehrere `-m`-Flags, keine Backticks, keine Unicode-Pfeile, keine HEREDOCs.
 - Default: ein Commit für `HYG` insgesamt. Wenn Sub-Batches gefahren wurden: separate Commits in derselben Branch (Bezug auf Findings-Codes in der Message).
 - Branch: direkt auf `main` ist OK.
-- **`git push` ist NICHT Teil dieses Sprints.** Der Push ist explizit Master-Hoheit (Sign-off-Gate). Phase 3 endet mit `git commit` lokal + STATUS/BACKLOG-Pflege. Push folgt nach Master-Sign-off.
+- `git push origin main` direkt nach Commit ist Teil des Sprints (Single-User-Single-Instance-Repo, kein Sign-off-Gate).
 
 ---
 

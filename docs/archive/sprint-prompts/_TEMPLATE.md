@@ -55,11 +55,11 @@ Code-Quality-Gates:
 
 ---
 
-## Phase 3 — Commit
+## Phase 3 — Commit + Push
 
 - Plain-prose Commit-Message, mehrere `-m`-Flags, keine Backticks, keine Unicode-Pfeile, keine HEREDOCs.
-- Ein Sprint = ein Branch, Cluster werden als separate Commits committet wenn der Sprint mehrere logische Schritte enthält.
-- Push erst nach explizitem Sign-off durch Master (Default: lokal commit, Push folgt später).
+- Ein Sprint = ein Branch (oder direkt `main`), Cluster werden als separate Commits committet wenn der Sprint mehrere logische Schritte enthält.
+- `git push origin main` direkt nach Commit ist Teil des Sprints (CONVERTER ist Single-User-Single-Instance-Repo, kein Sign-off-Gate). Ausnahme nur, wenn der Sprint-Prompt explizit „nicht pushen" sagt.
 
 ---
 
