@@ -8,17 +8,7 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ## In Sequenz — Cleanup-Abschluss
 
-### 1. `SEC` — Security-Hardening-Sweep · P1 · M
-Bündelt verbleibende Sicherheits-Findings aus Cleanup Stage 4:
-
-- **F-005 Path-Traversal** in `podcast_download` — `startswith` durch `Path.is_relative_to()` oder `os.path.commonpath` ersetzen ([app_pkg/podcasts.py](app_pkg/podcasts.py)).
-- **F-006 für `markdown_converter`** — Backend-Whitelist analog F-1 Cluster D in `app_pkg/documents.py:30` (precomputed `accept`-String + 400+DE-JSON für unsupported extensions).
-- ~~**F-006 für `audio_converter`**~~ — durch F-2 Cluster II Pattern 13 erledigt (2026-05-09).
-- **F-013 Input-Allowlist** — User-supplied Config-Strings vor Upstream-API-Calls validieren (Deepgram language, Google TTS voice/language/rate/pitch, Gemini narration_style/script_length/num_speakers).
-
-Vorlagen: F-1 Cluster D ([app_pkg/documents.py:30](app_pkg/documents.py#L30)) für die Backend-Whitelist-Mechanik.
-
-### 2. `HYG` — Code-Quality-Sweep der Stage-4-Restposten · P1 · M
+### 1. `HYG` — Code-Quality-Sweep der Stage-4-Restposten · P1 · M
 Bündelt verbleibende Hygiene-Findings (alle Low-Severity, kein Behavior-Change):
 
 - **F-002** narrow `except` in `highlight_code` zu `pygments.util.ClassNotFound` ([app_pkg/markdown.py](app_pkg/markdown.py)).
@@ -32,7 +22,7 @@ Bündelt verbleibende Hygiene-Findings (alle Low-Severity, kein Behavior-Change)
 
 Vollständige Beschreibung jedes Findings: [docs/cleanup_plan.md#findings-populated-by-stage-4](docs/cleanup_plan.md).
 
-### 3. `CVE-LOW` — Minor-Bumps mit CVE-Fixes · P2 · S
+### 2. `CVE-LOW` — Minor-Bumps mit CVE-Fixes · P2 · S
 Drei Pakete mit jeweils einem CVE, Minor-Bump, kein API-Break erwartet:
 
 - **Pygments** 2.18.0 → 2.20.0 (CVE-2026-4539)
@@ -41,7 +31,7 @@ Drei Pakete mit jeweils einem CVE, Minor-Bump, kein API-Break erwartet:
 
 Pre-Test-Welle nach jedem Bump (`pytest tests/` 38/38). Reihenfolge: Pygments → requests → Flask (lowest blast radius first).
 
-### 4. `CVE-PDF` — User-Upload-Pfad-CVEs + Major-Skew · P2 · L
+### 3. `CVE-PDF` — User-Upload-Pfad-CVEs + Major-Skew · P2 · L
 Beide auf User-Upload-Pfad, beide mit echten CVEs:
 
 - **pdfminer.six** 20221105 → 20251230 (2 CVEs)
@@ -49,36 +39,36 @@ Beide auf User-Upload-Pfad, beide mit echten CVEs:
 
 Eigener Sprint weil Bibliothek-API potenziell ändert. Pre-Flight: dokumentieren welche Test-Cases User-Upload-Pfad treffen, dann Re-Run nach Bump.
 
-### 5. `CVE-RQ` — Job-Queue Major-Bump · P2 · L
+### 4. `CVE-RQ` — Job-Queue Major-Bump · P2 · L
 **rq** 1.16.0 → 2.8.0 + parallel **redis** Major-Bump. Worker-Container + Web-Container müssen synchron. Charakterisierungstests für Podcast-Generation (Stage-6, 11 Tests inkl. F-001) sind die wichtigste Verteidigung.
 
-### 6. `CVE-DG` — Deepgram-SDK Major-Bump · P2 · L
+### 5. `CVE-DG` — Deepgram-SDK Major-Bump · P2 · L
 **deepgram-sdk** 5.1.0 → 7.0.0 (zwei Majors, Client-Surface reorganisiert). Audio-Transcription-Tests (Stage-6, 4 Tests) als Re-Run-Basis.
 
 ---
 
 ## In Sequenz — UX-Cascade-Fortsetzung
 
-### 7. `F3-PICK` — F-3 Feature-Wahl + Inventur · P2 · S
+### 6. `F3-PICK` — F-3 Feature-Wahl + Inventur · P2 · S
 Kandidaten: `markdown_converter`, `library`, `library_detail`, `mermaid_converter`, `login`, podcast-flow. Master entscheidet vor Sprint-Start basierend auf Schmerz/Aufwand. Sprint führt dann Stufe 1 (Inventur) durch.
 
-### 8. `F3-REVIEW` — F-3 Heuristik-Review · P2 · S
+### 7. `F3-REVIEW` — F-3 Heuristik-Review · P2 · S
 Stufe 2: Findings-Tabelle Sev 1–4 nach Nielsen H1/H4/H6/H9. Erwartung: ~30–50% Cross-Feature-H4 (Helper-Reuse aus F-1/F-2).
 
-### 9. `F3-PATTERNS` — F-3 Patterns + Microcopy · P2 · S
+### 8. `F3-PATTERNS` — F-3 Patterns + Microcopy · P2 · S
 Stufe 3: Pattern-Blöcke + DE-Microcopy + Top-N Quick-Wins per Impact-Score. Cluster-Vorschlag für Implementation am Ende.
 
-### 10. `F3-IMPL-*` — F-3 Implementation-Cluster · P2 · M-L
+### 9. `F3-IMPL-*` — F-3 Implementation-Cluster · P2 · M-L
 1 bis N Sprints je nach Pattern-Menge (F-1 hatte 6 Cluster, F-2 Cluster I bündelte 12). Code-Sprint-Erfahrung: bei stark verkoppelten Patterns + ~40% Cross-Feature-H4 ist Holistic-Rewrite effizienter als sequentielle Edits.
 
-### 11. `F-N…` — Folge-Wellen für Restfeatures · P2 · je L
+### 10. `F-N…` — Folge-Wellen für Restfeatures · P2 · je L
 Pro Restfeature wieder die 3 Methodik-Stufen + Implementation-Cluster. Reihenfolge wird am Ende von F-3 entschieden.
 
 ---
 
 ## In Sequenz — Wave-Close
 
-### 12. `WAVE-CLOSE` — Strukturelles Closing · P3 · XS
+### 11. `WAVE-CLOSE` — Strukturelles Closing · P3 · XS
 - `docs/cleanup_plan.md` Header auf "fully closed" updaten (alle Findings + Outstanding work durch).
 - `OVERSEER_HANDOFF.md` archivieren oder löschen (durch CLAUDE.md/STATUS.md/BACKLOG.md ersetzt).
 - Ggf. UX-Cascade-Doku-Convention dokumentieren (für künftige Wellen).
@@ -96,6 +86,7 @@ Pro Restfeature wieder die 3 Methodik-Stufen + Implementation-Cluster. Reihenfol
 
 ## Erledigt (rolling, älteste fallen raus)
 
+- ☑ SEC (F-005 Path-Traversal, F-006 markdown Backend-Whitelist, F-013 Input-Allowlists; +5 Tests, 43/43 grün) — 2026-05-09, commit `6a18086`
 - ☑ F-2 Cluster II (audio_converter Sev 2+1, P13–P21; F-2 strukturell abgeschlossen) — 2026-05-09
 - ☑ Working-Practice-Bootstrap (CLAUDE.md slim, STATUS.md, BACKLOG.md, Sprint-Prompt-Template) — 2026-05-09
 - ☑ F-2 Cluster I (audio_converter Sev 4+3, P1–P12) — 2026-05-03

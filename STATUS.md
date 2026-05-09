@@ -1,24 +1,25 @@
 # STATUS
 
 **Stand**: 2026-05-09
-**Live**: `localhost:5656` im Docker-Stack auf Mintbox. Pytest 38/38 grün.
+**Live**: `localhost:5656` im Docker-Stack auf Mintbox + `converter.smallpieces.de`. Pytest 43/43 grün.
 
 ## Aktueller Sprint
-_Keiner aktiv. F-2 strukturell abgeschlossen — Master entwirft als nächstes `SEC`._
+_Keiner aktiv. SEC ☑ done 2026-05-09 → commit `6a18086`. Master entwirft als nächstes `HYG`._
 
 ## Sequenz-Plan
 Wir arbeiten den **Cleanup-Abschluss** als sequenzielle Sprint-Roadmap ab (Reihenfolge in [BACKLOG.md](BACKLOG.md)):
 
 ```
-[1] SEC      →   [2] HYG      →
-[3] CVE-LOW  →   [4] CVE-PDF  →   [5] CVE-RQ  →   [6] CVE-DG   →
-[7] F3-PICK  →   [8] F3-REVIEW →  [9] F3-PATTERNS  →  [10] F3-IMPL-* →
-[11] F-N…    →   [12] WAVE-CLOSE
+[1] HYG      →
+[2] CVE-LOW  →   [3] CVE-PDF  →   [4] CVE-RQ  →   [5] CVE-DG   →
+[6] F3-PICK  →   [7] F3-REVIEW →  [8] F3-PATTERNS  →  [9] F3-IMPL-* →
+[10] F-N…    →   [11] WAVE-CLOSE
 ```
 
 Sprints werden jeweils als Sprint-Prompt-Doc unter [docs/archive/sprint-prompts/](docs/archive/sprint-prompts/) angelegt, dann als frische Sub-Session ausgeführt. Master macht keine Code-Edits.
 
 ## Zuletzt durch
+- **SEC** (F-005 Path-Traversal `Path.is_relative_to`, F-006 markdown Backend-Whitelist, F-013 Input-Allowlists für Deepgram/Google-TTS/Gemini; +5 Tests, 43/43 grün) — 2026-05-09, commit `6a18086`.
 - **F-2 Cluster II** (audio_converter Sev 2+1 Patterns P13–P21, F-2 strukturell abgeschlossen) — 2026-05-09.
 - **Working-Practice-Bootstrap** (CLAUDE.md slim, STATUS.md, BACKLOG.md als Roadmap, Sprint-Prompt-Template) — 2026-05-09.
 - **F-2 Cluster I** (audio_converter UX, Sev 4+3 Patterns P1–P12) — 2026-05-03, Live-Smoke ☑.
