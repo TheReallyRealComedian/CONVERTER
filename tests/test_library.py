@@ -106,9 +106,37 @@ def test_api_update_conversion_changes_title(app, authenticated_client, test_use
     assert resp.get_json()['title'] == 'Renamed'
 
 
+def test_api_update_conversion_rejects_non_dict_body(app, authenticated_client, test_user):
+    """F-3 P1: PUT must return 400 for non-dict bodies so the JS auto-save
+    handler can surface a Failure-Banner instead of guessing at success.
+    """
+    cid = _make_conversion(app, test_user['id'], title='Edge case')
+    resp = authenticated_client.put(
+        f'/api/conversions/{cid}',
+        json=['not', 'a', 'dict'],
+    )
+    assert resp.status_code == 400
+    assert 'JSON-Objekt' in resp.get_json()['error']
+
+
 def test_api_delete_conversion_removes_row(app, authenticated_client, test_user):
     cid = _make_conversion(app, test_user['id'], title='To delete')
     resp = authenticated_client.delete(f'/api/conversions/{cid}')
     assert resp.status_code == 200
     with app.app_context():
         assert Conversion.query.get(cid) is None
+
+
+def test_api_delete_conversion_404_for_other_users_conversion(app, authenticated_client, test_user):
+    """F-3 P3: DELETE on a non-owned row must 404 so the JS Delete handler
+    can route the user back to the Library via the explicit race-404 branch.
+    """
+    with app.app_context():
+        other = User(username='carol')
+        other.set_password('password1234')
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    cid = _make_conversion(app, other_id, title="Carol's secret")
+    resp = authenticated_client.delete(f'/api/conversions/{cid}')
+    assert resp.status_code == 404

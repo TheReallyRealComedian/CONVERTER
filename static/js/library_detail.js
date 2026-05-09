@@ -5,15 +5,55 @@ const LIBRARY_URL = window.PageData.libraryUrl;
 const DOWNLOAD_FILENAME = window.PageData.downloadFilename;
 const DEFAULT_TARGET = window.PageData.defaultNotionTarget;
 
+const SAVE_MESSAGES = {
+    title: {
+        success: 'Titel gespeichert',
+        failure: 'Titel konnte nicht gespeichert werden. Verbindung prüfen und erneut versuchen.',
+    },
+    tags: {
+        success: 'Tags gespeichert',
+        failure: 'Tags konnten nicht gespeichert werden. Verbindung prüfen und erneut versuchen.',
+    },
+};
+
+function detailAlertContainer() { return document.getElementById('detail-alert-container'); }
+function notionAlertContainer() { return document.getElementById('notion-alert-container'); }
+
+function clearDetailAlert() {
+    const c = detailAlertContainer();
+    if (c) c.innerHTML = '';
+}
+
+function clearNotionAlert() {
+    const c = notionAlertContainer();
+    if (c) c.innerHTML = '';
+}
+
+function withServerSuffix(msg, status) {
+    if (status >= 500) return msg + ' Server-Fehler — bitte später erneut versuchen.';
+    return msg;
+}
+
 function updateField(field, value) {
     const body = {};
     body[field] = value;
+    const messages = SAVE_MESSAGES[field] || {
+        success: `${field} gespeichert`,
+        failure: `${field} konnte nicht gespeichert werden. Verbindung prüfen und erneut versuchen.`,
+    };
     fetch(`/api/conversions/${CONVERSION_ID}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body)
     }).then(r => {
-        if (r.ok) showToast(`${field} updated`);
+        if (r.ok) {
+            clearDetailAlert();
+            showToast(messages.success);
+        } else {
+            showAlert(detailAlertContainer(), 'danger', withServerSuffix(messages.failure, r.status));
+        }
+    }).catch(() => {
+        showAlert(detailAlertContainer(), 'danger', messages.failure);
     });
 }
 
@@ -25,16 +65,23 @@ function toggleFavorite(btn) {
         body: JSON.stringify({is_favorite: !isFav})
     }).then(r => {
         if (r.ok) {
+            clearDetailAlert();
             btn.classList.toggle('active');
             btn.innerHTML = btn.classList.contains('active') ? '&#9733;' : '&#9734;';
+        } else {
+            showAlert(detailAlertContainer(), 'danger',
+                withServerSuffix('Favorit konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.', r.status));
         }
+    }).catch(() => {
+        showAlert(detailAlertContainer(), 'danger',
+            'Favorit konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.');
     });
 }
 
 function copyFullContent() {
     const text = document.querySelector('.detail-content-text').textContent;
-    fallbackCopyText(text).then(() => showToast('Copied to clipboard'))
-        .catch(() => showToast('Copy failed'));
+    fallbackCopyText(text).then(() => showToast('Kopiert'))
+        .catch(() => showToast('Kopieren fehlgeschlagen', { level: 'danger' }));
 }
 
 function downloadContent() {
@@ -53,9 +100,39 @@ function storeForReuse() {
 }
 
 function deleteConversion() {
-    if (!confirm('Delete this conversion? This cannot be undone.')) return;
+    if (!confirm('Diesen Eintrag wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
+    const btn = document.getElementById('delete-btn');
+    const originalText = btn ? btn.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Lösche …';
+    }
+    const restoreBtn = () => {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    };
     fetch(`/api/conversions/${CONVERSION_ID}`, {method: 'DELETE'}).then(r => {
-        if (r.ok) window.location.href = LIBRARY_URL;
+        if (r.ok) {
+            window.location.href = LIBRARY_URL;
+        } else if (r.status === 404) {
+            // Race: row already gone — inform briefly, then navigate.
+            showAlert(detailAlertContainer(), 'info',
+                'Eintrag wurde bereits entfernt. Du wirst zur Library zurückgeleitet.',
+                { autoDismissMs: 3000 });
+            setTimeout(() => { window.location.href = LIBRARY_URL; }, 1500);
+        } else {
+            restoreBtn();
+            showAlert(detailAlertContainer(), 'danger',
+                r.status >= 500
+                    ? 'Löschen fehlgeschlagen — Server-Fehler. Bitte später erneut versuchen.'
+                    : 'Löschen fehlgeschlagen. Verbindung prüfen und erneut versuchen.');
+        }
+    }).catch(() => {
+        restoreBtn();
+        showAlert(detailAlertContainer(), 'danger',
+            'Löschen fehlgeschlagen. Verbindung prüfen und erneut versuchen.');
     });
 }
 
@@ -76,10 +153,23 @@ function toggleNotionPanel() {
 
 function loadSuggestions() {
     if (notionSuggestions) return;
-    fetch('/api/notion/suggestions').then(r => r.json()).then(data => {
-        notionSuggestions = data;
-        renderNotionFields(currentTarget);
-    }).catch(() => { notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []}; });
+    fetch('/api/notion/suggestions').then(async r => {
+        if (!r.ok) {
+            notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []};
+            renderNotionFields(currentTarget);
+            return;
+        }
+        try {
+            const data = await safeJSON(r);
+            notionSuggestions = data;
+            renderNotionFields(currentTarget);
+        } catch (_) {
+            notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []};
+            renderNotionFields(currentTarget);
+        }
+    }).catch(() => {
+        notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []};
+    });
 }
 
 function selectTarget(target) {
@@ -98,27 +188,27 @@ function renderNotionFields(target) {
 
     const fieldDefs = {
         meetings: [
-            {key: 'title', label: 'Title', value: title, required: true},
-            {key: 'datum', label: 'Date', value: now, type: 'datetime-local'},
-            {key: 'project', label: 'Project', value: '', list: s.projects},
-            {key: 'people', label: 'People', value: '', placeholder: 'comma-separated', list: s.people},
-            {key: 'type', label: 'Type', value: '', list: s.meeting_types},
-            {key: 'summary', label: 'Summary', value: '', type: 'textarea'},
+            {key: 'title', label: 'Titel', value: title, required: true},
+            {key: 'datum', label: 'Datum', value: now, type: 'datetime-local'},
+            {key: 'project', label: 'Projekt', value: '', list: s.projects},
+            {key: 'people', label: 'Personen', value: '', placeholder: 'kommagetrennt', list: s.people},
+            {key: 'type', label: 'Typ', value: '', list: s.meeting_types},
+            {key: 'summary', label: 'Zusammenfassung', value: '', type: 'textarea'},
         ],
         notes: [
-            {key: 'title', label: 'Title', value: title, required: true},
-            {key: 'project', label: 'Project', value: '', list: s.projects},
-            {key: 'type', label: 'Type', value: '', list: s.note_types},
-            {key: 'tags', label: 'Tags', value: tags, placeholder: 'comma-separated'},
-            {key: 'people', label: 'People', value: '', placeholder: 'comma-separated', list: s.people},
-            {key: 'summary', label: 'Summary', value: '', type: 'textarea'},
+            {key: 'title', label: 'Titel', value: title, required: true},
+            {key: 'project', label: 'Projekt', value: '', list: s.projects},
+            {key: 'type', label: 'Typ', value: '', list: s.note_types},
+            {key: 'tags', label: 'Tags', value: tags, placeholder: 'kommagetrennt'},
+            {key: 'people', label: 'Personen', value: '', placeholder: 'kommagetrennt', list: s.people},
+            {key: 'summary', label: 'Zusammenfassung', value: '', type: 'textarea'},
         ],
         inbox: [
             {key: 'name', label: 'Name', value: title, required: true},
-            {key: 'description', label: 'Description', value: '', type: 'textarea'},
-            {key: 'source', label: 'Source', value: 'CONVERTER'},
-            {key: 'project', label: 'Project', value: '', list: s.projects},
-            {key: 'people', label: 'People', value: '', placeholder: 'comma-separated', list: s.people},
+            {key: 'description', label: 'Beschreibung', value: '', type: 'textarea'},
+            {key: 'source', label: 'Quelle', value: 'CONVERTER'},
+            {key: 'project', label: 'Projekt', value: '', list: s.projects},
+            {key: 'people', label: 'Personen', value: '', placeholder: 'kommagetrennt', list: s.people},
         ]
     };
     const container = document.getElementById('notion-fields');
@@ -139,9 +229,10 @@ function renderNotionFields(target) {
 }
 
 function sendToNotion() {
+    clearNotionAlert();
     const btn = document.getElementById('notion-submit-btn');
     btn.disabled = true;
-    btn.textContent = 'Sending...';
+    btn.textContent = 'Sende …';
 
     const fields = {};
     document.querySelectorAll('#notion-fields input, #notion-fields textarea').forEach(el => {
@@ -168,14 +259,21 @@ function sendToNotion() {
     .then(r => r.json().then(data => ({status: r.status, data})))
     .then(({status, data}) => {
         if (status < 400) {
-            showToast('Saved to Notion!');
+            showToast('An Notion gesendet');
             if (data.url) window.open(data.url, '_blank');
         } else {
-            showToast('Error: ' + (data.error || 'Unknown error'));
+            const detail = data.error || data.detail;
+            const msg = detail
+                ? `Senden fehlgeschlagen: ${detail}.`
+                : 'Senden an Notion fehlgeschlagen. Erneut versuchen oder Server-Konfiguration prüfen.';
+            showAlert(notionAlertContainer(), 'danger', msg);
         }
     })
-    .catch(() => showToast('Failed to connect to Notion'))
-    .finally(() => { btn.disabled = false; btn.textContent = 'Send to Notion'; });
+    .catch(() => {
+        showAlert(notionAlertContainer(), 'danger',
+            'Verbindung zu Notion fehlgeschlagen. Netzwerk und Notion-MCP-Server-Status prüfen.');
+    })
+    .finally(() => { btn.disabled = false; btn.textContent = 'An Notion senden'; });
 }
 
 window.updateField = updateField;
