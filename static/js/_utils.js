@@ -116,6 +116,15 @@
         return toast;
     }
 
+    /* Local "now" formatted as YYYY-MM-DDTHH:MM, suitable as a default for
+       <input type="datetime-local">. Subtracts the browser's UTC offset so a
+       Europe/Berlin user sees the actual wall-clock time instead of UTC. */
+    function formatDatetimeLocalNow() {
+        const now = new Date();
+        const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 16);
+    }
+
     /* Native confirm() prompt that only fires when ``text`` exceeds a length
        threshold (default 200 chars). Below the threshold, returns true so the
        caller can just clear without bothering the user. Used for destructive
@@ -136,5 +145,6 @@
     window.showAlert = showAlert;
     window.showToast = showToast;
     window.formatFileSize = formatFileSize;
+    window.formatDatetimeLocalNow = formatDatetimeLocalNow;
     window.confirmIfLong = confirmIfLong;
 })();

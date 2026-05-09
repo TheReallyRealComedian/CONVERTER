@@ -140,50 +140,100 @@ function deleteConversion() {
 let currentTarget = DEFAULT_TARGET;
 let notionSuggestions = null;
 
+// Body-pool keys: cross-target text fields that share a slot. When the user
+// switches Meeting -> Inbox, what was in `summary` lands in `description`,
+// and vice versa, instead of being silently wiped.
+const NOTION_BODY_POOL = ['summary', 'description', 'note', 'text'];
+
+function collectNotionFieldValues(container) {
+    const snapshot = {};
+    if (!container) return snapshot;
+    container.querySelectorAll('input, textarea').forEach(el => {
+        const key = el.id.replace('nf-', '');
+        snapshot[key] = el.value;
+    });
+    return snapshot;
+}
+
+function restoreNotionFieldValues(container, snapshot) {
+    if (!container || !snapshot) return;
+    container.querySelectorAll('input, textarea').forEach(el => {
+        const key = el.id.replace('nf-', '');
+        if (Object.prototype.hasOwnProperty.call(snapshot, key)) {
+            el.value = snapshot[key];
+            return;
+        }
+        if (NOTION_BODY_POOL.includes(key)) {
+            for (const k of NOTION_BODY_POOL) {
+                if (snapshot[k]) {
+                    el.value = snapshot[k];
+                    return;
+                }
+            }
+        }
+    });
+}
+
 function toggleNotionPanel() {
     const panel = document.getElementById('notion-panel');
     const icon = document.getElementById('notion-toggle-icon');
     const isHidden = panel.classList.toggle('hidden');
     icon.innerHTML = isHidden ? '&#9662;' : '&#9652;';
     if (!isHidden) {
-        selectTarget(DEFAULT_TARGET);
+        const container = document.getElementById('notion-fields');
+        // Only render on initial open; re-toggle preserves user inputs.
+        if (!container || !container.children.length) {
+            selectTarget(DEFAULT_TARGET);
+        }
         loadSuggestions();
     }
 }
 
 function loadSuggestions() {
     if (notionSuggestions) return;
+    const fallback = {people: [], projects: [], meeting_types: [], note_types: []};
     fetch('/api/notion/suggestions').then(async r => {
         if (!r.ok) {
-            notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []};
-            renderNotionFields(currentTarget);
-            return;
+            notionSuggestions = fallback;
+        } else {
+            try {
+                notionSuggestions = await safeJSON(r);
+            } catch (_) {
+                notionSuggestions = fallback;
+            }
         }
-        try {
-            const data = await safeJSON(r);
-            notionSuggestions = data;
+        // Re-render so datalists populate, but preserve any values the
+        // user typed before the suggestions arrived.
+        const container = document.getElementById('notion-fields');
+        if (container && container.children.length) {
+            const snapshot = collectNotionFieldValues(container);
             renderNotionFields(currentTarget);
-        } catch (_) {
-            notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []};
-            renderNotionFields(currentTarget);
+            restoreNotionFieldValues(container, snapshot);
         }
     }).catch(() => {
-        notionSuggestions = {people: [], projects: [], meeting_types: [], note_types: []};
+        notionSuggestions = fallback;
     });
 }
 
 function selectTarget(target) {
+    const container = document.getElementById('notion-fields');
+    const isInitial = !container || !container.children.length;
+    const isSwitch = !isInitial && currentTarget !== target;
+    const snapshot = isSwitch ? collectNotionFieldValues(container) : null;
     currentTarget = target;
     document.querySelectorAll('#notion-target-group button').forEach(btn => {
         btn.classList.toggle('c-btn--primary', btn.dataset.target === target);
     });
     renderNotionFields(target);
+    if (snapshot) {
+        restoreNotionFieldValues(document.getElementById('notion-fields'), snapshot);
+    }
 }
 
 function renderNotionFields(target) {
     const title = document.getElementById('detail-title').value;
     const tags = document.getElementById('tags-input').value;
-    const now = new Date().toISOString().slice(0, 16);
+    const now = formatDatetimeLocalNow();
     const s = notionSuggestions || {people: [], projects: [], meeting_types: [], note_types: []};
 
     const fieldDefs = {
