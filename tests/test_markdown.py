@@ -102,3 +102,26 @@ def test_convert_markdown_invalid_filename_redirects(authenticated_client):
         )
     # secure_filename('') -> '' -> flash + redirect.
     assert resp.status_code == 302
+
+
+def test_convert_markdown_unsupported_extension_returns_400(authenticated_client):
+    """F-006: file uploads with extensions outside ACCEPTED_EXTENSIONS must be
+    rejected with 400 + DE-JSON. Previously, .read().decode('utf-8') on a
+    binary upload raised UnicodeDecodeError that the broad except masked as
+    'Could not generate PDF' — wrong error class, wrong status code."""
+    fake_binary = BytesIO(b'\x89PNG\r\n\x1a\n\x00\x00')
+    resp = authenticated_client.post(
+        '/convert-markdown',
+        data={
+            'markdown_text': '',
+            'output_filename': 'whatever',
+            'orientation': 'portrait',
+            'style_theme': 'none',
+            'markdown_file': (fake_binary, 'image.png'),
+        },
+        content_type='multipart/form-data',
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'nicht unterstützt' in body['error']
+    assert '.md' in body['error']

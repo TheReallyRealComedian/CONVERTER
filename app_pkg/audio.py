@@ -12,6 +12,11 @@ from werkzeug.utils import secure_filename
 ACCEPTED_AUDIO_EXTENSIONS = ('mp3', 'wav', 'm4a', 'ogg', 'flac', 'webm')
 MAX_AUDIO_FILE_SIZE_MB = 500
 
+# F-013: enumerated languages that the audio-tab UI offers. Values outside
+# this set used to flow through to Deepgram and surface as a 500 from the SDK;
+# they now get a clean 400 + DE-JSON.
+ACCEPTED_TRANSCRIPTION_LANGUAGES = ('en', 'de')
+
 
 def register(app):
     # Late import: tests patch ``app.deepgram_service`` and
@@ -59,6 +64,12 @@ def register(app):
 
         if file.filename == '':
             return jsonify({"error": "No file selected."}), 400
+
+        if language not in ACCEPTED_TRANSCRIPTION_LANGUAGES:
+            return jsonify({
+                "error": "Ungültige Sprache. Erlaubt: "
+                         + ", ".join(ACCEPTED_TRANSCRIPTION_LANGUAGES) + "."
+            }), 400
 
         original_filename = secure_filename(file.filename)
         ext = os.path.splitext(original_filename)[1].lstrip('.').lower()

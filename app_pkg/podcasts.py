@@ -1,13 +1,23 @@
 """Podcast generation routes (Google TTS + Gemini async via RQ)."""
 import os
 from io import BytesIO
+from pathlib import Path
 
 from flask import jsonify, request, send_file
 from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 
 from app_pkg.config import OUTPUT_DIR
+from services.gemini.prompts import STYLE_DIRECTIVES
+from services.gemini.script import LANGUAGE_NAMES, LENGTH_INFO
 from tasks import generate_podcast_task
+
+
+# F-013: Google Cloud TTS-supported parameter ranges.
+# https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize
+_GOOGLE_TTS_RATE_RANGE = (0.25, 4.0)
+_GOOGLE_TTS_PITCH_RANGE = (-20.0, 20.0)
+_PODCAST_NUM_SPEAKERS_RANGE = (1, 4)
 
 
 _GEMINI_VOICES = {
@@ -70,8 +80,22 @@ def register(app):
             text = data.get('text', '').strip()
             voice_name = data.get('voice_name', 'en-US-Neural2-C')
             language_code = data.get('language_code', 'en-US')
-            speaking_rate = float(data.get('speaking_rate', 1.0))
-            pitch = float(data.get('pitch', 0.0))
+            try:
+                speaking_rate = float(data.get('speaking_rate', 1.0))
+                pitch = float(data.get('pitch', 0.0))
+            except (TypeError, ValueError):
+                return jsonify({"error": "Sprechgeschwindigkeit und Tonhöhe müssen Zahlen sein."}), 400
+
+            rate_min, rate_max = _GOOGLE_TTS_RATE_RANGE
+            if not rate_min <= speaking_rate <= rate_max:
+                return jsonify({
+                    "error": f"Sprechgeschwindigkeit außerhalb des erlaubten Bereichs ({rate_min}–{rate_max})."
+                }), 400
+            pitch_min, pitch_max = _GOOGLE_TTS_PITCH_RANGE
+            if not pitch_min <= pitch <= pitch_max:
+                return jsonify({
+                    "error": f"Tonhöhe außerhalb des erlaubten Bereichs ({pitch_min}–{pitch_max})."
+                }), 400
 
             temp_audio_path = _app_module.google_tts_service.synthesize_speech(
                 text, voice_name, language_code, speaking_rate, pitch
@@ -190,11 +214,13 @@ def register(app):
         if not file_path or not os.path.exists(file_path):
             return jsonify({"error": "File not found on server"}), 404
 
-        # Prevent path traversal — ensure file is within allowed output directory
+        # Prevent path traversal — ensure file is within allowed output directory.
+        # Path.is_relative_to (Py 3.9+) avoids the prefix-collision bug of
+        # str.startswith (e.g. "/app/output_podcasts2/x.wav" matching "/app/output_podcasts").
         real_path = os.path.realpath(file_path)
-        if not real_path.startswith(os.path.realpath(OUTPUT_DIR)):
+        if not Path(real_path).is_relative_to(Path(os.path.realpath(OUTPUT_DIR))):
             app.logger.warning(f"Path traversal attempt blocked: {file_path}")
-            return jsonify({"error": "Invalid file path"}), 403
+            return jsonify({"error": "Datei außerhalb des Podcast-Verzeichnisses."}), 403
 
         # Read into buffer and delete file to prevent unbounded disk growth
         podcast_buffer = BytesIO()
@@ -233,13 +259,40 @@ def register(app):
             if not raw_text_received or not raw_text_received.strip():
                 return jsonify({"error": "No text provided for formatting"}), 400
 
+            language = data.get('language', 'en')
+            narration_style = data.get('narration_style', 'conversational')
+            script_length = data.get('script_length', 'medium')
+
+            if language not in LANGUAGE_NAMES:
+                return jsonify({
+                    "error": "Ungültige Sprache. Erlaubt: " + ", ".join(LANGUAGE_NAMES) + "."
+                }), 400
+            if narration_style not in STYLE_DIRECTIVES:
+                return jsonify({
+                    "error": "Ungültiger Erzählstil. Erlaubt: " + ", ".join(STYLE_DIRECTIVES) + "."
+                }), 400
+            if script_length not in LENGTH_INFO:
+                return jsonify({
+                    "error": "Ungültige Skriptlänge. Erlaubt: " + ", ".join(LENGTH_INFO) + "."
+                }), 400
+
+            try:
+                num_speakers = int(data.get('num_speakers', 2))
+            except (TypeError, ValueError):
+                return jsonify({"error": "Anzahl der Sprecher muss eine Zahl sein."}), 400
+            speakers_min, speakers_max = _PODCAST_NUM_SPEAKERS_RANGE
+            if not speakers_min <= num_speakers <= speakers_max:
+                return jsonify({
+                    "error": f"Anzahl der Sprecher muss zwischen {speakers_min} und {speakers_max} liegen."
+                }), 400
+
             result = _app_module.gemini_service.format_dialogue_with_llm(
                 raw_text=raw_text_received.strip(),
-                num_speakers=int(data.get('num_speakers', 2)),
+                num_speakers=num_speakers,
                 speaker_descriptions=data.get('speaker_descriptions', []),
-                language=data.get('language', 'en'),
-                narration_style=data.get('narration_style', 'conversational'),
-                script_length=data.get('script_length', 'medium'),
+                language=language,
+                narration_style=narration_style,
+                script_length=script_length,
                 custom_prompt=(data.get('custom_prompt') or '').strip() or None
             )
 

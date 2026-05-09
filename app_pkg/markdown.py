@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 import nh3
-from flask import flash, redirect, render_template, request, send_file, url_for
+from flask import flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import login_required
 from markdown_it import MarkdownIt
 from pygments import highlight
@@ -16,6 +16,12 @@ from werkzeug.utils import secure_filename
 
 
 STYLE_DIR = Path('/app/static/css/pdf_styles')
+
+# Single source of truth for what /convert-markdown accepts as a file upload.
+# The template reads this via the route context for both the file-input
+# ``accept`` attribute and ``window.PageData.acceptedExtensions`` (frontend
+# pre-submit guard).
+ACCEPTED_EXTENSIONS = ('md', 'markdown')
 
 
 def highlight_code(code, lang, _):
@@ -106,7 +112,12 @@ def register(app):
         if STYLE_DIR.exists():
             for f in STYLE_DIR.glob('*.css'):
                 themes.append(f.stem)
-        return render_template('markdown_converter.html', themes=sorted(themes))
+        return render_template(
+            'markdown_converter.html',
+            themes=sorted(themes),
+            accepted_extensions=ACCEPTED_EXTENSIONS,
+            accepted_extensions_accept=','.join('.' + ext for ext in ACCEPTED_EXTENSIONS),
+        )
 
     @app.route('/convert-markdown', methods=['POST'])
     @login_required
@@ -115,6 +126,11 @@ def register(app):
         markdown_file = request.files.get('markdown_file')
 
         if markdown_file and markdown_file.filename:
+            ext = os.path.splitext(secure_filename(markdown_file.filename))[1].lstrip('.').lower()
+            if ext not in ACCEPTED_EXTENSIONS:
+                return jsonify({
+                    'error': 'Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.'
+                }), 400
             markdown_text = markdown_file.read().decode('utf-8')
         elif not markdown_text or not markdown_text.strip():
             flash('Error: No Markdown content provided. Please paste text or upload a file.', 'danger')

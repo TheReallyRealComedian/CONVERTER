@@ -296,10 +296,33 @@ window.addEventListener('load', function() {
     if (!form) return;
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalLabel = submitBtn ? submitBtn.innerHTML : null;
+    const acceptedExtensions = (window.PageData && window.PageData.acceptedExtensions) || [];
+
+    function fileExtensionAllowed(file) {
+        if (!file || !acceptedExtensions.length) return true;
+        const name = file.name || '';
+        const dot = name.lastIndexOf('.');
+        if (dot < 0) return false;
+        return acceptedExtensions.includes(name.slice(dot + 1).toLowerCase());
+    }
 
     form.addEventListener('submit', async function(event) {
         if (form.dataset.tokenRefreshed === '1') return;
         event.preventDefault();
+
+        const fileInput = document.getElementById('markdown_file');
+        const file = fileInput && fileInput.files && fileInput.files[0];
+        if (file && !fileExtensionAllowed(file)) {
+            const flashContainer = document.querySelector('.editor-pane .px-6.pt-4');
+            if (flashContainer && typeof window.showAlert === 'function') {
+                window.showAlert(flashContainer, 'danger',
+                    'Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.');
+            } else {
+                alert('Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.');
+            }
+            return;
+        }
+
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Preparing…';

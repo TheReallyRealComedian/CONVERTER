@@ -21,14 +21,17 @@ from services.gemini.prompts import (
 logger = logging.getLogger(__name__)
 
 
-_LANGUAGE_NAMES = {
+# Public allowlist constants — also consumed by ``app_pkg/podcasts.py`` for
+# request-time validation (F-013) so bad input becomes a clean 400 instead of
+# a silent fallback to the defaults below.
+LANGUAGE_NAMES = {
     'en': 'English',
     'de': 'German',
     'es': 'Spanish',
     'fr': 'French',
 }
 
-_LENGTH_INFO = {
+LENGTH_INFO = {
     'short': ('300-500 words', 'short (2-3 minute)'),
     'medium': ('800-1200 words', 'medium-length (5-7 minute)'),
     'long': ('1500-2500 words', 'long (10-15 minute)'),
@@ -71,8 +74,8 @@ def format_dialogue_with_llm(client, raw_text, num_speakers=2, speaker_descripti
         personality = desc.get('personality', 'neutral')
         speakers_info += f"- {name} (Voice: {voice}, Personality: {personality})\n"
 
-    language_name = _LANGUAGE_NAMES.get(language, 'English')
-    target_length, target_length_desc = _LENGTH_INFO.get(script_length, _LENGTH_INFO['medium'])
+    language_name = LANGUAGE_NAMES.get(language, 'English')
+    target_length, target_length_desc = LENGTH_INFO.get(script_length, LENGTH_INFO['medium'])
 
     # Calculate dynamic tag guidance
     tag_info = calculate_tag_guidance(raw_text, narration_style)

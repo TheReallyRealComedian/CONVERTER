@@ -74,6 +74,25 @@ def test_transcribe_audio_unsupported_extension_returns_400(authenticated_client
     mock_deepgram.transcribe_file.assert_not_called()
 
 
+def test_transcribe_audio_unsupported_language_returns_400(authenticated_client, mock_deepgram):
+    """F-013: ``language`` outside the audio-tab allowlist gets 400 + DE-JSON
+    instead of flowing through to Deepgram and surfacing as a 500."""
+    resp = authenticated_client.post(
+        '/transcribe-audio-file',
+        data={
+            'audio_file': (BytesIO(b'fake audio bytes'), 'sample.mp3'),
+            'language': 'xx-XX',
+        },
+        content_type='multipart/form-data',
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'Sprache' in body['error']
+    assert 'en' in body['error']
+    assert 'de' in body['error']
+    mock_deepgram.transcribe_file.assert_not_called()
+
+
 def test_transcribe_audio_503_when_service_not_configured(authenticated_client):
     """If ``deepgram_service`` is None (no API key), the route returns 503."""
     import app as app_module

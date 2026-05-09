@@ -149,3 +149,65 @@ def test_podcast_download_other_exception_returns_500(
     mock_redis_queue['fetch'].side_effect = TimeoutError('redis timeout')
     resp = authenticated_client.get('/podcast-download/job-x')
     assert resp.status_code == 500
+
+
+def test_format_dialogue_invalid_narration_style_returns_400(
+    authenticated_client, mock_gemini, gemini_api_key_set
+):
+    """F-013: ``narration_style`` outside STYLE_DIRECTIVES gets a clean 400
+    instead of silently falling back to the conversational default in the
+    Gemini service. Same shape covers ``script_length`` and ``language``."""
+    resp = authenticated_client.post(
+        '/format-dialogue-with-llm',
+        json={
+            'raw_text': 'some content here',
+            'narration_style': 'shakespearean',
+            'script_length': 'medium',
+            'language': 'en',
+            'num_speakers': 2,
+        },
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'Erzählstil' in body['error']
+    mock_gemini.format_dialogue_with_llm.assert_not_called()
+
+
+def test_generate_podcast_invalid_speaking_rate_returns_400(
+    authenticated_client, mock_google_tts
+):
+    """F-013: ``speaking_rate`` out of Google-TTS range (0.25–4.0) gets a 400
+    instead of letting the SDK raise + surface as a 500."""
+    resp = authenticated_client.post(
+        '/generate-podcast',
+        json={
+            'text': 'hello world',
+            'speaking_rate': 99.0,
+            'pitch': 0.0,
+        },
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'Sprechgeschwindigkeit' in body['error']
+    mock_google_tts.synthesize_speech.assert_not_called()
+
+
+def test_podcast_download_path_traversal_rejected(
+    authenticated_client, mock_redis_queue, test_user, tmp_path, monkeypatch
+):
+    """F-005: a job.result outside OUTPUT_DIR must be rejected with 403,
+    even when the path passes os.path.exists. Guards against prefix-collision
+    that the old str.startswith check would have allowed
+    (e.g. /app/output_podcasts2/x.wav matching /app/output_podcasts).
+    """
+    # Create a real file outside OUTPUT_DIR so os.path.exists passes.
+    rogue_file = tmp_path / 'rogue.wav'
+    rogue_file.write_bytes(b'fake audio')
+
+    mock_redis_queue['fetch'].return_value = _job_with(
+        'finished', user_id=test_user['id'], result=str(rogue_file)
+    )
+
+    resp = authenticated_client.get('/podcast-download/job-x')
+    assert resp.status_code == 403
+    assert 'außerhalb' in resp.get_json()['error']
