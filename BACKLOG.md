@@ -8,44 +8,36 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ## In Sequenz — Cleanup-Abschluss
 
-### 1. `CVE-PDF` — User-Upload-Pfad-CVEs + Major-Skew · P2 · L
-Beide auf User-Upload-Pfad, beide mit echten CVEs:
-
-- **pdfminer.six** 20221105 → 20251230 (2 CVEs)
-- **unstructured[all-docs]** 0.14.5 → 0.22.26 (CVE-2025-64712, **8 Minor-Versionen**, doc-partition API hat sich geändert)
-
-Eigener Sprint weil Bibliothek-API potenziell ändert. Pre-Flight: dokumentieren welche Test-Cases User-Upload-Pfad treffen, dann Re-Run nach Bump.
-
-### 2. `CVE-RQ` — Job-Queue Major-Bump · P2 · L
+### 1. `CVE-RQ` — Job-Queue Major-Bump · P2 · L
 **rq** 1.16.0 → 2.8.0 + parallel **redis** Major-Bump. Worker-Container + Web-Container müssen synchron. Charakterisierungstests für Podcast-Generation (Stage-6, 11 Tests inkl. F-001) sind die wichtigste Verteidigung.
 
-### 3. `CVE-DG` — Deepgram-SDK Major-Bump · P2 · L
+### 2. `CVE-DG` — Deepgram-SDK Major-Bump · P2 · L
 **deepgram-sdk** 5.1.0 → 7.0.0 (zwei Majors, Client-Surface reorganisiert). Audio-Transcription-Tests (Stage-6, 4 Tests) als Re-Run-Basis.
 
 ---
 
 ## In Sequenz — UX-Cascade-Fortsetzung
 
-### 4. `F3-PICK` — F-3 Feature-Wahl + Inventur · P2 · S
+### 3. `F3-PICK` — F-3 Feature-Wahl + Inventur · P2 · S
 Kandidaten: `markdown_converter`, `library`, `library_detail`, `mermaid_converter`, `login`, podcast-flow. Master entscheidet vor Sprint-Start basierend auf Schmerz/Aufwand. Sprint führt dann Stufe 1 (Inventur) durch.
 
-### 5. `F3-REVIEW` — F-3 Heuristik-Review · P2 · S
+### 4. `F3-REVIEW` — F-3 Heuristik-Review · P2 · S
 Stufe 2: Findings-Tabelle Sev 1–4 nach Nielsen H1/H4/H6/H9. Erwartung: ~30–50% Cross-Feature-H4 (Helper-Reuse aus F-1/F-2).
 
-### 6. `F3-PATTERNS` — F-3 Patterns + Microcopy · P2 · S
+### 5. `F3-PATTERNS` — F-3 Patterns + Microcopy · P2 · S
 Stufe 3: Pattern-Blöcke + DE-Microcopy + Top-N Quick-Wins per Impact-Score. Cluster-Vorschlag für Implementation am Ende.
 
-### 7. `F3-IMPL-*` — F-3 Implementation-Cluster · P2 · M-L
+### 6. `F3-IMPL-*` — F-3 Implementation-Cluster · P2 · M-L
 1 bis N Sprints je nach Pattern-Menge (F-1 hatte 6 Cluster, F-2 Cluster I bündelte 12). Code-Sprint-Erfahrung: bei stark verkoppelten Patterns + ~40% Cross-Feature-H4 ist Holistic-Rewrite effizienter als sequentielle Edits.
 
-### 8. `F-N…` — Folge-Wellen für Restfeatures · P2 · je L
+### 7. `F-N…` — Folge-Wellen für Restfeatures · P2 · je L
 Pro Restfeature wieder die 3 Methodik-Stufen + Implementation-Cluster. Reihenfolge wird am Ende von F-3 entschieden.
 
 ---
 
 ## In Sequenz — Wave-Close
 
-### 9. `WAVE-CLOSE` — Strukturelles Closing · P3 · XS
+### 8. `WAVE-CLOSE` — Strukturelles Closing · P3 · XS
 - `docs/cleanup_plan.md` Header auf "fully closed" updaten (alle Findings + Outstanding work durch).
 - `OVERSEER_HANDOFF.md` archivieren oder löschen (durch CLAUDE.md/STATUS.md/BACKLOG.md ersetzt).
 - Ggf. UX-Cascade-Doku-Convention dokumentieren (für künftige Wellen).
@@ -63,6 +55,7 @@ Pro Restfeature wieder die 3 Methodik-Stufen + Implementation-Cluster. Reihenfol
 
 ## Erledigt (rolling, älteste fallen raus)
 
+- ☑ CVE-PDF (unstructured 0.14.5 → **0.18.32 statt sprint-soll 0.22.26** — gecappt weil unstructured 0.20.2+ Python ≥3.11 fordert und Container-Base auf Python 3.10.12 läuft; pdfminer.six 20221105 → 20251230 + **forced co-bump pdfplumber 0.10.4 → 0.11.9** wegen pdfplumber 0.10.4 Hard-Pin auf pdfminer.six==20221105; **Reihenfolge-Tausch unstructured-zuerst** weil unstructured 0.14.5 `PSSyntaxError` aus pdfminer importierte, das in 20251230 entfernt ist; pytest 48/48 grün im Container, Live-Smoke clean über PDF normal + columnar + DOCX + PPTX + DOCX m. Bildern + Tabellen) — 2026-05-09, commits `c821615` / `85f1caf`
 - ☑ CVE-LOW (Pygments 2.18.0 → 2.20.0 / CVE-2026-4539, requests 2.31.0 → 2.33.0 / 3 CVEs, Flask 3.0.3 → 3.1.3 / CVE-2026-27205; Werkzeug zog transitiv auf 3.1.6 nach; pytest 48/48 grün; Live-Smoke gegen rebuilt Mintbox-Container clean) — 2026-05-09, commits `fa98b35` / `0698748` / `73a45b9`
 - ☑ HYG (F-002 Pygments narrow-except, F-007 secure_filename(None) guard, F-008 5 Logging-Sites mit exc_info, F-011 `require_service`-Decorator + DE-Microcopy für 6 Endpoints, F-012 dead `if not file:` raus, F-015 Timeout-Konstanten in `app_pkg/config.py` zentralisiert, F-016 Doppel-Log raus, F-017 `isinstance(data, dict)`-Inline-Check an 6 Stellen; +5 Tests, 48/48 grün) — 2026-05-09
 - ☑ SEC (F-005 Path-Traversal, F-006 markdown Backend-Whitelist, F-013 Input-Allowlists; +5 Tests, 43/43 grün) — 2026-05-09, commit `6a18086`
