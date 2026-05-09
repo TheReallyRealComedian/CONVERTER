@@ -8,8 +8,8 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ## In Sequenz — Cleanup-Abschluss
 
-### 1. `CVE-RQ` — Job-Queue Major-Bump · P2 · L
-**rq** 1.16.0 → 2.8.0 + parallel **redis** Major-Bump. Worker-Container + Web-Container müssen synchron. Charakterisierungstests für Podcast-Generation (Stage-6, 11 Tests inkl. F-001) sind die wichtigste Verteidigung.
+### 1. `CVE-RQ` — Job-Queue Major-Bump · P2 · XL
+**rq** 1.16.0 → 2.8.0 + **redis** 5.0.1 → 7.4.0 (redis 6.x übersprungen wegen rq-2.x-Constraint `redis!=6`). Worker-Container + Web-Container müssen synchron. **worker.py-Refactor erforderlich** (rq 2.0 hat `Connection`-Context-Manager entfernt — Master-Pre-Flight 2026-05-09 hat das verifiziert und im Sprint-Prompt verankert; Größe daher von L auf XL hochgestuft). Charakterisierungstests für Podcast-Generation (Stage-6, 11 Tests inkl. F-001) sind die wichtigste Verteidigung.
 
 ### 2. `CVE-DG` — Deepgram-SDK Major-Bump · P2 · L
 **deepgram-sdk** 5.1.0 → 7.0.0 (zwei Majors, Client-Surface reorganisiert). Audio-Transcription-Tests (Stage-6, 4 Tests) als Re-Run-Basis.
