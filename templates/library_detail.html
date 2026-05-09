@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ conversion.title }} - Library{% endblock %}
+{% block title %}{{ conversion.title or 'Ohne Titel' }} – Library{% endblock %}
 
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
@@ -45,17 +45,18 @@
             <div class="flex flex-col gap-4">
                 <!-- Save to Notion -->
                 <div class="c-surface--flat p-4">
-                    <button type="button" onclick="toggleNotionPanel()" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">
+                    <button type="button" id="notion-toggle-btn" onclick="toggleNotionPanel()" aria-expanded="false" aria-controls="notion-panel" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">
                         <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint m-0">An Notion senden</h6>
                         <span class="text-neo-faint text-xs" id="notion-toggle-icon">&#9662;</span>
                     </button>
                     <div id="notion-alert-container" class="mt-3"></div>
                     <div id="notion-panel" class="hidden mt-3">
                         <div class="flex gap-1.5 mb-3" id="notion-target-group">
-                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="meetings" onclick="selectTarget('meetings')">Meeting</button>
-                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="notes" onclick="selectTarget('notes')">Notiz</button>
-                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="inbox" onclick="selectTarget('inbox')">Inbox</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="meetings" title="Notion-Ziel wechseln" onclick="selectTarget('meetings')">Meeting</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="notes" title="Notion-Ziel wechseln" onclick="selectTarget('notes')">Notiz</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="inbox" title="Notion-Ziel wechseln" onclick="selectTarget('inbox')">Inbox</button>
                         </div>
+                        <div id="notion-target-status" class="sr-only" aria-live="polite"></div>
                         <div id="notion-fields" class="flex flex-col gap-2"></div>
                         <button type="button" class="c-btn c-btn--primary w-full text-xs py-2 mt-3" id="notion-submit-btn" onclick="sendToNotion()">An Notion senden</button>
                     </div>
@@ -78,7 +79,7 @@
                     {% if conversion.source_size_bytes %}
                     <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
                         <span class="text-neo-faint">Dateigröße</span>
-                        <span class="text-neo-text font-medium">{{ "%.1f"|format(conversion.source_size_bytes / 1048576) }} MB</span>
+                        <span class="text-neo-text font-medium">{{ conversion.source_size_bytes|file_size }}</span>
                     </div>
                     {% endif %}
                     <div class="flex justify-between py-1.5 text-sm neo-separator-bottom">
@@ -115,6 +116,7 @@
                         class="c-input w-full"
                         id="tags-input" value="{{ conversion.tags }}" placeholder="kommagetrennte Tags"
                         onchange="updateField('tags', this.value)">
+                    <div id="tag-chip-container"></div>
                 </div>
             </div>
         </div>

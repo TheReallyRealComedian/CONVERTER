@@ -67,6 +67,7 @@ def create_app(import_name='app'):
     _register_error_handlers(app)
     _register_csrf_endpoint(app)
     _register_cli_commands(app)
+    _register_template_filters(app)
 
     with app.app_context():
         os.makedirs('/app/data', exist_ok=True)
@@ -107,6 +108,19 @@ def _register_csrf_endpoint(app):
     @login_required
     def get_csrf_token():
         return jsonify({'csrf_token': generate_csrf()})
+
+
+def _register_template_filters(app):
+    @app.template_filter('file_size')
+    def file_size(bytes_value):
+        # Mirror of static/js/_utils.js formatFileSize. Sub-MB rendered as KB
+        # instead of "0.0 MB" — DE comma decimal.
+        n = float(bytes_value or 0)
+        if n < 1024:
+            return f"{int(n)} B"
+        if n < 1024 * 1024:
+            return f"{n / 1024:.1f}".replace('.', ',') + ' KB'
+        return f"{n / (1024 * 1024):.1f}".replace('.', ',') + ' MB'
 
 
 def _register_cli_commands(app):

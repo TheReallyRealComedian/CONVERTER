@@ -992,6 +992,60 @@ body.reader-active header.lg\:hidden {
     display: none !important;
 }
 
+/* Visually hidden but available to screen readers (aria-live regions etc.). */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Auto-Save dirty-indicator: thin accent slab on the inset left edge so the
+   user sees an unsaved-edit cue without layout shift. */
+.c-input--dirty {
+    box-shadow: var(--nm-pressed-sm), inset 3px 0 0 0 var(--nm-accent-hover);
+    transition: box-shadow 200ms ease;
+}
+.c-input--dirty:focus {
+    box-shadow: var(--nm-pressed-sm), inset 3px 0 0 0 var(--nm-accent-hover), 0 0 0 3px rgba(168,180,216,0.3);
+}
+
+/* Tag-chip strip rendered under the Tags input on library_detail. */
+.tag-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.tag-chip__remove {
+    background: transparent;
+    border: none;
+    color: var(--nm-text-muted);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+.tag-chip__remove:hover {
+    color: #c0392b;
+}
+.tag-chip-empty {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--nm-text-muted);
+    line-height: 1.4;
+}
+
 /* Type badges */
 .type-badge {
     font-size: 0.7rem;

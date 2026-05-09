@@ -127,6 +127,17 @@ def test_api_delete_conversion_removes_row(app, authenticated_client, test_user)
         assert Conversion.query.get(cid) is None
 
 
+def test_file_size_filter_matches_js_helper(app):
+    """F-3 P12: the server-side ``file_size`` Jinja filter mirrors the
+    formatFileSize helper in static/js/_utils.js. Same anchors so the
+    JS download view and the rendered detail view agree on the unit.
+    """
+    fmt = app.jinja_env.filters['file_size']
+    assert fmt(222) == '222 B'
+    assert fmt(4731) == '4,6 KB'
+    assert fmt(1234567) == '1,2 MB'
+
+
 def test_api_delete_conversion_404_for_other_users_conversion(app, authenticated_client, test_user):
     """F-3 P3: DELETE on a non-owned row must 404 so the JS Delete handler
     can route the user back to the Library via the explicit race-404 branch.
