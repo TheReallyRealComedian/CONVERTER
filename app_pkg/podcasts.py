@@ -156,8 +156,8 @@ def register(app):
                 meta={'user_id': current_user.id}
             )
 
-            app.logger.info(f"Job {job.get_id()} queued for podcast generation")
-            return jsonify({"job_id": job.get_id(), "status": "queued"})
+            app.logger.info(f"Job {job.id} queued for podcast generation")
+            return jsonify({"job_id": job.id, "status": "queued"})
 
         except Exception as e:
             app.logger.error(f"Failed to queue podcast job: {e}", exc_info=True)

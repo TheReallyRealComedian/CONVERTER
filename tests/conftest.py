@@ -194,7 +194,7 @@ def mock_redis_queue(app):
     """
     mock_queue = MagicMock()
     mock_job = MagicMock()
-    mock_job.get_id.return_value = 'test-job-123'
+    mock_job.id = 'test-job-123'
     mock_queue.enqueue.return_value = mock_job
 
     original_queue = app_module.task_queue

@@ -4,7 +4,7 @@ Runs as a separate container/process and pulls jobs from Redis.
 """
 import os
 import redis
-from rq import Worker, Queue, Connection
+from rq import Worker, Queue
 
 listen = ['default']
 
@@ -13,6 +13,6 @@ conn = redis.from_url(redis_url)
 
 if __name__ == '__main__':
     print("Worker gestartet und wartet auf Jobs...")
-    with Connection(conn):
-        worker = Worker(list(map(Queue, listen)))
-        worker.work()
+    queues = [Queue(name, connection=conn) for name in listen]
+    worker = Worker(queues, connection=conn)
+    worker.work()
