@@ -29,7 +29,7 @@ Drei Pakete mit jeweils einem CVE, Minor-Bump, kein API-Break erwartet:
 - **requests** 2.31.0 → 2.33.0 (3 CVEs)
 - **Flask** 3.0.3 → 3.1.3 (CVE-2026-27205)
 
-Pre-Test-Welle nach jedem Bump (`pytest tests/` 38/38). Reihenfolge: Pygments → requests → Flask (lowest blast radius first).
+Pre-Test-Welle nach jedem Bump (`pytest tests/` 43/43). Reihenfolge: Pygments → requests → Flask (lowest blast radius first).
 
 ### 3. `CVE-PDF` — User-Upload-Pfad-CVEs + Major-Skew · P2 · L
 Beide auf User-Upload-Pfad, beide mit echten CVEs:
