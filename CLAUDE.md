@@ -53,8 +53,20 @@ App runs on `localhost:5656`. Requires `.env` with `GEMINI_API_KEY`, `DEEPGRAM_A
 
 **Mechanik**:
 1. Master schreibt Sprint-Prompt-Doc unter `docs/archive/sprint-prompts/SPRINT_<CODE>_<NAME>_<datum>.md` — imperativ, in Phasen geschnitten, Stop-Regel nach jeder Phase.
-2. Master liefert `cat <pfad> | pbcopy`-Einzeiler im Chat.
-3. Oliver paste-t in einen frischen Sub-Thread.
+2. Master liefert **direkt im Chat einen copy-paste-fähigen Anfangs-Prompt** in folgendem Format:
+
+   ```
+   Du übernimmst den Sub-Thread für Sprint <CODE> (<KURZ-TITEL>).
+
+   Sprint-Prompt vollständig lesen: <ABSOLUTER-PFAD-ZUR-SPRINT-DOC>
+
+   Dann Phase 1 direkt starten — nicht zusammenfassen, nicht planen, nicht beurteilen. Sprint-Prompt = ausführen. Master macht Dispatch, du machst Execute. Nach jeder Phase Stop + Bericht.
+
+   Working-Practice in /Volumes/MintHome/CODE/CONVERTER/CLAUDE.md unter Sektion "Working Practice".
+   ```
+
+   Kein `cat ... | pbcopy`-Indirection-Schritt mehr — der direkte Prompt-Block pinnt den Sub-Thread auf Executor-Rolle und verhindert das „lies und plane"-Missverständnis.
+3. Oliver kopiert den Block aus dem Chat, öffnet einen frischen Sub-Thread, paste-t.
 4. Sub-Thread arbeitet Phasen ab, berichtet zwischen Phasen, wartet auf Sign-off.
 5. Sub-Thread pflegt am Ende STATUS.md + BACKLOG.md + ggf. Memory.
 6. Master nimmt Stand-Update zurück und schreibt nächsten Sprint-Prompt.
