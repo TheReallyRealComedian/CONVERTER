@@ -5,7 +5,8 @@ from pathlib import Path
 
 from flask import jsonify, request, send_file
 from flask_login import current_user, login_required
-from rq.exceptions import NoSuchJobError
+from rq.command import send_stop_job_command
+from rq.exceptions import InvalidJobOperation, NoSuchJobError
 
 from app_pkg.config import OUTPUT_DIR, TIMEOUT_RQ_JOB_SECONDS
 from app_pkg.decorators import require_service
@@ -179,6 +180,14 @@ def register(app):
             return jsonify({"error": "Job not found"}), 404
 
         status = job.get_status()
+        cancelled_by_user = bool(job.meta.get('cancelled_by_user'))
+
+        # SIGKILL via send_stop_job_command surfaces as ``stopped`` in rq
+        # 2.x; ``canceled`` covers Job.cancel() of queued jobs. Either path
+        # plus the meta flag means the user pressed Cancel — collapse to a
+        # single user-visible "cancelled" terminal state.
+        if status in ('stopped', 'canceled') or (cancelled_by_user and status == 'failed'):
+            return jsonify({"status": "cancelled"})
 
         if status == 'finished':
             return jsonify({"status": "completed", "result": job.result})
@@ -189,6 +198,80 @@ def register(app):
             return jsonify({"status": "processing"})
         else:
             return jsonify({"status": status})
+
+    @app.route('/podcast-cancel/<job_id>', methods=['POST'])
+    @login_required
+    def podcast_cancel(job_id):
+        """Cancel a queued or running podcast job.
+
+        For queued jobs, ``Job.cancel()`` removes it from the queue. For
+        started jobs, ``send_stop_job_command`` publishes a stop command;
+        the worker then SIGKILLs the work-horse subprocess (rq 2.x
+        cooperative-cancel = real mid-execution stop, not just a status
+        flip — verified against rq.command source).
+
+        Best-effort cleanup of the deterministic ``{job_id}.wav`` output
+        file follows, with the same Path.is_relative_to guard as the
+        download path. Marks ``meta['cancelled_by_user']`` so /podcast-status
+        can collapse the resulting terminal state to a clean "cancelled"
+        for the frontend.
+        """
+        try:
+            job = _app_module.Job.fetch(job_id, connection=_app_module.redis_conn)
+        except NoSuchJobError:
+            return jsonify({"error": "Job not found"}), 404
+        except Exception as e:
+            app.logger.error(f"Failed to fetch RQ job {job_id} for cancel: {e}", exc_info=True)
+            return jsonify({"error": "Job lookup failed"}), 500
+
+        if job.meta.get('user_id') != current_user.id:
+            return jsonify({"error": "Job not found"}), 404
+
+        status = job.get_status()
+
+        if status == 'finished':
+            return jsonify({
+                "status": "already_finished",
+                "message": "Generierung wurde noch fertig. Datei wird verworfen."
+            }), 200
+
+        if status in ('failed', 'stopped', 'canceled'):
+            return jsonify({"status": "already_terminal"}), 200
+
+        try:
+            if status == 'started':
+                send_stop_job_command(_app_module.redis_conn, job_id)
+            else:
+                # queued / deferred / scheduled
+                job.cancel()
+        except InvalidJobOperation:
+            # Race: status changed between fetch and stop. Treat as already
+            # terminal — frontend polling will see the real state.
+            app.logger.info(f"Cancel race for job {job_id}: status changed mid-flight")
+        except Exception as e:
+            app.logger.error(f"Failed to stop RQ job {job_id}: {e}", exc_info=True)
+            return jsonify({"error": "Cancel-Befehl fehlgeschlagen."}), 500
+
+        try:
+            job.meta['cancelled_by_user'] = True
+            job.save_meta()
+        except Exception as e:
+            app.logger.warning(f"Failed to persist cancel meta for {job_id}: {e}")
+
+        # Best-effort cleanup of the deterministic output file. The worker
+        # may have already moved a freshly-written WAV into OUTPUT_DIR
+        # before SIGKILL landed — same path-traversal guard as download.
+        candidate = os.path.join(OUTPUT_DIR, f"{job_id}.wav")
+        try:
+            real_path = os.path.realpath(candidate)
+            if Path(real_path).is_relative_to(Path(os.path.realpath(OUTPUT_DIR))):
+                if os.path.exists(real_path):
+                    os.unlink(real_path)
+                    app.logger.info(f"Cleaned up orphaned podcast file {real_path}")
+        except OSError as e:
+            app.logger.warning(f"Failed to clean up orphaned podcast file {candidate}: {e}")
+
+        return jsonify({"status": "cancelling"}), 202
 
     @app.route('/podcast-download/<job_id>', methods=['GET'])
     @login_required

@@ -230,6 +230,143 @@ def test_generate_podcast_invalid_speaking_rate_returns_400(
     mock_google_tts.synthesize_speech.assert_not_called()
 
 
+def test_podcast_status_stopped_reports_cancelled(
+    authenticated_client, mock_redis_queue, test_user
+):
+    """rq 2.x send_stop_job_command surfaces as ``stopped`` once the worker
+    has SIGKILLed the horse — frontend should see a clean ``cancelled``
+    terminal so it can show the abort banner instead of a generic failure."""
+    mock_redis_queue['fetch'].return_value = _job_with('stopped', user_id=test_user['id'])
+    resp = authenticated_client.get('/podcast-status/job-x')
+    assert resp.status_code == 200
+    assert resp.get_json() == {'status': 'cancelled'}
+
+
+def test_podcast_status_failed_with_cancelled_meta_reports_cancelled(
+    authenticated_client, mock_redis_queue, test_user
+):
+    """Belt-and-suspenders: even if rq surfaces ``failed`` (older rq path /
+    edge case), the ``cancelled_by_user`` meta flag set by /podcast-cancel
+    still collapses the terminal to ``cancelled`` for the frontend."""
+    job = _job_with('failed', user_id=test_user['id'], exc_info='SIGKILL')
+    job.meta = {'user_id': test_user['id'], 'cancelled_by_user': True}
+    mock_redis_queue['fetch'].return_value = job
+    resp = authenticated_client.get('/podcast-status/job-x')
+    assert resp.status_code == 200
+    assert resp.get_json() == {'status': 'cancelled'}
+
+
+def test_podcast_cancel_started_sends_stop_command(
+    authenticated_client, mock_redis_queue, test_user, monkeypatch
+):
+    """For a started job the cancel endpoint must invoke rq's
+    send_stop_job_command (which SIGKILLs the work-horse via PubSub) — not
+    Job.cancel(), which only flips status for queued jobs."""
+    job = _job_with('started', user_id=test_user['id'])
+    mock_redis_queue['fetch'].return_value = job
+
+    stop_calls = []
+    monkeypatch.setattr(
+        'app_pkg.podcasts.send_stop_job_command',
+        lambda conn, jid: stop_calls.append((conn, jid)),
+    )
+
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 202
+    assert resp.get_json()['status'] == 'cancelling'
+    assert len(stop_calls) == 1
+    assert stop_calls[0][1] == 'job-x'
+    job.cancel.assert_not_called()
+    assert job.meta.get('cancelled_by_user') is True
+    job.save_meta.assert_called_once()
+
+
+def test_podcast_cancel_queued_calls_job_cancel(
+    authenticated_client, mock_redis_queue, test_user, monkeypatch
+):
+    """For a queued job, Job.cancel() removes it from the queue — no horse
+    to SIGKILL yet, so send_stop_job_command must NOT be called."""
+    job = _job_with('queued', user_id=test_user['id'])
+    mock_redis_queue['fetch'].return_value = job
+
+    stop_calls = []
+    monkeypatch.setattr(
+        'app_pkg.podcasts.send_stop_job_command',
+        lambda conn, jid: stop_calls.append((conn, jid)),
+    )
+
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 202
+    job.cancel.assert_called_once()
+    assert stop_calls == []
+
+
+def test_podcast_cancel_other_user_returns_404(
+    authenticated_client, mock_redis_queue, test_user
+):
+    """Ownership check must mirror /podcast-status: foreign job → 404."""
+    mock_redis_queue['fetch'].return_value = _job_with('started', user_id=test_user['id'] + 999)
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 404
+
+
+def test_podcast_cancel_finished_returns_already_finished(
+    authenticated_client, mock_redis_queue, test_user, monkeypatch
+):
+    """If the job finished before the cancel landed, do not delete the
+    output file — return a clean already_finished marker for the frontend."""
+    job = _job_with('finished', user_id=test_user['id'], result='/app/output_podcasts/job-x.wav')
+    mock_redis_queue['fetch'].return_value = job
+
+    stop_calls = []
+    monkeypatch.setattr(
+        'app_pkg.podcasts.send_stop_job_command',
+        lambda conn, jid: stop_calls.append((conn, jid)),
+    )
+
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 200
+    assert resp.get_json()['status'] == 'already_finished'
+    assert stop_calls == []
+    job.cancel.assert_not_called()
+
+
+def test_podcast_cancel_started_unlinks_orphan_wav(
+    authenticated_client, mock_redis_queue, test_user, monkeypatch, tmp_path
+):
+    """Cancel must remove an orphan ``{job_id}.wav`` if the worker already
+    moved a partial output into OUTPUT_DIR before SIGKILL landed."""
+    monkeypatch.setattr('app_pkg.podcasts.OUTPUT_DIR', str(tmp_path))
+    orphan = tmp_path / 'job-x.wav'
+    orphan.write_bytes(b'partial wav bytes')
+
+    job = _job_with('started', user_id=test_user['id'])
+    mock_redis_queue['fetch'].return_value = job
+    monkeypatch.setattr('app_pkg.podcasts.send_stop_job_command', lambda conn, jid: None)
+
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 202
+    assert not orphan.exists()
+
+
+def test_podcast_cancel_no_such_job_returns_404(
+    authenticated_client, mock_redis_queue
+):
+    mock_redis_queue['fetch'].side_effect = NoSuchJobError('gone')
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 404
+
+
+def test_podcast_cancel_other_exception_returns_500(
+    authenticated_client, mock_redis_queue
+):
+    """F-001 narrow-except parity with /podcast-status: non-NoSuchJobError
+    exceptions surface as 500, not silently as 404."""
+    mock_redis_queue['fetch'].side_effect = ConnectionError('redis down')
+    resp = authenticated_client.post('/podcast-cancel/job-x')
+    assert resp.status_code == 500
+
+
 def test_podcast_download_path_traversal_rejected(
     authenticated_client, mock_redis_queue, test_user, tmp_path, monkeypatch
 ):

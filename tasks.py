@@ -6,6 +6,8 @@ import os
 import shutil
 import logging
 
+from rq import get_current_job
+
 from app_pkg.config import OUTPUT_DIR
 from services import GeminiService
 
@@ -18,16 +20,10 @@ def generate_podcast_task(dialogue, language, tts_model):
     """
     Generate a podcast in a background worker process.
 
-    This function runs isolated in the worker container.
-    The result file is moved to a shared volume so the web container can serve it.
-
-    Args:
-        dialogue: List of dicts with 'speaker', 'style', 'text'
-        language: Language code (e.g., 'en', 'de')
-        tts_model: TTS model to use (e.g., 'gemini-2.5-flash-preview-tts')
-
-    Returns:
-        str: Path to the generated audio file in the shared volume
+    The output file is named ``{job_id}.wav`` so the web container can locate
+    it by job_id alone (used by both /podcast-download and /podcast-cancel
+    cleanup). Falls back to the temp basename if no RQ job context is present
+    (only happens in direct in-process calls — not the RQ-worker code path).
     """
     try:
         logger.info(f"=== WORKER TASK START ===")
@@ -35,19 +31,20 @@ def generate_podcast_task(dialogue, language, tts_model):
         logger.info(f"Language: {language}")
         logger.info(f"TTS Model: {tts_model}")
 
-        # Initialize service fresh in worker (avoids pickle issues)
         api_key = os.environ.get('GEMINI_API_KEY')
         if not api_key:
             raise ValueError("GEMINI_API_KEY not set in worker environment")
 
         gemini_service = GeminiService(api_key)
 
-        # Generate podcast (creates temp file)
         logger.info("Starting podcast generation...")
         temp_path = gemini_service.generate_podcast(dialogue, language, tts_model)
 
-        # Move to shared volume so web container can access it
-        filename = os.path.basename(temp_path)
+        job = get_current_job()
+        if job is not None:
+            filename = f"{job.id}.wav"
+        else:
+            filename = os.path.basename(temp_path)
         final_path = os.path.join(OUTPUT_DIR, filename)
 
         shutil.move(temp_path, final_path)

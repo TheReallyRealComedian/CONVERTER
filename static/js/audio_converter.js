@@ -629,12 +629,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const podcastAudio = document.getElementById('podcast-audio');
     const podcastAudioSource = document.getElementById('podcast-audio-source');
     const downloadPodcastBtn = document.getElementById('download-podcast-btn');
-    let podcastCancelRequested = false;
+
+    // Cancel-state machine: idle → confirm-pending → cancelling.
+    // confirm-pending is a 5 s window where a second click confirms; the btn
+    // returns to idle on timeout or other interaction. cancelling is a
+    // post-roundtrip terminal-pending state — polling-loop sees the worker
+    // status change and resolves the UI then.
+    const CANCEL_BTN_LABEL_IDLE = 'Abbrechen';
+    const CANCEL_BTN_LABEL_CONFIRM = 'Ja, abbrechen';
+    const CANCEL_BTN_LABEL_CANCELLING = 'Wird abgebrochen …';
+    const CANCEL_CONFIRM_TIMEOUT_MS = 5000;
+    let podcastJobId = null;
+    let podcastCancelState = 'idle';
+    let podcastCancelConfirmTimer = null;
 
     function setPodcastGenerating(isGenerating) {
         if (isGenerating) {
             if (generatePodcastBtn) generatePodcastBtn.classList.add('hidden');
-            if (cancelPodcastBtn) cancelPodcastBtn.classList.remove('hidden');
+            if (cancelPodcastBtn) {
+                cancelPodcastBtn.classList.remove('hidden');
+                resetPodcastCancelBtn();
+            }
         } else {
             if (cancelPodcastBtn) cancelPodcastBtn.classList.add('hidden');
             if (generatePodcastBtn) {
@@ -642,12 +657,67 @@ document.addEventListener('DOMContentLoaded', function() {
                 generatePodcastBtn.disabled = !geminiAvailable;
                 generatePodcastBtn.textContent = 'Podcast generieren';
             }
+            resetPodcastCancelBtn();
         }
     }
 
+    function resetPodcastCancelBtn() {
+        if (!cancelPodcastBtn) return;
+        if (podcastCancelConfirmTimer) {
+            clearTimeout(podcastCancelConfirmTimer);
+            podcastCancelConfirmTimer = null;
+        }
+        podcastCancelState = 'idle';
+        cancelPodcastBtn.disabled = false;
+        cancelPodcastBtn.textContent = CANCEL_BTN_LABEL_IDLE;
+        cancelPodcastBtn.removeAttribute('aria-pressed');
+    }
+
     if (cancelPodcastBtn) {
-        cancelPodcastBtn.addEventListener('click', () => {
-            podcastCancelRequested = true;
+        cancelPodcastBtn.addEventListener('click', async () => {
+            if (podcastCancelState === 'cancelling') return;
+
+            if (podcastCancelState === 'idle') {
+                podcastCancelState = 'confirm-pending';
+                cancelPodcastBtn.textContent = CANCEL_BTN_LABEL_CONFIRM;
+                cancelPodcastBtn.setAttribute('aria-pressed', 'true');
+                showAlert(podcastAlertContainer, 'warning',
+                    'Generierung wirklich abbrechen? TTS-Token sind teilweise schon verbraucht.',
+                    { autoDismissMs: CANCEL_CONFIRM_TIMEOUT_MS });
+                podcastCancelConfirmTimer = setTimeout(() => {
+                    if (podcastCancelState === 'confirm-pending') resetPodcastCancelBtn();
+                }, CANCEL_CONFIRM_TIMEOUT_MS);
+                return;
+            }
+
+            // confirm-pending → cancelling
+            if (podcastCancelConfirmTimer) {
+                clearTimeout(podcastCancelConfirmTimer);
+                podcastCancelConfirmTimer = null;
+            }
+            podcastCancelState = 'cancelling';
+            cancelPodcastBtn.textContent = CANCEL_BTN_LABEL_CANCELLING;
+            cancelPodcastBtn.disabled = true;
+
+            if (!podcastJobId) {
+                // Nothing in flight (race with finish). Just reset UI.
+                resetPodcastCancelBtn();
+                return;
+            }
+
+            try {
+                const r = await fetch(`/podcast-cancel/${podcastJobId}`, { method: 'POST' });
+                if (!r.ok && r.status !== 202) {
+                    const errData = await safeJSON(r);
+                    throw new Error(errData.error || `Cancel fehlgeschlagen (${r.status})`);
+                }
+            } catch (err) {
+                console.error('Cancel error:', err);
+                showAlert(podcastAlertContainer, 'danger',
+                    'Abbruch konnte nicht ausgeführt werden. Bitte erneut versuchen.');
+                resetPodcastCancelBtn();
+            }
+            // Polling-Loop reads worker-confirmed terminal status and finalises UI.
         });
     }
 
@@ -811,9 +881,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            podcastCancelRequested = false;
             setPodcastGenerating(true);
             podcastResultContainer.classList.add('hidden');
+
+            let cancelledTerminal = false;
 
             try {
                 const ttsModelSelect = document.getElementById('tts-model');
@@ -833,14 +904,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 const { job_id } = await safeJSON(startResponse);
+                podcastJobId = job_id;
 
                 let status = 'pending';
-                let pollCount = 0;
                 while (status === 'pending' || status === 'processing') {
                     await new Promise(resolve => setTimeout(resolve, 2000));
-                    if (podcastCancelRequested) break;
-                    pollCount++;
-                    if (cancelPodcastBtn) cancelPodcastBtn.textContent = `Abbrechen (${pollCount * 2} s)`;
 
                     const statusResponse = await fetch(`/podcast-status/${job_id}`);
                     const statusData = await safeJSON(statusResponse);
@@ -849,11 +917,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (status === 'failed') {
                         throw new Error(statusData.error || 'Generierung fehlgeschlagen');
                     }
+                    if (status === 'cancelled') {
+                        cancelledTerminal = true;
+                        break;
+                    }
                 }
 
-                if (podcastCancelRequested) {
-                    showAlert(podcastAlertContainer, 'warning',
-                        'Generierung abgebrochen. Backend-Job läuft im Hintergrund weiter.');
+                if (cancelledTerminal) {
+                    showAlert(podcastAlertContainer, 'warning', 'Generierung abgebrochen.');
                     return;
                 }
 
@@ -879,7 +950,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Podcast-Generierung fehlgeschlagen. Bitte erneut versuchen.');
             } finally {
                 setPodcastGenerating(false);
-                if (cancelPodcastBtn) cancelPodcastBtn.textContent = 'Abbrechen';
+                podcastJobId = null;
             }
         });
     }
