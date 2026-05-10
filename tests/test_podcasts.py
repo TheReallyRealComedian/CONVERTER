@@ -96,22 +96,28 @@ def test_generate_podcast_503_when_google_tts_not_configured(authenticated_clien
     assert 'nicht konfiguriert' in body['error']
 
 
-def test_podcast_status_queued_reports_processing(
+def test_podcast_status_queued_reports_queued(
     authenticated_client, mock_redis_queue, test_user
 ):
+    """F-4.3 P5: queued is now a distinct user-visible state from started so
+    the frontend can show ``Wartet auf Worker …`` and trigger the queue-stuck
+    diagnostic banner after the worker-pickup grace window."""
     mock_redis_queue['fetch'].return_value = _job_with('queued', user_id=test_user['id'])
     resp = authenticated_client.get('/podcast-status/job-x')
     assert resp.status_code == 200
-    assert resp.get_json() == {'status': 'processing'}
+    assert resp.get_json() == {'status': 'queued'}
 
 
-def test_podcast_status_started_reports_processing(
+def test_podcast_status_started_reports_started(
     authenticated_client, mock_redis_queue, test_user
 ):
+    """F-4.3 P5: started maps cleanly to ``started`` (not the old conflated
+    ``processing``). With no stage in meta the response stays minimal — the
+    frontend then renders the generic ``wird generiert`` sub-caption."""
     mock_redis_queue['fetch'].return_value = _job_with('started', user_id=test_user['id'])
     resp = authenticated_client.get('/podcast-status/job-x')
     assert resp.status_code == 200
-    assert resp.get_json() == {'status': 'processing'}
+    assert resp.get_json() == {'status': 'started'}
 
 
 def test_podcast_status_finished_reports_completed_with_result(
@@ -365,6 +371,105 @@ def test_podcast_cancel_other_exception_returns_500(
     mock_redis_queue['fetch'].side_effect = ConnectionError('redis down')
     resp = authenticated_client.post('/podcast-cancel/job-x')
     assert resp.status_code == 500
+
+
+def test_podcast_status_started_passes_stage_meta_through(
+    authenticated_client, mock_redis_queue, test_user
+):
+    """F-4.3 P3: when the worker has written a stage marker into job.meta,
+    /podcast-status reflects it back so the polling loop can render a
+    sub-caption (and chunk-progress bar for the multi-chunk path)."""
+    job = _job_with('started', user_id=test_user['id'])
+    job.meta = {
+        'user_id': test_user['id'],
+        'stage': 'tts_chunk',
+        'chunk_current': 2,
+        'chunk_total': 5,
+    }
+    mock_redis_queue['fetch'].return_value = job
+
+    resp = authenticated_client.get('/podcast-status/job-x')
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body['status'] == 'started'
+    assert body['stage'] == 'tts_chunk'
+    assert body['chunk_current'] == 2
+    assert body['chunk_total'] == 5
+
+
+def test_podcast_status_deferred_passes_through(
+    authenticated_client, mock_redis_queue, test_user
+):
+    """F-4.3 P8: ``deferred``/``scheduled`` were silently bucketed before; now
+    they round-trip so the polling loop can show a distinct queue-waiting
+    sub-caption instead of misclassifying the state as unknown."""
+    mock_redis_queue['fetch'].return_value = _job_with('deferred', user_id=test_user['id'])
+    resp = authenticated_client.get('/podcast-status/job-x')
+    assert resp.status_code == 200
+    assert resp.get_json() == {'status': 'deferred'}
+
+
+def test_format_dialogue_raw_text_too_long_returns_400(
+    authenticated_client, mock_gemini, gemini_api_key_set
+):
+    """F-4.3 P9: raw_text past ``MAX_RAW_TEXT_CHARS`` is rejected before the
+    LLM round-trip — guard against runaway pastes burning Gemini budget.
+    Also acts as the race-case guard for the frontend char-counter."""
+    from app_pkg.config import MAX_RAW_TEXT_CHARS
+
+    resp = authenticated_client.post(
+        '/format-dialogue-with-llm',
+        json={
+            'raw_text': 'x' * (MAX_RAW_TEXT_CHARS + 1),
+            'narration_style': 'conversational',
+            'script_length': 'medium',
+            'language': 'en',
+            'num_speakers': 2,
+        },
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'zu lang' in body['error']
+    mock_gemini.format_dialogue_with_llm.assert_not_called()
+
+
+def test_generate_gemini_podcast_invalid_language_returns_400(
+    authenticated_client, mock_redis_queue, gemini_api_key_set
+):
+    """F-4.3 P9: Allowlist-Konvergenz analog F-013 — bad language no longer
+    flows through to the worker queue. Mirror of the existing
+    ``test_format_dialogue_invalid_narration_style_returns_400``."""
+    resp = authenticated_client.post(
+        '/generate-gemini-podcast',
+        json={
+            'dialogue': [{'speaker': 'Kore', 'text': 'hi'}],
+            'language': 'klingonian',
+        },
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'Sprache' in body['error']
+    mock_redis_queue['queue'].enqueue.assert_not_called()
+
+
+def test_generate_gemini_podcast_invalid_tts_model_returns_400(
+    authenticated_client, mock_redis_queue, gemini_api_key_set
+):
+    """F-4.3 P9: tts_model outside the published TTS_MODELS allowlist is
+    rejected at the request boundary. Without this the worker silently
+    falls back to DEFAULT_TTS_MODEL — silent fallback hides typos."""
+    resp = authenticated_client.post(
+        '/generate-gemini-podcast',
+        json={
+            'dialogue': [{'speaker': 'Kore', 'text': 'hi'}],
+            'language': 'en',
+            'tts_model': 'gemini-9.9-make-believe-tts',
+        },
+    )
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert 'TTS-Modell' in body['error']
+    mock_redis_queue['queue'].enqueue.assert_not_called()
 
 
 def test_podcast_download_path_traversal_rejected(

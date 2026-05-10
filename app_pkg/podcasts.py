@@ -8,10 +8,11 @@ from flask_login import current_user, login_required
 from rq.command import send_stop_job_command
 from rq.exceptions import InvalidJobOperation, NoSuchJobError
 
-from app_pkg.config import OUTPUT_DIR, TIMEOUT_RQ_JOB_SECONDS
+from app_pkg.config import MAX_RAW_TEXT_CHARS, OUTPUT_DIR, TIMEOUT_RQ_JOB_SECONDS
 from app_pkg.decorators import require_service
 from services.gemini.prompts import STYLE_DIRECTIVES
 from services.gemini.script import LANGUAGE_NAMES, LENGTH_INFO
+from services.gemini.tts import TTS_MODELS
 from tasks import generate_podcast_task
 
 
@@ -149,6 +150,27 @@ def register(app):
             language = data.get('language', 'en')
             tts_model = data.get('tts_model', None)
 
+            # F-4.3 P9: Allowlist-Konvergenz analog F-013. Bisher ging kaputtes
+            # Input direkt in den Worker und kostete dort eine Gemini-Roundtrip,
+            # bevor es als Worker-Failure surface'te.
+            if not isinstance(dialogue, list) or not dialogue:
+                return jsonify({
+                    "error": "Dialog fehlt oder ist im falschen Format. Erwartet: Liste von Sprecher-Zeilen."
+                }), 400
+            for turn in dialogue:
+                if not isinstance(turn, dict) or not turn.get('text'):
+                    return jsonify({
+                        "error": "Dialog-Zeilen müssen Sprecher und Text enthalten."
+                    }), 400
+            if language not in LANGUAGE_NAMES:
+                return jsonify({
+                    "error": "Ungültige Sprache. Erlaubt: " + ", ".join(LANGUAGE_NAMES) + "."
+                }), 400
+            if tts_model is not None and tts_model not in TTS_MODELS:
+                return jsonify({
+                    "error": "Ungültiges TTS-Modell. Erlaubt: " + ", ".join(TTS_MODELS) + "."
+                }), 400
+
             # Enqueue job to Redis (worker will pick it up)
             job = _app_module.task_queue.enqueue(
                 generate_podcast_task,
@@ -194,8 +216,24 @@ def register(app):
         elif status == 'failed':
             error_msg = str(job.exc_info) if job.exc_info else "Unknown error"
             return jsonify({"status": "failed", "error": error_msg})
-        elif status in ['queued', 'started']:
-            return jsonify({"status": "processing"})
+        elif status == 'queued':
+            return jsonify({"status": "queued"})
+        elif status == 'started':
+            # P3 Stage-Progress: durch-reichen, was der Worker via job.meta
+            # gesetzt hat. Frontend rendert Sub-Caption + ggf. Chunk-Progress.
+            payload = {"status": "started"}
+            stage = job.meta.get('stage')
+            if stage:
+                payload['stage'] = stage
+            chunk_current = job.meta.get('chunk_current')
+            chunk_total = job.meta.get('chunk_total')
+            if chunk_current is not None and chunk_total is not None:
+                payload['chunk_current'] = chunk_current
+                payload['chunk_total'] = chunk_total
+            return jsonify(payload)
+        elif status in ('deferred', 'scheduled'):
+            # P8 Polling-Edge-Cases: bisher implizit als unknown durchgereicht.
+            return jsonify({"status": status})
         else:
             return jsonify({"status": status})
 
@@ -340,6 +378,13 @@ def register(app):
 
             if not raw_text_received or not raw_text_received.strip():
                 return jsonify({"error": "No text provided for formatting"}), 400
+
+            # F-4.3 P9: Single-Source-of-Truth Max-Length aus app_pkg.config —
+            # Frontend zeigt einen Counter, Backend ist die Race-Case-Verteidigung.
+            if len(raw_text_received) > MAX_RAW_TEXT_CHARS:
+                return jsonify({
+                    "error": f"Quelltext ist zu lang. Maximum: {MAX_RAW_TEXT_CHARS} Zeichen."
+                }), 400
 
             language = data.get('language', 'en')
             narration_style = data.get('narration_style', 'conversational')

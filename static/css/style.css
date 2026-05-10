@@ -1474,6 +1474,93 @@ html.theme-transitioning *::after {
     cursor: default;
 }
 
+/* F-4.3 P11: same readonly cue for the podcast script while the worker is
+   generating — user can read the frozen snapshot but cannot edit. */
+#podcast-script.is-readonly {
+    color: var(--nm-text-secondary);
+    cursor: default;
+}
+
+/* F-4.3 P12: tabs that the service-gate marks aria-disabled must look and
+   behave disabled. Today the markup hint exists, the JS-click was unguarded. */
+.tab-btn[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* F-4.3 P7: unified loading state for the two podcast generate buttons.
+   Re-uses the mic-button-spin keyframes; the spinner span is added per-button
+   in markup as ``.is-loading-spinner``. The script-button rotates its existing
+   icon via the .is-loading toggle (F16 part of the consolidation). */
+.c-btn .is-loading-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    opacity: 0;
+    margin-right: 6px;
+    vertical-align: -2px;
+}
+.c-btn.is-loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+.c-btn.is-loading .is-loading-spinner {
+    opacity: 1;
+    animation: mic-button-spin 0.8s linear infinite;
+}
+#generate-script-btn.is-loading .generate-script-btn__icon {
+    animation: mic-button-spin 1s linear infinite;
+    transform-origin: center;
+    display: inline-block;
+}
+
+/* F-4.3 P3: stage-indicator + chunk-progress bar shown under the generate
+   button while the worker walks through filtering / chunking / tts /
+   concatenating / finalizing. Sub-caption text comes via aria-live polite
+   so screenreaders announce stage transitions. */
+.podcast-stage-indicator {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--nm-text-secondary);
+}
+.podcast-stage-indicator__counter {
+    color: var(--nm-text-muted);
+}
+.podcast-stage-indicator__bar {
+    margin-top: 4px;
+    height: 4px;
+    background: var(--nm-pressed-sm, rgba(0, 0, 0, 0.08));
+    border-radius: 2px;
+    overflow: hidden;
+}
+.podcast-stage-indicator__bar-fill {
+    height: 100%;
+    background: var(--nm-accent-hover, #6c7ae0);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* F-4.3 P9: character counter below the source-text textarea. Greys at
+   80%, warns red at 100%+. Mirrors MAX_RAW_TEXT_CHARS from app_pkg.config. */
+.char-counter {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--nm-text-faint);
+    text-align: right;
+}
+.char-counter.is-warning {
+    color: #c79100;
+}
+.char-counter.is-over {
+    color: #c0392b;
+    font-weight: 600;
+}
+
 /* Mode-radio inputs are visually hidden but kept in the tab-order so keyboard
    users can focus them; the :checked / :focus-visible state on the input flows
    into the adjacent label via sibling selectors (P15). */

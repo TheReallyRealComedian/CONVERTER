@@ -187,11 +187,13 @@
                 <div class="mb-4">
                     <label for="podcast-raw-text" class="block text-sm font-medium text-neo-muted mb-1.5">Quelltext</label>
                     <textarea id="podcast-raw-text" rows="6" placeholder="Quelltext hier einfügen — oder direkt unten ein Skript schreiben."
-                        class="c-input w-full"></textarea>
+                        class="c-input w-full" maxlength="{{ max_raw_text_chars }}"></textarea>
+                    <span id="podcast-raw-text-counter" class="char-counter" aria-live="polite">0/{{ max_raw_text_chars }} Zeichen</span>
                     <p class="mt-1 text-xs text-neo-faint">Quelltext einfügen oder leer lassen, um direkt mit dem Skript darunter zu arbeiten.</p>
                 </div>
 
                 <button type="button" class="c-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
+                    <span class="is-loading-spinner" aria-hidden="true"></span>
                     <span class="generate-script-btn__icon" aria-hidden="true">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
                     </span>
@@ -202,7 +204,8 @@
                     <label for="podcast-script" class="block text-sm font-medium text-neo-muted mb-1.5">Podcast-Skript</label>
                     <textarea id="podcast-script" rows="12" placeholder="Skript hier bearbeiten oder aus dem Quelltext oben generieren.&#10;&#10;Format:&#10;Kate [warm]: Willkommen zur heutigen Folge!&#10;Max [sachlich]: Schön, dass du dabei bist."
                         class="c-input w-full font-mono"></textarea>
-                    <p class="mt-1 text-xs text-neo-faint">Format: <code>Sprecher [stil]: Text</code></p>
+                    <p class="mt-1 text-xs text-neo-faint">Format: <code>Sprecher [stil]: Text</code> pro Zeile. Sprecher: Kate, Max oder eigener Name (Default-Stimme: Kore). Zeilen mit <code>#</code> oder <code>**</code> werden ignoriert.</p>
+                    <p id="podcast-script-status-hint" class="hidden mt-1 text-xs text-neo-faint italic">Generierung läuft — Skript-Edit erst nach Stop oder Abschluss.</p>
                 </div>
 
                 <!-- Advanced: Custom Prompt Editor -->
@@ -225,12 +228,20 @@
                     </div>
                 </div>
 
-                <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center" id="generate-podcast-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
-                    Podcast generieren
+                <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center inline-flex items-center justify-center" id="generate-podcast-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
+                    <span class="is-loading-spinner" aria-hidden="true"></span>
+                    <span>Podcast generieren</span>
                 </button>
                 <button type="button" class="c-btn c-btn--danger w-full mt-4 text-center hidden" id="cancel-podcast-btn">
                     Abbrechen
                 </button>
+                <div id="podcast-stage-indicator" class="podcast-stage-indicator hidden" aria-live="polite">
+                    <span class="podcast-stage-indicator__text" id="podcast-stage-text"></span>
+                    <span class="podcast-stage-indicator__counter" id="podcast-stage-counter"></span>
+                    <div class="podcast-stage-indicator__bar hidden" id="podcast-stage-bar">
+                        <div class="podcast-stage-indicator__bar-fill" id="podcast-stage-bar-fill"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Result Container -->
@@ -260,7 +271,8 @@
         deepgramApiKeySet: {{ 'true' if deepgram_api_key_set else 'false' }},
         geminiApiKeySet: {{ 'true' if gemini_api_key_set else 'false' }},
         acceptedAudioExtensions: {{ accepted_audio_extensions|tojson }},
-        maxAudioFileSizeMb: {{ max_audio_file_size_mb }}
+        maxAudioFileSizeMb: {{ max_audio_file_size_mb }},
+        maxRawTextChars: {{ max_raw_text_chars }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/audio_converter.js') }}"></script>

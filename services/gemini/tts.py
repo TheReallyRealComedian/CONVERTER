@@ -14,11 +14,32 @@ from typing import Dict, List
 
 from google.genai import types
 
+from rq import get_current_job
+
 from services.gemini.audio import concatenate_with_pydub, concatenate_with_wave
 from services.gemini.dialogue import filter_metadata_lines, split_long_dialogue_turns
 from services.gemini.synthesis import generate_single_chunk
 
 logger = logging.getLogger(__name__)
+
+
+def _set_stage(stage, **extras):
+    """F-4.3 P3: write stage marker to job.meta. No-op outside RQ worker.
+
+    Inlined here (not imported from tasks.py) to avoid the import cycle
+    services.gemini.tts -> tasks -> services.GeminiService -> tts. Mirrors
+    the public ``tasks.update_job_stage`` for the finalizing-stage call.
+    """
+    job = get_current_job()
+    if job is None:
+        return
+    try:
+        job.meta['stage'] = stage
+        for key, value in extras.items():
+            job.meta[key] = value
+        job.save_meta()
+    except Exception as e:
+        logger.warning(f"_set_stage failed for stage={stage}: {e}")
 
 
 # Available TTS models
@@ -92,6 +113,8 @@ def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_avai
 
     logger.info(f"Raw dialogue: {len(dialogue_lines)} turns")
 
+    _set_stage('filtering')
+
     # Filter and process with statistics
     raw_count = len(dialogue_lines)
     dialogue_lines = filter_metadata_lines(dialogue_lines)
@@ -117,9 +140,11 @@ def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_avai
 
     if len(dialogue_lines) <= MAX_LINES_PER_CHUNK:
         logger.info(f"  -> Single chunk (Zeilen unter Schwellwert)")
+        _set_stage('tts_chunk', chunk_current=1, chunk_total=1)
         return generate_single_chunk(client, dialogue_lines, speaker_voice_configs, tts_model, DEFAULT_TTS_MODEL)
     else:
         logger.info(f"  -> Multi-chunk erforderlich!")
+        _set_stage('chunking')
         return _generate_with_chunking(client, dialogue_lines, speaker_voice_configs, tts_model, pydub_available)
 
 
@@ -156,6 +181,8 @@ def _generate_with_chunking(client, dialogue_lines: List[Dict], speaker_voice_co
         logger.info(f"")
         logger.info(f">>> CHUNK {i+1}/{total_chunks} <<<")
         logger.info(f"Lines: {len(chunk)}, Chars: {chunk_chars}")
+
+        _set_stage('tts_chunk', chunk_current=i + 1, chunk_total=total_chunks)
 
         chunk_start_time = time.time()
         chunk_file = None
@@ -220,6 +247,8 @@ def _generate_with_chunking(client, dialogue_lines: List[Dict], speaker_voice_co
     logger.info(f"Total generation time: {total_generation_time:.1f}s ({total_generation_time/60:.1f} min)")
     logger.info(f"Average chunk time: {sum(chunk_times)/len(chunk_times):.1f}s")
     logger.info(f"Chunk times: {[f'{t:.1f}s' for t in chunk_times]}")
+
+    _set_stage('concatenating')
 
     # Concatenate chunks
     if pydub_available:
