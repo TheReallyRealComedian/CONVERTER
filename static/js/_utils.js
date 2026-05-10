@@ -140,6 +140,29 @@
         return window.confirm(message);
     }
 
+    /* JSON-serialised view-state persistence in localStorage. Wraps
+       getItem/setItem with try/catch so quota-exceeded, disabled-storage and
+       parse failures all degrade quietly to ``defaultValue``. */
+    function loadViewState(key, defaultValue) {
+        const fallback = (defaultValue === undefined) ? {} : defaultValue;
+        try {
+            const raw = localStorage.getItem(key);
+            if (raw == null) return fallback;
+            const parsed = JSON.parse(raw);
+            return (parsed == null) ? fallback : parsed;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    function saveViewState(key, state) {
+        try {
+            localStorage.setItem(key, JSON.stringify(state));
+        } catch (e) {
+            // Quota exceeded or storage disabled — silent.
+        }
+    }
+
     window.safeJSON = safeJSON;
     window.fallbackCopyText = fallbackCopyText;
     window.showAlert = showAlert;
@@ -147,4 +170,6 @@
     window.formatFileSize = formatFileSize;
     window.formatDatetimeLocalNow = formatDatetimeLocalNow;
     window.confirmIfLong = confirmIfLong;
+    window.loadViewState = loadViewState;
+    window.saveViewState = saveViewState;
 })();

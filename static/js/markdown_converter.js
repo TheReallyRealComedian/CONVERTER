@@ -18,13 +18,11 @@ const READER_PREFS_KEY = 'readerPrefs';
 const WIDTH_MAP = { narrow: '600px', medium: '800px', wide: '1000px', ultrawide: '80%' };
 
 function getReaderPrefs() {
-    try {
-        return JSON.parse(localStorage.getItem(READER_PREFS_KEY)) || {};
-    } catch { return {}; }
+    return loadViewState(READER_PREFS_KEY, {});
 }
 
 function saveReaderPrefs(prefs) {
-    localStorage.setItem(READER_PREFS_KEY, JSON.stringify(prefs));
+    saveViewState(READER_PREFS_KEY, prefs);
 }
 
 function toggleReaderMode() {
@@ -32,16 +30,18 @@ function toggleReaderMode() {
     const isActive = container.classList.toggle('reader-mode');
     document.body.classList.toggle('reader-active', isActive);
 
+    const prefs = getReaderPrefs();
     if (isActive) {
-        const prefs = getReaderPrefs();
         if (prefs.dark) applyDarkMode(true);
-        if (prefs.fontSize) document.querySelector('.main-container').style.setProperty('--reader-font-size', prefs.fontSize + 'px');
+        if (prefs.fontSize) container.style.setProperty('--reader-font-size', prefs.fontSize + 'px');
         if (prefs.width) applyWidth(prefs.width);
         updateWidthButtons(prefs.width || 'medium');
     } else {
         document.body.classList.remove('reader-active');
         document.documentElement.removeAttribute('data-theme');
     }
+    prefs.modeOn = isActive;
+    saveReaderPrefs(prefs);
     if (typeof window.renderIframe === 'function') window.renderIframe();
 }
 
@@ -91,19 +91,31 @@ function updateWidthButtons(active) {
     });
 }
 
+const READER_ESC_FORM_TAGS = ['TEXTAREA', 'INPUT', 'SELECT', 'BUTTON'];
+
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && document.querySelector('.main-container.reader-mode')) {
-        toggleReaderMode();
-    }
+    if (e.key !== 'Escape') return;
+    if (!document.querySelector('.main-container.reader-mode')) return;
+    const active = document.activeElement;
+    if (active && READER_ESC_FORM_TAGS.includes(active.tagName)) return;
+    toggleReaderMode();
 });
+
+function getMarkdownAlertContainer() {
+    return document.querySelector('.editor-pane .px-6.pt-4');
+}
 
 async function saveMarkdownToLibrary() {
     const content = document.getElementById('markdown_text').value.trim();
-    if (!content) { alert('No markdown content to save.'); return; }
+    const alertContainer = getMarkdownAlertContainer();
+    if (!content) {
+        showAlert(alertContainer, 'warning', 'Kein Inhalt zum Speichern vorhanden.');
+        return;
+    }
 
     const btn = document.getElementById('save-markdown-btn');
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.textContent = 'Speichert …';
 
     try {
         const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').trim();
@@ -130,21 +142,41 @@ async function saveMarkdownToLibrary() {
         });
 
         if (response.ok) {
-            btn.textContent = 'Saved!';
+            btn.textContent = '✓ Gespeichert';
             btn.classList.add('saved');
             setTimeout(() => {
-                btn.textContent = 'Save to Library';
+                btn.textContent = 'In Library speichern';
                 btn.classList.remove('saved');
                 btn.disabled = false;
             }, 2000);
         } else {
-            throw new Error('Save failed');
+            let detail = '';
+            try {
+                const errData = await safeJSON(response);
+                detail = errData && errData.error ? errData.error : '';
+            } catch (e) {
+                detail = e.message || '';
+            }
+            const msg = detail
+                ? 'In Library speichern fehlgeschlagen: ' + detail
+                : 'In Library speichern fehlgeschlagen. Verbindung prüfen und erneut versuchen.';
+            throw new Error(msg);
         }
     } catch (err) {
-        btn.textContent = 'Save to Library';
+        btn.textContent = 'In Library speichern';
         btn.disabled = false;
-        alert('Failed to save: ' + err.message);
+        showAlert(alertContainer, 'danger', err.message
+            || 'In Library speichern fehlgeschlagen. Verbindung prüfen und erneut versuchen.');
     }
+}
+
+function attachAutoDismissToServerBanners() {
+    const container = getMarkdownAlertContainer();
+    if (!container) return;
+    const banners = container.querySelectorAll('.c-alert:not(.c-alert--danger)');
+    banners.forEach(banner => {
+        setTimeout(() => banner.remove(), 6000);
+    });
 }
 
 window.setOrientation = setOrientation;
@@ -177,8 +209,16 @@ window.addEventListener('load', function() {
 
     function isDarkActive() {
         const root = document.documentElement;
-        return root.getAttribute('data-theme') === 'dark'
-            || root.getAttribute('data-global-theme') === 'dark';
+        const readerActive = document.querySelector('.main-container.reader-mode') !== null;
+        const readerTheme = root.getAttribute('data-theme');
+        // Reader-Scope wins when reader-mode is active: an explicit Reader-Light
+        // pick must override a global dark theme. Outside reader-mode, only the
+        // global attribute is consulted.
+        if (readerActive) {
+            if (readerTheme === 'light') return false;
+            if (readerTheme === 'dark') return true;
+        }
+        return root.getAttribute('data-global-theme') === 'dark';
     }
 
     function getReaderFontSize() {
@@ -263,9 +303,33 @@ window.addEventListener('load', function() {
             .catch(err => console.error('Error loading theme CSS:', err));
     }
 
+    const fileInfo = document.getElementById('markdown-file-info');
+    const fileInfoLabel = document.getElementById('markdown-file-info-label');
+    const fileInfoLive = document.getElementById('markdown-file-info-live');
+    const fileInfoClear = document.getElementById('markdown-file-info-clear');
+
+    function showFileInfo(file) {
+        if (!fileInfo) return;
+        const sizeText = formatFileSize(file.size);
+        fileInfoLabel.textContent = `${file.name} (${sizeText})`;
+        fileInfo.classList.remove('hidden');
+        if (fileInfoLive) fileInfoLive.textContent = `${file.name}, ${sizeText}, ausgewählt.`;
+    }
+
+    function clearFileInfo() {
+        if (!fileInfo) return;
+        fileInfo.classList.add('hidden');
+        fileInfoLabel.textContent = '';
+        if (fileInfoLive) fileInfoLive.textContent = 'Datei abgewählt.';
+    }
+
     function handleFileSelect(event) {
         const file = event.target.files[0];
-        if (!file) return;
+        if (!file) {
+            clearFileInfo();
+            return;
+        }
+        showFileInfo(file);
         const reader = new FileReader();
         reader.onload = function(e) {
             markdownInput.value = e.target.result;
@@ -274,11 +338,18 @@ window.addEventListener('load', function() {
         reader.readAsText(file);
     }
 
+    if (fileInfoClear) {
+        fileInfoClear.addEventListener('click', function() {
+            fileInput.value = '';
+            markdownInput.value = '';
+            clearFileInfo();
+            renderIframe();
+        });
+    }
+
     markdownInput.addEventListener('input', renderIframe);
     styleSelector.addEventListener('change', updateStyle);
     fileInput.addEventListener('change', handleFileSelect);
-
-    updateStyle();
 
     const reuseContent = localStorage.getItem('libraryReuse');
     if (reuseContent) {
@@ -286,8 +357,19 @@ window.addEventListener('load', function() {
         localStorage.removeItem('libraryReuse');
     }
 
+    // Rehydrate reader-mode state from localStorage. Width-buttons get their
+    // active marker before the first reader-toggle so the toolbar shows the
+    // correct selection from frame one.
+    const initialPrefs = getReaderPrefs();
+    updateWidthButtons(initialPrefs.width || 'medium');
+    if (initialPrefs.modeOn === true) {
+        toggleReaderMode();
+    }
+
     updateStyle();
 });
+
+document.addEventListener('DOMContentLoaded', attachAutoDismissToServerBanners);
 
 /* Refresh CSRF token right before submitting the PDF form
    so a long-idle page does not get rejected with HTTP 400. */
@@ -313,13 +395,8 @@ window.addEventListener('load', function() {
         const fileInput = document.getElementById('markdown_file');
         const file = fileInput && fileInput.files && fileInput.files[0];
         if (file && !fileExtensionAllowed(file)) {
-            const flashContainer = document.querySelector('.editor-pane .px-6.pt-4');
-            if (flashContainer && typeof window.showAlert === 'function') {
-                window.showAlert(flashContainer, 'danger',
-                    'Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.');
-            } else {
-                alert('Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.');
-            }
+            showAlert(document.querySelector('.editor-pane .px-6.pt-4'), 'danger',
+                'Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.');
             return;
         }
 

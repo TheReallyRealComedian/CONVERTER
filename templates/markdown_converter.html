@@ -2,10 +2,6 @@
 
 {% block title %}Markdown to PDF Converter{% endblock %}
 
-{% block head_extra %}
-    <link id="preview-style" rel="stylesheet" href="">
-{% endblock %}
-
 {% block content %}
     <div class="main-container">
         <!-- LEFT PANE: EDITOR AND CONTROLS -->
@@ -13,7 +9,7 @@
             <div class="pane-header pane-header-with-actions">
                 <h4>Markdown</h4>
                 <div class="pane-header-buttons">
-                    <button type="button" class="save-library-btn" id="save-markdown-btn" onclick="saveMarkdownToLibrary()">Save to Library</button>
+                    <button type="button" class="save-library-btn" id="save-markdown-btn" onclick="saveMarkdownToLibrary()">In Library speichern</button>
                     <button type="button" class="reader-mode-btn" onclick="toggleReaderMode()">Reader Mode</button>
                 </div>
             </div>
@@ -74,6 +70,11 @@ This is a blockquote to demonstrate styling.
                     <input type="file" id="markdown_file" name="markdown_file" accept="{{ accepted_extensions_accept }}"
                         class="c-input w-full py-1.5
                                file:mr-3 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-neo-surface file:text-neo-muted">
+                    <div id="markdown-file-info" class="hidden mt-2 px-3 py-2 c-surface--flat text-sm text-neo-muted flex items-center justify-between">
+                        <span id="markdown-file-info-label" class="truncate"></span>
+                        <button type="button" id="markdown-file-info-clear" class="text-neo-faint hover:text-neo-text ml-2 flex-shrink-0" aria-label="Datei abwählen">&times;</button>
+                    </div>
+                    <span id="markdown-file-info-live" class="sr-only" aria-live="polite"></span>
                 </div>
                 <div class="neo-separator-top pt-4 mt-2">
                     <div class="grid grid-cols-2 gap-4 mb-4">
@@ -139,7 +140,11 @@ This is a blockquote to demonstrate styling.
                 <h4>PDF Preview</h4>
             </div>
             <div class="preview-container">
-                <iframe id="preview-iframe" class="preview-iframe" title="PDF Preview"></iframe>
+                <iframe id="preview-iframe" class="preview-iframe"
+                        tabindex="0"
+                        role="region"
+                        aria-label="PDF-Vorschau"
+                        title="PDF-Vorschau"></iframe>
             </div>
         </div>
     </div>
