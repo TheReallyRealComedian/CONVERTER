@@ -36,7 +36,7 @@
 
                 <div class="mb-3 markdown-textarea-wrapper">
                     <label for="markdown_text" class="block text-sm font-medium text-neo-muted mb-1.5">Paste or Upload Markdown</label>
-                    <textarea class="w-full" id="markdown_text" name="markdown_text" placeholder="Your Markdown content here... Start typing to see the preview."># Sample Document
+                    <textarea class="w-full" id="markdown_text" name="markdown_text" placeholder="Your Markdown content here... Start typing to see the preview.">{% if not markdown_text %}# Sample Document
 
 This is a **sample** markdown document to test the preview.
 
@@ -62,8 +62,7 @@ def hello_world():
 
 
 This is a blockquote to demonstrate styling.
-{{ markdown_text or '' }}
-</textarea>
+{% endif %}{{ markdown_text or '' }}</textarea>
                 </div>
                 <div class="mb-3">
                     <label for="markdown_file" class="block text-sm font-medium text-neo-muted mb-1.5">Or Upload a File</label>
@@ -113,7 +112,7 @@ This is a blockquote to demonstrate styling.
                         </div>
                     </div>
                     <button type="submit" class="c-btn c-btn--primary w-full text-center">
-                        Convert to PDF
+                        PDF erstellen
                     </button>
                 </div>
             </form>

@@ -190,7 +190,7 @@ window.addEventListener('load', function() {
     if (typeof markdownit === 'undefined') {
         console.error('markdown-it library failed to load');
         const ifr = document.getElementById('preview-iframe');
-        if (ifr) ifr.srcdoc = '<html><body><p style="color:#b45309;font-family:sans-serif;padding:1em;">Preview unavailable: markdown-it library failed to load</p></body></html>';
+        if (ifr) ifr.srcdoc = '<html><body><p style="color:#b45309;font-family:sans-serif;padding:1em;">Live-Vorschau nicht verfügbar — markdown-it konnte nicht geladen werden. PDF-Erstellung funktioniert trotzdem; Internet-Verbindung prüfen oder Seite neu laden.</p></body></html>';
         return;
     }
 
@@ -298,9 +298,19 @@ window.addEventListener('load', function() {
             return;
         }
         fetch(`/static/css/pdf_styles/${theme}.css`)
-            .then(r => r.text())
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            })
             .then(css => { currentThemeCSS = css; renderIframe(); })
-            .catch(err => console.error('Error loading theme CSS:', err));
+            .catch(err => {
+                console.error('Error loading theme CSS:', err);
+                currentThemeCSS = '';
+                renderIframe();
+                const themeLabel = theme.replace(/_/g, ' ');
+                showAlert(getMarkdownAlertContainer(), 'warning',
+                    `Vorlage „${themeLabel}“ konnte nicht geladen werden. Vorschau zeigt jetzt ohne diese Vorlage.`);
+            });
     }
 
     const fileInfo = document.getElementById('markdown-file-info');
@@ -377,7 +387,6 @@ document.addEventListener('DOMContentLoaded', attachAutoDismissToServerBanners);
     const form = document.getElementById('convert-form');
     if (!form) return;
     const submitBtn = form.querySelector('button[type="submit"]');
-    const originalLabel = submitBtn ? submitBtn.innerHTML : null;
     const acceptedExtensions = (window.PageData && window.PageData.acceptedExtensions) || [];
 
     function fileExtensionAllowed(file) {
@@ -394,15 +403,26 @@ document.addEventListener('DOMContentLoaded', attachAutoDismissToServerBanners);
 
         const fileInput = document.getElementById('markdown_file');
         const file = fileInput && fileInput.files && fileInput.files[0];
+        const alertContainer = document.querySelector('.editor-pane .px-6.pt-4');
+        const markdownInput = document.getElementById('markdown_text');
+        const hasText = markdownInput && markdownInput.value.trim().length > 0;
+
+        if (!file && !hasText) {
+            showAlert(alertContainer, 'warning',
+                'Bitte zuerst Markdown im Feld eintragen oder eine Datei hochladen.');
+            if (markdownInput) markdownInput.focus();
+            return;
+        }
+
         if (file && !fileExtensionAllowed(file)) {
-            showAlert(document.querySelector('.editor-pane .px-6.pt-4'), 'danger',
+            showAlert(alertContainer, 'danger',
                 'Dateiformat nicht unterstützt. Erlaubt: .md, .markdown.');
             return;
         }
 
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Preparing…';
+            submitBtn.innerHTML = 'Wird vorbereitet …';
         }
         try {
             const resp = await fetch('/api/csrf-token', {
@@ -418,9 +438,9 @@ document.addEventListener('DOMContentLoaded', attachAutoDismissToServerBanners);
             console.warn('CSRF token refresh failed, submitting with existing token:', err);
         } finally {
             form.dataset.tokenRefreshed = '1';
-            if (submitBtn) {
-                submitBtn.innerHTML = originalLabel;
-            }
+            // P13: do not restore the original label here. Submit-btn stays in
+            // loading state ("Wird vorbereitet …") until page navigation, so
+            // the user keeps a visible indicator while Playwright spins up.
             form.submit();
         }
     });

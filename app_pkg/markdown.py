@@ -242,8 +242,11 @@ def register(app):
 
         except Exception as e:
             app.logger.error(f"PDF generation failed: {e}", exc_info=True)
-            flash('Error: Could not generate PDF. Please try again.', 'danger')
-            return render_template('markdown_converter.html', markdown_text=markdown_text)
+            flash(
+                'PDF-Erstellung fehlgeschlagen. Bitte erneut versuchen oder eine andere Vorlage wählen.',
+                'danger',
+            )
+            return redirect(url_for('markdown_converter'))
         finally:
             if temp_pdf_path and os.path.exists(temp_pdf_path):
                 try:

@@ -126,6 +126,35 @@ def test_convert_markdown_missing_filename_field_handled(authenticated_client):
     assert resp.headers['Location'].endswith('/')
 
 
+def test_convert_markdown_pdf_gen_error_redirects_with_flash(authenticated_client):
+    """P8: when Playwright (or anything else inside the PDF-gen ``try``) raises,
+    the route must flash a German error and ``redirect`` back to the form. The
+    pre-P8 code re-rendered the template directly, which then crashed on the
+    missing ``themes`` / ``accepted_extensions`` context.
+    """
+    def _raising_playwright():
+        raise RuntimeError('simulated browser launch failure')
+
+    with patch.object(app_module, 'async_playwright', side_effect=_raising_playwright):
+        resp = authenticated_client.post(
+            '/convert-markdown',
+            data={
+                'markdown_text': '# Some content',
+                'output_filename': 'test_output',
+                'orientation': 'portrait',
+                'style_theme': 'none',
+            },
+            content_type='multipart/form-data',
+            follow_redirects=False,
+        )
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith('/')
+
+    follow = authenticated_client.get('/')
+    assert follow.status_code == 200
+    assert 'PDF-Erstellung fehlgeschlagen' in follow.get_data(as_text=True)
+
+
 def test_convert_markdown_unsupported_extension_returns_400(authenticated_client):
     """F-006: file uploads with extensions outside ACCEPTED_EXTENSIONS must be
     rejected with 400 + DE-JSON. Previously, .read().decode('utf-8') on a
