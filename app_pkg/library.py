@@ -63,13 +63,20 @@ def register(app):
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+        has_active_filter = bool(
+            (conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES)
+            or search
+            or favorites
+        )
+
         return render_template('library.html',
                                conversions=pagination.items,
                                pagination=pagination,
                                current_type=conversion_type,
                                current_search=search,
                                current_favorites=favorites,
-                               current_sort=sort)
+                               current_sort=sort,
+                               has_active_filter=has_active_filter)
 
     @app.route('/library/<int:conversion_id>')
     @login_required

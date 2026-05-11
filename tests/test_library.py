@@ -32,6 +32,18 @@ def test_library_empty_renders(authenticated_client):
     assert resp.status_code == 200
 
 
+def test_library_empty_state_filter_aware(authenticated_client):
+    """F-6 P7: empty list with an active filter renders the filter-mismatch
+    variant with a reset link, not the global "first conversion" hint.
+    """
+    global_empty = authenticated_client.get('/library')
+    assert b'Noch keine gespeicherten Eintr' in global_empty.data
+
+    filtered_empty = authenticated_client.get('/library?favorites=1')
+    assert b'Keine Treffer mit aktuellen Filtern' in filtered_empty.data
+    assert b'Filter zur' in filtered_empty.data
+
+
 def test_library_lists_existing_conversion(app, authenticated_client, test_user):
     _make_conversion(app, test_user['id'], title='My Library Entry')
     resp = authenticated_client.get('/library')
