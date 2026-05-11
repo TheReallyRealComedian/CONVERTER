@@ -252,9 +252,20 @@ function selectTarget(target) {
     document.querySelectorAll('#notion-target-group button').forEach(btn => {
         btn.classList.toggle('c-btn--primary', btn.dataset.target === target);
     });
+    // Brief opacity fade on target switch as a visual hint that fields swapped.
+    // CSS owns the 150ms transition timing.
+    if (isSwitch && container) {
+        container.style.opacity = '0';
+    }
     renderNotionFields(target);
     if (snapshot) {
         restoreNotionFieldValues(document.getElementById('notion-fields'), snapshot);
+    }
+    if (isSwitch && container) {
+        // Force reflow so the transition runs from the initial state.
+        // eslint-disable-next-line no-unused-expressions
+        container.offsetHeight;
+        container.style.opacity = '1';
     }
     if (isSwitch) {
         const status = document.getElementById('notion-target-status');
@@ -297,19 +308,27 @@ function renderNotionFields(target) {
         ]
     };
     const container = document.getElementById('notion-fields');
+    // Field values come from user-editable inputs (title, tags) and Notion
+    // suggestions — both untrusted. Escape before interpolating into HTML.
+    const escHtml = v => String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     let datalistsHtml = '';
     container.innerHTML = fieldDefs[target].map(f => {
-        const esc = v => v.replace(/"/g, '&quot;');
         let listAttr = '';
         if (f.list && f.list.length) {
             const dlId = `dl-${f.key}`;
             listAttr = ` list="${dlId}"`;
-            datalistsHtml += `<datalist id="${dlId}">${f.list.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+            datalistsHtml += `<datalist id="${dlId}">${f.list.map(o => `<option value="${escHtml(o)}">`).join('')}</datalist>`;
         }
+        const placeholder = escHtml(f.placeholder || '');
         const input = f.type === 'textarea'
-            ? `<textarea class="c-input w-full text-xs" id="nf-${f.key}" rows="2" placeholder="${f.placeholder || ''}">${f.value}</textarea>`
-            : `<input type="${f.type || 'text'}" class="c-input w-full text-xs" id="nf-${f.key}" value="${esc(f.value)}" placeholder="${f.placeholder || ''}"${listAttr}>`;
-        return `<div><label class="text-[11px] text-neo-faint mb-0.5 block">${f.label}${f.required ? ' *' : ''}</label>${input}</div>`;
+            ? `<textarea class="c-input w-full text-xs" id="nf-${f.key}" rows="2" placeholder="${placeholder}">${escHtml(f.value)}</textarea>`
+            : `<input type="${f.type || 'text'}" class="c-input w-full text-xs" id="nf-${f.key}" value="${escHtml(f.value)}" placeholder="${placeholder}"${listAttr}>`;
+        return `<div><label class="text-[11px] text-neo-faint mb-0.5 block">${escHtml(f.label)}${f.required ? ' *' : ''}</label>${input}</div>`;
     }).join('') + datalistsHtml;
 }
 
@@ -345,7 +364,7 @@ function sendToNotion() {
     .then(({status, data}) => {
         if (status < 400) {
             showToast('An Notion gesendet');
-            if (data.url) window.open(data.url, '_blank');
+            if (data.url) window.open(data.url, '_blank', 'noopener,noreferrer');
         } else {
             const detail = data.error || data.detail;
             const msg = detail

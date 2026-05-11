@@ -987,6 +987,13 @@ body.reader-active header.lg\:hidden {
     transform: translateY(0);
 }
 
+/* ===== NOTION FORM ===== */
+/* Brief opacity fade on Notion target switch — JS toggles
+   container.style.opacity in selectTarget(). */
+#notion-fields {
+    transition: opacity 0.15s ease;
+}
+
 /* ===== UTILITY ===== */
 .hidden {
     display: none !important;
