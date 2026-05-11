@@ -1,5 +1,7 @@
 # OVERSEER HANDOFF — CONVERTER UX-Backlog
 
+**Archiviert 2026-05-11** im Zuge des WAVE-CLOSE-Sprints. Der Overseer-Pattern wurde durch die *Master = Dispatch, Sub-Thread = Execute*-Working-Practice abgelöst; aktiver Status liegt in `CLAUDE.md` (Working-Practice + Architecture Notes), `STATUS.md` (aktueller Stand) und `BACKLOG.md` (offene Items). Dieser Hand-off bleibt als Audit-Trail vom Mintbox-Maschinen-Wechsel erhalten.
+
 **Erstellt:** 2026-05-03 vor Maschinen-Wechsel von Mintbox auf neuen Host.
 **Empfänger:** Neuer Claude-Code-Agent, der die Overseer-Rolle für den UX-Backlog übernimmt.
 **Lese-Reihenfolge:** Dieses Dokument zuerst, dann `CLAUDE.md`, dann die `docs/`-Inhalte (siehe unten).
