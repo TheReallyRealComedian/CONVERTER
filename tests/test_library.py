@@ -151,3 +151,22 @@ def test_api_delete_conversion_404_for_other_users_conversion(app, authenticated
     cid = _make_conversion(app, other_id, title="Carol's secret")
     resp = authenticated_client.delete(f'/api/conversions/{cid}')
     assert resp.status_code == 404
+
+
+def test_api_update_conversion_404_for_other_users_conversion(app, authenticated_client, test_user):
+    """F-6 P3: PUT on a non-owned row must 404 so the list-view Favorite
+    toggle handler can surface a failure-banner via safeJSON instead of
+    silently flipping the glyph.
+    """
+    with app.app_context():
+        other = User(username='dave')
+        other.set_password('password1234')
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    cid = _make_conversion(app, other_id, title="Dave's secret")
+    resp = authenticated_client.put(
+        f'/api/conversions/{cid}',
+        json={'is_favorite': True},
+    )
+    assert resp.status_code == 404
