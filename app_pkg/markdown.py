@@ -134,13 +134,13 @@ def register(app):
                 }), 400
             markdown_text = markdown_file.read().decode('utf-8')
         elif not markdown_text or not markdown_text.strip():
-            flash('Error: No Markdown content provided. Please paste text or upload a file.', 'danger')
+            flash('Kein Markdown-Inhalt. Bitte Text einfügen oder eine Datei hochladen.', 'danger')
             return redirect(url_for('markdown_converter'))
 
         output_filename = request.form.get('output_filename') or ''
         safe_filename = secure_filename(output_filename)
         if not safe_filename:
-            flash('Error: Invalid filename provided.', 'danger')
+            flash('Ungültiger Dateiname. Bitte einen anderen Namen verwenden.', 'danger')
             return redirect(url_for('markdown_converter'))
 
         orientation = request.form.get('orientation', 'portrait')
@@ -154,7 +154,7 @@ def register(app):
                 with open(style_path, 'r') as f:
                     style_content = f.read()
             except FileNotFoundError:
-                flash(f'Warning: Style "{style_theme}" not found. Using no style.', 'warning')
+                flash(f'Theme „{style_theme}" nicht gefunden. Standard-Layout wird verwendet.', 'warning')
                 style_content = ''
 
         html_content = md.render(markdown_text)

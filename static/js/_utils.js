@@ -100,6 +100,11 @@
 
         const toast = document.createElement('div');
         toast.className = 'toast-notification toast-notification--' + level;
+        // Differentiated SR-announcement by level: danger/warning interrupt,
+        // info/success wait for the next idle gap.
+        const isAssertive = level === 'danger' || level === 'warning';
+        toast.setAttribute('role', isAssertive ? 'alert' : 'status');
+        toast.setAttribute('aria-live', isAssertive ? 'assertive' : 'polite');
         toast.textContent = message;
         document.body.appendChild(toast);
 
