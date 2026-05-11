@@ -150,6 +150,39 @@ def test_file_size_filter_matches_js_helper(app):
     assert fmt(1234567) == '1,2 MB'
 
 
+def test_format_card_datetime_filter_renders_de_month_abbr(app):
+    """F-6 P11: card date abbreviations are container-locale-agnostic and
+    use the DE month list (Mär instead of Mar, Mai instead of May).
+    """
+    from datetime import datetime
+    fmt = app.jinja_env.filters['format_card_datetime']
+    assert fmt(datetime(2026, 5, 10, 14, 30)) == '10 Mai 2026, 14:30'
+    assert fmt(datetime(2026, 3, 1, 9, 5)) == '01 Mär 2026, 09:05'
+    assert fmt(datetime(2025, 12, 30, 23, 59)) == '30 Dez 2025, 23:59'
+    assert fmt(None) == ''
+
+
+def test_library_ignores_unknown_type_filter(app, authenticated_client, test_user):
+    """F-6 P10: an unknown ``?type=...`` value falls back to the unfiltered
+    list (no DB query against the unknown enum value).
+    """
+    _make_conversion(app, test_user['id'], title='Markdown entry',
+                     conversion_type='markdown_input')
+    resp = authenticated_client.get('/library?type=nonsense')
+    assert resp.status_code == 200
+    assert b'Markdown entry' in resp.data
+
+
+def test_library_ignores_unknown_per_page(authenticated_client):
+    """F-6 P12: per_page values outside the allowlist fall back to the
+    default, so the URL contract can't be used to over-fetch.
+    """
+    resp = authenticated_client.get('/library?per_page=999')
+    assert resp.status_code == 200
+    resp = authenticated_client.get('/library?per_page=50')
+    assert resp.status_code == 200
+
+
 def test_api_delete_conversion_404_for_other_users_conversion(app, authenticated_client, test_user):
     """F-3 P3: DELETE on a non-owned row must 404 so the JS Delete handler
     can route the user back to the Library via the explicit race-404 branch.

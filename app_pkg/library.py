@@ -15,6 +15,20 @@ ALLOWED_CONVERSION_TYPES = {
     'markdown_input',
 }
 
+ALLOWED_PER_PAGE = (20, 50, 100)
+DEFAULT_PER_PAGE = 20
+
+
+def pagination_args(page, conversion_type, search, favorites, sort, per_page):
+    """Build the **kwargs for url_for('library', …) so favorites='' and
+    per_page=default drop out of the URL entirely (F-6 P9 + P12)."""
+    args = {'page': page, 'type': conversion_type, 'search': search, 'sort': sort}
+    if favorites:
+        args['favorites'] = '1'
+    if per_page != DEFAULT_PER_PAGE:
+        args['per_page'] = per_page
+    return args
+
 
 def get_owned_conversion(conversion_id):
     """Look up a Conversion that belongs to the current user, or 404.
@@ -36,11 +50,13 @@ def register(app):
         favorites = request.args.get('favorites', '') == '1'
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
-        per_page = 20
+        per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
+        if per_page not in ALLOWED_PER_PAGE:
+            per_page = DEFAULT_PER_PAGE
 
         query = Conversion.query.filter_by(user_id=current_user.id)
 
-        if conversion_type:
+        if conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES:
             query = query.filter_by(conversion_type=conversion_type)
         if favorites:
             query = query.filter_by(is_favorite=True)
@@ -76,7 +92,10 @@ def register(app):
                                current_search=search,
                                current_favorites=favorites,
                                current_sort=sort,
-                               has_active_filter=has_active_filter)
+                               current_per_page=per_page,
+                               allowed_per_page=ALLOWED_PER_PAGE,
+                               has_active_filter=has_active_filter,
+                               pagination_args=pagination_args)
 
     @app.route('/library/<int:conversion_id>')
     @login_required

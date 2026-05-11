@@ -110,6 +110,12 @@ def _register_csrf_endpoint(app):
         return jsonify({'csrf_token': generate_csrf()})
 
 
+DE_MONTH_ABBR = (
+    'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+)
+
+
 def _register_template_filters(app):
     @app.template_filter('file_size')
     def file_size(bytes_value):
@@ -121,6 +127,14 @@ def _register_template_filters(app):
         if n < 1024 * 1024:
             return f"{n / 1024:.1f}".replace('.', ',') + ' KB'
         return f"{n / (1024 * 1024):.1f}".replace('.', ',') + ' MB'
+
+    @app.template_filter('format_card_datetime')
+    def format_card_datetime(dt):
+        # Container-locale-agnostic DE month abbreviation. Mirrors the
+        # %d %b %Y, %H:%M shape used in library cards.
+        if dt is None:
+            return ''
+        return f"{dt.day:02d} {DE_MONTH_ABBR[dt.month - 1]} {dt.year}, {dt.hour:02d}:{dt.minute:02d}"
 
 
 def _register_cli_commands(app):

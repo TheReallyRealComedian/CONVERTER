@@ -30,6 +30,11 @@
                     <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Älteste zuerst</option>
                     <option value="title" {% if current_sort == 'title' %}selected{% endif %}>Titel A–Z</option>
                 </select>
+                <select name="per_page" class="c-input" onchange="this.form.submit()" title="Pro Seite">
+                    {% for pp in allowed_per_page %}
+                    <option value="{{ pp }}" {% if current_per_page == pp %}selected{% endif %}>{{ pp }} pro Seite</option>
+                    {% endfor %}
+                </select>
                 <button type="submit" class="c-btn c-btn--primary py-1.5 px-4 text-sm">Suchen</button>
             </form>
         </div>
@@ -63,7 +68,7 @@
                 </a>
                 <div class="px-4 py-2.5 neo-separator-top flex items-center gap-2 flex-wrap">
                     <span class="text-[11px] text-neo-faint" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
-                        {{ conv.created_at.strftime('%d %b %Y, %H:%M') }}
+                        {{ conv.created_at | format_card_datetime }}
                     </span>
                     {% if conv.tags %}
                     <div class="flex gap-1 flex-wrap">
@@ -87,12 +92,12 @@
         {% if pagination.pages > 1 %}
         <nav class="flex justify-center gap-1 mt-6">
             {% if pagination.has_prev %}
-            <a href="{{ url_for('library', page=pagination.prev_num, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}"
+            <a href="{{ url_for('library', **pagination_args(pagination.prev_num, current_type, current_search, current_favorites, current_sort, current_per_page)) }}"
                class="c-btn text-sm py-1.5 px-3 no-underline">Zurück</a>
             {% endif %}
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                 {% if p %}
-                <a href="{{ url_for('library', page=p, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}"
+                <a href="{{ url_for('library', **pagination_args(p, current_type, current_search, current_favorites, current_sort, current_per_page)) }}"
                    class="text-sm py-1.5 px-3 rounded-full no-underline transition-all
                    {% if p == pagination.page %}c-btn c-btn--primary{% else %}c-btn{% endif %}">{{ p }}</a>
                 {% else %}
@@ -100,7 +105,7 @@
                 {% endif %}
             {% endfor %}
             {% if pagination.has_next %}
-            <a href="{{ url_for('library', page=pagination.next_num, type=current_type, search=current_search, favorites='1' if current_favorites else '', sort=current_sort) }}"
+            <a href="{{ url_for('library', **pagination_args(pagination.next_num, current_type, current_search, current_favorites, current_sort, current_per_page)) }}"
                class="c-btn text-sm py-1.5 px-3 no-underline">Weiter</a>
             {% endif %}
         </nav>
