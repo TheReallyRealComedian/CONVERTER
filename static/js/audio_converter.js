@@ -206,6 +206,43 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Acquire the mic before opening the WebSocket so the browser
+        // permission prompt fires before any network handshake. Denial leaves
+        // no socket dangling.
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: { channelCount: 1, sampleRate: 16000 }
+            });
+        } catch (error) {
+            console.error('getUserMedia failed:', error);
+            setMicLoading(false);
+
+            let msg;
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                msg = 'Mikrofon-Zugriff blockiert. Erlaube den Zugriff in den Browser-Site-Einstellungen und versuche es erneut.';
+            } else if (error.name === 'NotFoundError') {
+                msg = 'Kein Mikrofon gefunden. Schließe ein Aufnahmegerät an und versuche es erneut.';
+            } else {
+                msg = 'Mikrofon konnte nicht gestartet werden. Browser-Berechtigung und angeschlossenes Gerät prüfen.';
+            }
+            showAlert(liveAlertContainer, 'danger', msg);
+            return;
+        }
+
+        // If the user revokes mic access mid-recording (browser tab indicator,
+        // hardware switch), tear down the live session.
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.addEventListener('ended', () => {
+                if (isRecording) {
+                    showAlert(liveAlertContainer, 'warning',
+                        'Mikrofon-Verbindung beendet. Aufnahme wurde gestoppt.');
+                    stopRecording();
+                }
+            });
+        }
+
         const params = new URLSearchParams({
             model: 'nova-3',
             language: selectedLanguage,
@@ -222,31 +259,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
         socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
 
-        socket.onopen = async () => {
+        socket.onopen = () => {
             baseText = transcriptOutput.value;
-
-            let stream;
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    audio: { channelCount: 1, sampleRate: 16000 }
-                });
-            } catch (error) {
-                console.error('getUserMedia failed:', error);
-                setMicLoading(false);
-                if (socket && socket.readyState === WebSocket.OPEN) socket.close();
-                socket = null;
-
-                let msg;
-                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    msg = 'Mikrofon-Zugriff blockiert. Erlaube den Zugriff in den Browser-Site-Einstellungen und versuche es erneut.';
-                } else if (error.name === 'NotFoundError') {
-                    msg = 'Kein Mikrofon gefunden. Schließe ein Aufnahmegerät an und versuche es erneut.';
-                } else {
-                    msg = 'Mikrofon konnte nicht gestartet werden. Browser-Berechtigung und angeschlossenes Gerät prüfen.';
-                }
-                showAlert(liveAlertContainer, 'danger', msg);
-                return;
-            }
 
             const audioContext = new AudioContext({ sampleRate: 16000 });
             const source = audioContext.createMediaStreamSource(stream);
@@ -302,12 +316,20 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         socket.onclose = () => {
-            if (isRecording) stopRecording(false);
+            if (isRecording) {
+                stopRecording(false);
+            } else if (stream) {
+                // WS closed before onopen — release acquired mic.
+                stream.getTracks().forEach(t => t.stop());
+            }
         };
 
         socket.onerror = (error) => {
             console.error('WebSocket error:', error);
             setMicLoading(false);
+            if (!isRecording && stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
             showAlert(liveAlertContainer, 'danger',
                 'Verbindung zur Transkription fehlgeschlagen. Netzwerk und API-Konfiguration prüfen.');
         };
