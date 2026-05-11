@@ -1,8 +1,20 @@
-# CONVERTER Cleanup Plan (2026-05) — Archived
+# CONVERTER Cleanup Plan (2026-05) — fully closed 2026-05-11
 
-This document is the historical record of the 2026-05 cleanup wave. Stages 0–7 are all complete; the wave was structurally finished by 2026-05-03. Architectural decisions made here (the `register(app)` route-module pattern and the service-singleton pattern) are mirrored in the active CLAUDE.md.
+**Status**: fully closed 2026-05-11. Cleanup-Welle abgeschlossen.
 
-The plan was originally tracked inline in CLAUDE.md and moved here on 2026-05-03 so CLAUDE.md could host the next overseer plan (UX Review) without growing unbounded. Findings F-001 through F-018 below remain referenceable; resolution status is recorded per finding.
+**Wellen-Sequenz (vollständig)**:
+
+- Cleanup-Stages 0–7 strukturell durch (2026-05-02/03) — Stage 0 Inventory, Stage 1 Hygiene/Quick Wins, Stage 2 `app.py`-Decomposition, Stage 3 `services/gemini_service.py`-Decomposition, Stage 4 Inconsistency Sweep mit 18 Findings F-001…F-018, Stage 5 Templates & CSS, Stage 6 Characterization Tests, Stage 7 Dependency Audit. Architektur-Entscheidungen daraus (`register(app)`-Pattern und Service-Singleton-Pattern) sind in CLAUDE.md § *Architecture Notes* gespiegelt.
+- Folge-Sprints aus Stage-4-Findings (2026-05-09): **SEC** (F-005 Path-Traversal, F-006 Markdown Backend-Whitelist, F-013 Input-Allowlists), **HYG** (F-002 narrow-except, F-007 secure_filename-Guard, F-008 Logging exc_info, F-011 `require_service`-Decorator, F-012 dead-branch, F-015 Timeout-Konstanten, F-016 Doppel-Log, F-017 isinstance-Guard), **CVE-LOW** (Pygments 2.20.0 / requests 2.33.0 / Flask 3.1.3), **CVE-PDF** (unstructured 0.18.32 / pdfminer.six 20251230 / pdfplumber 0.11.9), **CVE-RQ** (redis 7.4.0 / rq 2.8.0 mit atomic `app_pkg/podcasts.py`-Patch), **CVE-DG** (deepgram-sdk 7.1.0 ohne Service-Refactor).
+- UX-Cascade F-1 bis F-6 nach Duan et al. CHI 2024 (2026-05-03 bis 2026-05-11): **F-1** `document_converter` (14 Patterns + 3 BTs, 7 Cluster A–Polish-2 plus Hot-Fix Jinja2 Generator-Expression), **F-2** `audio_converter` (Cluster I + II, Sev 4–1 plus Microcopy-Polish), **F-3** `library_detail` (15 Patterns in 3 Sub-Batches, 6 BTs gefoldet), **F-4** `podcast-flow` (F4-IMPL-A Cluster I + F4-IMPL-B Cluster II/III mit 10 Patterns in einem Sweep), **F-5** `markdown_converter` (13 Patterns Schwester-Feature-Übernahme aus F-1 mit 86% Konvergenz-Quote, BT1/BT2 mit-gelöst), **F-6** `library` List-View (14 Patterns Geschwister-Feature-Übernahme aus F-3 mit 36% Konvergenz, BT1–BT4 alle finding-linked).
+
+**Test-Suite-Anzahl-Statistik**: vor Stage 6 keine Charakterisierungstests → Stage 6 baselined auf 36/36 grün → SEC +5 → HYG +5 → CVE-Sprints unverändert → F3-IMPL +3 (51/51) → F4-IMPL-A unverändert (51/51) → F4-IMPL-B +5 minus 2 Contract-Updates (65/65) → F5-IMPL +1 (66/66) → F6-IMPL +5 (71/71). **Final-Stand 71/71 grün im Container, ~5 s Runtime.**
+
+**Footer-Notiz**: Folge-UX-Wellen für `mermaid_converter` und `login` bleiben als P3-Reminder im BACKLOG (Master-Wahl im WAVE-CLOSE-Sprint 2026-05-11: nicht-blockierender Pfad, deferred bis UX-Reibung auftaucht oder Feature-Erweiterung ansteht).
+
+Architektur-Entscheidungen aus diesem Plan (der `register(app)` route-module pattern und der service-singleton pattern) sind in der aktiven CLAUDE.md gespiegelt. Findings F-001 through F-018 unten bleiben referenzierbar; Resolution-Status ist pro Finding dokumentiert.
+
+Der Plan wurde ursprünglich inline in CLAUDE.md getrackt und am 2026-05-03 hierher verschoben, damit CLAUDE.md den nächsten Overseer-Plan (UX Review) hosten kann ohne unbegrenzt zu wachsen. UX-Cascade hat dann die Master/Sub-Thread-Working-Practice etabliert, beschrieben in CLAUDE.md § *Working Practice*.
 
 ---
 
