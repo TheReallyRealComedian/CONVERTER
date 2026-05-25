@@ -105,13 +105,13 @@ function toggleFavorite(btn) {
 }
 
 function copyFullContent() {
-    const text = document.querySelector('.detail-content-text').textContent;
+    const text = document.getElementById('content-source').textContent;
     fallbackCopyText(text).then(() => showToast('Kopiert'))
         .catch(() => showToast('Kopieren fehlgeschlagen', { level: 'danger' }));
 }
 
 function downloadContent() {
-    const text = document.querySelector('.detail-content-text').textContent;
+    const text = document.getElementById('content-source').textContent;
     const blob = new Blob([text], {type: 'text/plain'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -121,7 +121,7 @@ function downloadContent() {
 }
 
 function storeForReuse() {
-    const text = document.querySelector('.detail-content-text').textContent;
+    const text = document.getElementById('content-source').textContent;
     localStorage.setItem('libraryReuse', text);
 }
 
@@ -345,7 +345,7 @@ function sendToNotion() {
         if (val) fields[key] = val;
     });
 
-    const content = document.querySelector('.detail-content-text').textContent;
+    const content = document.getElementById('content-source').textContent;
     if (currentTarget === 'meetings') {
         fields.transcript = content;
     } else {

@@ -37,7 +37,10 @@
                     <button type="button" id="delete-btn" class="c-btn c-btn--danger text-xs py-1.5 px-3" onclick="deleteConversion()">Löschen</button>
                 </div>
                 <div class="c-surface overflow-auto max-h-[calc(100vh-280px)]" id="content-body">
-                    <pre class="detail-content-text p-5 m-0 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words text-neo-muted">{{ conversion.content }}</pre>
+                    <article class="reader-view p-6">
+                        {% if content_html %}{{ content_html | safe }}{% else %}<p class="reader-empty">Kein Inhalt.</p>{% endif %}
+                    </article>
+                    <script type="text/markdown" id="content-source">{{ conversion.content | script_safe }}</script>
                 </div>
             </div>
 

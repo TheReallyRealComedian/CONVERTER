@@ -11,12 +11,14 @@ Service singletons (``deepgram_service``, ``gemini_service`` etc.) live in
 """
 import logging
 import os
+import re
 import sys
 
 import click
 from flask import Flask, jsonify, request, url_for
 from flask_login import LoginManager, login_required
 from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
+from markupsafe import Markup
 
 from models import User, db
 
@@ -135,6 +137,22 @@ def _register_template_filters(app):
         if dt is None:
             return ''
         return f"{dt.day:02d} {DE_MONTH_ABBR[dt.month - 1]} {dt.year}, {dt.hour:02d}:{dt.minute:02d}"
+
+    _SCRIPT_END_RE = re.compile(r'</(script)', re.IGNORECASE)
+
+    @app.template_filter('script_safe')
+    def script_safe(value):
+        # Inside a <script type="text/markdown"> block (used by library_detail
+        # as the raw-source side-channel for Copy/Download/Notion-send), the
+        # HTML parser only terminates at </script (case-insensitive). The
+        # element is a *raw text element*: `<` and `&` are NOT decoded, so
+        # Jinja2's auto-escape would turn `<div>` into `&lt;div&gt;` that
+        # textContent then hands back to JS verbatim — breaking byte-equality
+        # with the DB content. Mark the result as safe and patch only the
+        # </script token so the rest of the Markdown stays byte-identical.
+        if value is None:
+            return Markup('')
+        return Markup(_SCRIPT_END_RE.sub(r'<\\/\1', str(value)))
 
 
 def _register_cli_commands(app):

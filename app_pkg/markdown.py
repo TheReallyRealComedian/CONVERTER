@@ -5,15 +5,11 @@ from html.parser import HTMLParser
 from io import BytesIO
 from pathlib import Path
 
-import nh3
 from flask import flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import login_required
-from markdown_it import MarkdownIt
-from pygments import highlight
-from pygments.formatters import HtmlFormatter
-from pygments.lexers import get_lexer_by_name
-from pygments.util import ClassNotFound
 from werkzeug.utils import secure_filename
+
+from .markdown_render import render_markdown_to_html
 
 
 STYLE_DIR = Path('/app/static/css/pdf_styles')
@@ -23,15 +19,6 @@ STYLE_DIR = Path('/app/static/css/pdf_styles')
 # ``accept`` attribute and ``window.PageData.acceptedExtensions`` (frontend
 # pre-submit guard).
 ACCEPTED_EXTENSIONS = ('md', 'markdown')
-
-
-def highlight_code(code, lang, _):
-    try:
-        lexer = get_lexer_by_name(lang, stripall=True)
-    except ClassNotFound:
-        lexer = get_lexer_by_name('text', stripall=True)
-    formatter = HtmlFormatter(style='default', cssclass='highlight', noclasses=True)
-    return highlight(code, lexer, formatter)
 
 
 class _TableColumnCounter(HTMLParser):
@@ -94,12 +81,6 @@ def _wrap_wide_tables(html: str, column_threshold: int = 6) -> str:
     return '\n'.join(lines)
 
 
-md = MarkdownIt(
-    'default',
-    {'breaks': True, 'html': True, 'highlight': highlight_code}
-)
-
-
 def register(app):
     # Late import: tests patch ``app.async_playwright`` on the top-level
     # app.py module, so look it up at call time rather than capturing the
@@ -157,30 +138,7 @@ def register(app):
                 flash(f'Theme „{style_theme}" nicht gefunden. Standard-Layout wird verwendet.', 'warning')
                 style_content = ''
 
-        html_content = md.render(markdown_text)
-        html_content = nh3.clean(
-            html_content,
-            tags={
-                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                'p', 'br', 'hr', 'blockquote', 'pre', 'code',
-                'ul', 'ol', 'li', 'dl', 'dt', 'dd',
-                'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
-                'a', 'img', 'figure', 'figcaption',
-                'strong', 'em', 'b', 'i', 'u', 's', 'del', 'ins', 'mark',
-                'sub', 'sup', 'small', 'abbr', 'cite', 'q', 'kbd', 'var', 'samp',
-                'details', 'summary',
-                'div', 'span', 'section', 'article', 'aside', 'header', 'footer', 'nav', 'main',
-            },
-            attributes={
-                '*': {'class', 'id', 'style'},
-                'a': {'href', 'title', 'target'},
-                'img': {'src', 'alt', 'title', 'width', 'height'},
-                'th': {'colspan', 'rowspan', 'scope'},
-                'td': {'colspan', 'rowspan'},
-                'col': {'span'},
-                'colgroup': {'span'},
-            },
-        )
+        html_content = render_markdown_to_html(markdown_text)
         html_content = _wrap_wide_tables(html_content, column_threshold=6)
         full_html = f"""
         <!DOCTYPE html>

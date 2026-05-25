@@ -17,6 +17,7 @@
      RESIZER HANDLE              – split-pane drag handle
      READER MODE                 – .main-container.reader-mode + reader toolbar
      DARK MODE (Reader only)     – data-theme="dark" overrides for reader
+     READER VIEW                 – .reader-view (library detail Markdown render)
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
      THEME TOGGLE                – global theme toggle button
@@ -963,6 +964,108 @@ body.reader-active header.lg\:hidden {
 
 [data-theme="dark"] .preview-content-area img {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ===== READER VIEW =====
+   Server-rendered Markdown reading-surface for library detail (R1-A).
+   Tokens reuse the global --nm-* design system so dark mode flips for free. */
+.reader-view {
+    max-width: 70ch;
+    margin: 0 auto;
+    font-family: var(--nm-font);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: var(--nm-text);
+}
+.reader-view h1,
+.reader-view h2,
+.reader-view h3,
+.reader-view h4,
+.reader-view h5,
+.reader-view h6 {
+    line-height: 1.25;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--nm-text);
+}
+.reader-view h1 { font-size: 1.875rem; }
+.reader-view h2 { font-size: 1.5rem; }
+.reader-view h3 { font-size: 1.25rem; }
+.reader-view h4 { font-size: 1.0625rem; }
+.reader-view h5,
+.reader-view h6 { font-size: 0.9375rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--nm-text-secondary); }
+.reader-view > :first-child { margin-top: 0; }
+.reader-view p { margin: 0 0 1em; }
+.reader-view ul,
+.reader-view ol { padding-left: 1.5em; margin: 0 0 1em; }
+.reader-view ul { list-style: disc outside; }
+.reader-view ol { list-style: decimal outside; }
+.reader-view li { margin-bottom: 0.25em; }
+.reader-view li > p { margin-bottom: 0.25em; }
+.reader-view blockquote {
+    border-left: 3px solid var(--nm-text-muted);
+    padding-left: 1em;
+    color: var(--nm-text-secondary);
+    font-style: italic;
+    margin: 1em 0;
+}
+.reader-view pre {
+    background: var(--nm-bg);
+    box-shadow: var(--nm-pressed-sm);
+    padding: 1em;
+    border-radius: var(--nm-radius-sm);
+    overflow-x: auto;
+    font-size: 0.875rem;
+    margin: 0 0 1em;
+}
+.reader-view code {
+    font-family: var(--nm-font-mono);
+    font-size: 0.9em;
+    padding: 0.1em 0.3em;
+    background: var(--nm-bg);
+    box-shadow: var(--nm-pressed-sm);
+    border-radius: 4px;
+}
+.reader-view pre code {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.reader-view a {
+    color: var(--nm-accent-hover);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.reader-view a:hover { color: var(--nm-accent-cta); }
+.reader-view table {
+    border-collapse: collapse;
+    margin: 1em 0;
+    width: 100%;
+    font-size: 0.9375rem;
+}
+.reader-view th,
+.reader-view td {
+    border: 1px solid var(--nm-text-muted);
+    padding: 0.5em 0.75em;
+    text-align: left;
+}
+.reader-view th { background: var(--nm-tint-accent); font-weight: 600; }
+.reader-view img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--nm-radius-sm);
+}
+.reader-view hr {
+    border: none;
+    border-top: 1px solid var(--nm-text-muted);
+    margin: 2em 0;
+}
+.reader-view strong { font-weight: 600; }
+.reader-empty {
+    color: var(--nm-text-muted);
+    font-style: italic;
+    text-align: center;
+    margin: 2em 0;
 }
 
 /* ===== TOAST NOTIFICATION ===== */

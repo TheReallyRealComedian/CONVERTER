@@ -7,6 +7,8 @@ from flask_login import current_user, login_required
 
 from models import Conversion, db
 
+from .markdown_render import render_markdown_to_html
+
 
 ALLOWED_CONVERSION_TYPES = {
     'document_to_markdown',
@@ -102,7 +104,13 @@ def register(app):
     def library_detail(conversion_id):
         conversion = get_owned_conversion(conversion_id)
         metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
-        return render_template('library_detail.html', conversion=conversion, metadata=metadata)
+        content_html = render_markdown_to_html(conversion.content)
+        return render_template(
+            'library_detail.html',
+            conversion=conversion,
+            metadata=metadata,
+            content_html=content_html,
+        )
 
     @app.route('/api/conversions', methods=['POST'])
     @login_required
