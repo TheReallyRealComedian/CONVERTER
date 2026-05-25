@@ -473,9 +473,306 @@ function setupTagChipSync() {
     input.addEventListener('input', () => renderTagChips(input.value, container));
 }
 
+// --- Highlights (R1-B-A) ---
+
+const HIGHLIGHT_CONTEXT_LEN = 32;
+const HIGHLIGHT_EXACT_LIMIT = 5000;
+
+function highlightReaderEl() { return document.querySelector('.reader-view'); }
+function highlightCreateBtn() { return document.getElementById('highlight-create-btn'); }
+function highlightActionPopover() { return document.getElementById('highlight-action-popover'); }
+let activeHighlightId = null;
+
+function hideHighlightCreateBtn() {
+    const btn = highlightCreateBtn();
+    if (btn) btn.style.display = 'none';
+}
+
+function hideHighlightActionPopover() {
+    const pop = highlightActionPopover();
+    if (pop) pop.style.display = 'none';
+    activeHighlightId = null;
+}
+
+function positionHighlightCreateBtn() {
+    const reader = highlightReaderEl();
+    const btn = highlightCreateBtn();
+    if (!reader || !btn) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+        hideHighlightCreateBtn();
+        return;
+    }
+    const range = sel.getRangeAt(0);
+    // Selection must start AND end inside the reader-view.
+    if (!reader.contains(range.startContainer) || !reader.contains(range.endContainer)) {
+        hideHighlightCreateBtn();
+        return;
+    }
+    const rect = range.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+        hideHighlightCreateBtn();
+        return;
+    }
+    btn.style.display = 'inline-flex';
+    btn.style.top = `${window.scrollY + rect.top - 40}px`;
+    btn.style.left = `${window.scrollX + rect.left}px`;
+}
+
+// Concatenation of every text-node's nodeValue inside the reader, in
+// document order. This is the SAME coordinate system that rangeForOffsets
+// walks, so save-time anchors line up with load-time re-apply.
+// Using innerText would inject block-level \n separators that don't appear
+// in node.nodeValue, producing offset drift that splits highlight spans
+// at the wrong character.
+function readerRawText(reader) {
+    const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+    let out = '';
+    let node;
+    while ((node = walker.nextNode())) out += node.nodeValue;
+    return out;
+}
+
+function extractSelectionContext(selection) {
+    const reader = highlightReaderEl();
+    if (!reader || selection.rangeCount === 0) return {prefix: '', suffix: ''};
+    const range = selection.getRangeAt(0);
+    const exact = selection.toString();
+    const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+    let preLen = 0;
+    let node;
+    while ((node = walker.nextNode())) {
+        if (node === range.startContainer) {
+            preLen += range.startOffset;
+            break;
+        }
+        preLen += node.nodeValue.length;
+    }
+    const fullText = readerRawText(reader);
+    const prefix = fullText.slice(Math.max(0, preLen - HIGHLIGHT_CONTEXT_LEN), preLen);
+    const suffix = fullText.slice(preLen + exact.length, preLen + exact.length + HIGHLIGHT_CONTEXT_LEN);
+    return {prefix, suffix};
+}
+
+async function saveCurrentSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    const exact = sel.toString();
+    if (!exact.trim()) return;
+    if (exact.length > HIGHLIGHT_EXACT_LIMIT) {
+        showToast('Markierung zu lang. Bitte einen kürzeren Abschnitt wählen.', { level: 'danger' });
+        return;
+    }
+    const {prefix, suffix} = extractSelectionContext(sel);
+    sel.removeAllRanges();
+    hideHighlightCreateBtn();
+
+    let resp;
+    try {
+        resp = await fetch(`/api/conversions/${CONVERSION_ID}/highlights`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({exact, prefix, suffix}),
+        });
+    } catch (_) {
+        showToast('Markierung speichern fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok) {
+        showToast('Markierung speichern fehlgeschlagen.', { level: 'danger' });
+        return;
+    }
+    const highlight = await resp.json();
+    const applied = applyHighlight(highlight);
+    if (applied) {
+        showToast('Markiert.');
+    } else {
+        showToast('Markierung gespeichert, Anzeige nicht möglich (Formatierungsgrenze).', { level: 'warning' });
+    }
+}
+
+async function loadHighlights() {
+    let resp;
+    try {
+        resp = await fetch(`/api/conversions/${CONVERSION_ID}/highlights`);
+    } catch (_) {
+        return;
+    }
+    if (!resp.ok) return;
+    const highlights = await resp.json();
+    highlights.forEach(applyHighlight);
+}
+
+// Locate `exact` in the reader-view text. Returns the start-offset against
+// reader.innerText (the same metric extractSelectionContext uses), so prefix
+// and suffix from the stored highlight act as a tiebreaker for multi-match.
+function locateHighlightOffset(reader, highlight) {
+    const fullText = readerRawText(reader);
+    const {exact, prefix, suffix} = highlight;
+    if (!exact) return -1;
+    const positions = [];
+    let cursor = 0;
+    while (cursor <= fullText.length) {
+        const idx = fullText.indexOf(exact, cursor);
+        if (idx === -1) break;
+        positions.push(idx);
+        cursor = idx + Math.max(1, exact.length);
+    }
+    if (positions.length === 0) return -1;
+    if (positions.length === 1) return positions[0];
+
+    let bestPos = -1;
+    let bestScore = -1;
+    for (const pos of positions) {
+        const actualPrefix = fullText.slice(Math.max(0, pos - (prefix?.length || 0)), pos);
+        const actualSuffix = fullText.slice(pos + exact.length, pos + exact.length + (suffix?.length || 0));
+        let score = 0;
+        if (prefix && actualPrefix === prefix) score += 2;
+        else if (prefix && actualPrefix.endsWith(prefix.slice(-8))) score += 1;
+        if (suffix && actualSuffix === suffix) score += 2;
+        else if (suffix && actualSuffix.startsWith(suffix.slice(0, 8))) score += 1;
+        if (score > bestScore) {
+            bestScore = score;
+            bestPos = pos;
+        }
+    }
+    return bestPos >= 0 ? bestPos : positions[0];
+}
+
+// Walk text nodes inside `reader`, find the [start, end) offset range in
+// reader.innerText terms, and return a Range object spanning that slice.
+// Returns null if the slice crosses element boundaries we can't safely wrap
+// (the cross-format case the sprint allows to fail gracefully).
+function rangeForOffsets(reader, startOffset, endOffset) {
+    const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+    let consumed = 0;
+    let startNode = null;
+    let startNodeOffset = 0;
+    let endNode = null;
+    let endNodeOffset = 0;
+    let node = walker.nextNode();
+    while (node) {
+        const len = node.nodeValue.length;
+        if (startNode === null && consumed + len > startOffset) {
+            startNode = node;
+            startNodeOffset = startOffset - consumed;
+        }
+        if (startNode !== null && consumed + len >= endOffset) {
+            endNode = node;
+            endNodeOffset = endOffset - consumed;
+            break;
+        }
+        consumed += len;
+        node = walker.nextNode();
+    }
+    if (!startNode || !endNode) return null;
+    // For R1-B-A, only wrap when the range lives in a single text node —
+    // multi-node ranges require splitting + multi-span wrapping that the
+    // sprint explicitly allows to defer.
+    if (startNode !== endNode) return null;
+    const range = document.createRange();
+    range.setStart(startNode, startNodeOffset);
+    range.setEnd(endNode, endNodeOffset);
+    return range;
+}
+
+function applyHighlight(highlight) {
+    const reader = highlightReaderEl();
+    if (!reader) return false;
+    const startOffset = locateHighlightOffset(reader, highlight);
+    if (startOffset < 0) return false;
+    const endOffset = startOffset + highlight.exact.length;
+    const range = rangeForOffsets(reader, startOffset, endOffset);
+    if (!range) return false;
+    const span = document.createElement('span');
+    span.className = 'highlight';
+    span.dataset.highlightId = String(highlight.id);
+    try {
+        range.surroundContents(span);
+    } catch (_) {
+        return false;
+    }
+    return true;
+}
+
+function showHighlightActionPopover(spanEl) {
+    const pop = highlightActionPopover();
+    if (!pop || !spanEl) return;
+    const rect = spanEl.getBoundingClientRect();
+    pop.style.display = 'inline-flex';
+    pop.style.top = `${window.scrollY + rect.bottom + 6}px`;
+    pop.style.left = `${window.scrollX + rect.left}px`;
+    activeHighlightId = spanEl.dataset.highlightId;
+}
+
+async function deleteActiveHighlight() {
+    if (!activeHighlightId) return;
+    const id = activeHighlightId;
+    let resp;
+    try {
+        resp = await fetch(`/api/highlights/${id}`, {method: 'DELETE'});
+    } catch (_) {
+        showToast('Löschen fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok && resp.status !== 404) {
+        showToast('Löschen fehlgeschlagen.', { level: 'danger' });
+        return;
+    }
+    const spans = document.querySelectorAll(`.highlight[data-highlight-id="${CSS.escape(id)}"]`);
+    spans.forEach(span => {
+        const parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span);
+        parent.normalize();
+    });
+    hideHighlightActionPopover();
+    showToast('Markierung entfernt.');
+}
+
+function initHighlights() {
+    const reader = highlightReaderEl();
+    if (!reader) return;
+    const createBtn = highlightCreateBtn();
+    const popover = highlightActionPopover();
+    const deleteBtn = document.getElementById('highlight-delete-btn');
+
+    document.addEventListener('selectionchange', positionHighlightCreateBtn);
+    if (createBtn) {
+        // mousedown (not click) so the selection isn't cleared by the button getting focus first.
+        createBtn.addEventListener('mousedown', evt => {
+            evt.preventDefault();
+            saveCurrentSelection();
+        });
+    }
+    reader.addEventListener('click', evt => {
+        const span = evt.target.closest('span.highlight[data-highlight-id]');
+        if (span) {
+            evt.stopPropagation();
+            showHighlightActionPopover(span);
+        } else {
+            hideHighlightActionPopover();
+        }
+    });
+    if (deleteBtn) {
+        deleteBtn.addEventListener('mousedown', evt => {
+            evt.preventDefault();
+            deleteActiveHighlight();
+        });
+    }
+    document.addEventListener('click', evt => {
+        if (popover && !popover.contains(evt.target) && !evt.target.closest('span.highlight[data-highlight-id]')) {
+            hideHighlightActionPopover();
+        }
+    });
+
+    loadHighlights();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setupAutoSaveTracking();
     setupTagChipSync();
+    initHighlights();
 });
 
 window.updateField = updateField;

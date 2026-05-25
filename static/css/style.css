@@ -18,6 +18,7 @@
      READER MODE                 – .main-container.reader-mode + reader toolbar
      DARK MODE (Reader only)     – data-theme="dark" overrides for reader
      READER VIEW                 – .reader-view (library detail Markdown render)
+     HIGHLIGHT                   – .highlight span + .highlight-create-btn floater
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
      THEME TOGGLE                – global theme toggle button
@@ -85,6 +86,7 @@
     --nm-tint-danger:  rgba(225, 112, 85, 0.12);
     --nm-tint-warning: rgba(246, 185, 59, 0.12);
     --nm-tint-info:    rgba(116, 185, 255, 0.12);
+    --nm-tint-highlight: rgba(255, 220, 0, 0.4);
 
     /* Radius */
     --nm-radius-sm: 12px;
@@ -1068,6 +1070,64 @@ body.reader-active header.lg\:hidden {
     margin: 2em 0;
 }
 
+/* ===== HIGHLIGHT =====
+   Reader-view text annotations (R1-B-A). The .highlight span wraps a stored
+   Text-Quote selector match; .highlight-create-btn floats above the active
+   selection; .highlight-action-popover offers Delete for an existing span. */
+/* span.highlight[data-highlight-id] discriminates user-highlights from the
+   <div class="highlight"> that the Pygments-style code-block renderer emits
+   inside .reader-view pre code blocks. Without the tag + attribute guard, all
+   code blocks would render with the yellow tint and respond to delete clicks. */
+.reader-view span.highlight[data-highlight-id] {
+    background-color: var(--nm-tint-highlight);
+    padding: 0.1em 0;
+    border-radius: 2px;
+    cursor: pointer;
+}
+.reader-view span.highlight[data-highlight-id]:hover {
+    background-color: var(--nm-tint-warning);
+}
+.highlight-create-btn,
+.highlight-action-popover {
+    position: absolute;
+    z-index: 100;
+    background: var(--nm-bg);
+    color: var(--nm-text);
+    border: 1px solid var(--nm-text-muted);
+    border-radius: var(--nm-radius-sm);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: var(--nm-font);
+}
+.highlight-create-btn {
+    padding: 0.4em 0.8em;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+.highlight-create-btn:hover {
+    background: var(--nm-text);
+    color: var(--nm-bg);
+}
+.highlight-action-popover {
+    padding: 0.25em;
+    display: inline-flex;
+    gap: 0.25em;
+}
+.highlight-action-popover__btn {
+    background: transparent;
+    border: none;
+    color: var(--nm-danger);
+    padding: 0.3em 0.7em;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    border-radius: calc(var(--nm-radius-sm) - 4px);
+    font-family: inherit;
+}
+.highlight-action-popover__btn:hover {
+    background: var(--nm-tint-danger);
+}
+
 /* ===== TOAST NOTIFICATION ===== */
 .toast-notification {
     position: fixed;
@@ -1347,6 +1407,7 @@ body.reader-active .theme-toggle-btn {
     --nm-tint-danger:  rgba(224, 112, 96, 0.15);
     --nm-tint-warning: rgba(232, 176, 64, 0.15);
     --nm-tint-info:    rgba(96, 168, 240, 0.15);
+    --nm-tint-highlight: rgba(232, 176, 64, 0.35);
 
     color-scheme: dark;
 }

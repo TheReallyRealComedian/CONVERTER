@@ -38,6 +38,9 @@ class Conversion(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
+    highlights = db.relationship('Highlight', backref='conversion',
+                                 cascade='all, delete-orphan', lazy='dynamic')
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -52,4 +55,25 @@ class Conversion(db.Model):
             'is_favorite': self.is_favorite,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Highlight(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    conversion_id = db.Column(db.Integer, db.ForeignKey('conversion.id'), nullable=False, index=True)
+    exact = db.Column(db.Text, nullable=False)
+    prefix = db.Column(db.Text, default='')
+    suffix = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'conversion_id': self.conversion_id,
+            'exact': self.exact,
+            'prefix': self.prefix,
+            'suffix': self.suffix,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }

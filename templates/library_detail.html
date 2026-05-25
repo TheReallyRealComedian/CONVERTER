@@ -36,11 +36,20 @@
                     {% endif %}
                     <button type="button" id="delete-btn" class="c-btn c-btn--danger text-xs py-1.5 px-3" onclick="deleteConversion()">Löschen</button>
                 </div>
-                <div class="c-surface overflow-auto max-h-[calc(100vh-280px)]" id="content-body">
+                <div class="c-surface overflow-auto max-h-[calc(100vh-280px)] relative" id="content-body">
                     <article class="reader-view p-6">
                         {% if content_html %}{{ content_html | safe }}{% else %}<p class="reader-empty">Kein Inhalt.</p>{% endif %}
                     </article>
                     <script type="text/markdown" id="content-source">{{ conversion.content | script_safe }}</script>
+                </div>
+                <button type="button" id="highlight-create-btn"
+                        class="highlight-create-btn"
+                        style="display: none;"
+                        aria-label="Auswahl markieren">
+                    Markieren
+                </button>
+                <div id="highlight-action-popover" class="highlight-action-popover" style="display: none;" role="dialog" aria-label="Markierung">
+                    <button type="button" class="highlight-action-popover__btn" id="highlight-delete-btn">Löschen</button>
                 </div>
             </div>
 

@@ -27,6 +27,7 @@ from app_pkg import audio as audio_module
 from app_pkg import auth as auth_module
 from app_pkg import create_app
 from app_pkg import documents as documents_module
+from app_pkg import highlights as highlights_module
 from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
@@ -62,6 +63,7 @@ markdown_module.register(app)
 documents_module.register(app)
 audio_module.register(app)
 library_module.register(app)
+highlights_module.register(app)
 notion_module.register(app)
 podcasts_module.register(app)
 
