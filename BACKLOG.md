@@ -10,7 +10,11 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ### R1-Cluster Reader-Core
 
-- **R1-B — Highlight-Selektion + Speicherung + Notes + Tags L** (Foundation R1-A ist gelegt: `<article class="reader-view">` rendert Markdown server-seitig, raw-source via `<script type="text/markdown" id="content-source">` zugänglich. R1-B baut Selektion-UX auf der Reader-View, persistiert Highlights je `Conversion`, ermöglicht Notes-Anhang plus Tag-Zuweisung pro Highlight. **Braucht READER-PLAN-Workshop für Schema-Entscheidung** — Highlights als eigene Tabelle mit FK auf `Conversion`, Selektor-Daten als CSS-Path / Text-Offset / Markdown-Range, Notes-Storage-Strategie, Tag-Verzweigung zwischen Conversion-Level-Tags und Highlight-Level-Tags. Größe **L**, eigener Sprint nach Workshop.)
+READER-PLAN-Workshop am 2026-05-25 abgeschlossen. Architektur-Entscheidungen persistiert in [docs/reader_architecture.md](docs/reader_architecture.md). R1-B war als L im BACKLOG → in drei Sub-Sprints A/B/C gesplittet, jeder eigenständig releasebar.
+
+- **R1-B-A — Highlight-Core M** (Foundation. Neue Tabelle `Highlight` mit FK auf `Conversion` und Anker-Feldern `exact` / `prefix` / `suffix` (W3C Web Annotation Style, kein `note` und keine Tags in diesem Sprint). Backend-API `POST/GET/DELETE /api/highlights`. Frontend: Selektion-UX im Reader-View — Maus-Selection → schwebender Highlight-Button → Save. Re-Apply beim Doc-Load via Text-Search im Reader-View-DOM mit Prefix/Suffix-Disambiguation, Wrap in `<span class="highlight" data-highlight-id="...">`. CSS: Highlight-Background dark-mode-tauglich via `--nm-*`-Token-Reuse. Erster R1-B-Sub-Sprint, Foundation für R1-B-B und R1-B-C.)
+- **R1-B-B — Highlight-Notes S** (Single-`note`-Feld am Highlight nullable, `ALTER TABLE Highlight ADD COLUMN note TEXT`. API-PATCH-Endpunkt. Frontend: Highlight anklicken → Note-Edit-Popup → Save. Sidebar-Liste zeigt Notes mit Highlight-Snippet. Wartet auf R1-B-A.)
+- **R1-B-C — Highlight-Tags + Tag-Foundation M** (Tabellen `Tag` (per-user-Namespace, unique name) + Junction `highlight_tags`. Tag-API `GET /api/tags`, `POST/DELETE /api/highlights/<id>/tags`. Frontend: Tag-Picker im Highlight-Edit-UI, Tag-Chips am Highlight, Tag-Manager-Page. **Out-of-scope hier**: `conversion_tags`-Junction + CSV-Migration der existierenden `Conversion.tags`-Spalte — das macht R2-A. R1-B-C touched `Conversion` nicht. Wartet auf R1-B-A.)
 
 ### Mac-Dev
 
