@@ -4,6 +4,9 @@ google-credentials.json
 # Ignores environment variables
 .env
 
+# Mac-Dev-Override fuer docker compose — lokal auf Olivers Mac, NICHT auf Server
+docker-compose.override.yml
+
 # Ignores common macOS system files
 .DS_Store
 **/.DS_Store
