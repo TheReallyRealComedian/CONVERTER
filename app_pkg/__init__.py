@@ -19,6 +19,7 @@ from flask import Flask, jsonify, request, url_for
 from flask_login import LoginManager, login_required
 from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
+from sqlalchemy import inspect, text
 
 from models import User, db
 
@@ -74,8 +75,23 @@ def create_app(import_name='app'):
     with app.app_context():
         os.makedirs('/app/data', exist_ok=True)
         db.create_all()
+        _run_pending_migrations(app)
 
     return app
+
+
+def _run_pending_migrations(app):
+    # No Alembic/Flask-Migrate in this project, and db.create_all() does not
+    # patch columns onto pre-existing tables. Each entry is idempotent —
+    # it inspects the live schema first and only ALTERs when needed, so
+    # repeated container starts are safe.
+    inspector = inspect(db.engine)
+    if 'highlight' in inspector.get_table_names():
+        cols = {c['name'] for c in inspector.get_columns('highlight')}
+        if 'note' not in cols:
+            db.session.execute(text('ALTER TABLE highlight ADD COLUMN note TEXT'))
+            db.session.commit()
+            app.logger.info("R1-B-B: highlight.note column added via ALTER TABLE")
 
 
 def _register_error_handlers(app):

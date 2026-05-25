@@ -147,3 +147,118 @@ def test_conversion_delete_cascades_to_highlights(app, authenticated_client, tes
     assert delete_resp.status_code == 200
     with app.app_context():
         assert Highlight.query.filter_by(conversion_id=cid).count() == 0
+
+
+# --- R1-B-B: Highlight-Notes via PATCH ---
+
+def _create_highlight(client, cid, exact='Sample content'):
+    resp = client.post(
+        f'/api/conversions/{cid}/highlights',
+        json={'exact': exact, 'prefix': '', 'suffix': ''},
+    )
+    assert resp.status_code == 201
+    return resp.get_json()['id']
+
+
+def test_api_list_highlights_includes_note_field(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    _create_highlight(authenticated_client, cid, 'first')
+    resp = authenticated_client.get(f'/api/conversions/{cid}/highlights')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data) == 1
+    assert 'note' in data[0]
+    assert data[0]['note'] is None
+
+
+def test_api_patch_highlight_sets_note(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    resp = authenticated_client.patch(
+        f'/api/highlights/{hid}',
+        json={'note': 'Wichtiges Detail.'},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()['note'] == 'Wichtiges Detail.'
+    with app.app_context():
+        assert Highlight.query.get(hid).note == 'Wichtiges Detail.'
+
+
+def test_api_patch_highlight_with_null_clears_note(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    authenticated_client.patch(f'/api/highlights/{hid}', json={'note': 'temp'})
+    resp = authenticated_client.patch(f'/api/highlights/{hid}', json={'note': None})
+    assert resp.status_code == 200
+    assert resp.get_json()['note'] is None
+    with app.app_context():
+        assert Highlight.query.get(hid).note is None
+
+
+def test_api_patch_highlight_with_empty_string_clears_note(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    authenticated_client.patch(f'/api/highlights/{hid}', json={'note': 'temp'})
+    resp = authenticated_client.patch(f'/api/highlights/{hid}', json={'note': ''})
+    assert resp.status_code == 200
+    # Empty string normalisiert auf NULL — keine Unterscheidung zwischen "leer" und "nicht gesetzt".
+    assert resp.get_json()['note'] is None
+    with app.app_context():
+        assert Highlight.query.get(hid).note is None
+
+
+def test_api_patch_highlight_rejects_oversized_note(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    resp = authenticated_client.patch(
+        f'/api/highlights/{hid}',
+        json={'note': 'x' * 2001},
+    )
+    assert resp.status_code == 400
+
+
+def test_api_patch_highlight_rejects_non_dict_body(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    resp = authenticated_client.patch(
+        f'/api/highlights/{hid}',
+        json=['not', 'a', 'dict'],
+    )
+    assert resp.status_code == 400
+
+
+def test_api_patch_highlight_rejects_missing_note_key(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    resp = authenticated_client.patch(
+        f'/api/highlights/{hid}',
+        json={'other_field': 'value'},
+    )
+    assert resp.status_code == 400
+
+
+def test_api_patch_highlight_rejects_non_string_non_null_note(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    hid = _create_highlight(authenticated_client, cid)
+    resp = authenticated_client.patch(
+        f'/api/highlights/{hid}',
+        json={'note': 12345},
+    )
+    assert resp.status_code == 400
+
+
+def test_api_patch_highlight_on_foreign_row_returns_404(app, authenticated_client, test_user):
+    other_id = _make_other_user(app, 'eve')
+    cid = _make_conversion(app, other_id, title="Eve's doc")
+    with app.app_context():
+        h = Highlight(conversion_id=cid, exact='secret', prefix='', suffix='')
+        db.session.add(h)
+        db.session.commit()
+        hid = h.id
+    resp = authenticated_client.patch(
+        f'/api/highlights/{hid}',
+        json={'note': 'intruder'},
+    )
+    assert resp.status_code == 404
+    with app.app_context():
+        assert Highlight.query.get(hid).note is None

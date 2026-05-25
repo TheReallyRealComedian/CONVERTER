@@ -49,12 +49,30 @@
                     Markieren
                 </button>
                 <div id="highlight-action-popover" class="highlight-action-popover" style="display: none;" role="dialog" aria-label="Markierung">
-                    <button type="button" class="highlight-action-popover__btn" id="highlight-delete-btn">Löschen</button>
+                    <textarea id="highlight-note-input"
+                              class="c-input highlight-action-popover__note"
+                              rows="3"
+                              maxlength="2000"
+                              placeholder="Notiz hinzufügen..."></textarea>
+                    <div class="highlight-action-popover__actions">
+                        <button type="button" class="c-btn c-btn--primary text-xs py-1.5 px-3" id="highlight-save-note-btn">Speichern</button>
+                        <button type="button" class="c-btn c-btn--danger text-xs py-1.5 px-3" id="highlight-delete-btn">Löschen</button>
+                    </div>
                 </div>
             </div>
 
             <!-- Sidebar -->
             <div class="flex flex-col gap-4">
+                <!-- Highlights / Markierungen -->
+                <div class="c-surface--flat p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">
+                        Markierungen <span id="highlight-count" class="text-neo-faint">(0)</span>
+                    </h6>
+                    <div id="highlight-list" class="flex flex-col gap-2">
+                        <p class="text-sm text-neo-faint italic" id="highlight-list-empty">Noch keine Markierungen.</p>
+                    </div>
+                </div>
+
                 <!-- Save to Notion -->
                 <div class="c-surface--flat p-4">
                     <button type="button" id="notion-toggle-btn" onclick="toggleNotionPanel()" aria-expanded="false" aria-controls="notion-panel" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">

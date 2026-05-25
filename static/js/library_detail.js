@@ -482,6 +482,10 @@ function highlightReaderEl() { return document.querySelector('.reader-view'); }
 function highlightCreateBtn() { return document.getElementById('highlight-create-btn'); }
 function highlightActionPopover() { return document.getElementById('highlight-action-popover'); }
 let activeHighlightId = null;
+// Modul-Cache für die Sidebar — beide Render-Pfade (Reader-Apply + Sidebar) lesen daraus.
+let highlightsState = [];
+// IDs, deren Anchor sich nicht in einen DOM-Span wrappen ließ (Cross-Format).
+let crossFormatHighlightIds = new Set();
 
 function hideHighlightCreateBtn() {
     const btn = highlightCreateBtn();
@@ -584,6 +588,10 @@ async function saveCurrentSelection() {
     }
     const highlight = await resp.json();
     const applied = applyHighlight(highlight);
+    if (!applied) crossFormatHighlightIds.add(highlight.id);
+    // Backend liefert chronologisch (created_at asc); neue Highlights gehören ans Ende.
+    highlightsState.push(highlight);
+    renderHighlightList();
     if (applied) {
         showToast('Markiert.');
     } else {
@@ -600,7 +608,67 @@ async function loadHighlights() {
     }
     if (!resp.ok) return;
     const highlights = await resp.json();
-    highlights.forEach(applyHighlight);
+    highlightsState = highlights;
+    crossFormatHighlightIds = new Set();
+    highlights.forEach(h => {
+        const applied = applyHighlight(h);
+        if (!applied) crossFormatHighlightIds.add(h.id);
+    });
+    renderHighlightList();
+}
+
+function truncateForCard(str, max) {
+    if (!str) return '';
+    return str.length > max ? str.slice(0, max - 1) + '…' : str;
+}
+
+function renderHighlightList() {
+    const list = document.getElementById('highlight-list');
+    const counter = document.getElementById('highlight-count');
+    if (!list) return;
+    if (counter) counter.textContent = `(${highlightsState.length})`;
+    if (highlightsState.length === 0) {
+        list.innerHTML = '<p class="text-sm text-neo-faint italic" id="highlight-list-empty">Noch keine Markierungen.</p>';
+        return;
+    }
+    list.innerHTML = '';
+    highlightsState.forEach(h => {
+        const card = document.createElement('div');
+        card.className = 'highlight-card';
+        card.dataset.highlightId = String(h.id);
+        if (crossFormatHighlightIds.has(h.id)) {
+            card.classList.add('highlight-card--cross-format');
+            card.title = 'Markierung über Formatierungsgrenze, im Text nicht direkt anspringbar.';
+        }
+        const snippet = document.createElement('div');
+        snippet.className = 'highlight-card__snippet';
+        snippet.textContent = truncateForCard(h.exact, 80);
+        card.appendChild(snippet);
+        if (h.note) {
+            const noteEl = document.createElement('div');
+            noteEl.className = 'highlight-card__note';
+            noteEl.textContent = truncateForCard(h.note, 60);
+            card.appendChild(noteEl);
+        }
+        card.addEventListener('click', () => scrollToHighlight(h.id));
+        list.appendChild(card);
+    });
+}
+
+function scrollToHighlight(id) {
+    const span = document.querySelector(
+        `.reader-view span.highlight[data-highlight-id="${CSS.escape(String(id))}"]`
+    );
+    if (!span) {
+        showToast(
+            'Markierung über Formatierungsgrenze, im Text nicht direkt anspringbar.',
+            { level: 'warning' }
+        );
+        return;
+    }
+    span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    span.classList.add('highlight-flash');
+    setTimeout(() => span.classList.remove('highlight-flash'), 1000);
 }
 
 // Locate `exact` in the reader-view text. Returns the start-offset against
@@ -699,10 +767,48 @@ function showHighlightActionPopover(spanEl) {
     const pop = highlightActionPopover();
     if (!pop || !spanEl) return;
     const rect = spanEl.getBoundingClientRect();
-    pop.style.display = 'inline-flex';
+    activeHighlightId = spanEl.dataset.highlightId;
+    const idNum = parseInt(activeHighlightId, 10);
+    const highlight = highlightsState.find(h => h.id === idNum);
+    const input = document.getElementById('highlight-note-input');
+    if (input) {
+        input.value = highlight && highlight.note ? highlight.note : '';
+    }
+    pop.style.display = 'flex';
     pop.style.top = `${window.scrollY + rect.bottom + 6}px`;
     pop.style.left = `${window.scrollX + rect.left}px`;
-    activeHighlightId = spanEl.dataset.highlightId;
+    // Defer focus so the click that opened the popover doesn't immediately
+    // bubble to the document-level "close-on-outside-click" handler.
+    if (input) setTimeout(() => input.focus(), 0);
+}
+
+async function saveHighlightNote() {
+    if (!activeHighlightId) return;
+    const id = activeHighlightId;
+    const input = document.getElementById('highlight-note-input');
+    if (!input) return;
+    const noteValue = input.value;
+    let resp;
+    try {
+        resp = await fetch(`/api/highlights/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: noteValue }),
+        });
+    } catch (_) {
+        showToast('Notiz speichern fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok) {
+        showToast('Notiz speichern fehlgeschlagen.', { level: 'danger' });
+        return;
+    }
+    const updated = await resp.json();
+    const idx = highlightsState.findIndex(h => h.id === updated.id);
+    if (idx >= 0) highlightsState[idx] = updated;
+    renderHighlightList();
+    hideHighlightActionPopover();
+    showToast('Notiz gespeichert.');
 }
 
 async function deleteActiveHighlight() {
@@ -726,6 +832,10 @@ async function deleteActiveHighlight() {
         parent.removeChild(span);
         parent.normalize();
     });
+    const numericId = parseInt(id, 10);
+    highlightsState = highlightsState.filter(h => h.id !== numericId);
+    crossFormatHighlightIds.delete(numericId);
+    renderHighlightList();
     hideHighlightActionPopover();
     showToast('Markierung entfernt.');
 }
@@ -758,6 +868,13 @@ function initHighlights() {
         deleteBtn.addEventListener('mousedown', evt => {
             evt.preventDefault();
             deleteActiveHighlight();
+        });
+    }
+    const saveNoteBtn = document.getElementById('highlight-save-note-btn');
+    if (saveNoteBtn) {
+        saveNoteBtn.addEventListener('mousedown', evt => {
+            evt.preventDefault();
+            saveHighlightNote();
         });
     }
     document.addEventListener('click', evt => {

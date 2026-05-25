@@ -15,6 +15,7 @@ from .library import get_owned_conversion
 
 MAX_EXACT_LEN = 5000
 MAX_CONTEXT_LEN = 200
+MAX_NOTE_LEN = 2000
 
 
 def register(app):
@@ -69,3 +70,31 @@ def register(app):
         db.session.delete(highlight)
         db.session.commit()
         return jsonify({'success': True})
+
+    @app.route('/api/highlights/<int:highlight_id>', methods=['PATCH'])
+    @login_required
+    def api_patch_highlight(highlight_id):
+        highlight = Highlight.query.get_or_404(highlight_id)
+        if highlight.conversion.user_id != current_user.id:
+            return jsonify({'error': 'Nicht gefunden.'}), 404
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        # Note-Key ist pflicht: hält den Endpoint atomar und verhindert versteckte no-ops.
+        if 'note' not in data:
+            return jsonify({'error': 'Feld "note" fehlt im Request-Body.'}), 400
+
+        note = data['note']
+        if note is not None and not isinstance(note, str):
+            return jsonify({'error': 'Notiz muss Text oder null sein.'}), 400
+        if isinstance(note, str) and len(note) > MAX_NOTE_LEN:
+            return jsonify({'error': f'Notiz zu lang (max {MAX_NOTE_LEN} Zeichen).'}), 400
+
+        # Leerer String wird als Lösch-Intent behandelt — speichert NULL statt "".
+        if isinstance(note, str) and note == '':
+            highlight.note = None
+        else:
+            highlight.note = note
+        db.session.commit()
+        return jsonify(highlight.to_dict())

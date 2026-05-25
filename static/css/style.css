@@ -18,7 +18,7 @@
      READER MODE                 – .main-container.reader-mode + reader toolbar
      DARK MODE (Reader only)     – data-theme="dark" overrides for reader
      READER VIEW                 – .reader-view (library detail Markdown render)
-     HIGHLIGHT                   – .highlight span + .highlight-create-btn floater
+     HIGHLIGHT                   – .highlight span, create-btn, action-popover, sidebar-card, flash
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
      THEME TOGGLE                – global theme toggle button
@@ -1110,22 +1110,68 @@ body.reader-active header.lg\:hidden {
     color: var(--nm-bg);
 }
 .highlight-action-popover {
-    padding: 0.25em;
-    display: inline-flex;
-    gap: 0.25em;
+    padding: 0.5em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    min-width: 260px;
+    max-width: 320px;
 }
-.highlight-action-popover__btn {
-    background: transparent;
-    border: none;
-    color: var(--nm-danger);
-    padding: 0.3em 0.7em;
+.highlight-action-popover__note {
     font-size: 0.8125rem;
-    cursor: pointer;
-    border-radius: calc(var(--nm-radius-sm) - 4px);
-    font-family: inherit;
+    resize: vertical;
+    min-height: 3.5em;
 }
-.highlight-action-popover__btn:hover {
-    background: var(--nm-tint-danger);
+.highlight-action-popover__actions {
+    display: flex;
+    gap: 0.5em;
+    justify-content: flex-end;
+}
+
+/* Highlight-Sidebar-Cards (R1-B-B): chronologische Liste aller Markierungen im Doc.
+   Klick scrollt zum DOM-Span; Cross-Format-Variante zeigt einen Toast statt Scroll. */
+.highlight-card {
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--nm-radius-sm);
+    background: var(--nm-bg);
+    cursor: pointer;
+    box-shadow: var(--nm-raised-sm);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    transition: background-color 0.15s ease;
+}
+.highlight-card:hover {
+    background: var(--nm-tint-accent);
+}
+.highlight-card__snippet {
+    color: var(--nm-text);
+    word-break: break-word;
+}
+.highlight-card__note {
+    color: var(--nm-text-muted);
+    font-style: italic;
+    margin-top: 0.25rem;
+    word-break: break-word;
+}
+.highlight-card--cross-format {
+    opacity: 0.7;
+    border-left: 3px solid var(--nm-text-muted);
+    padding-left: calc(0.75rem - 3px);
+}
+.highlight-card--cross-format .highlight-card__snippet::before {
+    content: '⚠ ';
+    color: var(--nm-warning);
+    font-style: normal;
+}
+
+/* Scroll-to-Cue: kurze Pulse-Animation am Ziel-Span (1s, ease-in-out). */
+@keyframes highlight-flash {
+    0%   { background-color: var(--nm-tint-highlight); }
+    50%  { background-color: var(--nm-tint-warning); }
+    100% { background-color: var(--nm-tint-highlight); }
+}
+.reader-view span.highlight[data-highlight-id].highlight-flash {
+    animation: highlight-flash 1s ease-in-out;
 }
 
 /* ===== TOAST NOTIFICATION ===== */
