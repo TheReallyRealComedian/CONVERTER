@@ -58,6 +58,15 @@ class Conversion(db.Model):
         }
 
 
+highlight_tags = db.Table(
+    'highlight_tags',
+    db.Column('highlight_id', db.Integer, db.ForeignKey('highlight.id', ondelete='CASCADE'),
+              primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete='CASCADE'),
+              primary_key=True),
+)
+
+
 class Highlight(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     conversion_id = db.Column(db.Integer, db.ForeignKey('conversion.id'), nullable=False, index=True)
@@ -69,6 +78,9 @@ class Highlight(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
+    tags = db.relationship('Tag', secondary=highlight_tags, lazy='joined',
+                           backref=db.backref('highlights', lazy='dynamic'))
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -77,5 +89,27 @@ class Highlight(db.Model):
             'prefix': self.prefix,
             'suffix': self.suffix,
             'note': self.note,
+            'tags': [t.to_dict() for t in self.tags],
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    name = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='uq_tag_user_name'),
+    )
+
+    def to_dict(self, highlight_count=None):
+        out = {
+            'id': self.id,
+            'name': self.name,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+        if highlight_count is not None:
+            out['highlight_count'] = highlight_count
+        return out

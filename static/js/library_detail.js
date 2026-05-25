@@ -638,7 +638,7 @@ function renderHighlightList() {
         card.dataset.highlightId = String(h.id);
         if (crossFormatHighlightIds.has(h.id)) {
             card.classList.add('highlight-card--cross-format');
-            card.title = 'Markierung über Formatierungsgrenze, im Text nicht direkt anspringbar.';
+            card.title = 'Markierung über Formatierungsgrenze. Klick: bearbeiten.';
         }
         const snippet = document.createElement('div');
         snippet.className = 'highlight-card__snippet';
@@ -650,7 +650,19 @@ function renderHighlightList() {
             noteEl.textContent = truncateForCard(h.note, 60);
             card.appendChild(noteEl);
         }
-        card.addEventListener('click', () => scrollToHighlight(h.id));
+        if (Array.isArray(h.tags) && h.tags.length) {
+            renderSidebarCardTagChips(card, h.tags);
+        }
+        card.addEventListener('click', () => {
+            // Cross-Format-Highlights haben keinen DOM-Span — Sidebar-Card-Click
+            // öffnet stattdessen das Action-Popover (Brücke aus R1-B-B, jetzt
+            // mit Tag-Picker aus R1-B-C). Normale Cards scrollen weiterhin.
+            if (crossFormatHighlightIds.has(h.id)) {
+                showHighlightActionPopover(card);
+            } else {
+                scrollToHighlight(h.id);
+            }
+        });
         list.appendChild(card);
     });
 }
@@ -763,23 +775,173 @@ function applyHighlight(highlight) {
     return true;
 }
 
-function showHighlightActionPopover(spanEl) {
+function showHighlightActionPopover(anchorEl) {
+    // anchorEl ist normalerweise der DOM-Span im Reader-View. Für
+    // Cross-Format-Highlights ohne Span wird stattdessen die Sidebar-Card
+    // als Anker übergeben — beide tragen dataset.highlightId und
+    // getBoundingClientRect, das Popover positioniert sich unter dem
+    // jeweiligen Element.
     const pop = highlightActionPopover();
-    if (!pop || !spanEl) return;
-    const rect = spanEl.getBoundingClientRect();
-    activeHighlightId = spanEl.dataset.highlightId;
+    if (!pop || !anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    activeHighlightId = anchorEl.dataset.highlightId;
     const idNum = parseInt(activeHighlightId, 10);
     const highlight = highlightsState.find(h => h.id === idNum);
     const input = document.getElementById('highlight-note-input');
     if (input) {
         input.value = highlight && highlight.note ? highlight.note : '';
     }
+    renderHighlightTagChips(highlight);
+    const tagInput = document.getElementById('highlight-tag-input');
+    if (tagInput) tagInput.value = '';
+    loadTagSuggestions();
     pop.style.display = 'flex';
     pop.style.top = `${window.scrollY + rect.bottom + 6}px`;
     pop.style.left = `${window.scrollX + rect.left}px`;
     // Defer focus so the click that opened the popover doesn't immediately
     // bubble to the document-level "close-on-outside-click" handler.
     if (input) setTimeout(() => input.focus(), 0);
+}
+
+const SIDEBAR_TAG_CHIPS_VISIBLE = 3;
+
+function renderHighlightTagChips(highlight) {
+    const container = document.getElementById('highlight-tag-chips');
+    if (!container) return;
+    container.innerHTML = '';
+    const tags = (highlight && highlight.tags) || [];
+    if (tags.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'highlight-tag-chips__empty';
+        empty.textContent = 'Noch keine Tags.';
+        container.appendChild(empty);
+        return;
+    }
+    tags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'highlight-tag-chip';
+        const label = document.createElement('span');
+        label.textContent = tag.name;
+        chip.appendChild(label);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'highlight-tag-chip__remove';
+        remove.setAttribute('aria-label', `Tag ${tag.name} entfernen`);
+        remove.textContent = '×';
+        remove.addEventListener('mousedown', evt => {
+            evt.preventDefault();
+            removeTagFromHighlight(tag.id);
+        });
+        chip.appendChild(remove);
+        container.appendChild(chip);
+    });
+}
+
+function renderSidebarCardTagChips(cardEl, tags) {
+    if (!cardEl || !tags || tags.length === 0) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'highlight-card__tags';
+    const visible = tags.slice(0, SIDEBAR_TAG_CHIPS_VISIBLE);
+    visible.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'highlight-tag-chip highlight-tag-chip--compact';
+        chip.textContent = tag.name;
+        wrap.appendChild(chip);
+    });
+    if (tags.length > visible.length) {
+        const more = document.createElement('span');
+        more.className = 'highlight-tag-chip highlight-tag-chip--compact highlight-tag-chip--more';
+        more.textContent = `+${tags.length - visible.length}`;
+        wrap.appendChild(more);
+    }
+    cardEl.appendChild(wrap);
+}
+
+async function loadTagSuggestions() {
+    let resp;
+    try {
+        resp = await fetch('/api/tags');
+    } catch (_) {
+        return;
+    }
+    if (!resp.ok) return;
+    const tags = await resp.json();
+    const datalist = document.getElementById('tag-suggestions');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    tags.forEach(tag => {
+        const opt = document.createElement('option');
+        opt.value = tag.name;
+        datalist.appendChild(opt);
+    });
+}
+
+async function addTagToHighlight() {
+    if (!activeHighlightId) return;
+    const input = document.getElementById('highlight-tag-input');
+    if (!input) return;
+    const raw = input.value;
+    if (!raw || !raw.trim()) return;
+    const id = activeHighlightId;
+    let resp;
+    try {
+        resp = await fetch(`/api/highlights/${id}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: raw }),
+        });
+    } catch (_) {
+        showToast('Tag speichern fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok) {
+        if (resp.status === 400) {
+            showToast('Tag-Name ungültig oder zu lang.', { level: 'danger' });
+        } else {
+            showToast('Tag speichern fehlgeschlagen.', { level: 'danger' });
+        }
+        return;
+    }
+    const tag = await resp.json();
+    const numericId = parseInt(id, 10);
+    const highlight = highlightsState.find(h => h.id === numericId);
+    if (highlight) {
+        highlight.tags = highlight.tags || [];
+        if (!highlight.tags.some(t => t.id === tag.id)) {
+            highlight.tags.push(tag);
+        }
+        renderHighlightTagChips(highlight);
+    }
+    input.value = '';
+    renderHighlightList();
+    loadTagSuggestions();
+    if (resp.status === 201) {
+        showToast('Tag hinzugefügt.');
+    }
+}
+
+async function removeTagFromHighlight(tagId) {
+    if (!activeHighlightId) return;
+    const id = activeHighlightId;
+    let resp;
+    try {
+        resp = await fetch(`/api/highlights/${id}/tags/${tagId}`, { method: 'DELETE' });
+    } catch (_) {
+        showToast('Tag entfernen fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok && resp.status !== 404) {
+        showToast('Tag entfernen fehlgeschlagen.', { level: 'danger' });
+        return;
+    }
+    const numericId = parseInt(id, 10);
+    const highlight = highlightsState.find(h => h.id === numericId);
+    if (highlight && Array.isArray(highlight.tags)) {
+        highlight.tags = highlight.tags.filter(t => t.id !== tagId);
+        renderHighlightTagChips(highlight);
+    }
+    renderHighlightList();
+    showToast('Tag entfernt.');
 }
 
 async function saveHighlightNote() {
@@ -877,8 +1039,29 @@ function initHighlights() {
             saveHighlightNote();
         });
     }
+    const tagAddBtn = document.getElementById('highlight-tag-add-btn');
+    if (tagAddBtn) {
+        tagAddBtn.addEventListener('mousedown', evt => {
+            evt.preventDefault();
+            addTagToHighlight();
+        });
+    }
+    const tagInput = document.getElementById('highlight-tag-input');
+    if (tagInput) {
+        tagInput.addEventListener('keydown', evt => {
+            if (evt.key === 'Enter') {
+                evt.preventDefault();
+                addTagToHighlight();
+            }
+        });
+    }
     document.addEventListener('click', evt => {
-        if (popover && !popover.contains(evt.target) && !evt.target.closest('span.highlight[data-highlight-id]')) {
+        if (
+            popover
+            && !popover.contains(evt.target)
+            && !evt.target.closest('span.highlight[data-highlight-id]')
+            && !evt.target.closest('.highlight-card--cross-format')
+        ) {
             hideHighlightActionPopover();
         }
     });

@@ -58,6 +58,18 @@
                         <button type="button" class="c-btn c-btn--primary text-xs py-1.5 px-3" id="highlight-save-note-btn">Speichern</button>
                         <button type="button" class="c-btn c-btn--danger text-xs py-1.5 px-3" id="highlight-delete-btn">Löschen</button>
                     </div>
+                    <div class="highlight-tag-section">
+                        <label class="highlight-tag-section__label">Tags</label>
+                        <div id="highlight-tag-chips" class="highlight-tag-section__chips"></div>
+                        <div class="highlight-tag-section__row">
+                            <input type="text" id="highlight-tag-input" list="tag-suggestions"
+                                   class="c-input highlight-tag-section__input"
+                                   placeholder="Tag hinzufügen..."
+                                   autocomplete="off" maxlength="80">
+                            <button type="button" class="c-btn text-xs py-1 px-2" id="highlight-tag-add-btn" aria-label="Tag hinzufügen">+</button>
+                        </div>
+                        <datalist id="tag-suggestions"></datalist>
+                    </div>
                 </div>
             </div>
 

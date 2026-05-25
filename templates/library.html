@@ -5,6 +5,9 @@
 {% block content %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-6xl mx-auto">
+        <div class="flex justify-end mb-2">
+            <a href="{{ url_for('tags_page') }}" class="text-sm text-neo-faint hover:text-neo-text no-underline transition-colors">Tags verwalten</a>
+        </div>
         <!-- Filter Bar -->
         <div class="c-surface p-4 md:p-5 mb-8">
             <form method="GET" action="{{ url_for('library') }}" class="flex flex-wrap items-center gap-4">

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Tags – Library{% endblock %}
+
+{% block content %}
+<div class="flex-1 p-6 lg:p-8 overflow-auto">
+    <div class="max-w-4xl mx-auto">
+        <a href="{{ url_for('library') }}" class="text-sm text-neo-faint hover:text-neo-text no-underline transition-colors">&larr; Zurück zur Library</a>
+        <h1 class="text-2xl font-semibold mt-2 mb-6">Tags</h1>
+        <div id="tag-alert-container"></div>
+        <div id="tag-list" class="grid gap-2"></div>
+        <p id="tag-list-empty" class="text-neo-faint italic hidden">Noch keine Tags. In einem Dokument einen Highlight markieren und Tags hinzufügen.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tags.js') }}"></script>
+{% endblock %}

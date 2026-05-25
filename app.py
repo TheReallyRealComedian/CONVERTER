@@ -32,6 +32,7 @@ from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
 from app_pkg import podcasts as podcasts_module
+from app_pkg import tags as tags_module
 from app_pkg.integrations import notion as notion_module
 from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
 
@@ -64,6 +65,7 @@ documents_module.register(app)
 audio_module.register(app)
 library_module.register(app)
 highlights_module.register(app)
+tags_module.register(app)
 notion_module.register(app)
 podcasts_module.register(app)
 
