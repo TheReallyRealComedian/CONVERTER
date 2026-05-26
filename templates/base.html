@@ -47,9 +47,22 @@
     <!-- Mobile sidebar overlay -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/20 z-30 hidden lg:hidden"></div>
 
-    <div class="grid lg:grid-cols-[250px_1fr] min-h-screen">
-        <!-- Sidebar -->
-        <aside id="sidebar" class="c-surface neo-sidebar fixed lg:static inset-y-0 left-0 z-40 w-[250px] flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <!-- Distraction-free toggle: nur Desktop, klappt globale Sidebar ein/aus. -->
+    <button type="button" id="global-sidebar-toggle"
+            class="sidebar-toggle-floater sidebar-toggle-floater--global"
+            aria-label="Sidebar ein-/ausblenden" title="Sidebar ein-/ausblenden">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="sidebar-toggle-floater__icon">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </button>
+
+    <div class="layout-grid grid lg:grid-cols-[250px_1fr] min-h-screen">
+        <!-- Sidebar — min-w-0 wird im collapsed-State (body.global-sidebar--collapsed) wirksam:
+             ohne min-width:0 würde CSS-Grid den `grid-template-columns: 0 1fr` Override ignorieren,
+             weil das Item via w-[250px] eine preferred-size > 0 hat.
+             lg:sticky+lg:top-0+lg:h-screen: bleibt am Viewport-Top kleben beim Page-Scroll,
+             scrollt nicht mit dem Reader-Inhalt mit. -->
+        <aside id="sidebar" class="c-surface neo-sidebar fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 left-0 z-40 w-[250px] min-w-0 flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200">
             <div class="p-4 neo-sidebar-brand">
                 <a href="{{ url_for('markdown_converter') }}" class="text-lg font-semibold text-neo-text hover:text-neo-accent no-underline">File Transformer</a>
             </div>

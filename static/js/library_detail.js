@@ -544,9 +544,11 @@ function setupAutoSaveTracking() {
 
 const HIGHLIGHT_CONTEXT_LEN = 32;
 const HIGHLIGHT_EXACT_LIMIT = 5000;
+// Mouseup-Selections kürzer als 3 chars werden ignoriert — schützt vor
+// Accidental-Highlights bei Klick-mit-Mini-Drift oder Doppelklick auf 1-char-Tokens.
+const MIN_HIGHLIGHT_LENGTH = 3;
 
 function highlightReaderEl() { return document.querySelector('.reader-view'); }
-function highlightCreateBtn() { return document.getElementById('highlight-create-btn'); }
 function highlightActionPopover() { return document.getElementById('highlight-action-popover'); }
 let activeHighlightId = null;
 // Modul-Cache für die Sidebar — beide Render-Pfade (Reader-Apply + Sidebar) lesen daraus.
@@ -554,40 +556,10 @@ let highlightsState = [];
 // IDs, deren Anchor sich nicht in einen DOM-Span wrappen ließ (Cross-Format).
 let crossFormatHighlightIds = new Set();
 
-function hideHighlightCreateBtn() {
-    const btn = highlightCreateBtn();
-    if (btn) btn.style.display = 'none';
-}
-
 function hideHighlightActionPopover() {
     const pop = highlightActionPopover();
     if (pop) pop.style.display = 'none';
     activeHighlightId = null;
-}
-
-function positionHighlightCreateBtn() {
-    const reader = highlightReaderEl();
-    const btn = highlightCreateBtn();
-    if (!reader || !btn) return;
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-        hideHighlightCreateBtn();
-        return;
-    }
-    const range = sel.getRangeAt(0);
-    // Selection must start AND end inside the reader-view.
-    if (!reader.contains(range.startContainer) || !reader.contains(range.endContainer)) {
-        hideHighlightCreateBtn();
-        return;
-    }
-    const rect = range.getBoundingClientRect();
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
-        hideHighlightCreateBtn();
-        return;
-    }
-    btn.style.display = 'inline-flex';
-    btn.style.top = `${window.scrollY + rect.top - 40}px`;
-    btn.style.left = `${window.scrollX + rect.left}px`;
 }
 
 // Concatenation of every text-node's nodeValue inside the reader, in
@@ -636,7 +608,6 @@ async function saveCurrentSelection() {
     }
     const {prefix, suffix} = extractSelectionContext(sel);
     sel.removeAllRanges();
-    hideHighlightCreateBtn();
 
     let resp;
     try {
@@ -659,9 +630,9 @@ async function saveCurrentSelection() {
     // Backend liefert chronologisch (created_at asc); neue Highlights gehören ans Ende.
     highlightsState.push(highlight);
     renderHighlightList();
-    if (applied) {
-        showToast('Markiert.');
-    } else {
+    // Im Normal-Fall ist der gelbe Span sofort sichtbar — das ist das Feedback.
+    // Reader-Mode bleibt still. Cross-Format hat keinen Span, daher Toast Pflicht.
+    if (!applied) {
         showToast('Markierung gespeichert, Anzeige nicht möglich (Formatierungsgrenze).', { level: 'warning' });
     }
 }
@@ -1072,18 +1043,9 @@ async function deleteActiveHighlight() {
 function initHighlights() {
     const reader = highlightReaderEl();
     if (!reader) return;
-    const createBtn = highlightCreateBtn();
     const popover = highlightActionPopover();
     const deleteBtn = document.getElementById('highlight-delete-btn');
 
-    document.addEventListener('selectionchange', positionHighlightCreateBtn);
-    if (createBtn) {
-        // mousedown (not click) so the selection isn't cleared by the button getting focus first.
-        createBtn.addEventListener('mousedown', evt => {
-            evt.preventDefault();
-            saveCurrentSelection();
-        });
-    }
     reader.addEventListener('click', evt => {
         const span = evt.target.closest('span.highlight[data-highlight-id]');
         if (span) {
@@ -1136,10 +1098,114 @@ function initHighlights() {
     loadHighlights();
 }
 
+// --- Mark-on-Mouseup (READER-MODE) ---
+// Mouseup im Reader-View mit nicht-leerer, ausreichend langer Selection
+// triggert direkt das Highlight-Save. Ersetzt den schwebenden Markieren-Button.
+// Cmd/Ctrl-Halten = nur Kopieren-Geste, kein Highlight.
+function initMarkOnMouseup() {
+    const reader = highlightReaderEl();
+    if (!reader) return;
+    reader.addEventListener('mouseup', evt => {
+        if (evt.metaKey || evt.ctrlKey) return;
+        // Defer um einen Tick — manche Browser propagieren Selection erst
+        // nach dem mouseup-Listener; ohne setTimeout liest .toString() leeren String.
+        setTimeout(() => {
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+            if (!reader.contains(sel.anchorNode) || !reader.contains(sel.focusNode)) return;
+            const text = sel.toString();
+            if (text.trim().length < MIN_HIGHLIGHT_LENGTH) return;
+            saveCurrentSelection();
+        }, 10);
+    });
+}
+
+// --- Reading-Progress-Bar (READER-MODE) ---
+// 3px-sticky-Bar am Top des Reader-Containers, Fill-Width entspricht Scroll-Fortschritt.
+// Reader-Container hat keine eigene overflow mehr (natural height) — Scroll passiert auf
+// dem nearest scrollable ancestor (typisch `<div class="flex-1 ... overflow-auto">` aus
+// block content) oder fallback auf window. Sticky `top: 0` klebt am Scrollport-Top.
+// Bei Docs die nicht scrollen Bar versteckt. Persistierung der Scroll-Position bleibt
+// R2-B-Vorbehalt — hier nur visuelle Live-Anzeige.
+function initReadingProgress() {
+    const container = document.getElementById('content-body');
+    const fill = document.getElementById('reading-progress-fill');
+    const wrapper = container ? container.querySelector('.reading-progress') : null;
+    if (!container || !fill || !wrapper) return;
+
+    // Finde den nächsten scrollenden Vorfahren (overflow auto/scroll).
+    // Fallback auf document.scrollingElement / window.
+    function findScrollAncestor(el) {
+        let p = el.parentElement;
+        while (p && p !== document.body) {
+            const oy = getComputedStyle(p).overflowY;
+            if (oy === 'auto' || oy === 'scroll') return p;
+            p = p.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+    }
+    const scroller = findScrollAncestor(container);
+    const scrollSource = scroller === document.scrollingElement ? window : scroller;
+
+    // Mini-Scroll (z.B. weil Sidebar geringfügig höher ist als Reader-Content)
+    // wird als "nicht scrollend" behandelt — sonst zeigt die Bar bei kurzen Docs
+    // einen leeren Track ohne tatsächlichen Lese-Fortschritt.
+    const MIN_SCROLLABLE_PX = 30;
+
+    function update() {
+        const scrollTop = scroller.scrollTop;
+        const scrollable = scroller.scrollHeight - scroller.clientHeight;
+        if (scrollable < MIN_SCROLLABLE_PX) {
+            wrapper.classList.add('reading-progress--hidden');
+            fill.style.width = '0%';
+            return;
+        }
+        wrapper.classList.remove('reading-progress--hidden');
+        const percent = (scrollTop / scrollable) * 100;
+        fill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    }
+
+    scrollSource.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+}
+
+// --- Detail-Sidebar-Toggle (READER-MODE) ---
+// Klappt die rechte Sidebar (Markierungen/Notion/Details) ein/aus.
+// State in localStorage via loadViewState/saveViewState aus _utils.js.
+const DETAIL_SIDEBAR_STATE_KEY = 'reader.detailSidebar';
+
+function applyDetailSidebarState(collapsed) {
+    document.body.classList.toggle('detail-sidebar--collapsed', collapsed);
+    const btn = document.getElementById('detail-sidebar-toggle');
+    if (btn) {
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        const poly = btn.querySelector('polyline');
+        // Chevron-Right (Default): "Sidebar nach rechts wegschieben" = einklappen.
+        // Chevron-Left: "Sidebar nach links zurückholen" = ausklappen.
+        if (poly) poly.setAttribute('points', collapsed ? '15 18 9 12 15 6' : '9 18 15 12 9 6');
+    }
+}
+
+function initDetailSidebarToggle() {
+    const btn = document.getElementById('detail-sidebar-toggle');
+    if (!btn) return;
+    const state = loadViewState(DETAIL_SIDEBAR_STATE_KEY, { collapsed: false });
+    applyDetailSidebarState(!!state.collapsed);
+    btn.addEventListener('click', () => {
+        const nowCollapsed = !document.body.classList.contains('detail-sidebar--collapsed');
+        applyDetailSidebarState(nowCollapsed);
+        saveViewState(DETAIL_SIDEBAR_STATE_KEY, { collapsed: nowCollapsed });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setupAutoSaveTracking();
     initConversionTagPicker();
     initHighlights();
+    initMarkOnMouseup();
+    initReadingProgress();
+    initDetailSidebarToggle();
 });
 
 window.updateField = updateField;

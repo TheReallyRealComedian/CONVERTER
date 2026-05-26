@@ -11,6 +11,37 @@ document.getElementById('sidebar-overlay')?.addEventListener('click', function()
     document.getElementById('sidebar-overlay').classList.add('hidden');
 });
 
+/* Global sidebar toggle (READER-MODE) — Desktop-only Distraction-Free-Toggle.
+   State in localStorage via loadViewState/saveViewState (_utils.js).
+   Eigenständiger State, unabhängig vom Markdown-Converter `body.reader-active`. */
+(function() {
+    const GLOBAL_SIDEBAR_STATE_KEY = 'reader.globalSidebar';
+    const btn = document.getElementById('global-sidebar-toggle');
+    if (!btn) return;
+
+    function applyState(collapsed) {
+        document.body.classList.toggle('global-sidebar--collapsed', collapsed);
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        const poly = btn.querySelector('polyline');
+        // Chevron-Left (Default): "Sidebar nach links wegschieben" = einklappen.
+        // Chevron-Right: "Sidebar nach rechts zurückholen" = ausklappen.
+        if (poly) poly.setAttribute('points', collapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+    }
+
+    const state = (typeof loadViewState === 'function')
+        ? loadViewState(GLOBAL_SIDEBAR_STATE_KEY, { collapsed: false })
+        : { collapsed: false };
+    applyState(!!state.collapsed);
+
+    btn.addEventListener('click', function() {
+        const nowCollapsed = !document.body.classList.contains('global-sidebar--collapsed');
+        applyState(nowCollapsed);
+        if (typeof saveViewState === 'function') {
+            saveViewState(GLOBAL_SIDEBAR_STATE_KEY, { collapsed: nowCollapsed });
+        }
+    });
+})();
+
 /**
  * Pane Resizing Logic
  */

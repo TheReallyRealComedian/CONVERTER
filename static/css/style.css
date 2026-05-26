@@ -17,6 +17,7 @@
      RESIZER HANDLE              – split-pane drag handle
      READER MODE                 – .main-container.reader-mode + reader toolbar
      DARK MODE (Reader only)     – data-theme="dark" overrides for reader
+     READER MODE — TOGGLES       – sidebar-toggle-floater, layout/detail-grid, reading-progress
      READER VIEW                 – .reader-view (library detail Markdown render)
      HIGHLIGHT                   – .highlight span, create-btn, action-popover, sidebar-card, flash
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
@@ -971,6 +972,101 @@ body.reader-active header.lg\:hidden {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
+/* ===== READER MODE — DISTRACTION-FREE TOGGLES =====
+   Globale Sidebar (links) und Detail-Sidebar (rechts, nur library_detail)
+   per Floater-Button am Bildschirmrand ein-/ausklappbar. State in localStorage.
+   Eigenständig — kollidiert nicht mit dem Markdown-Converter `body.reader-active`
+   (das ist Editor/Preview-Stack), siehe READER MODE block oben. */
+.sidebar-toggle-floater {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 60;
+    width: 22px;
+    height: 56px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--nm-bg);
+    border: 1px solid var(--nm-text-muted);
+    color: var(--nm-text-secondary);
+    cursor: pointer;
+    box-shadow: var(--nm-raised-sm);
+    transition: color 0.15s ease, background-color 0.15s ease;
+    padding: 0;
+}
+.sidebar-toggle-floater:hover {
+    color: var(--nm-text);
+    background: var(--nm-tint-accent);
+}
+.sidebar-toggle-floater--global {
+    left: 0;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+}
+.sidebar-toggle-floater--detail {
+    right: 0;
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+}
+/* Desktop-only — Mobile bleibt beim Hamburger-Pattern aus base.html. */
+@media (min-width: 1024px) {
+    .sidebar-toggle-floater {
+        display: flex;
+    }
+}
+/* Markdown-Converter Reader-Mode versteckt die globale Sidebar bereits via
+   body.reader-active — globaler Floater dort redundant. Detail-Floater
+   erscheint dort sowieso nicht (nur in library_detail.html gerendert). */
+body.reader-active .sidebar-toggle-floater--global {
+    display: none;
+}
+
+.layout-grid {
+    transition: grid-template-columns 200ms ease;
+}
+.detail-grid {
+    transition: grid-template-columns 200ms ease;
+}
+@media (min-width: 1024px) {
+    body.global-sidebar--collapsed .layout-grid {
+        grid-template-columns: 0 1fr;
+    }
+    body.global-sidebar--collapsed #sidebar {
+        visibility: hidden;
+        pointer-events: none;
+    }
+    body.detail-sidebar--collapsed .detail-grid {
+        grid-template-columns: 1fr 0;
+    }
+    body.detail-sidebar--collapsed .detail-grid > div:last-child {
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
+        transition: opacity 150ms ease;
+    }
+}
+
+/* Reading-Progress-Bar — 3px sticky-bar am Top des #content-body-Scroll-Containers.
+   Fill-Width wächst mit container.scrollTop / (scrollHeight - clientHeight).
+   Persistierung der Scroll-Position bleibt R2-B-Vorbehalt — hier nur visuelle Live-Anzeige. */
+.reading-progress {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    height: 3px;
+    background: rgba(131, 149, 167, 0.15);
+}
+.reading-progress__fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--nm-accent), var(--nm-accent-cta));
+    transition: width 80ms ease-out;
+}
+.reading-progress--hidden {
+    display: none;
+}
+
 /* ===== READER VIEW =====
    Server-rendered Markdown reading-surface for library detail (R1-A).
    Tokens reuse the global --nm-* design system so dark mode flips for free. */
@@ -1090,7 +1186,6 @@ body.reader-active header.lg\:hidden {
 .reader-view span.highlight[data-highlight-id]:hover {
     background-color: var(--nm-tint-warning);
 }
-.highlight-create-btn,
 .highlight-action-popover {
     position: absolute;
     z-index: 100;
@@ -1100,19 +1195,6 @@ body.reader-active header.lg\:hidden {
     border-radius: var(--nm-radius-sm);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     font-family: var(--nm-font);
-}
-.highlight-create-btn {
-    padding: 0.4em 0.8em;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-}
-.highlight-create-btn:hover {
-    background: var(--nm-text);
-    color: var(--nm-bg);
-}
-.highlight-action-popover {
     padding: 0.5em;
     display: flex;
     flex-direction: column;

@@ -3,7 +3,7 @@
 {% block title %}{{ conversion.title or 'Ohne Titel' }} – Library{% endblock %}
 
 {% block content %}
-<div class="flex-1 p-6 lg:p-8 overflow-auto">
+<div class="flex-1 p-6 lg:p-8">
     <div class="max-w-6xl mx-auto">
         <!-- Header -->
         <div class="mb-6">
@@ -25,7 +25,16 @@
             <div id="detail-alert-container"></div>
         </div>
 
-        <div class="grid lg:grid-cols-[1fr_300px] gap-6">
+        <!-- Distraction-free toggle: klappt Detail-Sidebar (Markierungen/Notion/Details) ein/aus. -->
+        <button type="button" id="detail-sidebar-toggle"
+                class="sidebar-toggle-floater sidebar-toggle-floater--detail"
+                aria-label="Detail-Sidebar ein-/ausblenden" title="Detail-Sidebar ein-/ausblenden">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="sidebar-toggle-floater__icon">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+        </button>
+
+        <div class="detail-grid grid lg:grid-cols-[1fr_300px] gap-6">
             <!-- Main Content -->
             <div class="min-w-0">
                 <div class="flex gap-2 mb-4 flex-wrap">
@@ -36,18 +45,15 @@
                     {% endif %}
                     <button type="button" id="delete-btn" class="c-btn c-btn--danger text-xs py-1.5 px-3" onclick="deleteConversion()">Löschen</button>
                 </div>
-                <div class="c-surface overflow-auto max-h-[calc(100vh-280px)] relative" id="content-body">
+                <div class="c-surface relative" id="content-body">
+                    <div class="reading-progress reading-progress--hidden" aria-hidden="true">
+                        <div class="reading-progress__fill" id="reading-progress-fill"></div>
+                    </div>
                     <article class="reader-view p-6">
                         {% if content_html %}{{ content_html | safe }}{% else %}<p class="reader-empty">Kein Inhalt.</p>{% endif %}
                     </article>
                     <script type="text/markdown" id="content-source">{{ conversion.content | script_safe }}</script>
                 </div>
-                <button type="button" id="highlight-create-btn"
-                        class="highlight-create-btn"
-                        style="display: none;"
-                        aria-label="Auswahl markieren">
-                    Markieren
-                </button>
                 <div id="highlight-action-popover" class="highlight-action-popover" style="display: none;" role="dialog" aria-label="Markierung">
                     <textarea id="highlight-note-input"
                               class="c-input highlight-action-popover__note"
@@ -73,8 +79,13 @@
                 </div>
             </div>
 
-            <!-- Sidebar -->
-            <div class="flex flex-col gap-4">
+            <!-- Sidebar — min-w-0 schaltet das CSS-Grid-Track-Sizing-Quirk aus,
+                 damit `grid-template-columns: 1fr 0` im collapsed-State greift
+                 (sonst zwingt Item-min-content den Track auf seine natural width).
+                 lg:sticky+lg:top-0: bleibt beim Page-Scroll fixiert. max-h-screen+overflow-y-auto:
+                 falls Markierungen/Notion/Details über Viewport-Höhe wachsen, scrollt die
+                 Sidebar intern statt mit der Page. -->
+            <div class="flex flex-col gap-4 min-w-0 lg:sticky lg:top-0 lg:max-h-screen lg:overflow-y-auto lg:py-2">
                 <!-- Highlights / Markierungen -->
                 <div class="c-surface--flat p-4">
                     <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">
