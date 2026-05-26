@@ -655,11 +655,6 @@ async function loadHighlights() {
     renderHighlightList();
 }
 
-function truncateForCard(str, max) {
-    if (!str) return '';
-    return str.length > max ? str.slice(0, max - 1) + '…' : str;
-}
-
 function renderHighlightList() {
     const list = document.getElementById('highlight-list');
     const counter = document.getElementById('highlight-count');
@@ -674,30 +669,45 @@ function renderHighlightList() {
         const card = document.createElement('div');
         card.className = 'highlight-card';
         card.dataset.highlightId = String(h.id);
-        if (crossFormatHighlightIds.has(h.id)) {
+        // Expand-State per-doc-view ephemeral; nicht persistiert.
+        card.dataset.expanded = 'false';
+        const isCrossFormat = crossFormatHighlightIds.has(h.id);
+        if (isCrossFormat) {
             card.classList.add('highlight-card--cross-format');
             card.title = 'Markierung über Formatierungsgrenze. Klick: bearbeiten.';
         }
-        const snippet = document.createElement('div');
-        snippet.className = 'highlight-card__snippet';
-        snippet.textContent = truncateForCard(h.exact, 80);
-        card.appendChild(snippet);
+        const exactEl = document.createElement('div');
+        exactEl.className = 'highlight-card__exact';
+        exactEl.textContent = h.exact;
+        card.appendChild(exactEl);
         if (h.note) {
             const noteEl = document.createElement('div');
             noteEl.className = 'highlight-card__note';
-            noteEl.textContent = truncateForCard(h.note, 60);
+            noteEl.textContent = h.note;
             card.appendChild(noteEl);
         }
         if (Array.isArray(h.tags) && h.tags.length) {
             renderSidebarCardTagChips(card, h.tags);
         }
+        // Edit-Button nur in expanded-State sichtbar (CSS). Öffnet das
+        // Action-Popover wie bei Cross-Format — Card ist der Anker.
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'c-btn highlight-card__edit-btn text-xs py-1 px-2';
+        editBtn.textContent = 'Bearbeiten';
+        editBtn.addEventListener('click', evt => {
+            evt.stopPropagation();
+            showHighlightActionPopover(card);
+        });
+        card.appendChild(editBtn);
         card.addEventListener('click', () => {
-            // Cross-Format-Highlights haben keinen DOM-Span — Sidebar-Card-Click
-            // öffnet stattdessen das Action-Popover (Brücke aus R1-B-B, jetzt
-            // mit Tag-Picker aus R1-B-C). Normale Cards scrollen weiterhin.
-            if (crossFormatHighlightIds.has(h.id)) {
-                showHighlightActionPopover(card);
-            } else {
+            const wasExpanded = card.dataset.expanded === 'true';
+            const willExpand = !wasExpanded;
+            card.dataset.expanded = willExpand ? 'true' : 'false';
+            // Nur beim Expand scrollen; Collapse soll User-Lese-Position
+            // nicht weg-bewegen. Cross-Format-Highlights haben keinen Span,
+            // also kein Scroll-Ziel — Edit-Button in expanded ist der Pfad.
+            if (willExpand && !isCrossFormat) {
                 scrollToHighlight(h.id);
             }
         });
@@ -759,8 +769,8 @@ function locateHighlightOffset(reader, highlight) {
 
 // Walk text nodes inside `reader`, find the [start, end) offset range in
 // reader.innerText terms, and return a Range object spanning that slice.
-// Returns null if the slice crosses element boundaries we can't safely wrap
-// (the cross-format case the sprint allows to fail gracefully).
+// The Range may span multiple text nodes — wrapSelectionAsHighlight handles
+// per-node wrapping; surroundContents on the raw multi-node range would throw.
 function rangeForOffsets(reader, startOffset, endOffset) {
     const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
     let consumed = 0;
@@ -784,14 +794,87 @@ function rangeForOffsets(reader, startOffset, endOffset) {
         node = walker.nextNode();
     }
     if (!startNode || !endNode) return null;
-    // For R1-B-A, only wrap when the range lives in a single text node —
-    // multi-node ranges require splitting + multi-span wrapping that the
-    // sprint explicitly allows to defer.
-    if (startNode !== endNode) return null;
     const range = document.createRange();
     range.setStart(startNode, startNodeOffset);
     range.setEnd(endNode, endNodeOffset);
     return range;
+}
+
+// Sammle pro Text-Node innerhalb des Range das (textNode, startOffset, endOffset)-Tripel.
+// Single-Node-Range → 1 Eintrag (R1-B-A-Pfad, backward-compatible).
+// Multi-Node-Range (z.B. über `<strong>`) → N Einträge, alle wrappbar.
+// Whitespace-only Nodes werden übersprungen — sonst entstehen leere Spans
+// im DOM die niemand sieht aber das Normalize-Verhalten beim Delete stören.
+function collectTextRangesInRange(range) {
+    const result = [];
+    const root = range.commonAncestorContainer;
+    const walkerRoot = root.nodeType === Node.TEXT_NODE ? root.parentNode : root;
+    const walker = document.createTreeWalker(
+        walkerRoot,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode(node) {
+                if (!range.intersectsNode(node)) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+    let node = walker.nextNode();
+    while (node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) {
+            node = walker.nextNode();
+            continue;
+        }
+        const startOffset = (node === range.startContainer) ? range.startOffset : 0;
+        const endOffset = (node === range.endContainer) ? range.endOffset : node.nodeValue.length;
+        if (startOffset < endOffset) {
+            result.push({ textNode: node, startOffset, endOffset });
+        }
+        node = walker.nextNode();
+    }
+    return result;
+}
+
+// Wrap jedes Text-Node-Sub-Range in einen eigenen `<span.highlight>` mit der
+// gleichen data-highlight-id. Reverse-Order-Wrap (Ende → Anfang) damit frühere
+// DOM-Mutationen die Offsets späterer Sub-Ranges nicht verschieben.
+// Returns true wenn mind. ein Span gesetzt wurde.
+function wrapSelectionAsHighlight(range, highlightId) {
+    const textRanges = collectTextRangesInRange(range);
+    if (textRanges.length === 0) return false;
+    for (let i = textRanges.length - 1; i >= 0; i--) {
+        const { textNode, startOffset, endOffset } = textRanges[i];
+        const subRange = document.createRange();
+        subRange.setStart(textNode, startOffset);
+        subRange.setEnd(textNode, endOffset);
+        const span = document.createElement('span');
+        span.className = 'highlight';
+        span.dataset.highlightId = String(highlightId);
+        try {
+            subRange.surroundContents(span);
+        } catch (err) {
+            // Single-Text-Node-Sub-Range sollte immer wrappbar sein; nur
+            // bei Custom-Elements/Shadow-DOM-Edge-Cases bricht das.
+            console.warn('subRange surroundContents failed', err);
+        }
+    }
+    return true;
+}
+
+// Entfernt alle Spans einer Highlight-ID und normalisiert den Reader einmal
+// am Ende (statt N-mal pro Span). N kann nach Range-Walking > 1 sein.
+function removeHighlightSpans(id) {
+    const reader = highlightReaderEl();
+    if (!reader) return;
+    const spans = reader.querySelectorAll(
+        `span.highlight[data-highlight-id="${CSS.escape(String(id))}"]`
+    );
+    spans.forEach(span => {
+        const parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span);
+    });
+    reader.normalize();
 }
 
 function applyHighlight(highlight) {
@@ -802,15 +885,7 @@ function applyHighlight(highlight) {
     const endOffset = startOffset + highlight.exact.length;
     const range = rangeForOffsets(reader, startOffset, endOffset);
     if (!range) return false;
-    const span = document.createElement('span');
-    span.className = 'highlight';
-    span.dataset.highlightId = String(highlight.id);
-    try {
-        range.surroundContents(span);
-    } catch (_) {
-        return false;
-    }
-    return true;
+    return wrapSelectionAsHighlight(range, highlight.id);
 }
 
 function showHighlightActionPopover(anchorEl) {
@@ -879,17 +954,21 @@ function renderSidebarCardTagChips(cardEl, tags) {
     if (!cardEl || !tags || tags.length === 0) return;
     const wrap = document.createElement('div');
     wrap.className = 'highlight-card__tags';
-    const visible = tags.slice(0, SIDEBAR_TAG_CHIPS_VISIBLE);
-    visible.forEach(tag => {
+    // Alle Tags ins DOM rendern; CSS hidet die ab Position 4 im collapsed-State
+    // und zeigt stattdessen den --more-Chip. Im expanded-State sind alle Tag-Chips
+    // sichtbar, der --more-Chip versteckt. stopPropagation auf jeden Chip damit
+    // ein Tag-Click die Card nicht ungewollt collapsed (READER-FIX-A Smoke 13).
+    tags.forEach(tag => {
         const chip = document.createElement('span');
         chip.className = 'highlight-tag-chip highlight-tag-chip--compact';
         chip.textContent = tag.name;
+        chip.addEventListener('click', evt => evt.stopPropagation());
         wrap.appendChild(chip);
     });
-    if (tags.length > visible.length) {
+    if (tags.length > SIDEBAR_TAG_CHIPS_VISIBLE) {
         const more = document.createElement('span');
         more.className = 'highlight-tag-chip highlight-tag-chip--compact highlight-tag-chip--more';
-        more.textContent = `+${tags.length - visible.length}`;
+        more.textContent = `+${tags.length - SIDEBAR_TAG_CHIPS_VISIBLE}`;
         wrap.appendChild(more);
     }
     cardEl.appendChild(wrap);
@@ -1025,13 +1104,7 @@ async function deleteActiveHighlight() {
         showToast('Löschen fehlgeschlagen.', { level: 'danger' });
         return;
     }
-    const spans = document.querySelectorAll(`.highlight[data-highlight-id="${CSS.escape(id)}"]`);
-    spans.forEach(span => {
-        const parent = span.parentNode;
-        while (span.firstChild) parent.insertBefore(span.firstChild, span);
-        parent.removeChild(span);
-        parent.normalize();
-    });
+    removeHighlightSpans(id);
     const numericId = parseInt(id, 10);
     highlightsState = highlightsState.filter(h => h.id !== numericId);
     crossFormatHighlightIds.delete(numericId);

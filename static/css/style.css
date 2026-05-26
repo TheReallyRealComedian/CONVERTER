@@ -1214,7 +1214,10 @@ body.reader-active .sidebar-toggle-floater--global {
 }
 
 /* Highlight-Sidebar-Cards (R1-B-B): chronologische Liste aller Markierungen im Doc.
-   Klick scrollt zum DOM-Span; Cross-Format-Variante zeigt einen Toast statt Scroll. */
+   Klick scrollt zum DOM-Span und toggelt expand/collapse (READER-FIX-A).
+   Collapsed: line-clamp auf exact/note + max 3 Tag-Chips + N. Expanded: voller Text,
+   alle Tags, Edit-Button sichtbar. Cross-Format-Variante hat keinen Span — Edit-Button
+   ist der einzige Pfad zum Popover. */
 .highlight-card {
     padding: 0.625rem 0.75rem;
     border-radius: var(--nm-radius-sm);
@@ -1228,22 +1231,55 @@ body.reader-active .sidebar-toggle-floater--global {
 .highlight-card:hover {
     background: var(--nm-tint-accent);
 }
-.highlight-card__snippet {
+.highlight-card__exact {
     color: var(--nm-text);
     word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.highlight-card[data-expanded="true"] .highlight-card__exact {
+    -webkit-line-clamp: unset;
+    overflow: visible;
 }
 .highlight-card__note {
     color: var(--nm-text-muted);
     font-style: italic;
     margin-top: 0.25rem;
     word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.highlight-card[data-expanded="true"] .highlight-card__note {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+}
+/* Collapsed-Card: nur die ersten 3 Tag-Chips sichtbar; +N-Pseudo-Chip rendert
+   das was nicht passt. Expanded-Card: alle Tags sichtbar, +N versteckt. */
+.highlight-card[data-expanded="false"] .highlight-card__tags
+    .highlight-tag-chip:nth-child(n+4):not(.highlight-tag-chip--more) {
+    display: none;
+}
+.highlight-card[data-expanded="true"] .highlight-card__tags
+    .highlight-tag-chip--more {
+    display: none;
+}
+.highlight-card__edit-btn {
+    display: none;
+    margin-top: 0.5rem;
+}
+.highlight-card[data-expanded="true"] .highlight-card__edit-btn {
+    display: inline-flex;
 }
 .highlight-card--cross-format {
     opacity: 0.7;
     border-left: 3px solid var(--nm-text-muted);
     padding-left: calc(0.75rem - 3px);
 }
-.highlight-card--cross-format .highlight-card__snippet::before {
+.highlight-card--cross-format .highlight-card__exact::before {
     content: '⚠ ';
     color: var(--nm-warning);
     font-style: normal;
