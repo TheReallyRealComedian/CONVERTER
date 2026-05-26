@@ -10,15 +10,19 @@ const SAVE_MESSAGES = {
         success: 'Titel gespeichert',
         failure: 'Titel konnte nicht gespeichert werden. Verbindung prüfen und erneut versuchen.',
     },
-    tags: {
-        success: 'Tags gespeichert',
-        failure: 'Tags konnten nicht gespeichert werden. Verbindung prüfen und erneut versuchen.',
-    },
 };
 
 // Inputs that participate in the dirty-indicator + flush-on-hide flow.
-const AUTOSAVE_INPUTS = { title: 'detail-title', tags: 'tags-input' };
+// Tags moved off this list in R2-A — they have their own POST/DELETE
+// attach/detach endpoints now, no auto-save needed.
+const AUTOSAVE_INPUTS = { title: 'detail-title' };
 const DIRTY_TOOLTIP = 'Ungespeicherte Änderung — Tab oder Klick außerhalb speichert.';
+
+// Conversion-Tag-State: list of {id, name, ...} dicts seeded from PageData
+// at load time, then mutated by addTagToConversion / removeTagFromConversion.
+let conversionTagsState = Array.isArray(window.PageData.conversionTags)
+    ? window.PageData.conversionTags.slice()
+    : [];
 
 const NOTION_TARGET_LABELS = { meetings: 'Meeting', notes: 'Notiz', inbox: 'Inbox' };
 
@@ -278,7 +282,7 @@ function selectTarget(target) {
 
 function renderNotionFields(target) {
     const title = document.getElementById('detail-title').value;
-    const tags = document.getElementById('tags-input').value;
+    const tags = conversionTagsState.map(t => t.name).join(', ');
     const now = formatDatetimeLocalNow();
     const s = notionSuggestions || {people: [], projects: [], meeting_types: [], note_types: []};
 
@@ -380,56 +384,127 @@ function sendToNotion() {
     .finally(() => { btn.disabled = false; btn.textContent = 'An Notion senden'; });
 }
 
-// --- Tag chips (P9) ---
+// --- Conversion tag picker (R2-A) ---
 
-function parseTagsCsv(csv) {
-    const seen = new Set();
-    const out = [];
-    (csv || '').split(',').forEach(part => {
-        const tag = part.trim();
-        if (tag && !seen.has(tag)) {
-            seen.add(tag);
-            out.push(tag);
-        }
-    });
-    return out;
-}
-
-function renderTagChips(csv, container) {
+function renderConversionTagChips() {
+    const container = document.getElementById('conversion-tag-chips');
     if (!container) return;
     container.innerHTML = '';
-    const tags = parseTagsCsv(csv);
-    if (!tags.length) {
-        const empty = document.createElement('p');
-        empty.className = 'tag-chip-empty';
-        empty.textContent = 'Noch keine Tags. Mit Komma trennen, um mehrere zu speichern.';
+    if (conversionTagsState.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'conversion-tag-chips__empty';
+        empty.textContent = 'Noch keine Tags.';
         container.appendChild(empty);
         return;
     }
-    const list = document.createElement('div');
-    list.className = 'tag-chip-list';
-    tags.forEach(tag => {
+    conversionTagsState.forEach(tag => {
         const chip = document.createElement('span');
-        chip.className = 'c-tag tag-chip';
+        chip.className = 'conversion-tag-chip';
         const label = document.createElement('span');
-        label.textContent = tag;
+        label.textContent = tag.name;
         chip.appendChild(label);
         const remove = document.createElement('button');
         remove.type = 'button';
-        remove.className = 'tag-chip__remove';
-        remove.setAttribute('aria-label', 'Tag entfernen');
+        remove.className = 'conversion-tag-chip__remove';
+        remove.setAttribute('aria-label', `Tag ${tag.name} entfernen`);
         remove.textContent = '×';
-        remove.addEventListener('click', () => {
-            const next = tags.filter(t => t !== tag).join(', ');
-            const input = document.getElementById('tags-input');
-            if (input) input.value = next;
-            renderTagChips(next, container);
-            updateField('tags', next);
-        });
+        remove.addEventListener('click', () => removeTagFromConversion(tag.id));
         chip.appendChild(remove);
-        list.appendChild(chip);
+        container.appendChild(chip);
     });
-    container.appendChild(list);
+}
+
+async function loadConversionTagSuggestions() {
+    let resp;
+    try {
+        resp = await fetch('/api/tags');
+    } catch (_) {
+        return;
+    }
+    if (!resp.ok) return;
+    const tags = await resp.json();
+    const datalist = document.getElementById('conversion-tag-suggestions');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    tags.forEach(tag => {
+        const opt = document.createElement('option');
+        opt.value = tag.name;
+        datalist.appendChild(opt);
+    });
+}
+
+async function addTagToConversion() {
+    const input = document.getElementById('conversion-tag-input');
+    if (!input) return;
+    const raw = input.value;
+    if (!raw || !raw.trim()) return;
+    let resp;
+    try {
+        resp = await fetch(`/api/conversions/${CONVERSION_ID}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: raw }),
+        });
+    } catch (_) {
+        showToast('Tag speichern fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok) {
+        if (resp.status === 400) {
+            showToast('Tag-Name ungültig oder zu lang.', { level: 'danger' });
+        } else {
+            showToast('Tag speichern fehlgeschlagen.', { level: 'danger' });
+        }
+        return;
+    }
+    const tag = await resp.json();
+    if (!conversionTagsState.some(t => t.id === tag.id)) {
+        conversionTagsState.push(tag);
+    }
+    input.value = '';
+    renderConversionTagChips();
+    loadConversionTagSuggestions();
+    if (resp.status === 201) {
+        showToast('Tag hinzugefügt.');
+    }
+}
+
+async function removeTagFromConversion(tagId) {
+    let resp;
+    try {
+        resp = await fetch(`/api/conversions/${CONVERSION_ID}/tags/${tagId}`, { method: 'DELETE' });
+    } catch (_) {
+        showToast('Tag entfernen fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        return;
+    }
+    if (!resp.ok && resp.status !== 404) {
+        showToast('Tag entfernen fehlgeschlagen.', { level: 'danger' });
+        return;
+    }
+    conversionTagsState = conversionTagsState.filter(t => t.id !== tagId);
+    renderConversionTagChips();
+    showToast('Tag entfernt.');
+}
+
+function initConversionTagPicker() {
+    renderConversionTagChips();
+    loadConversionTagSuggestions();
+    const addBtn = document.getElementById('conversion-tag-add-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', evt => {
+            evt.preventDefault();
+            addTagToConversion();
+        });
+    }
+    const input = document.getElementById('conversion-tag-input');
+    if (input) {
+        input.addEventListener('keydown', evt => {
+            if (evt.key === 'Enter') {
+                evt.preventDefault();
+                addTagToConversion();
+            }
+        });
+    }
 }
 
 // --- Auto-Save dirty indicator + flush-on-hide (P2) ---
@@ -463,14 +538,6 @@ function setupAutoSaveTracking() {
         if (document.visibilityState === 'hidden') flushDirtyInputs();
     });
     window.addEventListener('beforeunload', flushDirtyInputs);
-}
-
-function setupTagChipSync() {
-    const container = document.getElementById('tag-chip-container');
-    const input = document.getElementById('tags-input');
-    if (!container || !input) return;
-    renderTagChips(input.value, container);
-    input.addEventListener('input', () => renderTagChips(input.value, container));
 }
 
 // --- Highlights (R1-B-A) ---
@@ -1071,7 +1138,7 @@ function initHighlights() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupAutoSaveTracking();
-    setupTagChipSync();
+    initConversionTagPicker();
     initHighlights();
 });
 

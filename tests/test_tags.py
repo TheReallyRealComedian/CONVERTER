@@ -68,9 +68,27 @@ def test_api_list_tags_returns_sorted_with_counts(app, authenticated_client, tes
     assert resp.status_code == 200
     data = resp.get_json()
     assert [t['name'] for t in data] == ['alpha', 'zeta']
-    counts = {t['name']: t['highlight_count'] for t in data}
-    assert counts['alpha'] == 2
-    assert counts['zeta'] == 1
+    by_name = {t['name']: t for t in data}
+    assert by_name['alpha']['highlight_count'] == 2
+    assert by_name['zeta']['highlight_count'] == 1
+    # R2-A: conversion_count is part of the payload, defaults to 0 when no
+    # conversion has attached the tag yet.
+    assert by_name['alpha']['conversion_count'] == 0
+    assert by_name['zeta']['conversion_count'] == 0
+
+
+def test_api_list_tags_includes_conversion_count(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'])
+    authenticated_client.post(f'/api/conversions/{cid}/tags', json={'name': 'docs'})
+    cid2 = _make_conversion(app, test_user['id'], title='Second')
+    authenticated_client.post(f'/api/conversions/{cid2}/tags', json={'name': 'docs'})
+
+    resp = authenticated_client.get('/api/tags')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    by_name = {t['name']: t for t in data}
+    assert by_name['docs']['conversion_count'] == 2
+    assert by_name['docs']['highlight_count'] == 0
 
 
 # --- POST /api/highlights/<id>/tags ---

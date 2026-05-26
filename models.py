@@ -22,6 +22,15 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 
+conversion_tags = db.Table(
+    'conversion_tags',
+    db.Column('conversion_id', db.Integer, db.ForeignKey('conversion.id', ondelete='CASCADE'),
+              primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete='CASCADE'),
+              primary_key=True),
+)
+
+
 class Conversion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
@@ -32,6 +41,9 @@ class Conversion(db.Model):
     source_mimetype = db.Column(db.String(100))
     source_size_bytes = db.Column(db.Integer)
     metadata_json = db.Column(db.Text)
+    # Dead column after R2-A — the CSV-to-junction migration drains it and
+    # the frontend writes nothing here anymore. Kept around because SQLite
+    # DROP COLUMN is a table rebuild; a future cleanup sprint can remove it.
     tags = db.Column(db.String(500), default='')
     is_favorite = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
@@ -40,6 +52,8 @@ class Conversion(db.Model):
 
     highlights = db.relationship('Highlight', backref='conversion',
                                  cascade='all, delete-orphan', lazy='dynamic')
+    tag_refs = db.relationship('Tag', secondary=conversion_tags, lazy='joined',
+                               backref=db.backref('conversions', lazy='dynamic'))
 
     def to_dict(self):
         return {
@@ -52,6 +66,7 @@ class Conversion(db.Model):
             'source_size_bytes': self.source_size_bytes,
             'metadata': json.loads(self.metadata_json) if self.metadata_json else {},
             'tags': self.tags,
+            'tag_refs': [t.to_dict() for t in self.tag_refs],
             'is_favorite': self.is_favorite,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
@@ -104,7 +119,27 @@ class Tag(db.Model):
         db.UniqueConstraint('user_id', 'name', name='uq_tag_user_name'),
     )
 
-    def to_dict(self, highlight_count=None):
+    MAX_NAME_LEN = 80
+
+    @classmethod
+    def get_or_create(cls, user_id, name):
+        # Single source of truth for "find or insert a tag, normalised to
+        # lowercase+trim". Three call sites: highlight-tag POST, conversion-
+        # tag POST, and the CSV-to-junction migration helper. Returns None on
+        # blank/oversize so callers can map to a 400 without re-validating.
+        if not isinstance(name, str):
+            return None
+        normalized = name.strip().lower()
+        if not normalized or len(normalized) > cls.MAX_NAME_LEN:
+            return None
+        tag = cls.query.filter_by(user_id=user_id, name=normalized).first()
+        if tag is None:
+            tag = cls(user_id=user_id, name=normalized)
+            db.session.add(tag)
+            db.session.flush()
+        return tag
+
+    def to_dict(self, highlight_count=None, conversion_count=None):
         out = {
             'id': self.id,
             'name': self.name,
@@ -112,4 +147,6 @@ class Tag(db.Model):
         }
         if highlight_count is not None:
             out['highlight_count'] = highlight_count
+        if conversion_count is not None:
+            out['conversion_count'] = conversion_count
         return out

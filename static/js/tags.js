@@ -34,10 +34,13 @@ async function loadTags() {
         name.textContent = tag.name;
         card.appendChild(name);
 
+        const hCount = tag.highlight_count || 0;
+        const cCount = tag.conversion_count || 0;
+        const hLabel = hCount === 1 ? '1 Markierung' : `${hCount} Markierungen`;
+        const cLabel = cCount === 1 ? '1 Dokument' : `${cCount} Dokumente`;
         const count = document.createElement('span');
         count.className = 'tag-manager-card__count';
-        const n = tag.highlight_count || 0;
-        count.textContent = n === 1 ? '1 Markierung' : `${n} Markierungen`;
+        count.textContent = `${hLabel} · ${cLabel}`;
         card.appendChild(count);
 
         const del = document.createElement('button');

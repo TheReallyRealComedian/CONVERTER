@@ -154,11 +154,15 @@
 
                 <div class="c-surface--flat p-4">
                     <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Tags</h6>
-                    <input type="text"
-                        class="c-input w-full"
-                        id="tags-input" value="{{ conversion.tags }}" placeholder="kommagetrennte Tags"
-                        onchange="updateField('tags', this.value)">
-                    <div id="tag-chip-container"></div>
+                    <div id="conversion-tag-chips" class="conversion-tag-section__chips"></div>
+                    <div class="conversion-tag-section__row">
+                        <input type="text" id="conversion-tag-input" list="conversion-tag-suggestions"
+                               class="c-input conversion-tag-section__input"
+                               placeholder="Tag hinzufügen..."
+                               autocomplete="off" maxlength="80">
+                        <button type="button" class="c-btn text-xs py-1 px-2" id="conversion-tag-add-btn" aria-label="Tag hinzufügen">+</button>
+                    </div>
+                    <datalist id="conversion-tag-suggestions"></datalist>
                 </div>
             </div>
         </div>
@@ -173,6 +177,7 @@
         libraryUrl: '{{ url_for("library") }}',
         downloadFilename: '{{ conversion.title|e }}.txt',
         defaultNotionTarget: '{{ "meetings" if conversion.conversion_type == "audio_transcription" else "notes" }}',
+        conversionTags: {{ conversion_tag_refs | tojson }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>

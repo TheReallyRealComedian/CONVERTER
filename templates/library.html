@@ -73,12 +73,10 @@
                     <span class="text-[11px] text-neo-faint" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
                         {{ conv.created_at | format_card_datetime }}
                     </span>
-                    {% if conv.tags %}
+                    {% if conv.tag_refs %}
                     <div class="flex gap-1 flex-wrap">
-                        {% for tag in conv.tags.split(',') %}
-                            {% if tag.strip() %}
-                            <span class="c-tag text-[10px] px-1.5 py-0.5 rounded-full text-neo-muted">{{ tag.strip() }}</span>
-                            {% endif %}
+                        {% for tag in conv.tag_refs %}
+                        <span class="c-tag text-[10px] px-1.5 py-0.5 rounded-full text-neo-muted">{{ tag.name }}</span>
                         {% endfor %}
                     </div>
                     {% endif %}

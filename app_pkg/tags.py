@@ -1,30 +1,17 @@
-"""Tag API + Tag-Manager-Page (R1-B-C).
+"""Tag API + Tag-Manager-Page (R1-B-C + R2-A).
 
-Tags are a per-user namespace (unique(user_id, name)). The ``highlight_tags``
-junction wires a Highlight to N Tags; the ``conversion_tags`` junction is
-deferred to R2-A. Tag names are normalised to lowercase + trimmed at the
-API boundary so ``"KI"``, ``"ki"`` and ``" KI "`` collapse onto the same row
-— this is a deliberate disambiguation choice, not a SQL constraint.
+Tags are a per-user namespace (unique(user_id, name)). Two junctions share
+the same Tag rows: ``highlight_tags`` (R1-B-C) wires a Highlight to N Tags,
+``conversion_tags`` (R2-A) wires a Conversion to N Tags. Name normalisation
+(lowercase + trim) lives on ``Tag.get_or_create`` so all three call sites —
+highlight POST, conversion POST, the CSV migration helper — collapse
+``"KI"`` / ``"ki"`` / ``" KI "`` onto the same row.
 """
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
-from models import Highlight, Tag, db, highlight_tags
-
-
-MAX_TAG_NAME_LEN = 80
-
-
-def _normalize_tag_name(raw):
-    if not isinstance(raw, str):
-        return None
-    cleaned = raw.strip().lower()
-    if not cleaned:
-        return None
-    if len(cleaned) > MAX_TAG_NAME_LEN:
-        return None
-    return cleaned
+from models import Highlight, Tag, conversion_tags, db, highlight_tags
 
 
 def _get_owned_highlight(highlight_id):
@@ -33,6 +20,12 @@ def _get_owned_highlight(highlight_id):
     if highlight.conversion.user_id != current_user.id:
         return None
     return highlight
+
+
+def _tag_name_error():
+    return jsonify({
+        'error': f'Tag-Name fehlt oder ist zu lang (max {Tag.MAX_NAME_LEN} Zeichen).'
+    }), 400
 
 
 def register(app):
@@ -44,18 +37,28 @@ def register(app):
     @app.route('/api/tags', methods=['GET'])
     @login_required
     def api_list_tags():
-        counts_subq = (db.session.query(
+        highlight_counts = (db.session.query(
             highlight_tags.c.tag_id,
             func.count(highlight_tags.c.highlight_id).label('cnt'),
         )
             .group_by(highlight_tags.c.tag_id)
             .subquery())
-        rows = (db.session.query(Tag, counts_subq.c.cnt)
-                .outerjoin(counts_subq, Tag.id == counts_subq.c.tag_id)
+        conversion_counts = (db.session.query(
+            conversion_tags.c.tag_id,
+            func.count(conversion_tags.c.conversion_id).label('cnt'),
+        )
+            .group_by(conversion_tags.c.tag_id)
+            .subquery())
+        rows = (db.session.query(Tag, highlight_counts.c.cnt, conversion_counts.c.cnt)
+                .outerjoin(highlight_counts, Tag.id == highlight_counts.c.tag_id)
+                .outerjoin(conversion_counts, Tag.id == conversion_counts.c.tag_id)
                 .filter(Tag.user_id == current_user.id)
                 .order_by(Tag.name.asc())
                 .all())
-        return jsonify([t.to_dict(highlight_count=int(cnt or 0)) for t, cnt in rows])
+        return jsonify([
+            t.to_dict(highlight_count=int(hc or 0), conversion_count=int(cc or 0))
+            for t, hc, cc in rows
+        ])
 
     @app.route('/api/highlights/<int:highlight_id>/tags', methods=['POST'])
     @login_required
@@ -68,18 +71,13 @@ def register(app):
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
-        name = _normalize_tag_name(data.get('name'))
-        if name is None:
-            return jsonify({'error': f'Tag-Name fehlt oder ist zu lang (max {MAX_TAG_NAME_LEN} Zeichen).'}), 400
-
-        tag = Tag.query.filter_by(user_id=current_user.id, name=name).first()
+        tag = Tag.get_or_create(current_user.id, data.get('name'))
         if tag is None:
-            tag = Tag(user_id=current_user.id, name=name)
-            db.session.add(tag)
-            db.session.flush()
+            return _tag_name_error()
 
         if tag in highlight.tags:
             # Idempotent attach — no-op 200 statt 409, sonst crashen schnelle Doppel-Clicks.
+            db.session.commit()
             return jsonify(tag.to_dict()), 200
 
         highlight.tags.append(tag)
@@ -106,11 +104,14 @@ def register(app):
         tag = Tag.query.get_or_404(tag_id)
         if tag.user_id != current_user.id:
             return jsonify({'error': 'Nicht gefunden.'}), 404
-        # Drain die M:N-Junction manuell — SQLAlchemy cascade='all,delete-orphan' geht
-        # bei secondary= nicht, also explizit. Direkter DELETE auf der highlight_tags-
-        # Tabelle ist atomar und entgeht der vollen Highlights-Iteration.
+        # Drain both M:N-Junctions manuell — SQLAlchemy cascade='all,delete-orphan'
+        # greift bei secondary= nicht. Direkter DELETE auf den Junction-Tabellen ist
+        # atomar und entgeht einer vollen Iteration über Highlights + Conversions.
         db.session.execute(
             highlight_tags.delete().where(highlight_tags.c.tag_id == tag.id)
+        )
+        db.session.execute(
+            conversion_tags.delete().where(conversion_tags.c.tag_id == tag.id)
         )
         db.session.delete(tag)
         db.session.commit()

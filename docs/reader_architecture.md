@@ -96,9 +96,11 @@ FK-Integrität, Cross-Query trivial (`Tag.conversions + Tag.highlights`), klassi
 Design.
 
 **CSV-Migration**: die existierende `Conversion.tags`-CSV-Spalte ([models.py:35](models.py:35))
-wird in R2-A migriert — Parsing der CSV-Strings → Tag-Inserts → `conversion_tags`-Junction-Inserts.
-CSV-Spalte kann danach gelöscht werden (manuelles ALTER TABLE) oder als Dead-Column liegenbleiben.
-Master-Disposition zu R2-A-Zeit.
+wurde in R2-A (☑ done 2026-05-25) migriert — `_migrate_conversion_tags_csv_to_junction(app)`-Helper
+in `_run_pending_migrations` parst die CSV-Strings über `Tag.get_or_create(user_id, name)` in die
+`conversion_tags`-Junction, setzt danach `Conversion.tags = ''` als Idempotenz-Marker. CSV-Spalte
+**bleibt als Dead-Column** liegen (Master-Disposition zu R2-A-Zeit) — SQLite `DROP COLUMN` ist ein
+Table-Rebuild, das gehört in einen separaten Cleanup-Sprint.
 
 ## Knoten 5 — Class-Naming
 
@@ -144,6 +146,19 @@ R1-B war als L im BACKLOG → splittet in drei kleinere Sub-Sprints:
 R2-A erbt das Tag-Schema aus R1-B-C: Tabellen existieren bereits, R2-A migriert nur die existierende
 CSV-Spalte in das `conversion_tags`-Junction.
 
+## Sprint-Schneidung R2 (2026-05-25 nachgeführt)
+
+Beim Schreiben des R2-A-Sprint-Prompts wurde R2-A in zwei Sprints gesplittet — der ursprüngliche
+Plan hatte Tag-Migration + Lifecycle-Status (Inbox/Later/Archive) zusammen, mit Tag-Migration plus
+Frontend-Umstellung war R2-A aber schon L. Lifecycle ist in einen eigenen R2-C-Sprint
+ausgegliedert worden.
+
+| Sprint | Inhalt | Größe | Status |
+|---|---|---|---|
+| **R2-A** | `conversion_tags`-Junction + CSV-Migration + `Tag.get_or_create`-DRY-Anker + Frontend Library-Card-Strip + Detail-Sidebar-Picker + GET-/api/tags-Erweiterung + Tag-Manager-Cascade beide Junctions + Pre-Commit-Patch Library-Search Junction-Branch. | L | ☑ done 2026-05-25 |
+| **R2-B** | Filtered Views + Reading-Progress. Tag-Filter-Chip-Row in der Library-List mit URL-Persistierung. Reading-Progress-Indikator pro Card (bool/percent/last-read — Schema-Wahl im Sprint-Prompt). | M | offen |
+| **R2-C** | Lifecycle-Status (Inbox/Later/Archive). Schema-Wahl offen: neue Enum-Spalte `Conversion.lifecycle_status` via Inline-ALTER-TABLE-Helper oder eigene Tabelle wenn Status-Historie gebraucht wird. Frontend: Status-Toggle in Library-Card + Detail-View, Filter-Chip in der List-View. | M | offen |
+
 ## Foundation-Voraussetzung für R1-B-A
 
 R1-A liefert die kritischen Anker-Voraussetzungen:
@@ -174,3 +189,6 @@ R1-A liefert die kritischen Anker-Voraussetzungen:
 | 2026-05-25 | `Tag` + 2 Junction-Tabellen | Eindeutiger Namespace, FK-Integrität |
 | 2026-05-25 | `Conversion`-Name bleibt | YAGNI |
 | 2026-05-25 | R1-B splittet in A/B/C | L-Sprint zu groß für Sub-Thread |
+| 2026-05-25 | R2-A splittet in Tag-Migration (R2-A) + Lifecycle-Status (R2-C) | Tag-Migration + Frontend-Umstellung schon L, Lifecycle hätte XL daraus gemacht |
+| 2026-05-25 | `Tag.get_or_create`-Classmethod als DRY-Anker | 3 Call-Sites (Highlight-POST, Conversion-POST, Migration-Helper) — Single-Source-of-Truth für Normalisierung statt 3-fach inline |
+| 2026-05-25 | CSV-Migration via leerer-Spalte-als-Marker idempotent | Kein zusätzlicher Marker-Column nötig, alte Spalte trägt den State („leer ↔ migriert"); Memory-Eintrag `reference_data_migration_idempotency.md` |

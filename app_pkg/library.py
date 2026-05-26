@@ -5,7 +5,7 @@ import re
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
-from models import Conversion, db
+from models import Conversion, Tag, db
 
 from .markdown_render import render_markdown_to_html
 
@@ -64,11 +64,16 @@ def register(app):
             query = query.filter_by(is_favorite=True)
         if search:
             escaped_search = re.sub(r'([%_\\])', r'\\\1', search)
+            # R2-A: tag-search now joins against the conversion_tags junction
+            # (Conversion.tag_refs.any(Tag.name.ilike(...))). The legacy
+            # Conversion.tags CSV branch was removed — after the migration the
+            # column is dead and would never match. Filtered Views (R2-B) will
+            # build on this junction path.
             query = query.filter(
                 db.or_(
                     Conversion.title.ilike(f'%{escaped_search}%'),
                     Conversion.content.ilike(f'%{escaped_search}%'),
-                    Conversion.tags.ilike(f'%{escaped_search}%')
+                    Conversion.tag_refs.any(Tag.name.ilike(f'%{escaped_search}%')),
                 )
             )
 
@@ -110,6 +115,7 @@ def register(app):
             conversion=conversion,
             metadata=metadata,
             content_html=content_html,
+            conversion_tag_refs=[t.to_dict() for t in conversion.tag_refs],
         )
 
     @app.route('/api/conversions', methods=['POST'])
@@ -150,10 +156,12 @@ def register(app):
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
+        # R2-A: the legacy CSV `tags` path on PUT is gone. The frontend now
+        # uses /api/conversions/<id>/tags POST + DELETE for attach/detach
+        # against the conversion_tags junction; the old CSV column is a
+        # dead column that the migration helper has already drained.
         if 'title' in data:
             conversion.title = str(data['title'])[:255]
-        if 'tags' in data:
-            conversion.tags = str(data['tags'])[:500]
         if 'content' in data:
             conversion.content = data['content']
         if 'is_favorite' in data:
@@ -168,4 +176,39 @@ def register(app):
         conversion = get_owned_conversion(conversion_id)
         db.session.delete(conversion)
         db.session.commit()
+        return jsonify({'success': True})
+
+    @app.route('/api/conversions/<int:conversion_id>/tags', methods=['POST'])
+    @login_required
+    def api_attach_conversion_tag(conversion_id):
+        conversion = get_owned_conversion(conversion_id)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        tag = Tag.get_or_create(current_user.id, data.get('name'))
+        if tag is None:
+            return jsonify({
+                'error': f'Tag-Name fehlt oder ist zu lang (max {Tag.MAX_NAME_LEN} Zeichen).'
+            }), 400
+
+        if tag in conversion.tag_refs:
+            # Idempotent attach — no-op 200 statt 409, mirrors highlight POST.
+            db.session.commit()
+            return jsonify(tag.to_dict()), 200
+
+        conversion.tag_refs.append(tag)
+        db.session.commit()
+        return jsonify(tag.to_dict()), 201
+
+    @app.route('/api/conversions/<int:conversion_id>/tags/<int:tag_id>', methods=['DELETE'])
+    @login_required
+    def api_detach_conversion_tag(conversion_id, tag_id):
+        conversion = get_owned_conversion(conversion_id)
+        tag = Tag.query.get_or_404(tag_id)
+        if tag.user_id != current_user.id:
+            return jsonify({'error': 'Nicht gefunden.'}), 404
+        if tag in conversion.tag_refs:
+            conversion.tag_refs.remove(tag)
+            db.session.commit()
         return jsonify({'success': True})

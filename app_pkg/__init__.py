@@ -92,6 +92,36 @@ def _run_pending_migrations(app):
             db.session.execute(text('ALTER TABLE highlight ADD COLUMN note TEXT'))
             db.session.commit()
             app.logger.info("R1-B-B: highlight.note column added via ALTER TABLE")
+    _migrate_conversion_tags_csv_to_junction(app)
+
+
+def _migrate_conversion_tags_csv_to_junction(app):
+    # R2-A: drain the legacy Conversion.tags CSV column into the new
+    # conversion_tags junction. Idempotent via the empty-CSV marker —
+    # once a row is migrated we set tags='' so the next container start
+    # skips it. Defensive against User-Detach-then-Restart races: the CSV
+    # is *not* re-read after the first run, so a deleted junction row will
+    # not be resurrected from the dead column.
+    from models import Conversion, Tag
+    candidates = Conversion.query.filter(
+        Conversion.tags.isnot(None),
+        Conversion.tags != '',
+    ).all()
+    if not candidates:
+        return
+    migrated = 0
+    for conv in candidates:
+        names = [n.strip() for n in (conv.tags or '').split(',') if n.strip()]
+        for name in names:
+            tag = Tag.get_or_create(conv.user_id, name)
+            if tag and tag not in conv.tag_refs:
+                conv.tag_refs.append(tag)
+        conv.tags = ''
+        migrated += 1
+    db.session.commit()
+    app.logger.info(
+        f"R2-A: migrated {migrated} conversions from CSV to conversion_tags junction"
+    )
 
 
 def _register_error_handlers(app):
