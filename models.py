@@ -46,6 +46,10 @@ class Conversion(db.Model):
     # DROP COLUMN is a table rebuild; a future cleanup sprint can remove it.
     tags = db.Column(db.String(500), default='')
     is_favorite = db.Column(db.Boolean, default=False)
+    # R2-B: furthest-read scroll position as a percent (0–100), nullable.
+    # Drives the list-view card progress bar and resume-on-open. Percent-based
+    # so it survives content-length changes; added via inline ALTER TABLE.
+    last_read_percent = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
@@ -68,6 +72,7 @@ class Conversion(db.Model):
             'tags': self.tags,
             'tag_refs': [t.to_dict() for t in self.tag_refs],
             'is_favorite': self.is_favorite,
+            'last_read_percent': self.last_read_percent,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

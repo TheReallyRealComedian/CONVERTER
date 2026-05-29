@@ -92,6 +92,12 @@ def _run_pending_migrations(app):
             db.session.execute(text('ALTER TABLE highlight ADD COLUMN note TEXT'))
             db.session.commit()
             app.logger.info("R1-B-B: highlight.note column added via ALTER TABLE")
+    if 'conversion' in inspector.get_table_names():
+        cols = {c['name'] for c in inspector.get_columns('conversion')}
+        if 'last_read_percent' not in cols:
+            db.session.execute(text('ALTER TABLE conversion ADD COLUMN last_read_percent FLOAT'))
+            db.session.commit()
+            app.logger.info("R2-B: conversion.last_read_percent column added via ALTER TABLE")
     _migrate_conversion_tags_csv_to_junction(app)
 
 

@@ -178,6 +178,28 @@ def register(app):
         db.session.commit()
         return jsonify({'success': True})
 
+    @app.route('/api/conversions/<int:conversion_id>/progress', methods=['PATCH'])
+    @login_required
+    def api_update_conversion_progress(conversion_id):
+        conversion = get_owned_conversion(conversion_id)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        percent = data.get('percent')
+        # Bool is an int subclass — reject it explicitly so True/False can't
+        # pose as a 1/0 percent. Then require a real number: missing / None /
+        # non-numeric is a 400 (atomic endpoint, no hidden no-op like R1-B-B).
+        if isinstance(percent, bool) or not isinstance(percent, (int, float)):
+            return jsonify({'error': 'Feld "percent" fehlt oder ist ungültig.'}), 400
+
+        # Out-of-range is a rounding artefact of a fire-and-forget scroll
+        # signal (e.g. 100.0001), not a client error — clamp instead of 400.
+        percent = max(0.0, min(100.0, float(percent)))
+        conversion.last_read_percent = percent
+        db.session.commit()
+        return jsonify({'success': True, 'last_read_percent': percent}), 200
+
     @app.route('/api/conversions/<int:conversion_id>/tags', methods=['POST'])
     @login_required
     def api_attach_conversion_tag(conversion_id):

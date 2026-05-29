@@ -188,7 +188,8 @@
         libraryUrl: '{{ url_for("library") }}',
         downloadFilename: '{{ conversion.title|e }}.txt',
         defaultNotionTarget: '{{ "meetings" if conversion.conversion_type == "audio_transcription" else "notes" }}',
-        conversionTags: {{ conversion_tag_refs | tojson }}
+        conversionTags: {{ conversion_tag_refs | tojson }},
+        lastReadPercent: {{ conversion.last_read_percent | tojson }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>

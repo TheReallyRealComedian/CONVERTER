@@ -17,7 +17,7 @@
      RESIZER HANDLE              – split-pane drag handle
      READER MODE                 – .main-container.reader-mode + reader toolbar
      DARK MODE (Reader only)     – data-theme="dark" overrides for reader
-     READER MODE — TOGGLES       – sidebar-toggle-floater, layout/detail-grid, reading-progress
+     READER MODE — TOGGLES       – sidebar-toggle-floater, layout/detail-grid, reading-progress, card-progress
      READER VIEW                 – .reader-view (library detail Markdown render)
      HIGHLIGHT                   – .highlight span, create-btn, action-popover, sidebar-card, flash
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
@@ -1065,6 +1065,24 @@ body.reader-active .sidebar-toggle-floater--global {
 }
 .reading-progress--hidden {
     display: none;
+}
+
+/* Card reading-progress — 3px-Balken am unteren Card-Rand der Library-List (R2-B).
+   Letztes Kind der .c-card; deren overflow:hidden + border-radius clippen die
+   unteren Ecken. Fill-Width = conv.last_read_percent. --read (>=95%) = voller,
+   gedämpfter Balken statt Akzent-Gradient. Token-driven -> Dark-Mode für umsonst. */
+.card-progress {
+    height: 3px;
+    width: 100%;
+    background: rgba(131, 149, 167, 0.15);
+}
+.card-progress__fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--nm-accent), var(--nm-accent-cta));
+}
+.card-progress--read .card-progress__fill {
+    background: var(--nm-text-muted);
+    opacity: 0.55;
 }
 
 /* ===== READER VIEW =====

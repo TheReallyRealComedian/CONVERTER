@@ -1193,13 +1193,15 @@ function initMarkOnMouseup() {
     });
 }
 
-// --- Reading-Progress-Bar (READER-MODE) ---
+// --- Reading-Progress-Bar (READER-MODE + R2-B Persist/Resume) ---
 // 3px-sticky-Bar am Top des Reader-Containers, Fill-Width entspricht Scroll-Fortschritt.
 // Reader-Container hat keine eigene overflow mehr (natural height) — Scroll passiert auf
 // dem nearest scrollable ancestor (typisch `<div class="flex-1 ... overflow-auto">` aus
 // block content) oder fallback auf window. Sticky `top: 0` klebt am Scrollport-Top.
-// Bei Docs die nicht scrollen Bar versteckt. Persistierung der Scroll-Position bleibt
-// R2-B-Vorbehalt — hier nur visuelle Live-Anzeige.
+// Bei Docs die nicht scrollen Bar versteckt.
+// R2-B: der höchste erreichte Prozent-Wert (furthest-read) wird throttled
+// persistiert (PATCH /api/conversions/<id>/progress) und beim Öffnen resumed —
+// Zurückscrollen resettet den Fortschritt nicht.
 function initReadingProgress() {
     const container = document.getElementById('content-body');
     const fill = document.getElementById('reading-progress-fill');
@@ -1225,6 +1227,47 @@ function initReadingProgress() {
     // einen leeren Track ohne tatsächlichen Lese-Fortschritt.
     const MIN_SCROLLABLE_PX = 30;
 
+    // Furthest-read: maxReached wird aus dem gespeicherten Wert geseedet, damit
+    // Zurückscrollen den Fortschritt nicht senkt (Workshop #4). persistArmed
+    // bleibt false bis der Resume-Scroll gesettled ist — so kann der
+    // programmatische Resume-Scroll sich nicht selbst persistieren.
+    const seeded = Number(window.PageData.lastReadPercent);
+    let maxReached = Number.isFinite(seeded) ? seeded : 0;
+    let persistArmed = false;
+    let persistTimer = null;
+    let lastPersistAt = 0;
+    const PERSIST_THROTTLE_MS = 2000;
+
+    function persistProgress(p, useKeepalive) {
+        // Fire-and-forget über den globalen fetch-Wrapper (CSRF-Header
+        // automatisch). Fehler still schlucken — der Reader bleibt ruhig,
+        // kein Toast bei Progress-Save-Fail.
+        fetch(`/api/conversions/${CONVERSION_ID}/progress`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({percent: p}),
+            keepalive: !!useKeepalive,
+        }).catch(() => {});
+    }
+
+    // Inline timestamp+timer-Throttle (~2s) — Single-Call-Site, daher kein
+    // _utils.js-Helper (feedback_helper_reuse_design_choice). Leading-edge
+    // feuert sofort, trailing-edge-Timer garantiert dass der finale Wert landet.
+    function schedulePersist(p) {
+        const now = Date.now();
+        const elapsed = now - lastPersistAt;
+        if (elapsed >= PERSIST_THROTTLE_MS) {
+            lastPersistAt = now;
+            persistProgress(p, false);
+        } else if (persistTimer === null) {
+            persistTimer = setTimeout(() => {
+                persistTimer = null;
+                lastPersistAt = Date.now();
+                persistProgress(maxReached, false);
+            }, PERSIST_THROTTLE_MS - elapsed);
+        }
+    }
+
     function update() {
         const scrollTop = scroller.scrollTop;
         const scrollable = scroller.scrollHeight - scroller.clientHeight;
@@ -1236,11 +1279,39 @@ function initReadingProgress() {
         wrapper.classList.remove('reading-progress--hidden');
         const percent = (scrollTop / scrollable) * 100;
         fill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+        // Nur vorwärts und nur nach Settle: kurze Docs (oben gefiltert) können
+        // den gespeicherten Wert nicht mit 0 clobbern.
+        if (persistArmed && percent > maxReached) {
+            maxReached = percent;
+            schedulePersist(maxReached);
+        }
     }
 
     scrollSource.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
     update();
+
+    // Resume-on-Open nach Layout-Settle (rAF — Code-Blocks/Markdown sind
+    // server-gerendert, Höhe steht nach dem ersten Frame). Nur mitten im Doc
+    // (1 < gespeichert < 95): ≤1 ist sowieso oben, ≥95 als "gelesen" oben
+    // öffnen statt ans Ende zu zwingen.
+    requestAnimationFrame(() => {
+        const scrollable = scroller.scrollHeight - scroller.clientHeight;
+        if (maxReached > 1 && maxReached < 95 && scrollable >= MIN_SCROLLABLE_PX) {
+            scroller.scrollTop = (maxReached / 100) * scrollable;
+        }
+        update();
+        // Erst im Folge-Frame scharf schalten, damit das Scroll-Event des
+        // Resume-Scrolls (oben bereits verarbeitet) keinen Persist auslöst.
+        requestAnimationFrame(() => { persistArmed = true; });
+    });
+
+    // Flush bei Tab-Hide/Navigation: keepalive überlebt Tab-Close/Unload.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && maxReached > 0) {
+            persistProgress(maxReached, true);
+        }
+    });
 }
 
 // --- Detail-Sidebar-Toggle (READER-MODE) ---

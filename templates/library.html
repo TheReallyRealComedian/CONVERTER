@@ -85,6 +85,12 @@
                         <button type="button" class="c-btn c-btn--danger text-xs py-1 px-2" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
                     </div>
                 </div>
+                {% if conv.last_read_percent and conv.last_read_percent > 0 %}
+                <div class="card-progress{% if conv.last_read_percent >= 95 %} card-progress--read{% endif %}"
+                     title="{% if conv.last_read_percent >= 95 %}Gelesen{% else %}{{ conv.last_read_percent | round | int }} % gelesen{% endif %}" aria-hidden="true">
+                    <div class="card-progress__fill" style="width: {% if conv.last_read_percent >= 95 %}100{% else %}{{ conv.last_read_percent }}{% endif %}%"></div>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
