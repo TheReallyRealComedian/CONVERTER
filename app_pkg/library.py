@@ -21,14 +21,17 @@ ALLOWED_PER_PAGE = (20, 50, 100)
 DEFAULT_PER_PAGE = 20
 
 
-def pagination_args(page, conversion_type, search, favorites, sort, per_page):
-    """Build the **kwargs for url_for('library', …) so favorites='' and
-    per_page=default drop out of the URL entirely (F-6 P9 + P12)."""
+def pagination_args(page, conversion_type, search, favorites, sort, per_page, tag=''):
+    """Build the **kwargs for url_for('library', …) so favorites='', the
+    default per_page and an empty tag drop out of the URL entirely
+    (F-6 P9 + P12; R2-B adds the tag filter)."""
     args = {'page': page, 'type': conversion_type, 'search': search, 'sort': sort}
     if favorites:
         args['favorites'] = '1'
     if per_page != DEFAULT_PER_PAGE:
         args['per_page'] = per_page
+    if tag:
+        args['tag'] = tag
     return args
 
 
@@ -50,6 +53,9 @@ def register(app):
         conversion_type = request.args.get('type', '')
         search = request.args.get('search', '').strip()
         favorites = request.args.get('favorites', '') == '1'
+        # Tags are stored lowercase+trimmed (Tag.get_or_create) — normalise the
+        # incoming value so ?tag=KI matches the stored "ki".
+        tag = request.args.get('tag', '').strip().lower()
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
@@ -62,6 +68,11 @@ def register(app):
             query = query.filter_by(conversion_type=conversion_type)
         if favorites:
             query = query.filter_by(is_favorite=True)
+        if tag:
+            # R2-B: exact-match tag filter over the conversion_tags junction —
+            # the same Conversion.tag_refs.any(...) path the R2-A search branch
+            # uses, with == instead of ilike (the name is already normalised).
+            query = query.filter(Conversion.tag_refs.any(Tag.name == tag))
         if search:
             escaped_search = re.sub(r'([%_\\])', r'\\\1', search)
             # R2-A: tag-search now joins against the conversion_tags junction
@@ -90,7 +101,15 @@ def register(app):
             (conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES)
             or search
             or favorites
+            or tag
         )
+
+        # Tags of this user that hang on at least one conversion — feeds the
+        # filter-chip row. Tag.conversions is the dynamic backref from the
+        # conversion_tags junction (models.py).
+        available_tags = Tag.query.filter(
+            Tag.conversions.any(Conversion.user_id == current_user.id)
+        ).order_by(Tag.name).all()
 
         return render_template('library.html',
                                conversions=pagination.items,
@@ -100,6 +119,8 @@ def register(app):
                                current_favorites=favorites,
                                current_sort=sort,
                                current_per_page=per_page,
+                               current_tag=tag,
+                               available_tags=available_tags,
                                allowed_per_page=ALLOWED_PER_PAGE,
                                has_active_filter=has_active_filter,
                                pagination_args=pagination_args)

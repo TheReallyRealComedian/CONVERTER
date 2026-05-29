@@ -22,6 +22,7 @@
      HIGHLIGHT                   – .highlight span, create-btn, action-popover, sidebar-card, flash
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
      CONVERSION TAG              – .conversion-tag-chip (library_detail sidebar inline picker)
+     TAG CHIP                    – .c-tag (shared pill), .c-tag--active (R2-B library tag-filter chip)
      TAG MANAGER                 – .tag-manager-card (per-tag row on /tags page)
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
@@ -1586,6 +1587,12 @@ body.reader-active .sidebar-toggle-floater--global {
 /* Tag chip */
 .c-tag {
     background: var(--nm-tint-accent);
+}
+/* R2-B: active state for the library tag-filter chip-row. Accent ring instead
+   of a hard border (neomorphism); the inline text-neo-text + font-medium lift
+   it above the muted inactive chips. Token-driven -> dark-mode-konsistent. */
+.c-tag--active {
+    box-shadow: inset 0 0 0 1px var(--nm-accent-hover);
 }
 
 /* Shadow separator lines (neomorphism alternative to borders) */

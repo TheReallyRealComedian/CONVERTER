@@ -13,6 +13,7 @@ Locks in:
 - DELETE /api/tags/<id> cascades through *both* junctions.
 """
 import json
+import re
 
 from app_pkg import _migrate_conversion_tags_csv_to_junction
 from models import Conversion, Highlight, Tag, User, conversion_tags, db
@@ -355,3 +356,97 @@ def test_tag_get_or_create_returns_existing_row_on_second_call(app, test_user):
         db.session.commit()
         t2 = Tag.get_or_create(test_user['id'], 'REUSE')
         assert t1.id == t2.id
+
+
+# --- Library Tag-Filter (R2-B): ?tag over the conversion_tags junction ---
+
+def test_library_tag_filter_surfaces_only_matching(app, authenticated_client, test_user):
+    cid_ki = _make_conversion(app, test_user['id'], title='KI-Doc', content='body')
+    authenticated_client.post(f'/api/conversions/{cid_ki}/tags', json={'name': 'ki'})
+    cid_other = _make_conversion(app, test_user['id'], title='Other-Doc', content='body')
+    authenticated_client.post(f'/api/conversions/{cid_other}/tags', json={'name': 'produkt'})
+
+    resp = authenticated_client.get('/library?tag=ki')
+    assert resp.status_code == 200
+    assert b'KI-Doc' in resp.data
+    assert b'Other-Doc' not in resp.data
+
+
+def test_library_tag_filter_empty_shows_all(app, authenticated_client, test_user):
+    cid_a = _make_conversion(app, test_user['id'], title='Alpha-Doc')
+    authenticated_client.post(f'/api/conversions/{cid_a}/tags', json={'name': 'ki'})
+    cid_b = _make_conversion(app, test_user['id'], title='Beta-Doc')
+    authenticated_client.post(f'/api/conversions/{cid_b}/tags', json={'name': 'produkt'})
+
+    resp = authenticated_client.get('/library?tag=')
+    assert resp.status_code == 200
+    assert b'Alpha-Doc' in resp.data
+    assert b'Beta-Doc' in resp.data
+
+
+def test_library_tag_filter_normalizes_incoming_case(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'], title='Case-Doc')
+    authenticated_client.post(f'/api/conversions/{cid}/tags', json={'name': 'ki'})
+    # ?tag=KI must match the stored lowercase "ki" (route .strip().lower()).
+    resp = authenticated_client.get('/library?tag=KI')
+    assert resp.status_code == 200
+    assert b'Case-Doc' in resp.data
+
+
+def test_library_tag_filter_combines_with_type(app, authenticated_client, test_user):
+    cid_md = _make_conversion(app, test_user['id'], title='MD-Tagged',
+                              conversion_type='markdown_input')
+    authenticated_client.post(f'/api/conversions/{cid_md}/tags', json={'name': 'shared'})
+    cid_doc = _make_conversion(app, test_user['id'], title='Doc-Tagged',
+                               conversion_type='document_to_markdown')
+    authenticated_client.post(f'/api/conversions/{cid_doc}/tags', json={'name': 'shared'})
+
+    resp = authenticated_client.get('/library?tag=shared&type=markdown_input')
+    assert resp.status_code == 200
+    assert b'MD-Tagged' in resp.data
+    assert b'Doc-Tagged' not in resp.data
+
+
+def test_library_tag_filter_combines_with_favorites(app, authenticated_client, test_user):
+    cid_fav = _make_conversion(app, test_user['id'], title='Fav-Tagged', is_favorite=True)
+    authenticated_client.post(f'/api/conversions/{cid_fav}/tags', json={'name': 'shared'})
+    cid_plain = _make_conversion(app, test_user['id'], title='Plain-Tagged', is_favorite=False)
+    authenticated_client.post(f'/api/conversions/{cid_plain}/tags', json={'name': 'shared'})
+
+    resp = authenticated_client.get('/library?tag=shared&favorites=1')
+    assert resp.status_code == 200
+    assert b'Fav-Tagged' in resp.data
+    assert b'Plain-Tagged' not in resp.data
+
+
+def test_library_tag_filter_unknown_tag_hits_empty_state(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'], title='Has-A-Tag')
+    authenticated_client.post(f'/api/conversions/{cid}/tags', json={'name': 'ki'})
+    resp = authenticated_client.get('/library?tag=gibtsnicht')
+    assert resp.status_code == 200
+    assert b'Has-A-Tag' not in resp.data
+    # tag is now in has_active_filter → the existing 0-hit empty-state renders.
+    assert 'Keine Treffer mit aktuellen Filtern'.encode() in resp.data
+
+
+def test_library_tag_filter_preserved_across_pagination(app, authenticated_client, test_user):
+    # 21 ki-tagged conversions at the default per_page=20 → 2 pages. A page-2
+    # pagination link must keep ?tag=ki so the next page stays filtered.
+    for i in range(21):
+        cid = _make_conversion(app, test_user['id'], title=f'KI-{i:02d}')
+        authenticated_client.post(f'/api/conversions/{cid}/tags', json={'name': 'ki'})
+    resp = authenticated_client.get('/library?tag=ki')
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    page2_links = re.findall(r'href="[^"]*page=2[^"]*"', html)
+    assert page2_links, 'expected a page-2 pagination link'
+    assert any('tag=ki' in link for link in page2_links)
+
+
+def test_library_tag_filter_chip_row_lists_available_tags(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'], title='Chip-Doc')
+    authenticated_client.post(f'/api/conversions/{cid}/tags', json={'name': 'produkt'})
+    # available_tags feeds the chip-row even on the unfiltered list.
+    resp = authenticated_client.get('/library')
+    assert resp.status_code == 200
+    assert b'tag=produkt' in resp.data
