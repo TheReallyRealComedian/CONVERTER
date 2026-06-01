@@ -55,7 +55,7 @@
             {% endfor %}
             {% if current_tag %}
             <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, '')) }}"
-               class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Filter zurücksetzen</a>
+               class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Tag-Filter aufheben</a>
             {% endif %}
         </div>
         {% endif %}
@@ -141,7 +141,7 @@
             {% if has_active_filter %}
             <h5 class="text-base font-semibold text-neo-text mb-1">Keine Treffer mit aktuellen Filtern</h5>
             <p class="text-sm mb-4">Mit den aktiven Filtern ist nichts gespeichert. Filter zurücksetzen, um die gesamte Library zu zeigen.</p>
-            <a href="{{ url_for('library') }}" class="c-btn text-sm py-1.5 px-4 no-underline">Filter zurücksetzen</a>
+            <a href="{{ url_for('library') }}" class="c-btn text-sm py-1.5 px-4 no-underline">Alle Filter zurücksetzen</a>
             {% else %}
             <h5 class="text-base font-semibold text-neo-text mb-1">Noch keine gespeicherten Einträge</h5>
             <p class="text-sm">Über „In Library speichern" auf einer Konverter-Seite beginnen.</p>
