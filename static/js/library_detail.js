@@ -695,13 +695,23 @@ function renderHighlightList() {
         list.innerHTML = '<p class="text-sm text-neo-faint italic" id="highlight-list-empty">Noch keine Markierungen.</p>';
         return;
     }
+    // Welche Cards waren vor dem Re-Render aufgeklappt? Merken, damit ein
+    // Tag-Add/Remove (das renderHighlightList aufruft) die offene Card nicht
+    // zuklappt und der frische Tag optisch "verschwindet". Re-Render baut die
+    // Cards neu, also geht der DOM-State sonst verloren.
+    const expandedIds = new Set(
+        [...list.querySelectorAll('.highlight-card[data-expanded="true"]')]
+            .map(c => c.dataset.highlightId)
+    );
     list.innerHTML = '';
     highlightsState.forEach(h => {
         const card = document.createElement('div');
         card.className = 'highlight-card';
         card.dataset.highlightId = String(h.id);
-        // Expand-State per-doc-view ephemeral; nicht persistiert.
-        card.dataset.expanded = 'false';
+        // Expand-State per-doc-view ephemeral; nicht persistiert, aber über
+        // einen Re-Render hinweg bewahrt (siehe expandedIds oben). Nur die
+        // Klasse wiederherstellen — kein scrollToHighlight, das gehört zum Klick.
+        card.dataset.expanded = expandedIds.has(String(h.id)) ? 'true' : 'false';
         const isCrossFormat = crossFormatHighlightIds.has(h.id);
         if (isCrossFormat) {
             card.classList.add('highlight-card--cross-format');
@@ -1095,8 +1105,13 @@ async function addTagToHighlight() {
     input.value = '';
     renderHighlightList();
     loadTagSuggestions();
+    // Hier nur erreichbar wenn resp.ok — also 201 (neu angehängt) oder 200
+    // (idempotenter Re-Add, Tag war schon dran). Beide bestätigen, sonst bleibt
+    // der Re-Add still und der User weiß nicht, ob er gespeichert hat.
     if (resp.status === 201) {
         showToast('Tag hinzugefügt.');
+    } else {
+        showToast('Tag bereits vorhanden.');
     }
 }
 
