@@ -1,7 +1,7 @@
 # Reader-Architecture — Entscheidungs-Memo
 
-**Stand**: 2026-05-29
-**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29
+**Stand**: 2026-05-31
+**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31
 **Status**: Aktive Referenz für R1-B + R2 + R3 Sprints — nicht archiviert.
 
 ---
@@ -50,8 +50,17 @@ TABLE Conversion` manuell auf dem Server).
 | `suffix` | TEXT | Bis zu ~32 Zeichen direkt nach `exact` (für Disambiguation). |
 
 **Begründung**: selbst-heilend (Re-Apply beim Render funktioniert ohne Position-Mapping), Browser-Selection
-liefert alle drei Werte direkt (`Selection.toString()` plus Range-Context-Walks), W3C-Standard für
+liefert alle drei Werte direkt (Range-Context-Walks), W3C-Standard für
 Web-Annotations (Hypothes.is-Kompatibilität als Future-Option), pure client-side.
+
+> **Korrektur 2026-05-31 (READER-FIX-B)**: `Selection.toString()` darf **nicht** der gespeicherte
+> `exact`-Such-Key sein. An Block-Grenzen fügt `toString()` Separator-Newlines ein (am P→P-Übergang
+> empirisch `\n\n`), die der `readerRawText`-Concat (purer `nodeValue`, ein `\n`) nicht enthält →
+> `indexOf` beim Re-Apply findet nie → Block-übergreifende Highlights wurden unsichtbar (Cross-Format).
+> `exact`/`prefix`/`suffix` werden seit `59eb0cd` **alle aus `readerRawText` gesliced** (siehe
+> Decision-Log unten + Memory `feedback_selection_anchor_coordinate_system.md`). Die W3C-Anker-Idee
+> bleibt korrekt — nur die Quelle des `exact`-Strings musste auf das Locate-Koordinatensystem
+> umgestellt werden.
 
 **Re-Apply-Algorithmus** beim Doc-Load:
 1. Im Reader-View-DOM rekursiv alle Text-Nodes durchgehen.
@@ -196,3 +205,4 @@ R1-A liefert die kritischen Anker-Voraussetzungen:
 | 2026-05-29 | Tag-Filter nur über URL `?tag=<name>` | Web-native Source, bookmarkbar, Back-Button; frischer `/library`-Aufruf zeigt Default (kein klebriger Filter). Kein localStorage |
 | 2026-05-29 | Furthest-read statt aktueller Scroll | Höchster erreichter Prozent-Wert wird persistiert (Session-Max aus gespeichertem Wert geseedet) — Zurückscrollen resettet den Fortschritt nicht |
 | 2026-05-29 | Persist via throttled fetch + keepalive-Flush, **nicht** `navigator.sendBeacon` | CSRFProtect ist global aktiv; sendBeacon kann den `X-CSRFToken`-Header nicht setzen. Throttle (~2s) über den globalen fetch-Wrapper, Flush bei `visibilitychange→hidden` via `fetch(..., {keepalive:true})` |
+| 2026-05-31 | Highlight-Anker in EINEM Koordinatensystem (`readerRawText`), nie `selection.toString()` als Such-Key (READER-FIX-B) | Save und Locate müssen denselben Text-Raum teilen. `selection.toString()` fügt an Block-Grenzen Separator-Newlines ein (`\n\n` empirisch), `readerRawText` (`nodeValue`-Concat) nicht (`\n`) → `indexOf` beim Re-Apply schlug fehl, Block-übergreifende Highlights unsichtbar. Fix: `exact`/`prefix`/`suffix` alle aus `readerRawText` slicen (`rawOffsetForPoint`-Helper), Backward-Compat-Fallback `locateWhitespaceTolerant` rettet Alt-Highlights. Korrektur-Notiz: READER-FIX-A reparierte nur Inline-Grenzen, die „Cross-Format-verschwunden"-Bewertung beruhte auf synthetischen DevTools-Ranges — Selection-Features nur mit echtem Maus-Drag smoken. Memory `feedback_selection_anchor_coordinate_system.md` |
