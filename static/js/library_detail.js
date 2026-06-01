@@ -576,37 +576,68 @@ function readerRawText(reader) {
     return out;
 }
 
+// Map a DOM point (container, offset) to its character index within
+// readerRawText (the nodeValue concatenation). The fast path handles
+// text-node containers — the normal mouse-selection case — by summing node
+// lengths until the container. Element containers (e.g. a triple-click that
+// selects a whole block) fall back to a document-order comparison so the
+// offset still lands in the same coordinate system.
+function rawOffsetForPoint(reader, container, offset) {
+    const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+    let consumed = 0;
+    let node;
+    if (container.nodeType === Node.TEXT_NODE) {
+        while ((node = walker.nextNode())) {
+            if (node === container) return consumed + offset;
+            consumed += node.nodeValue.length;
+        }
+        return consumed;
+    }
+    // comparePoint(node, k): -1 if (node,k) is before our point, 0 if equal,
+    // 1 if after. So cmpStart===1 means the point precedes this text node.
+    const point = document.createRange();
+    point.setStart(container, offset);
+    while ((node = walker.nextNode())) {
+        const len = node.nodeValue.length;
+        if (point.comparePoint(node, 0) === 1) return consumed;
+        if (point.comparePoint(node, len) >= 0) {
+            let k = 0;
+            while (k < len && point.comparePoint(node, k) === -1) k++;
+            return consumed + k;
+        }
+        consumed += len;
+    }
+    return consumed;
+}
+
+// Build the highlight anchor entirely from readerRawText so save-time and
+// load-time share ONE coordinate system. selection.toString() must NEVER be
+// the stored search key: at block boundaries it inserts separator newlines
+// (e.g. "\n\n") that the nodeValue concatenation does not contain, so
+// locateHighlightOffset's indexOf would never re-find the anchor and the
+// highlight silently became "cross-format" (READER-FIX-B root cause).
 function extractSelectionContext(selection) {
     const reader = highlightReaderEl();
-    if (!reader || selection.rangeCount === 0) return {prefix: '', suffix: ''};
+    if (!reader || selection.rangeCount === 0) return {exact: '', prefix: '', suffix: ''};
     const range = selection.getRangeAt(0);
-    const exact = selection.toString();
-    const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
-    let preLen = 0;
-    let node;
-    while ((node = walker.nextNode())) {
-        if (node === range.startContainer) {
-            preLen += range.startOffset;
-            break;
-        }
-        preLen += node.nodeValue.length;
-    }
     const fullText = readerRawText(reader);
-    const prefix = fullText.slice(Math.max(0, preLen - HIGHLIGHT_CONTEXT_LEN), preLen);
-    const suffix = fullText.slice(preLen + exact.length, preLen + exact.length + HIGHLIGHT_CONTEXT_LEN);
-    return {prefix, suffix};
+    const rawStart = rawOffsetForPoint(reader, range.startContainer, range.startOffset);
+    const rawEnd = rawOffsetForPoint(reader, range.endContainer, range.endOffset);
+    const exact = fullText.slice(rawStart, rawEnd);
+    const prefix = fullText.slice(Math.max(0, rawStart - HIGHLIGHT_CONTEXT_LEN), rawStart);
+    const suffix = fullText.slice(rawEnd, rawEnd + HIGHLIGHT_CONTEXT_LEN);
+    return {exact, prefix, suffix};
 }
 
 async function saveCurrentSelection() {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const exact = sel.toString();
+    const {exact, prefix, suffix} = extractSelectionContext(sel);
     if (!exact.trim()) return;
     if (exact.length > HIGHLIGHT_EXACT_LIMIT) {
         showToast('Markierung zu lang. Bitte einen kürzeren Abschnitt wählen.', { level: 'danger' });
         return;
     }
-    const {prefix, suffix} = extractSelectionContext(sel);
     sel.removeAllRanges();
 
     let resp;
@@ -678,7 +709,10 @@ function renderHighlightList() {
         }
         const exactEl = document.createElement('div');
         exactEl.className = 'highlight-card__exact';
-        exactEl.textContent = h.exact;
+        // Anzeige: Whitespace kollabieren, damit block-übergreifende Roh-`exact`
+        // (mit eingebettetem \n) auf der Card nicht ohne sichtbaren Umbruch
+        // zusammenkleben. Gespeicherter Such-Key (h.exact) bleibt unangetastet.
+        exactEl.textContent = (h.exact || '').replace(/\s+/g, ' ');
         card.appendChild(exactEl);
         if (h.note) {
             const noteEl = document.createElement('div');
@@ -731,13 +765,17 @@ function scrollToHighlight(id) {
     setTimeout(() => span.classList.remove('highlight-flash'), 1000);
 }
 
-// Locate `exact` in the reader-view text. Returns the start-offset against
-// reader.innerText (the same metric extractSelectionContext uses), so prefix
-// and suffix from the stored highlight act as a tiebreaker for multi-match.
+// Locate the stored anchor in readerRawText. Returns {start, end} raw-offset
+// bounds (same coordinate system extractSelectionContext writes), or null.
+// New anchors are sliced from readerRawText at save time, so the fast path is
+// an exact indexOf and prefix/suffix disambiguate a multi-match. Pre-fix
+// anchors were stored from selection.toString() (block-separator newlines,
+// collapsed whitespace) and never match exactly — locateWhitespaceTolerant
+// rescues them best-effort.
 function locateHighlightOffset(reader, highlight) {
     const fullText = readerRawText(reader);
     const {exact, prefix, suffix} = highlight;
-    if (!exact) return -1;
+    if (!exact) return null;
     const positions = [];
     let cursor = 0;
     while (cursor <= fullText.length) {
@@ -746,25 +784,51 @@ function locateHighlightOffset(reader, highlight) {
         positions.push(idx);
         cursor = idx + Math.max(1, exact.length);
     }
-    if (positions.length === 0) return -1;
-    if (positions.length === 1) return positions[0];
+    if (positions.length === 0) return locateWhitespaceTolerant(fullText, exact);
 
-    let bestPos = -1;
-    let bestScore = -1;
-    for (const pos of positions) {
-        const actualPrefix = fullText.slice(Math.max(0, pos - (prefix?.length || 0)), pos);
-        const actualSuffix = fullText.slice(pos + exact.length, pos + exact.length + (suffix?.length || 0));
-        let score = 0;
-        if (prefix && actualPrefix === prefix) score += 2;
-        else if (prefix && actualPrefix.endsWith(prefix.slice(-8))) score += 1;
-        if (suffix && actualSuffix === suffix) score += 2;
-        else if (suffix && actualSuffix.startsWith(suffix.slice(0, 8))) score += 1;
-        if (score > bestScore) {
-            bestScore = score;
-            bestPos = pos;
+    let start = positions[0];
+    if (positions.length > 1) {
+        let bestScore = -1;
+        for (const pos of positions) {
+            const actualPrefix = fullText.slice(Math.max(0, pos - (prefix?.length || 0)), pos);
+            const actualSuffix = fullText.slice(pos + exact.length, pos + exact.length + (suffix?.length || 0));
+            let score = 0;
+            if (prefix && actualPrefix === prefix) score += 2;
+            else if (prefix && actualPrefix.endsWith(prefix.slice(-8))) score += 1;
+            if (suffix && actualSuffix === suffix) score += 2;
+            else if (suffix && actualSuffix.startsWith(suffix.slice(0, 8))) score += 1;
+            if (score > bestScore) {
+                bestScore = score;
+                start = pos;
+            }
         }
     }
-    return bestPos >= 0 ? bestPos : positions[0];
+    return {start, end: start + exact.length};
+}
+
+// Best-effort rescue for pre-READER-FIX-B anchors stored from
+// selection.toString(): collapse whitespace runs in both the reader text and
+// the stored `exact`, match in that normalized space, then map the hit back
+// to raw offsets via an index map (normalized char i → raw index map[i]).
+// Returns {start, end} or null. First-match only — old anchors are few and
+// this is a rescue, not the precise locate the fast path provides.
+function locateWhitespaceTolerant(fullText, exact) {
+    const map = [];
+    let norm = '';
+    let prevSpace = false;
+    for (let i = 0; i < fullText.length; i++) {
+        if (/\s/.test(fullText[i])) {
+            if (!prevSpace && norm.length) { norm += ' '; map.push(i); }
+            prevSpace = true;
+        } else {
+            norm += fullText[i]; map.push(i); prevSpace = false;
+        }
+    }
+    const needle = exact.replace(/\s+/g, ' ').trim();
+    if (!needle) return null;
+    const nIdx = norm.indexOf(needle);
+    if (nIdx === -1) return null;
+    return {start: map[nIdx], end: map[nIdx + needle.length - 1] + 1};
 }
 
 // Walk text nodes inside `reader`, find the [start, end) offset range in
@@ -880,10 +944,9 @@ function removeHighlightSpans(id) {
 function applyHighlight(highlight) {
     const reader = highlightReaderEl();
     if (!reader) return false;
-    const startOffset = locateHighlightOffset(reader, highlight);
-    if (startOffset < 0) return false;
-    const endOffset = startOffset + highlight.exact.length;
-    const range = rangeForOffsets(reader, startOffset, endOffset);
+    const loc = locateHighlightOffset(reader, highlight);
+    if (!loc || loc.start < 0 || loc.end <= loc.start) return false;
+    const range = rangeForOffsets(reader, loc.start, loc.end);
     if (!range) return false;
     return wrapSelectionAsHighlight(range, highlight.id);
 }
