@@ -15,6 +15,7 @@ ALLOWED_CONVERSION_TYPES = {
     'audio_transcription',
     'dialogue_formatting',
     'markdown_input',
+    'ai_newsletter',
 }
 
 ALLOWED_PER_PAGE = (20, 50, 100)

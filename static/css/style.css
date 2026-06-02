@@ -1542,6 +1542,7 @@ body.reader-active .sidebar-toggle-floater--global {
 .type-audio_transcription { background: rgba(34, 197, 94, 0.10); color: #166534; }
 .type-dialogue_formatting { background: rgba(168, 85, 247, 0.10); color: #6b21a8; }
 .type-markdown_input { background: rgba(245, 158, 11, 0.10); color: #92400e; }
+.type-ai_newsletter { background: rgba(20, 184, 166, 0.10); color: #115e59; }
 
 /* Save to library button */
 .save-library-btn {
@@ -1805,6 +1806,7 @@ body.reader-active .theme-toggle-btn {
 [data-global-theme="dark"] .type-audio_transcription { background: rgba(106, 191, 138, 0.15); color: #70c898; }
 [data-global-theme="dark"] .type-dialogue_formatting { background: rgba(152, 136, 184, 0.15); color: #b8a8d8; }
 [data-global-theme="dark"] .type-markdown_input { background: rgba(232, 176, 64, 0.15); color: #e0b848; }
+[data-global-theme="dark"] .type-ai_newsletter { background: rgba(94, 204, 188, 0.15); color: #6fd4c0; }
 
 /* Dark: Save button saved state */
 [data-global-theme="dark"] .save-library-btn.saved {

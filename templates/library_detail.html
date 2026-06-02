@@ -16,6 +16,7 @@
                     {% elif conversion.conversion_type == 'audio_transcription' %}Audio
                     {% elif conversion.conversion_type == 'dialogue_formatting' %}Dialog
                     {% elif conversion.conversion_type == 'markdown_input' %}Markdown
+                    {% elif conversion.conversion_type == 'ai_newsletter' %}AI-Newsletter
                     {% else %}{{ conversion.conversion_type }}{% endif %}
                 </span>
                 <button type="button" class="favorite-btn {% if conversion.is_favorite %}active{% endif %}" onclick="toggleFavorite(this)" title="Favorit umschalten">

@@ -17,6 +17,7 @@
                     <option value="audio_transcription" {% if current_type == 'audio_transcription' %}selected{% endif %}>Audio</option>
                     <option value="dialogue_formatting" {% if current_type == 'dialogue_formatting' %}selected{% endif %}>Dialog</option>
                     <option value="markdown_input" {% if current_type == 'markdown_input' %}selected{% endif %}>Markdown</option>
+                    <option value="ai_newsletter" {% if current_type == 'ai_newsletter' %}selected{% endif %}>AI-Newsletter</option>
                 </select>
                 <div class="flex-1 min-w-[200px]">
                     <input type="text" name="search"
@@ -74,6 +75,7 @@
                         {% elif conv.conversion_type == 'audio_transcription' %}Audio
                         {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
                         {% elif conv.conversion_type == 'markdown_input' %}Markdown
+                        {% elif conv.conversion_type == 'ai_newsletter' %}AI-Newsletter
                         {% else %}{{ conv.conversion_type }}{% endif %}
                     </span>
                     <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Favorit umschalten">

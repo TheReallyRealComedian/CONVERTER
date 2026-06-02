@@ -89,6 +89,29 @@ def test_api_create_conversion_persists(app, authenticated_client, test_user):
     assert len(rows) == 1
 
 
+def test_api_create_conversion_accepts_ai_newsletter(app, authenticated_client, test_user):
+    """NL1: the ai_newsletter type is accepted by the create-validation
+    (ALLOWED_CONVERSION_TYPES) — foundation for the Library filter/badge and
+    the ingestion endpoint that creates rows of this type.
+    """
+    resp = authenticated_client.post(
+        '/api/conversions',
+        json={
+            'conversion_type': 'ai_newsletter',
+            'title': '2026-05-30 - AI Newsletter Analyse',
+            'content': '# Newsletter body',
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.get_json()['conversion_type'] == 'ai_newsletter'
+    # The list view renders the new type badge: the template elif emits the
+    # "AI-Newsletter" label and the .type-ai_newsletter CSS hook for the row.
+    lib = authenticated_client.get('/library')
+    assert lib.status_code == 200
+    assert b'type-ai_newsletter' in lib.data
+    assert b'AI-Newsletter' in lib.data
+
+
 def test_api_create_conversion_rejects_missing_content(authenticated_client):
     resp = authenticated_client.post('/api/conversions', json={'title': 'No content'})
     assert resp.status_code == 400
