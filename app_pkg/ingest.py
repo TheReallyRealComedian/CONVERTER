@@ -42,7 +42,6 @@ import hmac
 import json
 import logging
 import os
-import re
 from datetime import datetime
 
 from flask import jsonify, request
@@ -91,14 +90,18 @@ def _parse_report_date(value):
 
 def _find_by_source_id(user_id, source_id):
     """Idempotency lookup. Volume is tiny (≈ weekly newsletters), so we narrow
-    with a LIKE prefilter on the metadata_json text and then confirm with an
-    exact parse — a substring collision can never dedup the wrong row, and the
-    LIKE can only over-match (so it never misses a real hit). No schema touch:
-    ``source_id`` lives inside ``metadata_json``."""
-    escaped = re.sub(r'([%_\\])', r'\\\1', source_id)
+    with a substring prefilter on the metadata_json text and then confirm with
+    an exact parse — a substring collision can never dedup the wrong row, and
+    the prefilter can only over-match (so it never misses a real hit). No
+    schema touch: ``source_id`` lives inside ``metadata_json``.
+
+    ``contains(autoescape=True)`` neutralises SQL-LIKE wildcards ('%', '_') in
+    the source_id and emits the ESCAPE clause. A plain ``like('%'+x+'%')``
+    would treat a '_' in the id as "any char" and silently miss the stored row
+    — a dedup miss that creates a duplicate (the trap library.py:66 still has)."""
     candidates = (Conversion.query
                   .filter_by(user_id=user_id)
-                  .filter(Conversion.metadata_json.like(f'%{escaped}%'))
+                  .filter(Conversion.metadata_json.contains(source_id, autoescape=True))
                   .all())
     for c in candidates:
         try:

@@ -158,6 +158,29 @@ def test_ingest_dedup_idempotent_same_source_id(app, client, monkeypatch):
         assert Conversion.query.filter_by(user_id=uid).count() == 1
 
 
+def test_ingest_dedup_with_wildcard_chars_in_source_id(app, client, monkeypatch):
+    """Regression: the dedup prefilter must neutralise SQL-LIKE wildcards in
+    the source_id. A source_id containing '_' (a LIKE "any single char")
+    must still dedup on re-POST — otherwise the lookup misses the stored row
+    and silently creates a duplicate. Pre-fix (manual escape without an
+    ESCAPE clause) this produced a 2nd row; the fix uses contains(autoescape).
+    """
+    monkeypatch.setenv('INGEST_TOKEN', TOKEN)
+    uid = _make_user(app)
+    payload = _newsletter(source_id='2026_05_30_ai_newsletter')  # underscores = LIKE wildcards
+
+    r1 = client.post(URL, headers=_auth(), json=payload)
+    assert r1.status_code == 201
+    id1 = r1.get_json()['id']
+
+    r2 = client.post(URL, headers=_auth(), json=payload)
+    assert r2.status_code == 200, f'expected dedup 200, got {r2.status_code}'
+    assert r2.get_json()['deduped'] is True
+    assert r2.get_json()['id'] == id1
+    with app.app_context():
+        assert Conversion.query.filter_by(user_id=uid).count() == 1
+
+
 def test_ingest_without_source_id_does_not_dedup(app, client, monkeypatch):
     monkeypatch.setenv('INGEST_TOKEN', TOKEN)
     uid = _make_user(app)
