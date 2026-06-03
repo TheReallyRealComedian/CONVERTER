@@ -50,12 +50,12 @@
         <div class="flex items-center gap-2 flex-wrap mb-8" aria-label="Nach Tag filtern">
             <span class="text-xs text-neo-faint">Tags:</span>
             {% for t in available_tags %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name)) }}"
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name, current_status)) }}"
                class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if t.name == current_tag %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
                {% if t.name == current_tag %}aria-current="true"{% endif %}>{{ t.name }}</a>
             {% endfor %}
             {% if current_tag %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, '')) }}"
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, '', current_status)) }}"
                class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Tag-Filter aufheben</a>
             {% endif %}
         </div>
@@ -119,12 +119,12 @@
         {% if pagination.pages > 1 %}
         <nav class="flex justify-center gap-1 mt-6">
             {% if pagination.has_prev %}
-            <a href="{{ url_for('library', **pagination_args(pagination.prev_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag)) }}"
+            <a href="{{ url_for('library', **pagination_args(pagination.prev_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status)) }}"
                class="c-btn text-sm py-1.5 px-3 no-underline">Zurück</a>
             {% endif %}
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                 {% if p %}
-                <a href="{{ url_for('library', **pagination_args(p, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag)) }}"
+                <a href="{{ url_for('library', **pagination_args(p, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status)) }}"
                    class="text-sm py-1.5 px-3 rounded-full no-underline transition-all
                    {% if p == pagination.page %}c-btn c-btn--primary{% else %}c-btn{% endif %}">{{ p }}</a>
                 {% else %}
@@ -132,7 +132,7 @@
                 {% endif %}
             {% endfor %}
             {% if pagination.has_next %}
-            <a href="{{ url_for('library', **pagination_args(pagination.next_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag)) }}"
+            <a href="{{ url_for('library', **pagination_args(pagination.next_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status)) }}"
                class="c-btn text-sm py-1.5 px-3 no-underline">Weiter</a>
             {% endif %}
         </nav>

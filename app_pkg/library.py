@@ -1,6 +1,5 @@
 """Library list/detail and the /api/conversions CRUD endpoints."""
 import json
-import re
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
@@ -18,14 +17,18 @@ ALLOWED_CONVERSION_TYPES = {
     'ai_newsletter',
 }
 
+# R2-C: lifecycle triage locations. Internal keys; DE labels (Inbox/Später/
+# Archiv) live in the templates. Used by the ?status filter + the PUT handler.
+LIFECYCLE_STATUSES = {'inbox', 'later', 'archive'}
+
 ALLOWED_PER_PAGE = (20, 50, 100)
 DEFAULT_PER_PAGE = 20
 
 
-def pagination_args(page, conversion_type, search, favorites, sort, per_page, tag=''):
+def pagination_args(page, conversion_type, search, favorites, sort, per_page, tag='', status=''):
     """Build the **kwargs for url_for('library', …) so favorites='', the
-    default per_page and an empty tag drop out of the URL entirely
-    (F-6 P9 + P12; R2-B adds the tag filter)."""
+    default per_page, an empty tag and an empty status drop out of the URL
+    entirely (F-6 P9 + P12; R2-B adds the tag filter, R2-C the status filter)."""
     args = {'page': page, 'type': conversion_type, 'search': search, 'sort': sort}
     if favorites:
         args['favorites'] = '1'
@@ -33,6 +36,8 @@ def pagination_args(page, conversion_type, search, favorites, sort, per_page, ta
         args['per_page'] = per_page
     if tag:
         args['tag'] = tag
+    if status:
+        args['status'] = status
     return args
 
 
@@ -57,6 +62,10 @@ def register(app):
         # Tags are stored lowercase+trimmed (Tag.get_or_create) — normalise the
         # incoming value so ?tag=KI matches the stored "ki".
         tag = request.args.get('tag', '').strip().lower()
+        # R2-C: lifecycle triage filter. Only a known status filters; anything
+        # else is treated as "no status filter" (current_status stays '').
+        status = request.args.get('status', '').strip()
+        current_status = status if status in LIFECYCLE_STATUSES else ''
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
@@ -74,18 +83,23 @@ def register(app):
             # the same Conversion.tag_refs.any(...) path the R2-A search branch
             # uses, with == instead of ilike (the name is already normalised).
             query = query.filter(Conversion.tag_refs.any(Tag.name == tag))
+        if current_status:
+            query = query.filter(Conversion.lifecycle_status == current_status)
         if search:
-            escaped_search = re.sub(r'([%_\\])', r'\\\1', search)
-            # R2-A: tag-search now joins against the conversion_tags junction
-            # (Conversion.tag_refs.any(Tag.name.ilike(...))). The legacy
-            # Conversion.tags CSV branch was removed — after the migration the
-            # column is dead and would never match. Filtered Views (R2-B) will
-            # build on this junction path.
+            # R2-A: tag-search joins against the conversion_tags junction. The
+            # legacy Conversion.tags CSV branch was removed — after the
+            # migration the column is dead and would never match.
+            # P3-fix: .contains(autoescape=True) escapes %/_ and emits the
+            # ESCAPE clause itself. The previous re.sub + ilike was a silent
+            # no-op — ilike has no default ESCAPE, so the inserted backslashes
+            # matched literally and broke substring search (Memory
+            # reference_sqlalchemy_like_escape.md). LIKE is case-insensitive on
+            # SQLite, so dropping ilike keeps the case behaviour.
             query = query.filter(
                 db.or_(
-                    Conversion.title.ilike(f'%{escaped_search}%'),
-                    Conversion.content.ilike(f'%{escaped_search}%'),
-                    Conversion.tag_refs.any(Tag.name.ilike(f'%{escaped_search}%')),
+                    Conversion.title.contains(search, autoescape=True),
+                    Conversion.content.contains(search, autoescape=True),
+                    Conversion.tag_refs.any(Tag.name.contains(search, autoescape=True)),
                 )
             )
 
@@ -103,6 +117,7 @@ def register(app):
             or search
             or favorites
             or tag
+            or current_status
         )
 
         # Tags of this user that hang on at least one conversion — feeds the
@@ -121,6 +136,7 @@ def register(app):
                                current_sort=sort,
                                current_per_page=per_page,
                                current_tag=tag,
+                               current_status=current_status,
                                available_tags=available_tags,
                                allowed_per_page=ALLOWED_PER_PAGE,
                                has_active_filter=has_active_filter,
@@ -188,6 +204,11 @@ def register(app):
             conversion.content = data['content']
         if 'is_favorite' in data:
             conversion.is_favorite = bool(data['is_favorite'])
+        if 'lifecycle_status' in data:
+            # R2-C: the status toggle (Card + Detail) PUTs here, like is_favorite.
+            if data['lifecycle_status'] not in LIFECYCLE_STATUSES:
+                return jsonify({'error': 'Ungültiger Lifecycle-Status.'}), 400
+            conversion.lifecycle_status = data['lifecycle_status']
 
         db.session.commit()
         return jsonify(conversion.to_dict())

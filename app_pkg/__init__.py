@@ -98,6 +98,13 @@ def _run_pending_migrations(app):
             db.session.execute(text('ALTER TABLE conversion ADD COLUMN last_read_percent FLOAT'))
             db.session.commit()
             app.logger.info("R2-B: conversion.last_read_percent column added via ALTER TABLE")
+        if 'lifecycle_status' not in cols:
+            db.session.execute(text("ALTER TABLE conversion ADD COLUMN lifecycle_status VARCHAR(20) DEFAULT 'inbox'"))
+            # Einmaliger differenzierter Backfill (läuft nur beim Spalten-Add → idempotent):
+            # Newsletter bleiben im Inbox-Triage, alte Tool-Outputs ins Archive.
+            db.session.execute(text("UPDATE conversion SET lifecycle_status='archive' WHERE conversion_type != 'ai_newsletter'"))
+            db.session.commit()
+            app.logger.info("R2-C: conversion.lifecycle_status added + backfilled (ai_newsletter→inbox, rest→archive)")
     _migrate_conversion_tags_csv_to_junction(app)
 
 

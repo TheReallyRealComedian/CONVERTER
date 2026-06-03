@@ -50,6 +50,11 @@ class Conversion(db.Model):
     # Drives the list-view card progress bar and resume-on-open. Percent-based
     # so it survives content-length changes; added via inline ALTER TABLE.
     last_read_percent = db.Column(db.Float, nullable=True)
+    # R2-C: lifecycle triage location — 'inbox' / 'later' / 'archive'.
+    # Orthogonal to last_read_percent ("read" stays the progress, not a 4th
+    # status). Indexed because the list-view filters on it. Added via inline
+    # ALTER TABLE; the column-add backfills ai_newsletter→inbox, rest→archive.
+    lifecycle_status = db.Column(db.String(20), default='inbox', index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
@@ -73,6 +78,7 @@ class Conversion(db.Model):
             'tag_refs': [t.to_dict() for t in self.tag_refs],
             'is_favorite': self.is_favorite,
             'last_read_percent': self.last_read_percent,
+            'lifecycle_status': self.lifecycle_status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
