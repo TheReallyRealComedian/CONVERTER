@@ -18,6 +18,10 @@ R1-B-C hat Tag-Tabelle + `highlight_tags`-Junction angelegt. R2-A ☑ done 2026-
 
 - **R2-C — Lifecycle-Status (Inbox/Later/Archive) M** (Reader-Workflow-Status pro Conversion: `inbox`, `later`, `archive`. Schema-Wahl offen für künftigen R2-C-Sprint-Workshop — entweder neue Spalte `Conversion.lifecycle_status` mit Enum-Default `'inbox'` via `_run_pending_migrations`-ALTER-TABLE-Helper (Memory `reference_inline_sqlite_migration.md`) oder eigene Tabelle wenn Status-Historie/Timestamps gebraucht werden. Frontend: Status-Toggle in Library-Card + Detail-View, Filter-Chip in der List-View. Ursprünglich Teil von R2-A geplant gewesen, ausgegliedert in eigenen Sprint weil R2-A mit Tag-Migration + Frontend-Umstellung schon L-Größe erreicht hat. Vorerst ohne Reading-Progress (das bleibt R2-B).)
 
+### R4-LEARN — Spaced-Repetition / Lernkarten (Future-Cluster)
+
+- **R4-LEARN — Anki-like Lernkarten über Highlights (Future, nicht P1)** (das *ursprüngliche* Readwise-Herz: Spaced-Repetition-Review. Baut direkt auf den R1-Highlights als Karten-Quelle — die Foundation steht also. Kern: SR-Scheduling pro Karte (SM-2 o.ä.) + ein Review-UI (täglicher Stapel). **Offene Design-Frage** für den künftigen Workshop: Karten **automatisch aus Highlights** (Cloze / Q-A generiert, ggf. via Gemini) vs. **manuell erstellt** vs. beides. Schema: vermutlich neue Tabelle(n) `Card`/`Review` mit FK auf Highlight/Conversion — **eigener Cluster, nicht R2-C**. Reihenfolge: nach R2-C, ggf. nach R3 Web-Article-Save. Größe **L+**, eigener Master-Workshop wenn dran. Aus User-Idee 2026-06-03 beim R2-C-Lifecycle-Workshop.)
+
 ### NL — AI-Newsletter-Ingestion ☑ abgeschlossen 2026-06-03
 
 NL1 (CONVERTER-Seite: `ai_newsletter`-Typ + token-auth Ingestion-Endpoint) **und** NL2 (`email-automation`-Push + Backfill, anderes Repo auf Mintbox) beide durch → **NL-Bridge live**: neue Newsletter pushen automatisch (Cron Di/Fr), die 11 bestehenden via Backfill nachgezogen, alle in `/library` (Typ AI-Newsletter, Topic-Tags, Dedup hält). Details siehe Erledigt. **Restbeobachtung** (email-automation-Domäne, nicht CONVERTER): `pages.create` unter notion-client 3.1.0 — siehe NL2-Erledigt-Eintrag.
