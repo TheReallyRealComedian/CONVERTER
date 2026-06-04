@@ -302,10 +302,14 @@ def register(app):
             # up/down: swap queue_position with the direct neighbour among the
             # user's queued items (sorted asc). Two-row update, one commit
             # boundary. No-op at the top/bottom edge or when not queued at all.
+            # The set MUST match the queue-view's visible set (archive excluded,
+            # Decision #5 keeps archived rows queued) — else "up" swaps with an
+            # invisible archived neighbour and appears to do nothing.
             if conversion.queue_position is not None:
                 queued = Conversion.query.filter(
                     Conversion.user_id == current_user.id,
                     Conversion.queue_position.isnot(None),
+                    Conversion.lifecycle_status != 'archive',
                 ).order_by(Conversion.queue_position.asc()).all()
                 idx = next((i for i, c in enumerate(queued) if c.id == conversion.id), None)
                 if idx is not None:

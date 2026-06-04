@@ -164,6 +164,31 @@ def test_queue_down_at_bottom_is_noop(app, authenticated_client, test_user):
     assert _queue_pos_of(app, b) == 2.0
 
 
+def test_queue_swap_runs_over_visible_set_not_archived(app, authenticated_client, test_user):
+    # Decision #5: archiving does NOT dequeue, so an archived row keeps its
+    # queue_position. The up/down swap must operate over the *visible* (non-
+    # archived) set the queue-view renders — otherwise "up" swaps with an
+    # invisible archived neighbour and appears to do nothing.
+    a = _make_conversion(app, test_user['id'], title='AlphaDoc')
+    b = _make_conversion(app, test_user['id'], title='BetaDoc')
+    c = _make_conversion(app, test_user['id'], title='GammaDoc')
+    _add_to_queue(authenticated_client, a)  # 1.0
+    _add_to_queue(authenticated_client, b)  # 2.0
+    _add_to_queue(authenticated_client, c)  # 3.0
+    _set_status(app, b, 'archive')          # middle row archived, keeps 2.0
+    # Visible queue is [A, C]; move the bottom (C) up -> it must become first.
+    r = authenticated_client.post(f'/api/conversions/{c}/queue', json={'action': 'up'})
+    assert r.status_code == 200
+    # C swapped with A (the visible neighbour), not with the archived B.
+    assert _queue_pos_of(app, c) < _queue_pos_of(app, a)
+    assert _queue_pos_of(app, b) == 2.0  # archived row untouched
+    # The view reflects it: C now precedes A, B stays hidden.
+    resp = authenticated_client.get('/library?view=queue')
+    html = resp.data.decode()
+    assert 'BetaDoc' not in html
+    assert html.index('GammaDoc') < html.index('AlphaDoc')
+
+
 # --- guards: ownership + invalid action ---
 
 def test_queue_other_users_conversion_404(app, authenticated_client, test_user):
