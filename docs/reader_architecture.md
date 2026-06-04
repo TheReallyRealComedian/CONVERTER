@@ -1,8 +1,8 @@
 # Reader-Architecture — Entscheidungs-Memo
 
-**Stand**: 2026-05-31
-**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31
-**Status**: Aktive Referenz für R1-B + R2 + R3 Sprints — nicht archiviert.
+**Stand**: 2026-06-04
+**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31; R2-C-Workshop 2026-06-03
+**Status**: Aktive Referenz für R2 (☑ A/B/C komplett) + R3 + R4-LEARN Sprints — nicht archiviert.
 
 ---
 
@@ -166,7 +166,7 @@ ausgegliedert worden.
 |---|---|---|---|
 | **R2-A** | `conversion_tags`-Junction + CSV-Migration + `Tag.get_or_create`-DRY-Anker + Frontend Library-Card-Strip + Detail-Sidebar-Picker + GET-/api/tags-Erweiterung + Tag-Manager-Cascade beide Junctions + Pre-Commit-Patch Library-Search Junction-Branch. | L | ☑ done 2026-05-25 |
 | **R2-B** | Filtered Views + Reading-Progress. Tag-Filter-Chip-Row in der Library-List mit URL-`?tag`-Persistierung (Junction-Pfad `Conversion.tag_refs.any(Tag.name == …)`, `==` statt `ilike`). Reading-Progress pro Card via nullable `Conversion.last_read_percent` (Prozent 0–100, furthest-read), `PATCH /api/conversions/<id>/progress` + Resume-on-Open + throttle/keepalive-Flush. | M | ☑ done 2026-05-29 (`4ff36a8` + `8b7e4f3`) |
-| **R2-C** | Lifecycle-Status (Inbox/Later/Archive). Schema-Wahl offen: neue Enum-Spalte `Conversion.lifecycle_status` via Inline-ALTER-TABLE-Helper oder eigene Tabelle wenn Status-Historie gebraucht wird. Frontend: Status-Toggle in Library-Card + Detail-View, Filter-Chip in der List-View. | M | offen |
+| **R2-C** | Lifecycle-Status (Inbox/Later/Archive). **Eine Spalte** `Conversion.lifecycle_status` (String(20), Default `'inbox'`, indexed) via Inline-ALTER-TABLE-Helper + einmaliger differenzierter Backfill (`ai_newsletter→inbox`, Rest→`archive`). Orthogonal zum R2-B-Progress (**kein** 4. Status). Frontend: Status-Badge + Segmented-Toggle in Card + Detail, `?status`-Filter-Chips (kombinierbar mit `?tag`). | M | ☑ done 2026-06-04 (`f29c9cd` + `3350b89`) |
 
 ## Foundation-Voraussetzung für R1-B-A
 
@@ -206,3 +206,7 @@ R1-A liefert die kritischen Anker-Voraussetzungen:
 | 2026-05-29 | Furthest-read statt aktueller Scroll | Höchster erreichter Prozent-Wert wird persistiert (Session-Max aus gespeichertem Wert geseedet) — Zurückscrollen resettet den Fortschritt nicht |
 | 2026-05-29 | Persist via throttled fetch + keepalive-Flush, **nicht** `navigator.sendBeacon` | CSRFProtect ist global aktiv; sendBeacon kann den `X-CSRFToken`-Header nicht setzen. Throttle (~2s) über den globalen fetch-Wrapper, Flush bei `visibilitychange→hidden` via `fetch(..., {keepalive:true})` |
 | 2026-05-31 | Highlight-Anker in EINEM Koordinatensystem (`readerRawText`), nie `selection.toString()` als Such-Key (READER-FIX-B) | Save und Locate müssen denselben Text-Raum teilen. `selection.toString()` fügt an Block-Grenzen Separator-Newlines ein (`\n\n` empirisch), `readerRawText` (`nodeValue`-Concat) nicht (`\n`) → `indexOf` beim Re-Apply schlug fehl, Block-übergreifende Highlights unsichtbar. Fix: `exact`/`prefix`/`suffix` alle aus `readerRawText` slicen (`rawOffsetForPoint`-Helper), Backward-Compat-Fallback `locateWhitespaceTolerant` rettet Alt-Highlights. Korrektur-Notiz: READER-FIX-A reparierte nur Inline-Grenzen, die „Cross-Format-verschwunden"-Bewertung beruhte auf synthetischen DevTools-Ranges — Selection-Features nur mit echtem Maus-Drag smoken. Memory `feedback_selection_anchor_coordinate_system.md` |
+| 2026-06-03 | R2-C: Lifecycle als **3 Orte** (`inbox`/`later`/`archive`), nicht Star/Shortlist | Triage-Workflow braucht „wo lebt das Doc", nicht nur „wichtig ja/nein". Star/Shortlist bewusst verworfen zugunsten des 3-Ort-Modells |
+| 2026-06-03 | R2-C: „gelesen" bleibt der R2-B-Progress, **kein** 4. Lifecycle-Status | Lese-Fortschritt (`last_read_percent`) und Triage-Ort sind orthogonale Achsen — ein Doc kann „gelesen + archive" oder „ungelesen + later" sein. Kein Misch-Enum |
+| 2026-06-03 | R2-C: **eine Spalte** `lifecycle_status` statt eigener Tabelle | YAGNI — keine Status-Historie/Timestamps gebraucht. Inline-ALTER-TABLE (`reference_inline_sqlite_migration.md`) statt Table-Join; migrierbar zu eigener Tabelle wenn später Historie nötig |
+| 2026-06-03 | R2-C: differenzierter Einmal-Backfill beim Spalten-Add (`ai_newsletter→inbox`, Rest→`archive`) | Bestehende Newsletter sind echtes Triage-Material (Inbox), alte Tool-Outputs sind erledigt (Archive). Backfill-`UPDATE` **innerhalb** des Spalten-Existenz-Guards → genau einmal, kein Re-Clobber bei späterem manuellem Verschieben |
