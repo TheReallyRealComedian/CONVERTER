@@ -108,6 +108,34 @@ function toggleFavorite(btn) {
     });
 }
 
+// R2-D: reading-list toggle (detail view). Mirrors toggleFavorite but POSTs
+// add/remove to the queue endpoint; the conversion id is fixed to this page.
+// Updates the labeled button (flag icon + DE label) in place; errors use showToast.
+function toggleQueue(btn) {
+    const isQueued = btn.classList.contains('active');
+    const action = isQueued ? 'remove' : 'add';
+    fetch(`/api/conversions/${CONVERSION_ID}/queue`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ action })
+    }).then(r => {
+        if (r.ok) {
+            clearDetailAlert();
+            const queued = !isQueued;
+            btn.classList.toggle('active', queued);
+            btn.setAttribute('aria-pressed', queued ? 'true' : 'false');
+            const icon = btn.querySelector('.queue-toggle-btn__icon');
+            const label = btn.querySelector('.queue-toggle-btn__label');
+            if (icon) icon.innerHTML = queued ? '&#9873;' : '&#9872;';
+            if (label) label.textContent = queued ? 'Von der Lese-Liste' : 'Auf die Lese-Liste';
+        } else {
+            showToast(withServerSuffix('Lese-Liste konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
+        }
+    }).catch(() => {
+        showToast('Lese-Liste konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
+    });
+}
+
 // R2-C: lifecycle triage toggle (detail view). Mirrors the list-view setStatus
 // but takes only the status — the conversion id is fixed to this page. Success
 // is silent (the active segment is the feedback); errors use showToast.
@@ -1460,6 +1488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.updateField = updateField;
 window.toggleFavorite = toggleFavorite;
+window.toggleQueue = toggleQueue;
 window.setStatus = setStatus;
 window.copyFullContent = copyFullContent;
 window.downloadContent = downloadContent;

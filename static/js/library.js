@@ -6,6 +6,8 @@ const DELETE_RACE_MSG = 'Eintrag wurde bereits entfernt.';
 const STATUS_FAILURE_MSG = 'Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
 const STATUS_LABELS = { inbox: 'Inbox', later: 'Später', archive: 'Archiv' };
 const SESSION_EXPIRED_MSG = 'Sitzung abgelaufen. Seite neu laden und erneut anmelden.';
+const QUEUE_FAILURE_MSG = 'Lese-Liste konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.';
+const REORDER_FAILURE_MSG = 'Reihenfolge konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
 
 function libraryAlertContainer() { return document.getElementById('library-alert-container'); }
 function libraryActionStatus() { return document.getElementById('library-action-status'); }
@@ -54,6 +56,15 @@ function setStatus(id, status) {
         if (r.ok) {
             const container = libraryAlertContainer();
             if (container) container.innerHTML = '';
+            // In the queue-view an archived item leaves the to-read list (the
+            // view filters archive out). Reload rather than just dropping the
+            // card so the #rank badges and edge-disabled arrows of the
+            // remaining items stay correct (same robust reload the reorder uses).
+            const inQueueView = window.PageData && window.PageData.currentView === 'queue';
+            if (card && inQueueView && status === 'archive') {
+                window.location.reload();
+                return null;
+            }
             if (card) applyStatusToCard(card, status);
             return null;
         }
@@ -129,7 +140,73 @@ function deleteConversion(id, btn) {
     }).catch(err => handleFetchError(err, DELETE_FAILURE_MSG));
 }
 
+// R2-D: reading-list toggle. POSTs add/remove to the queue endpoint. The flag
+// icon (filled/outline) IS the feedback, so success is silent like the favorite
+// star. In the queue-view a just-removed item no longer belongs to the visible
+// set, so its card is pulled from the DOM instead of just flipping the icon.
+function toggleQueue(id, btn) {
+    const isQueued = btn.classList.contains('active');
+    const action = isQueued ? 'remove' : 'add';
+    fetch(`/api/conversions/${id}/queue`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ action })
+    }).then(r => {
+        if (r.ok) {
+            const container = libraryAlertContainer();
+            if (container) container.innerHTML = '';
+            // De-queueing from the queue-view drops the item from the visible
+            // list; reload so the remaining items' #rank + edge-arrows stay
+            // correct (the reorder uses the same robust reload).
+            const inQueueView = window.PageData && window.PageData.currentView === 'queue';
+            if (action === 'remove' && inQueueView) {
+                window.location.reload();
+                return null;
+            }
+            applyQueueToButton(btn, !isQueued);
+            return null;
+        }
+        return safeJSON(r).catch(() => null).then(() => {
+            showToast(withServerSuffix(QUEUE_FAILURE_MSG, r.status), { level: 'danger' });
+        });
+    }).catch(err => {
+        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : QUEUE_FAILURE_MSG;
+        showToast(msg, { level: 'danger' });
+    });
+}
+
+function applyQueueToButton(btn, queued) {
+    btn.classList.toggle('active', queued);
+    btn.setAttribute('aria-pressed', queued ? 'true' : 'false');
+    btn.innerHTML = queued ? '&#9873;' : '&#9872;';
+    btn.title = queued ? 'Von der Lese-Liste nehmen' : 'Auf die Lese-Liste setzen';
+}
+
+// R2-D: reorder a queued item by one slot (swap server-side). The list is small
+// and the swap is atomic, so a plain reload of the queue-view is the simplest
+// robust reflection of the new order (sprint: DOM-swap is optional polish).
+function moveQueue(id, dir) {
+    fetch(`/api/conversions/${id}/queue`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ action: dir })
+    }).then(r => {
+        if (r.ok) {
+            window.location.reload();
+            return null;
+        }
+        return safeJSON(r).catch(() => null).then(() => {
+            showToast(withServerSuffix(REORDER_FAILURE_MSG, r.status), { level: 'danger' });
+        });
+    }).catch(err => {
+        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : REORDER_FAILURE_MSG;
+        showToast(msg, { level: 'danger' });
+    });
+}
+
 window.toggleFavorite = toggleFavorite;
 window.setStatus = setStatus;
 window.copyContent = copyContent;
 window.deleteConversion = deleteConversion;
+window.toggleQueue = toggleQueue;
+window.moveQueue = moveQueue;

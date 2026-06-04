@@ -6,6 +6,23 @@
 {% set status_labels = {'inbox': 'Inbox', 'later': 'Später', 'archive': 'Archiv'} %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-6xl mx-auto">
+        <!-- View-Switcher (R2-D): Modus-Umschalter Alle/Lese-Liste/Weiterlesen.
+             Eigenständig von den Filter-/Status-/Tag-Chips — ein Modus, kein
+             Filter. Ein Moduswechsel setzt die Filter bewusst zurück (saubere
+             Kontext-Umschaltung); die Chips sind nur im Alle-Modus sichtbar. -->
+        <nav class="view-switcher mb-6" aria-label="Ansicht wählen">
+            <a href="{{ url_for('library') }}"
+               class="view-switcher__tab{% if not current_view %} is-active{% endif %}"
+               {% if not current_view %}aria-current="page"{% endif %}>Alle</a>
+            <a href="{{ url_for('library', view='queue') }}"
+               class="view-switcher__tab{% if current_view == 'queue' %} is-active{% endif %}"
+               {% if current_view == 'queue' %}aria-current="page"{% endif %}>Lese-Liste</a>
+            <a href="{{ url_for('library', view='reading') }}"
+               class="view-switcher__tab{% if current_view == 'reading' %} is-active{% endif %}"
+               {% if current_view == 'reading' %}aria-current="page"{% endif %}>Weiterlesen</a>
+        </nav>
+
+        {% if not current_view %}
         <div class="flex justify-end mb-2">
             <a href="{{ url_for('tags_page') }}" class="text-sm text-neo-faint hover:text-neo-text no-underline transition-colors">Tags verwalten</a>
         </div>
@@ -51,12 +68,12 @@
         <div class="flex items-center gap-2 flex-wrap mb-8" aria-label="Nach Status filtern">
             <span class="text-xs text-neo-faint">Status:</span>
             {% for s_key, s_label in status_labels.items() %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, s_key)) }}"
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, s_key, current_view)) }}"
                class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if s_key == current_status %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
                {% if s_key == current_status %}aria-current="true"{% endif %}>{{ s_label }}</a>
             {% endfor %}
             {% if current_status %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, '')) }}"
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, '', current_view)) }}"
                class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Status-Filter aufheben</a>
             {% endif %}
         </div>
@@ -68,15 +85,16 @@
         <div class="flex items-center gap-2 flex-wrap mb-8" aria-label="Nach Tag filtern">
             <span class="text-xs text-neo-faint">Tags:</span>
             {% for t in available_tags %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name, current_status)) }}"
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name, current_status, current_view)) }}"
                class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if t.name == current_tag %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
                {% if t.name == current_tag %}aria-current="true"{% endif %}>{{ t.name }}</a>
             {% endfor %}
             {% if current_tag %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, '', current_status)) }}"
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, '', current_status, current_view)) }}"
                class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Tag-Filter aufheben</a>
             {% endif %}
         </div>
+        {% endif %}
         {% endif %}
 
         <div id="library-alert-container"></div>
@@ -84,9 +102,25 @@
 
         <!-- Results -->
         {% if conversions %}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 {% if current_view != 'queue' %}md:grid-cols-2 xl:grid-cols-3{% endif %} gap-6">
             {% for conv in conversions %}
             <div class="c-card flex flex-col" data-id="{{ conv.id }}" data-content="{{ conv.content }}">
+                {% if current_view == 'queue' %}
+                <!-- Reorder-Rail (R2-D, nur im queue-View): #Rang + Hoch/Runter.
+                     Globaler Rang über Seiten via page/per_page; Edge-Buttons
+                     disabled am echten Listen-Anfang/-Ende. Nach Klick reload. -->
+                <div class="queue-reorder" role="group" aria-label="Reihenfolge ändern">
+                    <span class="queue-reorder__pos" aria-hidden="true">{{ (pagination.page - 1) * current_per_page + loop.index }}</span>
+                    <div class="queue-reorder__btns">
+                        <button type="button" class="queue-reorder__btn" onclick="moveQueue({{ conv.id }}, 'up')"
+                                title="Nach oben" aria-label="Nach oben"
+                                {% if loop.first and not pagination.has_prev %}disabled{% endif %}>&#9650;</button>
+                        <button type="button" class="queue-reorder__btn" onclick="moveQueue({{ conv.id }}, 'down')"
+                                title="Nach unten" aria-label="Nach unten"
+                                {% if loop.last and not pagination.has_next %}disabled{% endif %}>&#9660;</button>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="flex justify-between items-center px-4 pt-3">
                     <div class="flex items-center gap-1.5 flex-wrap min-w-0">
                         <span class="type-badge type-{{ conv.conversion_type }}">
@@ -99,9 +133,15 @@
                         </span>
                         <span class="status-badge status-badge--{{ conv.lifecycle_status }}" data-status-badge>{{ status_labels.get(conv.lifecycle_status, 'Inbox') }}</span>
                     </div>
-                    <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Favorit umschalten">
-                        {{ '★' if conv.is_favorite else '☆' }}
-                    </button>
+                    <div class="flex items-center gap-0.5 flex-shrink-0">
+                        <button type="button" class="queue-btn{% if conv.queue_position is not none %} active{% endif %}"
+                                onclick="toggleQueue({{ conv.id }}, this)"
+                                aria-pressed="{{ 'true' if conv.queue_position is not none else 'false' }}"
+                                title="{{ 'Von der Lese-Liste nehmen' if conv.queue_position is not none else 'Auf die Lese-Liste setzen' }}">{{ '⚑' if conv.queue_position is not none else '⚐' }}</button>
+                        <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Favorit umschalten">
+                            {{ '★' if conv.is_favorite else '☆' }}
+                        </button>
+                    </div>
                 </div>
                 <a href="{{ url_for('library_detail', conversion_id=conv.id) }}" class="px-4 py-2 flex-1 no-underline">
                     <h5 class="text-sm font-semibold text-neo-text mb-1 leading-snug">{{ conv.title }}</h5>
@@ -151,12 +191,12 @@
         {% if pagination.pages > 1 %}
         <nav class="flex justify-center gap-1 mt-6">
             {% if pagination.has_prev %}
-            <a href="{{ url_for('library', **pagination_args(pagination.prev_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status)) }}"
+            <a href="{{ url_for('library', **pagination_args(pagination.prev_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status, current_view)) }}"
                class="c-btn text-sm py-1.5 px-3 no-underline">Zurück</a>
             {% endif %}
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                 {% if p %}
-                <a href="{{ url_for('library', **pagination_args(p, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status)) }}"
+                <a href="{{ url_for('library', **pagination_args(p, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status, current_view)) }}"
                    class="text-sm py-1.5 px-3 rounded-full no-underline transition-all
                    {% if p == pagination.page %}c-btn c-btn--primary{% else %}c-btn{% endif %}">{{ p }}</a>
                 {% else %}
@@ -164,7 +204,7 @@
                 {% endif %}
             {% endfor %}
             {% if pagination.has_next %}
-            <a href="{{ url_for('library', **pagination_args(pagination.next_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status)) }}"
+            <a href="{{ url_for('library', **pagination_args(pagination.next_num, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status, current_view)) }}"
                class="c-btn text-sm py-1.5 px-3 no-underline">Weiter</a>
             {% endif %}
         </nav>
@@ -172,7 +212,13 @@
 
         {% else %}
         <div class="text-center py-16 text-neo-muted">
-            {% if has_active_filter %}
+            {% if current_view == 'queue' and not has_active_filter %}
+            <h5 class="text-base font-semibold text-neo-text mb-1">Deine Lese-Liste ist leer</h5>
+            <p class="text-sm">Auf einer Karte „Auf die Lese-Liste" tippen, dann sammelt sie sich hier — in deiner Reihenfolge.</p>
+            {% elif current_view == 'reading' and not has_active_filter %}
+            <h5 class="text-base font-semibold text-neo-text mb-1">Nichts angefangen</h5>
+            <p class="text-sm">Sobald du etwas liest, taucht dein aktueller Stapel hier auf.</p>
+            {% elif has_active_filter %}
             <h5 class="text-base font-semibold text-neo-text mb-1">Keine Treffer mit aktuellen Filtern</h5>
             <p class="text-sm mb-4">Mit den aktiven Filtern ist nichts gespeichert. Filter zurücksetzen, um die gesamte Library zu zeigen.</p>
             <a href="{{ url_for('library') }}" class="c-btn text-sm py-1.5 px-4 no-underline">Alle Filter zurücksetzen</a>
@@ -187,5 +233,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script>window.PageData = { currentView: "{{ current_view }}" };</script>
 <script src="{{ url_for('static', filename='js/library.js') }}"></script>
 {% endblock %}

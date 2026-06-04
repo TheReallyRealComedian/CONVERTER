@@ -101,6 +101,16 @@
                                 onclick="setStatus('{{ s_key }}')">{{ s_label }}</button>
                         {% endfor %}
                     </div>
+                    <!-- Lese-Liste-Toggle (R2-D): orthogonal zum Status-Ort.
+                         Eigener JS-Pfad mit fixer CONVERSION_ID. -->
+                    <button type="button"
+                            class="queue-toggle-btn{% if conversion.queue_position is not none %} active{% endif %}"
+                            onclick="toggleQueue(this)"
+                            aria-pressed="{{ 'true' if conversion.queue_position is not none else 'false' }}"
+                            title="Auf die Lese-Liste setzen oder davon entfernen">
+                        <span class="queue-toggle-btn__icon" aria-hidden="true">{{ '⚑' if conversion.queue_position is not none else '⚐' }}</span>
+                        <span class="queue-toggle-btn__label">{{ 'Von der Lese-Liste' if conversion.queue_position is not none else 'Auf die Lese-Liste' }}</span>
+                    </button>
                 </div>
 
                 <!-- Highlights / Markierungen -->
