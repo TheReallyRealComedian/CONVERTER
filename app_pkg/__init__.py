@@ -105,6 +105,12 @@ def _run_pending_migrations(app):
             db.session.execute(text("UPDATE conversion SET lifecycle_status='archive' WHERE conversion_type != 'ai_newsletter'"))
             db.session.commit()
             app.logger.info("R2-C: conversion.lifecycle_status added + backfilled (ai_newsletter→inbox, rest→archive)")
+        if 'queue_position' not in cols:
+            db.session.execute(text('ALTER TABLE conversion ADD COLUMN queue_position FLOAT'))
+            # No backfill — NULL means "not on the reading list", so everyone
+            # starts with an empty list. Idempotent via the column guard above.
+            db.session.commit()
+            app.logger.info("R2-D: conversion.queue_position added via ALTER TABLE")
     _migrate_conversion_tags_csv_to_junction(app)
 
 

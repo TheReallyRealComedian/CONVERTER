@@ -55,6 +55,11 @@ class Conversion(db.Model):
     # status). Indexed because the list-view filters on it. Added via inline
     # ALTER TABLE; the column-add backfills ai_newsletter→inbox, rest→archive.
     lifecycle_status = db.Column(db.String(20), default='inbox', index=True)
+    # R2-D: manual reading-list priority. NULL = not on the list; a Float so a
+    # future drag-reorder can slot an item *between* two neighbours without
+    # renumbering the whole list. Orthogonal to lifecycle_status (location) and
+    # last_read_percent (progress). No backfill — everyone starts off-list.
+    queue_position = db.Column(db.Float, nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
@@ -79,6 +84,7 @@ class Conversion(db.Model):
             'is_favorite': self.is_favorite,
             'last_read_percent': self.last_read_percent,
             'lifecycle_status': self.lifecycle_status,
+            'queue_position': self.queue_position,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

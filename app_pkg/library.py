@@ -25,10 +25,11 @@ ALLOWED_PER_PAGE = (20, 50, 100)
 DEFAULT_PER_PAGE = 20
 
 
-def pagination_args(page, conversion_type, search, favorites, sort, per_page, tag='', status=''):
+def pagination_args(page, conversion_type, search, favorites, sort, per_page, tag='', status='', view=''):
     """Build the **kwargs for url_for('library', …) so favorites='', the
-    default per_page, an empty tag and an empty status drop out of the URL
-    entirely (F-6 P9 + P12; R2-B adds the tag filter, R2-C the status filter)."""
+    default per_page, an empty tag, an empty status and an empty view drop out
+    of the URL entirely (F-6 P9 + P12; R2-B adds the tag filter, R2-C the status
+    filter, R2-D the view mode)."""
     args = {'page': page, 'type': conversion_type, 'search': search, 'sort': sort}
     if favorites:
         args['favorites'] = '1'
@@ -38,6 +39,8 @@ def pagination_args(page, conversion_type, search, favorites, sort, per_page, ta
         args['tag'] = tag
     if status:
         args['status'] = status
+    if view:
+        args['view'] = view
     return args
 
 
@@ -66,6 +69,14 @@ def register(app):
         # else is treated as "no status filter" (current_status stays '').
         status = request.args.get('status', '').strip()
         current_status = status if status in LIFECYCLE_STATUSES else ''
+        # R2-D: view modes are orthogonal to the filter chips. 'queue' = the
+        # manual reading-list (queued + not archived, ordered by position);
+        # 'reading' = in-progress (0 < last_read_percent < 95, recent first).
+        # Anything else falls through to the normal "Alle" list. A mode, not a
+        # filter — kept out of has_active_filter so the "Filter zurücksetzen"
+        # empty-state stays scoped to type/search/tag/status.
+        view = request.args.get('view', '')
+        current_view = view if view in ('queue', 'reading') else ''
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
@@ -103,7 +114,26 @@ def register(app):
                 )
             )
 
-        if sort == 'oldest':
+        # R2-D view-mode filters AND on top of the type/tag/status/search chips.
+        if current_view == 'queue':
+            query = query.filter(
+                Conversion.queue_position.isnot(None),
+                Conversion.lifecycle_status != 'archive',
+            )
+        elif current_view == 'reading':
+            query = query.filter(
+                Conversion.last_read_percent.isnot(None),
+                Conversion.last_read_percent > 0,
+                Conversion.last_read_percent < 95,
+            )
+
+        # View modes override the sort param: queue by manual position, reading
+        # by most-recently-touched.
+        if current_view == 'queue':
+            query = query.order_by(Conversion.queue_position.asc())
+        elif current_view == 'reading':
+            query = query.order_by(Conversion.updated_at.desc())
+        elif sort == 'oldest':
             query = query.order_by(Conversion.created_at.asc())
         elif sort == 'title':
             query = query.order_by(Conversion.title.asc())
@@ -137,6 +167,7 @@ def register(app):
                                current_per_page=per_page,
                                current_tag=tag,
                                current_status=current_status,
+                               current_view=current_view,
                                available_tags=available_tags,
                                allowed_per_page=ALLOWED_PER_PAGE,
                                has_active_filter=has_active_filter,
@@ -242,6 +273,51 @@ def register(app):
         conversion.last_read_percent = percent
         db.session.commit()
         return jsonify({'success': True, 'last_read_percent': percent}), 200
+
+    @app.route('/api/conversions/<int:conversion_id>/queue', methods=['POST'])
+    @login_required
+    def api_update_conversion_queue(conversion_id):
+        # R2-D reading-list queue: add/remove toggle + up/down reorder. Float
+        # positions so a future drag-reorder can slot between neighbours.
+        conversion = get_owned_conversion(conversion_id)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        action = data.get('action')
+        if action not in {'add', 'remove', 'up', 'down'}:
+            return jsonify({'error': 'Ungültige Queue-Aktion.'}), 400
+
+        if action == 'add':
+            # Already on the list → no-op; otherwise append at the end. max()
+            # ignores NULLs in SQL, so this is the largest position in use.
+            if conversion.queue_position is None:
+                max_pos = db.session.query(db.func.max(Conversion.queue_position)).filter(
+                    Conversion.user_id == current_user.id,
+                ).scalar()
+                conversion.queue_position = (max_pos + 1.0) if max_pos is not None else 1.0
+        elif action == 'remove':
+            conversion.queue_position = None
+        else:
+            # up/down: swap queue_position with the direct neighbour among the
+            # user's queued items (sorted asc). Two-row update, one commit
+            # boundary. No-op at the top/bottom edge or when not queued at all.
+            if conversion.queue_position is not None:
+                queued = Conversion.query.filter(
+                    Conversion.user_id == current_user.id,
+                    Conversion.queue_position.isnot(None),
+                ).order_by(Conversion.queue_position.asc()).all()
+                idx = next((i for i, c in enumerate(queued) if c.id == conversion.id), None)
+                if idx is not None:
+                    neighbour_idx = (idx - 1) if action == 'up' else (idx + 1)
+                    if 0 <= neighbour_idx < len(queued):
+                        neighbour = queued[neighbour_idx]
+                        conversion.queue_position, neighbour.queue_position = (
+                            neighbour.queue_position, conversion.queue_position,
+                        )
+
+        db.session.commit()
+        return jsonify(conversion.to_dict())
 
     @app.route('/api/conversions/<int:conversion_id>/tags', methods=['POST'])
     @login_required
