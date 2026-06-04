@@ -3,6 +3,8 @@
 const FAVORITE_FAILURE_MSG = 'Favorit konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.';
 const DELETE_FAILURE_MSG = 'Löschen fehlgeschlagen. Verbindung prüfen und erneut versuchen.';
 const DELETE_RACE_MSG = 'Eintrag wurde bereits entfernt.';
+const STATUS_FAILURE_MSG = 'Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
+const STATUS_LABELS = { inbox: 'Inbox', later: 'Später', archive: 'Archiv' };
 const SESSION_EXPIRED_MSG = 'Sitzung abgelaufen. Seite neu laden und erneut anmelden.';
 
 function libraryAlertContainer() { return document.getElementById('library-alert-container'); }
@@ -36,6 +38,46 @@ function toggleFavorite(id, btn) {
             showAlert(libraryAlertContainer(), 'danger', withServerSuffix(FAVORITE_FAILURE_MSG, r.status));
         });
     }).catch(err => handleFetchError(err, FAVORITE_FAILURE_MSG));
+}
+
+// R2-C: lifecycle triage toggle. PUTs lifecycle_status like toggleFavorite;
+// success is silent (the badge + active segment ARE the feedback), errors use
+// showToast. The card stays in place even under an active ?status filter — the
+// reload after triage reflects the filtered set.
+function setStatus(id, status) {
+    const card = document.querySelector(`[data-id="${id}"]`);
+    fetch(`/api/conversions/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lifecycle_status: status})
+    }).then(r => {
+        if (r.ok) {
+            const container = libraryAlertContainer();
+            if (container) container.innerHTML = '';
+            if (card) applyStatusToCard(card, status);
+            return null;
+        }
+        return safeJSON(r).catch(() => null).then(() => {
+            showToast(withServerSuffix(STATUS_FAILURE_MSG, r.status), { level: 'danger' });
+        });
+    }).catch(err => {
+        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : STATUS_FAILURE_MSG;
+        showToast(msg, { level: 'danger' });
+    });
+}
+
+function applyStatusToCard(card, status) {
+    const badge = card.querySelector('[data-status-badge]');
+    if (badge) {
+        badge.classList.remove('status-badge--inbox', 'status-badge--later', 'status-badge--archive');
+        badge.classList.add(`status-badge--${status}`);
+        badge.textContent = STATUS_LABELS[status] || status;
+    }
+    card.querySelectorAll('[data-status-control] .status-segmented__btn').forEach(btn => {
+        const active = btn.dataset.status === status;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
 }
 
 function copyContent(id) {
@@ -88,5 +130,6 @@ function deleteConversion(id, btn) {
 }
 
 window.toggleFavorite = toggleFavorite;
+window.setStatus = setStatus;
 window.copyContent = copyContent;
 window.deleteConversion = deleteConversion;

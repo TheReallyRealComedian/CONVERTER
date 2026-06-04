@@ -108,6 +108,34 @@ function toggleFavorite(btn) {
     });
 }
 
+// R2-C: lifecycle triage toggle (detail view). Mirrors the list-view setStatus
+// but takes only the status — the conversion id is fixed to this page. Success
+// is silent (the active segment is the feedback); errors use showToast.
+function setStatus(status) {
+    fetch(`/api/conversions/${CONVERSION_ID}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lifecycle_status: status})
+    }).then(r => {
+        if (r.ok) {
+            clearDetailAlert();
+            applyStatusControl(status);
+        } else {
+            showToast(withServerSuffix('Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
+        }
+    }).catch(() => {
+        showToast('Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
+    });
+}
+
+function applyStatusControl(status) {
+    document.querySelectorAll('[data-status-control] .status-segmented__btn').forEach(btn => {
+        const active = btn.dataset.status === status;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
+
 function copyFullContent() {
     const text = document.getElementById('content-source').textContent;
     fallbackCopyText(text).then(() => showToast('Kopiert'))
@@ -1432,6 +1460,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.updateField = updateField;
 window.toggleFavorite = toggleFavorite;
+window.setStatus = setStatus;
 window.copyFullContent = copyFullContent;
 window.downloadContent = downloadContent;
 window.storeForReuse = storeForReuse;

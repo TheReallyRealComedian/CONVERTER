@@ -23,6 +23,7 @@
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
      CONVERSION TAG              – .conversion-tag-chip (library_detail sidebar inline picker)
      TAG CHIP                    – .c-tag (shared pill), .c-tag--active (R2-B library tag-filter chip)
+     LIFECYCLE STATUS            – .status-badge (R2-C inbox/later/archive), .status-segmented toggle
      TAG MANAGER                 – .tag-manager-card (per-tag row on /tags page)
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
@@ -1596,6 +1597,78 @@ body.reader-active .sidebar-toggle-floater--global {
     box-shadow: inset 0 0 0 1px var(--nm-accent-hover);
 }
 
+/* ===== LIFECYCLE STATUS (R2-C) ===== */
+/* Status badge — Title-Case + a leading dot so it reads as a DIFFERENT badge
+   family than the UPPERCASE .type-* badges that share the card header (sprint:
+   "nicht mit den type-*-Badges verwechselbar"). Three dezent, mutually-
+   distinct tones (rose / amber / slate); token-tinted, dark mirrored below. */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--nm-radius-pill);
+    white-space: nowrap;
+}
+.status-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.75;
+    flex-shrink: 0;
+}
+.status-badge--inbox   { background: rgba(244, 63, 94, 0.10);   color: #be123c; }
+.status-badge--later   { background: rgba(217, 119, 6, 0.10);   color: #b45309; }
+.status-badge--archive { background: rgba(100, 116, 139, 0.12); color: #475569; }
+
+/* Segmented 3-way status control — neutral on purpose: the colored badge is
+   the only tonal cue, the control just shows WHICH place is active via a
+   raised (pressed-out) segment sitting in a pressed-in track. Token-driven, so
+   dark mode adapts via the redefined --nm-bg / shadow primitives. */
+.status-segmented {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--nm-radius-pill);
+    box-shadow: var(--nm-pressed-sm);
+}
+.status-segmented--full {
+    display: flex;
+    width: 100%;
+}
+.status-segmented--full .status-segmented__btn {
+    flex: 1;
+    text-align: center;
+}
+.status-segmented__btn {
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border: none;
+    border-radius: var(--nm-radius-pill);
+    background: transparent;
+    color: var(--nm-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s ease, box-shadow 0.15s ease;
+}
+.status-segmented__btn:hover { color: var(--nm-text); }
+.status-segmented__btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--nm-accent-hover);
+}
+.status-segmented__btn.is-active {
+    color: var(--nm-text);
+    font-weight: 600;
+    background: var(--nm-bg);
+    box-shadow: var(--nm-raised-sm);
+}
+
 /* Shadow separator lines (neomorphism alternative to borders) */
 .neo-separator-bottom {
     box-shadow: 0 1px 0 rgba(0,0,0,0.06),
@@ -1807,6 +1880,11 @@ body.reader-active .theme-toggle-btn {
 [data-global-theme="dark"] .type-dialogue_formatting { background: rgba(152, 136, 184, 0.15); color: #b8a8d8; }
 [data-global-theme="dark"] .type-markdown_input { background: rgba(232, 176, 64, 0.15); color: #e0b848; }
 [data-global-theme="dark"] .type-ai_newsletter { background: rgba(94, 204, 188, 0.15); color: #6fd4c0; }
+
+/* Dark: Status badges (R2-C) — higher alpha + lighter text for contrast */
+[data-global-theme="dark"] .status-badge--inbox   { background: rgba(251, 113, 133, 0.16); color: #fb7185; }
+[data-global-theme="dark"] .status-badge--later   { background: rgba(245, 158, 11, 0.16);  color: #fbbf24; }
+[data-global-theme="dark"] .status-badge--archive { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
 
 /* Dark: Save button saved state */
 [data-global-theme="dark"] .save-library-btn.saved {

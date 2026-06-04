@@ -3,6 +3,7 @@
 {% block title %}Library{% endblock %}
 
 {% block content %}
+{% set status_labels = {'inbox': 'Inbox', 'later': 'Später', 'archive': 'Archiv'} %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-6xl mx-auto">
         <div class="flex justify-end mb-2">
@@ -43,6 +44,23 @@
             </form>
         </div>
 
+        <!-- Status-Filter-Chip-Row (R2-C): URL-persistierter ?status-Filter
+             (inbox/later/archive). Immer sichtbar — die drei Orte existieren
+             stets. Jede Chip bewahrt die übrigen Filter inkl. ?tag via
+             pagination_args(page=1, ..., current_tag, s_key). -->
+        <div class="flex items-center gap-2 flex-wrap mb-8" aria-label="Nach Status filtern">
+            <span class="text-xs text-neo-faint">Status:</span>
+            {% for s_key, s_label in status_labels.items() %}
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, s_key)) }}"
+               class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if s_key == current_status %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
+               {% if s_key == current_status %}aria-current="true"{% endif %}>{{ s_label }}</a>
+            {% endfor %}
+            {% if current_status %}
+            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, '')) }}"
+               class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Status-Filter aufheben</a>
+            {% endif %}
+        </div>
+
         <!-- Tag-Filter-Chip-Row (R2-B): URL-persistierter ?tag-Filter. Jede Chip
              bewahrt die übrigen aktiven Filter (type/search/favorites/sort/per_page)
              via pagination_args(page=1). Nur rendern wenn Tags existieren. -->
@@ -70,14 +88,17 @@
             {% for conv in conversions %}
             <div class="c-card flex flex-col" data-id="{{ conv.id }}" data-content="{{ conv.content }}">
                 <div class="flex justify-between items-center px-4 pt-3">
-                    <span class="type-badge type-{{ conv.conversion_type }}">
-                        {% if conv.conversion_type == 'document_to_markdown' %}Dokument
-                        {% elif conv.conversion_type == 'audio_transcription' %}Audio
-                        {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
-                        {% elif conv.conversion_type == 'markdown_input' %}Markdown
-                        {% elif conv.conversion_type == 'ai_newsletter' %}AI-Newsletter
-                        {% else %}{{ conv.conversion_type }}{% endif %}
-                    </span>
+                    <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <span class="type-badge type-{{ conv.conversion_type }}">
+                            {% if conv.conversion_type == 'document_to_markdown' %}Dokument
+                            {% elif conv.conversion_type == 'audio_transcription' %}Audio
+                            {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
+                            {% elif conv.conversion_type == 'markdown_input' %}Markdown
+                            {% elif conv.conversion_type == 'ai_newsletter' %}AI-Newsletter
+                            {% else %}{{ conv.conversion_type }}{% endif %}
+                        </span>
+                        <span class="status-badge status-badge--{{ conv.lifecycle_status }}" data-status-badge>{{ status_labels.get(conv.lifecycle_status, 'Inbox') }}</span>
+                    </div>
                     <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Favorit umschalten">
                         {{ '★' if conv.is_favorite else '☆' }}
                     </button>
@@ -103,6 +124,17 @@
                     <div class="ml-auto flex gap-1">
                         <button type="button" class="c-btn text-xs py-1 px-2" onclick="copyContent({{ conv.id }})" title="Inhalt kopieren">Kopieren</button>
                         <button type="button" class="c-btn c-btn--danger text-xs py-1 px-2" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
+                    </div>
+                </div>
+                <div class="px-4 pb-3">
+                    <div class="status-segmented" role="group" aria-label="Status ändern" data-status-control>
+                        {% for s_key, s_label in status_labels.items() %}
+                        <button type="button"
+                                class="status-segmented__btn{% if conv.lifecycle_status == s_key %} is-active{% endif %}"
+                                data-status="{{ s_key }}"
+                                aria-pressed="{{ 'true' if conv.lifecycle_status == s_key else 'false' }}"
+                                onclick="setStatus({{ conv.id }}, '{{ s_key }}')">{{ s_label }}</button>
+                        {% endfor %}
                     </div>
                 </div>
                 {% if conv.last_read_percent and conv.last_read_percent > 0 %}
