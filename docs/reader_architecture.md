@@ -1,8 +1,8 @@
 # Reader-Architecture — Entscheidungs-Memo
 
 **Stand**: 2026-06-04
-**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31; R2-C-Workshop 2026-06-03
-**Status**: Aktive Referenz für R2 (☑ A/B/C komplett) + R3 + R4-LEARN Sprints — nicht archiviert.
+**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31; R2-C-Workshop 2026-06-03; R2-D-Workshop 2026-06-04
+**Status**: Aktive Referenz für R2 (☑ A/B/C/D komplett — die drei Reader-Achsen Ort · Lese-Zustand · Priorität sind voll getrennt) + R3 + R4-LEARN Sprints — nicht archiviert.
 
 ---
 
@@ -119,6 +119,24 @@ Table-Rebuild, das gehört in einen separaten Cleanup-Sprint.
 nur im Code. Rename wäre großer Code-Churn ohne UI-Wert. Wenn der Name irgendwann ärgert: eigener
 Cleanup-Sprint mit clean ALTER TABLE.
 
+## Knoten 6 — Reader-Achsen: Ort · Lese-Zustand · Priorität (R2-D)
+
+**Entscheidung**: Drei **orthogonale** Reader-Achsen, je eine eigene Skalar-Spalte an `Conversion`, nie ein Misch-Enum:
+
+| Achse | Spalte | Werte | Sprint |
+|---|---|---|---|
+| **Ort** (Triage-Lifecycle) | `lifecycle_status` | `inbox` / `later` / `archive` | R2-C |
+| **Lese-Zustand** (Fortschritt) | `last_read_percent` | `NULL` / 0–100 (Weiterlesen = `0<%<95`) | R2-B |
+| **Priorität** (geordnete Lese-Liste) | `queue_position` | `NULL` = nicht drauf / Float (`asc` = Reihenfolge) | R2-D |
+
+**Begründung**: Ein Doc kann gleichzeitig *archiviert* + *halb gelesen* + *nicht auf der Lese-Liste* sein — oder *Inbox + ungelesen + Lese-Liste-Platz-3*. Die drei Fragen „wo lebt es?", „wie weit bin ich?", „was als Nächstes?" sind unabhängig; ein einzelnes Status-Enum würde sie kollabieren. Die **Lese-Liste (R2-D)** ist bewusst eine **eigene Dimension**, **kein** Repurpose der Favoriten — der Stern bleibt orthogonal und unsortiert (Archiv-Items dürfen Favorit sein), liefert also kein echtes „lese-als-Nächstes".
+
+**`queue_position` als Float**: `NULL` = nicht auf der Liste, Sortierung `asc` = Lese-Reihenfolge. **Float** (nicht Integer), damit ein künftiges Drag-Einsortieren *zwischen* zwei Nachbarn nur den Mittelwert setzen muss, ohne die ganze Liste neu zu nummerieren. v1 macht **Hoch/Runter** = `queue_position`-**Swap** der zwei betroffenen Zeilen (eine commit-Boundary). Kein Backfill — alle starten `NULL` (leere Liste).
+
+**Weiterlesen-View** ist rein abgeleitet (`0 < last_read_percent < 95`, sort `updated_at desc`) — kein eigenes Schema, die billige Hälfte von R2-D.
+
+**Archiv ∩ Lese-Liste**: der queue-View zeigt nur **queued + nicht-archiviert** (`queue_position IS NOT NULL AND lifecycle_status != 'archive'`). **Kein Auto-Dequeue** beim Archivieren — reine View-Filterung, un-archivieren bringt das Item an seiner alten Position zurück. **Konsequenz fürs Reorder**: der up/down-Swap muss über **dieselbe gefilterte (sichtbare) Menge** laufen wie der View, sonst tauscht „hoch" mit einem unsichtbaren archivierten Nachbarn und tut scheinbar nichts (R2-D-Swap-Fix `d7f5097`; verallgemeinert in Memory `reference_reorder_over_filtered_set.md`). Dasselbe Prinzip greift im Frontend: queue-View-Membership-Änderungen (de-queue / archivieren) reloaden, damit `#Rang` + Edge-Arrows der Restliste korrekt bleiben.
+
 ## Vollständiges Reader-Schema-Diagramm
 
 ```
@@ -167,6 +185,7 @@ ausgegliedert worden.
 | **R2-A** | `conversion_tags`-Junction + CSV-Migration + `Tag.get_or_create`-DRY-Anker + Frontend Library-Card-Strip + Detail-Sidebar-Picker + GET-/api/tags-Erweiterung + Tag-Manager-Cascade beide Junctions + Pre-Commit-Patch Library-Search Junction-Branch. | L | ☑ done 2026-05-25 |
 | **R2-B** | Filtered Views + Reading-Progress. Tag-Filter-Chip-Row in der Library-List mit URL-`?tag`-Persistierung (Junction-Pfad `Conversion.tag_refs.any(Tag.name == …)`, `==` statt `ilike`). Reading-Progress pro Card via nullable `Conversion.last_read_percent` (Prozent 0–100, furthest-read), `PATCH /api/conversions/<id>/progress` + Resume-on-Open + throttle/keepalive-Flush. | M | ☑ done 2026-05-29 (`4ff36a8` + `8b7e4f3`) |
 | **R2-C** | Lifecycle-Status (Inbox/Later/Archive). **Eine Spalte** `Conversion.lifecycle_status` (String(20), Default `'inbox'`, indexed) via Inline-ALTER-TABLE-Helper + einmaliger differenzierter Backfill (`ai_newsletter→inbox`, Rest→`archive`). Orthogonal zum R2-B-Progress (**kein** 4. Status). Frontend: Status-Badge + Segmented-Toggle in Card + Detail, `?status`-Filter-Chips (kombinierbar mit `?tag`). | M | ☑ done 2026-06-04 (`f29c9cd` + `3350b89`) |
+| **R2-D** | Lese-Liste / Priority-Shortlist (geordnet). **Eine Float-Spalte** `Conversion.queue_position` (nullable, `NULL`=nicht drauf) via Inline-ALTER (kein Backfill). Queue-API `POST /api/conversions/<id>/queue` (add / remove / up-down-Swap). `?view=queue` (queued+nicht-archiviert, sort `position asc`) + abgeleiteter `?view=reading` (`0<%<95`, kein neues Schema). Frontend: View-Switcher (Modus) + Queue-Flag-Toggle (Card+Detail) + Hoch/Runter-Reorder. **Dritte orthogonale Achse** (Priorität, Knoten 6). | M | ☑ done 2026-06-04 (`d466ec1` + `d7f5097` Swap-Fix + `4824a5c`) |
 
 ## Foundation-Voraussetzung für R1-B-A
 
@@ -210,3 +229,7 @@ R1-A liefert die kritischen Anker-Voraussetzungen:
 | 2026-06-03 | R2-C: „gelesen" bleibt der R2-B-Progress, **kein** 4. Lifecycle-Status | Lese-Fortschritt (`last_read_percent`) und Triage-Ort sind orthogonale Achsen — ein Doc kann „gelesen + archive" oder „ungelesen + later" sein. Kein Misch-Enum |
 | 2026-06-03 | R2-C: **eine Spalte** `lifecycle_status` statt eigener Tabelle | YAGNI — keine Status-Historie/Timestamps gebraucht. Inline-ALTER-TABLE (`reference_inline_sqlite_migration.md`) statt Table-Join; migrierbar zu eigener Tabelle wenn später Historie nötig |
 | 2026-06-03 | R2-C: differenzierter Einmal-Backfill beim Spalten-Add (`ai_newsletter→inbox`, Rest→`archive`) | Bestehende Newsletter sind echtes Triage-Material (Inbox), alte Tool-Outputs sind erledigt (Archive). Backfill-`UPDATE` **innerhalb** des Spalten-Existenz-Guards → genau einmal, kein Re-Clobber bei späterem manuellem Verschieben |
+| 2026-06-04 | R2-D: Lese-Liste als **eigene Dimension** (`queue_position`), kein Favoriten-Repurpose | Der Favoriten-Stern ist orthogonal (Archiv-Items dürfen Favorit sein) **und** unsortiert → kein echtes „lese-als-Nächstes". Eigene Spalte statt den Stern umzudeuten; keine Favoriten-Migration (Knoten 6) |
+| 2026-06-04 | R2-D: `queue_position` als **Float**, nicht Integer | Float erlaubt späteres Drag-Einsortieren *zwischen* zwei Nachbarn via Mittelwert ohne Neu-Nummerierung der ganzen Liste. v1 macht Hoch/Runter = `queue_position`-Swap zweier Zeilen (eine commit-Boundary) |
+| 2026-06-04 | R2-D: Reorder-Swap läuft über die **sichtbare (gefilterte) Menge**, nicht alle queued Items | Decision #5 dequeued archivierte Items nicht → sie behalten `queue_position`. Gegen die ungefilterte Menge tauschte „hoch" mit einem unsichtbaren Archiv-Nachbarn (scheinbarer No-op). Der `queued`-Set im up/down-Zweig kriegt denselben `lifecycle_status != 'archive'`-Filter wie der View (Swap-Fix `d7f5097` nach Master-Diff-Read, rot→grün-Regressionstest). Verallgemeinert: jede Reorder/Mutation über dieselbe gefilterte Menge wie der View — Memory `reference_reorder_over_filtered_set.md` |
+| 2026-06-04 | R2-D: Archiv ∩ Lese-Liste = **View-Filter** statt Auto-Dequeue | Archivieren fasst `queue_position` nicht an; der queue-View filtert `lifecycle_status != 'archive'` raus. Un-archivieren bringt das Item an alter Position zurück — Lifecycle (Ort) und queue_position (Priorität) bleiben unabhängige Achsen |
