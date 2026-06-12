@@ -187,17 +187,62 @@
             {% endif %}
         </div>
 
-        <!-- Tag-Filter-Chip-Row (R2-B): URL-persistierter ?tag-Filter. Jede Chip
-             bewahrt die übrigen aktiven Filter (type/search/favorites/sort/per_page)
-             via pagination_args(page=1). Nur rendern wenn Tags existieren. -->
+        <!-- Tag-Leiste (R2-E, war R2-B-Voll-Chip-Row): Top-15 nach Nutzungs-
+             Count (Backend liefert count-sortiert), der aktive ?tag-Chip ist
+             immer sichtbar (auch jenseits Top-15), "+N weitere" klappt die
+             volle, alphabetische Liste auf (collapsed Default, kein Persist).
+             Typeahead über native datalist; das GET-Formular repliziert die
+             pagination_args-Semantik der Chips via Hidden-Inputs (page -> 1,
+             Defaults bleiben draußen). Jede Chip bewahrt die übrigen Filter. -->
         {% if available_tags %}
+        {% set top_tags = available_tags[:15] %}
+        {% set top_names = top_tags|map(attribute='name')|list %}
+        {% set active_appended = current_tag and current_tag not in top_names %}
+        {% set visible_count = top_tags|length + (1 if active_appended else 0) %}
+        {% set hidden_count = available_tags|length - visible_count %}
         <div class="flex items-center gap-2 flex-wrap mb-8" aria-label="Nach Tag filtern">
             <span class="text-xs text-neo-faint">Tags:</span>
-            {% for t in available_tags %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name, current_status, current_view)) }}"
-               class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if t.name == current_tag %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
-               {% if t.name == current_tag %}aria-current="true"{% endif %}>{{ t.name }}</a>
-            {% endfor %}
+            <form id="tag-typeahead-form" method="GET" action="{{ url_for('library') }}" class="inline-flex">
+                <input type="text" list="tag-name-list" name="tag" id="tag-typeahead-input"
+                       class="c-input text-xs py-0.5 px-2 w-36" placeholder="Tag filtern …"
+                       autocomplete="off" aria-label="Tag filtern">
+                <datalist id="tag-name-list">
+                    {% for t in available_tags|sort(attribute='name') %}
+                    <option value="{{ t.name }}"></option>
+                    {% endfor %}
+                </datalist>
+                <input type="hidden" name="type" value="{{ current_type }}">
+                <input type="hidden" name="search" value="{{ current_search }}">
+                <input type="hidden" name="sort" value="{{ current_sort }}">
+                {% if current_favorites %}<input type="hidden" name="favorites" value="1">{% endif %}
+                {% if current_per_page != default_per_page %}<input type="hidden" name="per_page" value="{{ current_per_page }}">{% endif %}
+                {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
+            </form>
+            {# display:contents — beide Listen fließen in der äußeren Flex-Zeile #}
+            <div id="tag-row-collapsed" class="contents">
+                {% for t in top_tags %}
+                <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name, current_status, current_view)) }}"
+                   class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if t.name == current_tag %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
+                   {% if t.name == current_tag %}aria-current="true"{% endif %}>{{ t.name }}</a>
+                {% endfor %}
+                {% if active_appended %}
+                <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, current_status, current_view)) }}"
+                   class="c-tag c-tag--active text-xs px-2 py-0.5 rounded-full no-underline transition-colors text-neo-text font-medium"
+                   aria-current="true">{{ current_tag }}</a>
+                {% endif %}
+            </div>
+            <div id="tag-row-expanded" class="contents" hidden>
+                {% for t in available_tags|sort(attribute='name') %}
+                <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, t.name, current_status, current_view)) }}"
+                   class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if t.name == current_tag %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
+                   {% if t.name == current_tag %}aria-current="true"{% endif %}>{{ t.name }}</a>
+                {% endfor %}
+            </div>
+            {% if hidden_count > 0 %}
+            <button type="button" data-tag-toggle data-expand-label="+{{ hidden_count }} weitere"
+                    class="text-xs text-neo-faint hover:text-neo-text bg-transparent border-0 cursor-pointer p-0"
+                    aria-expanded="false" aria-controls="tag-row-collapsed tag-row-expanded">+{{ hidden_count }} weitere</button>
+            {% endif %}
             {% if current_tag %}
             <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, '', current_status, current_view)) }}"
                class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Tag-Filter aufheben</a>

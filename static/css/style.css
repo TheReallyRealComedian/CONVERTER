@@ -1454,6 +1454,13 @@ body.reader-active .sidebar-toggle-floater--global {
     display: none !important;
 }
 
+/* The hidden ATTRIBUTE only carries UA-stylesheet weight — any author rule
+   (e.g. Tailwind's .contents on the R2-E tag rows) overrides it. Re-assert
+   it at author level so [hidden] always wins (same guard Bootstrap ships). */
+[hidden] {
+    display: none !important;
+}
+
 /* Visually hidden but available to screen readers (aria-live regions etc.). */
 .sr-only {
     position: absolute;

@@ -205,6 +205,7 @@ def register(app):
                                current_view=current_view,
                                available_tags=available_tags,
                                allowed_per_page=ALLOWED_PER_PAGE,
+                               default_per_page=DEFAULT_PER_PAGE,
                                has_active_filter=has_active_filter,
                                pagination_args=pagination_args)
 

@@ -210,6 +210,41 @@ function moveQueue(id, dir) {
     });
 }
 
+// R2-E Bibliothek tag row: "+N weitere" expand/collapse (no persistence) and
+// typeahead auto-submit. Typing alone never navigates — only an exact
+// datalist match (mouse pick or typed-out name) submits; Enter submits the
+// GET form natively either way. The form's hidden inputs replicate the
+// pagination_args semantics of a chip click (page resets, filters survive).
+function initTagRow() {
+    const toggle = document.querySelector('[data-tag-toggle]');
+    if (toggle) {
+        const collapsedRow = document.getElementById('tag-row-collapsed');
+        const expandedRow = document.getElementById('tag-row-expanded');
+        toggle.addEventListener('click', () => {
+            const expand = expandedRow.hidden;
+            expandedRow.hidden = !expand;
+            collapsedRow.hidden = expand;
+            toggle.textContent = expand ? 'Weniger anzeigen' : toggle.dataset.expandLabel;
+            toggle.setAttribute('aria-expanded', expand ? 'true' : 'false');
+        });
+    }
+    const input = document.getElementById('tag-typeahead-input');
+    if (input) {
+        const names = new Set(
+            Array.from(document.querySelectorAll('#tag-name-list option')).map(o => o.value)
+        );
+        input.addEventListener('input', () => {
+            if (names.has(input.value.trim().toLowerCase())) input.form.submit();
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTagRow);
+} else {
+    initTagRow();
+}
+
 window.toggleFavorite = toggleFavorite;
 window.setStatus = setStatus;
 window.copyContent = copyContent;
