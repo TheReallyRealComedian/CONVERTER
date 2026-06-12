@@ -358,6 +358,38 @@ def test_tag_get_or_create_returns_existing_row_on_second_call(app, test_user):
         assert t1.id == t2.id
 
 
+def test_tag_get_or_create_strips_markdown_artefacts(app, test_user):
+    # R2-E: LLM-generated newsletter topics drag Markdown leftovers in —
+    # normalize_name strips them centrally for every path.
+    with app.app_context():
+        assert Tag.get_or_create(test_user['id'], '** [anthropic').name == 'anthropic'
+        assert Tag.get_or_create(test_user['id'], '  KI-Agenten  ').name == 'ki-agenten'
+        assert Tag.get_or_create(test_user['id'], '[nvidia]').name == 'nvidia'
+        assert Tag.get_or_create(test_user['id'], '`tooling`').name == 'tooling'
+        assert Tag.get_or_create(test_user['id'], 'multi   *word*\ttag').name == 'multi word tag'
+
+
+def test_tag_get_or_create_artefact_only_string_creates_nothing(app, test_user):
+    # A string that is nothing but artefacts normalises to '' -> skip, and
+    # crucially no Tag row is left behind.
+    with app.app_context():
+        before = Tag.query.count()
+        assert Tag.get_or_create(test_user['id'], '**') is None
+        assert Tag.get_or_create(test_user['id'], '[ ]') is None
+        assert Tag.get_or_create(test_user['id'], '` ` *') is None
+        assert Tag.query.count() == before
+
+
+def test_tag_normalized_attach_finds_existing_clean_tag(app, test_user):
+    # '** [anthropic' must not create a sibling of an existing 'anthropic'.
+    with app.app_context():
+        clean = Tag.get_or_create(test_user['id'], 'anthropic')
+        db.session.commit()
+        dirty = Tag.get_or_create(test_user['id'], '** [anthropic')
+        assert dirty.id == clean.id
+        assert Tag.query.filter_by(user_id=test_user['id'], name='anthropic').count() == 1
+
+
 # --- Library Tag-Filter (R2-B): ?tag over the conversion_tags junction ---
 
 def test_library_tag_filter_surfaces_only_matching(app, authenticated_client, test_user):

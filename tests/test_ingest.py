@@ -222,6 +222,22 @@ def test_ingest_non_list_topics_are_ignored(app, client, monkeypatch):
         assert list(c.tag_refs) == []
 
 
+def test_ingest_broken_markdown_topics_are_normalized_or_skipped(app, client, monkeypatch):
+    # R2-E: the real NL1/NL2 payloads delivered topics like '** [anthropic'.
+    # The hardened Tag.normalize_name cleans them on the way in; an
+    # artefact-only topic is skipped without blocking the newsletter.
+    monkeypatch.setenv('INGEST_TOKEN', TOKEN)
+    uid = _make_user(app)
+    resp = client.post(URL, headers=_auth(), json=_newsletter(
+        topics=['** [anthropic', '** ai-agenten', '**', '  NVIDIA  ']))
+    assert resp.status_code == 201
+    with app.app_context():
+        c = Conversion.query.filter_by(user_id=uid).first()
+        assert sorted(t.name for t in c.tag_refs) == ['ai-agenten', 'anthropic', 'nvidia']
+        # The artefact-only '**' left no tag row behind.
+        assert Tag.query.filter_by(user_id=uid).count() == 3
+
+
 # --- report_date -> created_at ---
 
 def test_ingest_missing_or_unparseable_report_date_defaults_to_now(app, client, monkeypatch):

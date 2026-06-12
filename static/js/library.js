@@ -233,7 +233,11 @@ function initTagRow() {
         const names = new Set(
             Array.from(document.querySelectorAll('#tag-name-list option')).map(o => o.value)
         );
-        input.addEventListener('input', () => {
+        // 'change', not 'input': a datalist mouse-pick fires change right
+        // away, typing only on blur — so typing "spacex ipo" is never
+        // hijacked at the "spacex" prefix (real Mintbox tag pair). Enter
+        // submits the GET form natively either way.
+        input.addEventListener('change', () => {
             if (names.has(input.value.trim().toLowerCase())) input.form.submit();
         });
     }

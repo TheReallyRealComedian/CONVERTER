@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -139,14 +140,30 @@ class Tag(db.Model):
     MAX_NAME_LEN = 80
 
     @classmethod
+    def normalize_name(cls, name):
+        """Canonical tag-name normalisation — the single place every path
+        (UI attach, ingest topics, scripts/cleanup_tags.py) goes through.
+
+        R2-A: lowercase + trim. R2-E adds stripping of Markdown artefacts
+        that LLM-generated newsletter topics drag in (``** [anthropic``):
+        ``*`` and `` ` `` anywhere, ``[``/``]`` only at the edges, and
+        runs of whitespace collapse to one space. Returns '' when nothing
+        survives (caller decides skip/400)."""
+        cleaned = name.replace('*', '').replace('`', '')
+        cleaned = cleaned.strip().strip('[]')
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        return cleaned.strip().lower()
+
+    @classmethod
     def get_or_create(cls, user_id, name):
-        # Single source of truth for "find or insert a tag, normalised to
-        # lowercase+trim". Three call sites: highlight-tag POST, conversion-
-        # tag POST, and the CSV-to-junction migration helper. Returns None on
-        # blank/oversize so callers can map to a 400 without re-validating.
+        # Single source of truth for "find or insert a tag, normalised via
+        # normalize_name". Call sites: highlight-tag POST, conversion-tag
+        # POST, ingest topics, and the CSV-to-junction migration helper.
+        # Returns None on non-str/blank-after-normalisation/oversize so
+        # callers can map to a 400 or skip without re-validating.
         if not isinstance(name, str):
             return None
-        normalized = name.strip().lower()
+        normalized = cls.normalize_name(name)
         if not normalized or len(normalized) > cls.MAX_NAME_LEN:
             return None
         tag = cls.query.filter_by(user_id=user_id, name=normalized).first()
