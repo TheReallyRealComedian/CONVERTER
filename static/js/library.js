@@ -56,12 +56,16 @@ function setStatus(id, status) {
         if (r.ok) {
             const container = libraryAlertContainer();
             if (container) container.innerHTML = '';
-            // In the queue-view an archived item leaves the to-read list (the
-            // view filters archive out). Reload rather than just dropping the
-            // card so the #rank badges and edge-disabled arrows of the
-            // remaining items stay correct (same robust reload the reorder uses).
-            const inQueueView = window.PageData && window.PageData.currentView === 'queue';
-            if (card && inQueueView && status === 'archive') {
+            // Reload when the card leaves the view's visible set, so derived
+            // display state (#rank badges, edge-disabled arrows, the inbox
+            // tab badge, pagination) never goes stale: in the queue-view an
+            // archived item drops off the to-read list (R2-D); in the
+            // inbox-view (R2-E) any triage away from 'inbox' removes it.
+            const view = window.PageData ? window.PageData.currentView : '';
+            const leavesVisibleSet =
+                (view === 'queue' && status === 'archive') ||
+                (view === 'inbox' && status !== 'inbox');
+            if (card && leavesVisibleSet) {
                 window.location.reload();
                 return null;
             }
@@ -155,11 +159,13 @@ function toggleQueue(id, btn) {
         if (r.ok) {
             const container = libraryAlertContainer();
             if (container) container.innerHTML = '';
-            // De-queueing from the queue-view drops the item from the visible
-            // list; reload so the remaining items' #rank + edge-arrows stay
-            // correct (the reorder uses the same robust reload).
-            const inQueueView = window.PageData && window.PageData.currentView === 'queue';
-            if (action === 'remove' && inQueueView) {
+            // Reload when the toggle moves the card across the view's visible
+            // sets: in the queue-view BOTH directions move it (remove drops it
+            // off the list, add promotes a Weiterlesen-section card into the
+            // ranked queue, R2-E); in the inbox-view add = triage, the card
+            // leaves the untriaged pile and the tab badge changes.
+            const view = window.PageData ? window.PageData.currentView : '';
+            if (view === 'queue' || (view === 'inbox' && action === 'add')) {
                 window.location.reload();
                 return null;
             }

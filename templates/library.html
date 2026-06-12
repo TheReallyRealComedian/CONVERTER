@@ -2,24 +2,131 @@
 
 {% block title %}Library{% endblock %}
 
+{# R2-E: one card markup for every view (Bibliothek / Inbox / Lese-Liste +
+   Weiterlesen-Sektion). Explicit parameters instead of context lookups —
+   Jinja macros don't see block-local variables. rank=None hides the queue
+   reorder rail; view='inbox' swaps the status-segmented for the triage
+   button row (prominent "Zur Lese-Liste / Später / Archiv"). #}
+{% macro conversion_card(conv, view, status_labels, rank=None, edge_first=False, edge_last=False) %}
+<div class="c-card flex flex-col" data-id="{{ conv.id }}" data-content="{{ conv.content }}">
+    {% if rank is not none %}
+    <!-- Reorder-Rail (R2-D, nur Queue-Karten): #Rang + Hoch/Runter.
+         Globaler Rang über Seiten via page/per_page; Edge-Buttons
+         disabled am echten Listen-Anfang/-Ende. Nach Klick reload. -->
+    <div class="queue-reorder" role="group" aria-label="Reihenfolge ändern">
+        <span class="queue-reorder__pos" aria-hidden="true">{{ rank }}</span>
+        <div class="queue-reorder__btns">
+            <button type="button" class="queue-reorder__btn" onclick="moveQueue({{ conv.id }}, 'up')"
+                    title="Nach oben" aria-label="Nach oben"
+                    {% if edge_first %}disabled{% endif %}>&#9650;</button>
+            <button type="button" class="queue-reorder__btn" onclick="moveQueue({{ conv.id }}, 'down')"
+                    title="Nach unten" aria-label="Nach unten"
+                    {% if edge_last %}disabled{% endif %}>&#9660;</button>
+        </div>
+    </div>
+    {% endif %}
+    <div class="flex justify-between items-center px-4 pt-3">
+        <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span class="type-badge type-{{ conv.conversion_type }}">
+                {% if conv.conversion_type == 'document_to_markdown' %}Dokument
+                {% elif conv.conversion_type == 'audio_transcription' %}Audio
+                {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
+                {% elif conv.conversion_type == 'markdown_input' %}Markdown
+                {% elif conv.conversion_type == 'ai_newsletter' %}AI-Newsletter
+                {% else %}{{ conv.conversion_type }}{% endif %}
+            </span>
+            <span class="status-badge status-badge--{{ conv.lifecycle_status }}" data-status-badge>{{ status_labels.get(conv.lifecycle_status, 'Inbox') }}</span>
+        </div>
+        <div class="flex items-center gap-0.5 flex-shrink-0">
+            <button type="button" class="queue-btn{% if conv.queue_position is not none %} active{% endif %}"
+                    onclick="toggleQueue({{ conv.id }}, this)"
+                    aria-pressed="{{ 'true' if conv.queue_position is not none else 'false' }}"
+                    title="{{ 'Von der Lese-Liste nehmen' if conv.queue_position is not none else 'Auf die Lese-Liste setzen' }}">{{ '⚑' if conv.queue_position is not none else '⚐' }}</button>
+            <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Favorit umschalten">
+                {{ '★' if conv.is_favorite else '☆' }}
+            </button>
+        </div>
+    </div>
+    <a href="{{ url_for('library_detail', conversion_id=conv.id) }}" class="px-4 py-2 flex-1 no-underline">
+        <h5 class="text-sm font-semibold text-neo-text mb-1 leading-snug">{{ conv.title }}</h5>
+        {% if conv.source_filename %}
+        <div class="text-xs text-neo-faint mb-1.5">{{ conv.source_filename }}</div>
+        {% endif %}
+        <p class="text-xs text-neo-muted leading-relaxed line-clamp-3">{{ conv.content[:200] }}{% if conv.content|length > 200 %}...{% endif %}</p>
+    </a>
+    <div class="px-4 py-2.5 neo-separator-top flex items-center gap-2 flex-wrap">
+        <span class="text-[11px] text-neo-faint" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
+            {{ conv.created_at | format_card_datetime }}
+        </span>
+        {% if conv.tag_refs %}
+        <div class="flex gap-1 flex-wrap">
+            {% for tag in conv.tag_refs %}
+            <span class="c-tag text-[10px] px-1.5 py-0.5 rounded-full text-neo-muted">{{ tag.name }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="ml-auto flex gap-1">
+            <button type="button" class="c-btn text-xs py-1 px-2" onclick="copyContent({{ conv.id }})" title="Inhalt kopieren">Kopieren</button>
+            <button type="button" class="c-btn c-btn--danger text-xs py-1 px-2" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
+        </div>
+    </div>
+    {% if view == 'inbox' %}
+    <!-- Inbox-Triage (R2-E): die drei Ziel-Aktionen prominent statt des
+         status-segmented — "Zur Lese-Liste" queued (Status bleibt inbox),
+         Später/Archiv setzen den Ort (R2-C-API). Jede Aktion nimmt die
+         Karte aus der Inbox; library.js lädt dann neu. -->
+    <div class="px-4 pb-3 flex gap-2" role="group" aria-label="Triage">
+        <button type="button" class="c-btn c-btn--primary text-xs py-1 px-3 flex-1"
+                onclick="toggleQueue({{ conv.id }}, this)"
+                title="Auf die Lese-Liste setzen">Zur Lese-Liste</button>
+        <button type="button" class="c-btn text-xs py-1 px-3"
+                onclick="setStatus({{ conv.id }}, 'later')"
+                title="Als Später markieren">Später</button>
+        <button type="button" class="c-btn text-xs py-1 px-3"
+                onclick="setStatus({{ conv.id }}, 'archive')"
+                title="Ins Archiv legen">Archiv</button>
+    </div>
+    {% else %}
+    <div class="px-4 pb-3">
+        <div class="status-segmented" role="group" aria-label="Status ändern" data-status-control>
+            {% for s_key, s_label in status_labels.items() %}
+            <button type="button"
+                    class="status-segmented__btn{% if conv.lifecycle_status == s_key %} is-active{% endif %}"
+                    data-status="{{ s_key }}"
+                    aria-pressed="{{ 'true' if conv.lifecycle_status == s_key else 'false' }}"
+                    onclick="setStatus({{ conv.id }}, '{{ s_key }}')">{{ s_label }}</button>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% if conv.last_read_percent and conv.last_read_percent > 0 %}
+    <div class="card-progress{% if conv.last_read_percent >= 95 %} card-progress--read{% endif %}"
+         title="{% if conv.last_read_percent >= 95 %}Gelesen{% else %}{{ conv.last_read_percent | round | int }} % gelesen{% endif %}" aria-hidden="true">
+        <div class="card-progress__fill" style="width: {% if conv.last_read_percent >= 95 %}100{% else %}{{ conv.last_read_percent }}{% endif %}%"></div>
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
 {% block content %}
 {% set status_labels = {'inbox': 'Inbox', 'later': 'Später', 'archive': 'Archiv'} %}
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-6xl mx-auto">
-        <!-- View-Switcher (R2-D): Modus-Umschalter Alle/Lese-Liste/Weiterlesen.
-             Eigenständig von den Filter-/Status-/Tag-Chips — ein Modus, kein
-             Filter. Ein Moduswechsel setzt die Filter bewusst zurück (saubere
-             Kontext-Umschaltung); die Chips sind nur im Alle-Modus sichtbar. -->
-        <nav class="view-switcher mb-6" aria-label="Ansicht wählen">
-            <a href="{{ url_for('library') }}"
-               class="view-switcher__tab{% if not current_view %} is-active{% endif %}"
-               {% if not current_view %}aria-current="page"{% endif %}>Alle</a>
+        <!-- Tab-Leiste (R2-E "Readwise-3er"): genau drei Top-Level-Ziele.
+             Inbox = untriagiert (Status inbox + nicht gequeued, mit Badge),
+             Lese-Liste = R2-D-Queue + Weiterlesen-Sektion, Bibliothek =
+             alles + Suche/Filter. Ersetzt View-Switcher UND die Top-Level-
+             Status-Chips; der Ort-Filter lebt jetzt nur in der Bibliothek. -->
+        <nav class="view-switcher mb-6" aria-label="Bereich wählen">
+            <a href="{{ url_for('library', view='inbox') }}"
+               class="view-switcher__tab{% if current_view == 'inbox' %} is-active{% endif %}"
+               {% if current_view == 'inbox' %}aria-current="page"{% endif %}>Inbox{% if inbox_count %}<span class="view-switcher__badge" aria-hidden="true">{{ inbox_count }}</span><span class="sr-only">, {{ inbox_count }} untriagiert</span>{% endif %}</a>
             <a href="{{ url_for('library', view='queue') }}"
                class="view-switcher__tab{% if current_view == 'queue' %} is-active{% endif %}"
                {% if current_view == 'queue' %}aria-current="page"{% endif %}>Lese-Liste</a>
-            <a href="{{ url_for('library', view='reading') }}"
-               class="view-switcher__tab{% if current_view == 'reading' %} is-active{% endif %}"
-               {% if current_view == 'reading' %}aria-current="page"{% endif %}>Weiterlesen</a>
+            <a href="{{ url_for('library') }}"
+               class="view-switcher__tab{% if not current_view %} is-active{% endif %}"
+               {% if not current_view %}aria-current="page"{% endif %}>Bibliothek</a>
         </nav>
 
         {% if not current_view %}
@@ -61,20 +168,22 @@
             </form>
         </div>
 
-        <!-- Status-Filter-Chip-Row (R2-C): URL-persistierter ?status-Filter
-             (inbox/later/archive). Immer sichtbar — die drei Orte existieren
-             stets. Jede Chip bewahrt die übrigen Filter inkl. ?tag via
-             pagination_args(page=1, ..., current_tag, s_key). -->
-        <div class="flex items-center gap-2 flex-wrap mb-8" aria-label="Nach Status filtern">
-            <span class="text-xs text-neo-faint">Status:</span>
-            {% for s_key, s_label in status_labels.items() %}
-            <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, s_key, current_view)) }}"
-               class="c-tag text-xs px-2 py-0.5 rounded-full no-underline transition-colors {% if s_key == current_status %}c-tag--active text-neo-text font-medium{% else %}text-neo-muted hover:text-neo-text{% endif %}"
-               {% if s_key == current_status %}aria-current="true"{% endif %}>{{ s_label }}</a>
-            {% endfor %}
+        <!-- Ort-Filter (R2-E, war Top-Level-Status-Chips R2-C): nur in der
+             Bibliothek, als abgesetzte segmented-Gruppe mit Label — bewusst
+             NICHT in Tag-Chip-Optik (Teil der ursprünglichen Verwirrung).
+             Jeder Link bewahrt die übrigen Filter via pagination_args. -->
+        <div class="flex items-center gap-2.5 flex-wrap mb-8" role="group" aria-label="Nach Ort filtern">
+            <span class="text-xs text-neo-faint">Ort:</span>
+            <div class="status-segmented">
+                {% for s_key, s_label in status_labels.items() %}
+                <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, s_key, current_view)) }}"
+                   class="status-segmented__btn{% if s_key == current_status %} is-active{% endif %}"
+                   {% if s_key == current_status %}aria-current="true"{% endif %}>{{ s_label }}</a>
+                {% endfor %}
+            </div>
             {% if current_status %}
             <a href="{{ url_for('library', **pagination_args(1, current_type, current_search, current_favorites, current_sort, current_per_page, current_tag, '', current_view)) }}"
-               class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Status-Filter aufheben</a>
+               class="text-xs text-neo-faint hover:text-neo-text no-underline ml-1">&times; Ort-Filter aufheben</a>
             {% endif %}
         </div>
 
@@ -100,90 +209,33 @@
         <div id="library-alert-container"></div>
         <div id="library-action-status" class="sr-only" aria-live="polite"></div>
 
+        <!-- Weiterlesen-Sektion (R2-E, nur Lese-Liste): angelesene Items
+             (0 < Fortschritt < 95), die weder gequeued noch archiviert sind —
+             über der Queue, nur wenn nicht leer. Gequeuete Items mit
+             Fortschritt zeigt schon ihr Karten-Fortschrittsbalken. -->
+        {% if current_view == 'queue' and reading_items %}
+        <section class="mb-10" aria-label="Weiterlesen">
+            <h2 class="text-base font-semibold text-neo-text mb-4">Weiterlesen</h2>
+            <div class="grid grid-cols-1 gap-6">
+                {% for conv in reading_items %}
+                {{ conversion_card(conv, current_view, status_labels) }}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
         <!-- Results -->
         {% if conversions %}
         <div class="grid grid-cols-1 {% if current_view != 'queue' %}md:grid-cols-2 xl:grid-cols-3{% endif %} gap-6">
             {% for conv in conversions %}
-            <div class="c-card flex flex-col" data-id="{{ conv.id }}" data-content="{{ conv.content }}">
-                {% if current_view == 'queue' %}
-                <!-- Reorder-Rail (R2-D, nur im queue-View): #Rang + Hoch/Runter.
-                     Globaler Rang über Seiten via page/per_page; Edge-Buttons
-                     disabled am echten Listen-Anfang/-Ende. Nach Klick reload. -->
-                <div class="queue-reorder" role="group" aria-label="Reihenfolge ändern">
-                    <span class="queue-reorder__pos" aria-hidden="true">{{ (pagination.page - 1) * current_per_page + loop.index }}</span>
-                    <div class="queue-reorder__btns">
-                        <button type="button" class="queue-reorder__btn" onclick="moveQueue({{ conv.id }}, 'up')"
-                                title="Nach oben" aria-label="Nach oben"
-                                {% if loop.first and not pagination.has_prev %}disabled{% endif %}>&#9650;</button>
-                        <button type="button" class="queue-reorder__btn" onclick="moveQueue({{ conv.id }}, 'down')"
-                                title="Nach unten" aria-label="Nach unten"
-                                {% if loop.last and not pagination.has_next %}disabled{% endif %}>&#9660;</button>
-                    </div>
-                </div>
-                {% endif %}
-                <div class="flex justify-between items-center px-4 pt-3">
-                    <div class="flex items-center gap-1.5 flex-wrap min-w-0">
-                        <span class="type-badge type-{{ conv.conversion_type }}">
-                            {% if conv.conversion_type == 'document_to_markdown' %}Dokument
-                            {% elif conv.conversion_type == 'audio_transcription' %}Audio
-                            {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
-                            {% elif conv.conversion_type == 'markdown_input' %}Markdown
-                            {% elif conv.conversion_type == 'ai_newsletter' %}AI-Newsletter
-                            {% else %}{{ conv.conversion_type }}{% endif %}
-                        </span>
-                        <span class="status-badge status-badge--{{ conv.lifecycle_status }}" data-status-badge>{{ status_labels.get(conv.lifecycle_status, 'Inbox') }}</span>
-                    </div>
-                    <div class="flex items-center gap-0.5 flex-shrink-0">
-                        <button type="button" class="queue-btn{% if conv.queue_position is not none %} active{% endif %}"
-                                onclick="toggleQueue({{ conv.id }}, this)"
-                                aria-pressed="{{ 'true' if conv.queue_position is not none else 'false' }}"
-                                title="{{ 'Von der Lese-Liste nehmen' if conv.queue_position is not none else 'Auf die Lese-Liste setzen' }}">{{ '⚑' if conv.queue_position is not none else '⚐' }}</button>
-                        <button type="button" class="favorite-btn {% if conv.is_favorite %}active{% endif %}" onclick="toggleFavorite({{ conv.id }}, this)" title="Favorit umschalten">
-                            {{ '★' if conv.is_favorite else '☆' }}
-                        </button>
-                    </div>
-                </div>
-                <a href="{{ url_for('library_detail', conversion_id=conv.id) }}" class="px-4 py-2 flex-1 no-underline">
-                    <h5 class="text-sm font-semibold text-neo-text mb-1 leading-snug">{{ conv.title }}</h5>
-                    {% if conv.source_filename %}
-                    <div class="text-xs text-neo-faint mb-1.5">{{ conv.source_filename }}</div>
-                    {% endif %}
-                    <p class="text-xs text-neo-muted leading-relaxed line-clamp-3">{{ conv.content[:200] }}{% if conv.content|length > 200 %}...{% endif %}</p>
-                </a>
-                <div class="px-4 py-2.5 neo-separator-top flex items-center gap-2 flex-wrap">
-                    <span class="text-[11px] text-neo-faint" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
-                        {{ conv.created_at | format_card_datetime }}
-                    </span>
-                    {% if conv.tag_refs %}
-                    <div class="flex gap-1 flex-wrap">
-                        {% for tag in conv.tag_refs %}
-                        <span class="c-tag text-[10px] px-1.5 py-0.5 rounded-full text-neo-muted">{{ tag.name }}</span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    <div class="ml-auto flex gap-1">
-                        <button type="button" class="c-btn text-xs py-1 px-2" onclick="copyContent({{ conv.id }})" title="Inhalt kopieren">Kopieren</button>
-                        <button type="button" class="c-btn c-btn--danger text-xs py-1 px-2" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
-                    </div>
-                </div>
-                <div class="px-4 pb-3">
-                    <div class="status-segmented" role="group" aria-label="Status ändern" data-status-control>
-                        {% for s_key, s_label in status_labels.items() %}
-                        <button type="button"
-                                class="status-segmented__btn{% if conv.lifecycle_status == s_key %} is-active{% endif %}"
-                                data-status="{{ s_key }}"
-                                aria-pressed="{{ 'true' if conv.lifecycle_status == s_key else 'false' }}"
-                                onclick="setStatus({{ conv.id }}, '{{ s_key }}')">{{ s_label }}</button>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% if conv.last_read_percent and conv.last_read_percent > 0 %}
-                <div class="card-progress{% if conv.last_read_percent >= 95 %} card-progress--read{% endif %}"
-                     title="{% if conv.last_read_percent >= 95 %}Gelesen{% else %}{{ conv.last_read_percent | round | int }} % gelesen{% endif %}" aria-hidden="true">
-                    <div class="card-progress__fill" style="width: {% if conv.last_read_percent >= 95 %}100{% else %}{{ conv.last_read_percent }}{% endif %}%"></div>
-                </div>
-                {% endif %}
-            </div>
+            {% if current_view == 'queue' %}
+            {{ conversion_card(conv, current_view, status_labels,
+                               rank=(pagination.page - 1) * current_per_page + loop.index,
+                               edge_first=loop.first and not pagination.has_prev,
+                               edge_last=loop.last and not pagination.has_next) }}
+            {% else %}
+            {{ conversion_card(conv, current_view, status_labels) }}
+            {% endif %}
             {% endfor %}
         </div>
 
@@ -212,12 +264,12 @@
 
         {% else %}
         <div class="text-center py-16 text-neo-muted">
-            {% if current_view == 'queue' and not has_active_filter %}
+            {% if current_view == 'inbox' and not has_active_filter %}
+            <h5 class="text-base font-semibold text-neo-text mb-1">Inbox ist leer</h5>
+            <p class="text-sm">Alles triagiert. Neue Inhalte landen zuerst hier.</p>
+            {% elif current_view == 'queue' and not has_active_filter %}
             <h5 class="text-base font-semibold text-neo-text mb-1">Deine Lese-Liste ist leer</h5>
-            <p class="text-sm">Auf einer Karte „Auf die Lese-Liste" tippen, dann sammelt sie sich hier — in deiner Reihenfolge.</p>
-            {% elif current_view == 'reading' and not has_active_filter %}
-            <h5 class="text-base font-semibold text-neo-text mb-1">Nichts angefangen</h5>
-            <p class="text-sm">Sobald du etwas liest, taucht dein aktueller Stapel hier auf.</p>
+            <p class="text-sm">In der Inbox oder Bibliothek auf einer Karte „Zur Lese-Liste" wählen — hier erscheint alles in deiner Reihenfolge.</p>
             {% elif has_active_filter %}
             <h5 class="text-base font-semibold text-neo-text mb-1">Keine Treffer mit aktuellen Filtern</h5>
             <p class="text-sm mb-4">Mit den aktiven Filtern ist nichts gespeichert. Filter zurücksetzen, um die gesamte Library zu zeigen.</p>

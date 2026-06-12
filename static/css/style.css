@@ -24,7 +24,7 @@
      CONVERSION TAG              – .conversion-tag-chip (library_detail sidebar inline picker)
      TAG CHIP                    – .c-tag (shared pill), .c-tag--active (R2-B library tag-filter chip)
      LIFECYCLE STATUS            – .status-badge (R2-C inbox/later/archive), .status-segmented toggle
-     READING LIST (R2-D)         – .view-switcher, .queue-btn, .queue-reorder, .queue-toggle-btn
+     READING LIST (R2-D/R2-E)    – .view-switcher (+__badge tab bar), .queue-btn, .queue-reorder, .queue-toggle-btn
      TAG MANAGER                 – .tag-manager-card (per-tag row on /tags page)
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
@@ -1671,9 +1671,10 @@ body.reader-active .sidebar-toggle-floater--global {
 }
 
 /* ===== READING LIST (R2-D) ===== */
-/* View-switcher — prominent mode toggle (Alle/Lese-Liste/Weiterlesen). Same
-   pressed-track + raised-active neomorphism as .status-segmented, scaled up so
-   it reads as the page's primary mode control. Token-driven -> dark-konsistent. */
+/* View-switcher — the R2-E "Readwise-3er" tab bar (Inbox/Lese-Liste/
+   Bibliothek). Same pressed-track + raised-active neomorphism as
+   .status-segmented, scaled up so it reads as the page's primary mode
+   control. Token-driven -> dark-konsistent. */
 .view-switcher {
     display: inline-flex;
     gap: 4px;
@@ -1702,6 +1703,25 @@ body.reader-active .sidebar-toggle-floater--global {
     background: var(--nm-bg);
     box-shadow: var(--nm-raised-sm);
 }
+
+/* R2-E: untriaged count on the Inbox tab — same rose family as
+   .status-badge--inbox so the badge reads as "inbox signal", not an alert. */
+.view-switcher__badge {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 1px 7px;
+    border-radius: var(--nm-radius-pill);
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: rgba(244, 63, 94, 0.12);
+    color: #be123c;
+}
+
+/* R2-E: the Ort filter in the Bibliothek view reuses .status-segmented with
+   anchor chips — same family as the card status control, deliberately NOT
+   tag-chip styling. */
+a.status-segmented__btn { text-decoration: none; }
 
 /* Queue toggle on the list card — flag glyph next to the favorite star. The
    filled (⚑) vs outline (⚐) glyph carries the on/off state; accent colour
@@ -2007,6 +2027,7 @@ body.reader-active .theme-toggle-btn {
 [data-global-theme="dark"] .status-badge--inbox   { background: rgba(251, 113, 133, 0.16); color: #fb7185; }
 [data-global-theme="dark"] .status-badge--later   { background: rgba(245, 158, 11, 0.16);  color: #fbbf24; }
 [data-global-theme="dark"] .status-badge--archive { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
+[data-global-theme="dark"] .view-switcher__badge  { background: rgba(251, 113, 133, 0.16); color: #fb7185; }
 
 /* Dark: Save button saved state */
 [data-global-theme="dark"] .save-library-btn.saved {
