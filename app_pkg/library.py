@@ -4,7 +4,7 @@ import json
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
-from models import Conversion, Tag, db
+from models import Conversion, Tag, conversion_tags, db
 
 from .markdown_render import render_markdown_to_html
 
@@ -69,14 +69,16 @@ def register(app):
         # else is treated as "no status filter" (current_status stays '').
         status = request.args.get('status', '').strip()
         current_status = status if status in LIFECYCLE_STATUSES else ''
-        # R2-D: view modes are orthogonal to the filter chips. 'queue' = the
-        # manual reading-list (queued + not archived, ordered by position);
-        # 'reading' = in-progress (0 < last_read_percent < 95, recent first).
-        # Anything else falls through to the normal "Alle" list. A mode, not a
-        # filter — kept out of has_active_filter so the "Filter zurücksetzen"
-        # empty-state stays scoped to type/search/tag/status.
+        # R2-E "Readwise-3er" IA: 'inbox' = the untriaged pile (status inbox
+        # AND not queued — queueing an item triages it away without touching
+        # its status; de-queueing an item that is still 'inbox' drops it back
+        # into triage); 'queue' = the manual reading-list (queued + not
+        # archived, ordered by position, R2-D). Anything else — including the
+        # retired R2-D 'reading' — falls through to the default library list.
+        # A mode, not a filter — kept out of has_active_filter so the "Filter
+        # zurücksetzen" empty-state stays scoped to type/search/tag/status.
         view = request.args.get('view', '')
-        current_view = view if view in ('queue', 'reading') else ''
+        current_view = view if view in ('inbox', 'queue') else ''
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
@@ -114,25 +116,22 @@ def register(app):
                 )
             )
 
-        # R2-D view-mode filters AND on top of the type/tag/status/search chips.
-        if current_view == 'queue':
+        # View-mode filters AND on top of the type/tag/status/search chips.
+        if current_view == 'inbox':
+            query = query.filter(
+                Conversion.lifecycle_status == 'inbox',
+                Conversion.queue_position.is_(None),
+            )
+        elif current_view == 'queue':
             query = query.filter(
                 Conversion.queue_position.isnot(None),
                 Conversion.lifecycle_status != 'archive',
             )
-        elif current_view == 'reading':
-            query = query.filter(
-                Conversion.last_read_percent.isnot(None),
-                Conversion.last_read_percent > 0,
-                Conversion.last_read_percent < 95,
-            )
 
-        # View modes override the sort param: queue by manual position, reading
-        # by most-recently-touched.
+        # The queue view overrides the sort param (manual position); the inbox
+        # view keeps the regular sort handling (newest first by default).
         if current_view == 'queue':
             query = query.order_by(Conversion.queue_position.asc())
-        elif current_view == 'reading':
-            query = query.order_by(Conversion.updated_at.desc())
         elif sort == 'oldest':
             query = query.order_by(Conversion.created_at.asc())
         elif sort == 'title':
@@ -141,6 +140,31 @@ def register(app):
             query = query.order_by(Conversion.created_at.desc())
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+        # R2-E: "Weiterlesen" section above the queue — in-progress reads
+        # (0 < last_read_percent < 95) that are neither queued (their card
+        # progress bar already shows it) nor archived. Sort carried over from
+        # the retired view=reading: most-recently-touched first. Unpaginated
+        # and unfiltered by the chips; in practice rarely more than a handful.
+        reading_items = []
+        if current_view == 'queue':
+            reading_items = Conversion.query.filter(
+                Conversion.user_id == current_user.id,
+                Conversion.last_read_percent.isnot(None),
+                Conversion.last_read_percent > 0,
+                Conversion.last_read_percent < 95,
+                Conversion.queue_position.is_(None),
+                Conversion.lifecycle_status != 'archive',
+            ).order_by(Conversion.updated_at.desc()).all()
+
+        # R2-E: badge count for the Inbox tab — untriaged = status inbox AND
+        # not queued. Global per user (independent of the active filters) and
+        # computed for every view because the tab bar is always visible.
+        inbox_count = Conversion.query.filter(
+            Conversion.user_id == current_user.id,
+            Conversion.lifecycle_status == 'inbox',
+            Conversion.queue_position.is_(None),
+        ).count()
 
         has_active_filter = bool(
             (conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES)
@@ -151,15 +175,26 @@ def register(app):
         )
 
         # Tags of this user that hang on at least one conversion — feeds the
-        # filter-chip row. Tag.conversions is the dynamic backref from the
-        # conversion_tags junction (models.py).
-        available_tags = Tag.query.filter(
-            Tag.conversions.any(Conversion.user_id == current_user.id)
-        ).order_by(Tag.name).all()
+        # tag chip row. R2-E: each row carries its usage count over the
+        # conversion_tags junction, ordered count-desc with alphabetical
+        # tie-break so the template can slice a top-N. Rows expose .name and
+        # .count (Row objects, not Tag instances).
+        tag_usage = db.func.count(conversion_tags.c.conversion_id)
+        available_tags = (
+            db.session.query(Tag.name, tag_usage.label('count'))
+            .join(conversion_tags, conversion_tags.c.tag_id == Tag.id)
+            .join(Conversion, Conversion.id == conversion_tags.c.conversion_id)
+            .filter(Conversion.user_id == current_user.id)
+            .group_by(Tag.id, Tag.name)
+            .order_by(tag_usage.desc(), Tag.name.asc())
+            .all()
+        )
 
         return render_template('library.html',
                                conversions=pagination.items,
                                pagination=pagination,
+                               reading_items=reading_items,
+                               inbox_count=inbox_count,
                                current_type=conversion_type,
                                current_search=search,
                                current_favorites=favorites,

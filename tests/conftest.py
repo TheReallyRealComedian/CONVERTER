@@ -149,6 +149,26 @@ def fixtures_dir():
     return Path(__file__).parent / 'fixtures'
 
 
+@pytest.fixture
+def captured_templates(app):
+    """Record (template, context) pairs rendered during a request.
+
+    Lets tests assert on context values the template does not (yet) render —
+    e.g. R2-E ships reading_items/inbox_count from the backend one phase
+    before the frontend displays them.
+    """
+    from flask import template_rendered
+
+    recorded = []
+
+    def record(sender, template, context, **extra):
+        recorded.append((template, context))
+
+    template_rendered.connect(record, app)
+    yield recorded
+    template_rendered.disconnect(record, app)
+
+
 # --- External-service mocks ---
 
 @pytest.fixture

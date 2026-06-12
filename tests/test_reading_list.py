@@ -8,8 +8,10 @@ Locks in:
   neighbour (one commit boundary) and are no-ops at the edges. Ownership is
   scoped (404 for another user's row) and an unknown action is a 400.
 - GET /library?view=queue surfaces only queued + non-archived rows, ordered by
-  position. GET /library?view=reading surfaces only in-progress rows
-  (0 < last_read_percent < 95), most-recently-touched first.
+  position, and ships the "Weiterlesen" section data (reading_items): in-
+  progress rows (0 < last_read_percent < 95) that are neither queued nor
+  archived, most-recently-touched first (R2-E; was the standalone
+  view=reading, which now falls through to the default list).
 - to_dict exposes queue_position.
 """
 from datetime import datetime, timezone
@@ -254,32 +256,51 @@ def test_view_queue_reflects_reorder(app, authenticated_client, test_user):
     assert html.index('BetaDoc') < html.index('AlphaDoc')
 
 
-# --- GET /library?view=reading ---
+# --- "Weiterlesen" section data on view=queue (R2-E, was view=reading) ---
 
-def test_view_reading_filters_in_progress_only(app, authenticated_client, test_user):
+def test_queue_view_reading_section_filters_in_progress_unqueued_unarchived(
+        app, authenticated_client, test_user, captured_templates):
     _make_conversion(app, test_user['id'], title='StartedDoc', last_read_percent=40.0)
     _make_conversion(app, test_user['id'], title='FreshDoc')  # NULL
     _make_conversion(app, test_user['id'], title='ZeroDoc', last_read_percent=0.0)
     _make_conversion(app, test_user['id'], title='DoneDoc', last_read_percent=99.0)
+    queued = _make_conversion(app, test_user['id'], title='QueuedDoc', last_read_percent=50.0)
+    archived = _make_conversion(app, test_user['id'], title='ArchivedDoc', last_read_percent=50.0)
+    _add_to_queue(authenticated_client, queued)
+    _set_status(app, archived, 'archive')
 
-    resp = authenticated_client.get('/library?view=reading')
+    resp = authenticated_client.get('/library?view=queue')
     assert resp.status_code == 200
-    html = resp.data.decode()
-    assert 'StartedDoc' in html
-    assert 'FreshDoc' not in html
-    assert 'ZeroDoc' not in html
-    assert 'DoneDoc' not in html
+    _, ctx = captured_templates[-1]
+    titles = [c.title for c in ctx['reading_items']]
+    # In-progress only (0 < percent < 95), and neither queued (its card
+    # progress bar already shows it) nor archived.
+    assert titles == ['StartedDoc']
 
 
-def test_view_reading_sorts_most_recent_first(app, authenticated_client, test_user):
+def test_queue_view_reading_section_sorts_most_recent_first(
+        app, authenticated_client, test_user, captured_templates):
     _make_conversion(app, test_user['id'], title='OlderDoc', last_read_percent=20.0,
                      updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
     _make_conversion(app, test_user['id'], title='NewerDoc', last_read_percent=20.0,
                      updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc))
 
+    authenticated_client.get('/library?view=queue')
+    _, ctx = captured_templates[-1]
+    assert [c.title for c in ctx['reading_items']] == ['NewerDoc', 'OlderDoc']
+
+
+def test_view_reading_param_falls_back_to_default_list(app, authenticated_client, test_user):
+    # R2-E retired view=reading — an unknown view value falls through to the
+    # default library list: no in-progress filter, everything shows.
+    _make_conversion(app, test_user['id'], title='FreshDoc')  # NULL percent
+    _make_conversion(app, test_user['id'], title='StartedDoc', last_read_percent=40.0)
+
     resp = authenticated_client.get('/library?view=reading')
+    assert resp.status_code == 200
     html = resp.data.decode()
-    assert html.index('NewerDoc') < html.index('OlderDoc')
+    assert 'FreshDoc' in html
+    assert 'StartedDoc' in html
 
 
 # --- to_dict ---
