@@ -127,6 +127,16 @@
                     </button>
                 </div>
 
+                <!-- Lese-Fortschritt (R2-G): orthogonal zu Status (Ort) und
+                     Lese-Liste (Priorität), darum eigene Card statt Anbau an die
+                     Status-Card (die schon Ort + Priorität bündelt). "Als ungelesen
+                     markieren" setzt last_read_percent via reset-Flag auf NULL
+                     (Forward-Clamp-Bypass); jederzeit erreichbar, auch mitten im Doc. -->
+                <div class="c-surface--flat p-4">
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Lese-Fortschritt</h6>
+                    <button type="button" class="c-btn w-full text-xs py-2" onclick="resetProgress()" title="Lese-Fortschritt zurücksetzen">Als ungelesen markieren</button>
+                </div>
+
                 <!-- Highlights / Markierungen -->
                 <div class="c-surface--flat p-4">
                     <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">

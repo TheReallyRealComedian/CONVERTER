@@ -125,6 +125,57 @@ def test_api_progress_forward_clamp_above_100_takes_100(app, authenticated_clien
         assert Conversion.query.get(cid).last_read_percent == 100.0
 
 
+# --- R2-G reset flag (bypasses the forward-clamp, NULL = "never read") ---
+
+def test_api_progress_reset_clears_to_null_despite_stored(app, authenticated_client, test_user):
+    # reset:true must set NULL even with a stored value — proves it bypasses the
+    # forward-clamp, which would otherwise keep max(80, 0) = 80.
+    cid = _make_conversion(app, test_user['id'], last_read_percent=80.0)
+    resp = authenticated_client.patch(f'/api/conversions/{cid}/progress', json={'reset': True})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body['success'] is True
+    assert body['last_read_percent'] is None
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent is None
+
+
+def test_api_progress_reset_wins_over_percent(app, authenticated_client, test_user):
+    # reset:true ignores any accompanying percent — reset wins, result is NULL.
+    cid = _make_conversion(app, test_user['id'], last_read_percent=80.0)
+    resp = authenticated_client.patch(
+        f'/api/conversions/{cid}/progress', json={'reset': True, 'percent': 50})
+    assert resp.status_code == 200
+    assert resp.get_json()['last_read_percent'] is None
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent is None
+
+
+def test_api_progress_reset_false_uses_normal_clamp(app, authenticated_client, test_user):
+    # reset:false (falsy) falls through to the normal forward-clamp path: a
+    # smaller percent is a no-op against the stored value.
+    cid = _make_conversion(app, test_user['id'], last_read_percent=80.0)
+    resp = authenticated_client.patch(
+        f'/api/conversions/{cid}/progress', json={'reset': False, 'percent': 30})
+    assert resp.status_code == 200
+    assert resp.get_json()['last_read_percent'] == 80.0
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent == 80.0
+
+
+def test_api_progress_reset_rejects_non_bool(app, authenticated_client, test_user):
+    # Truthy garbage (1, "true", …) must NOT trigger a reset — same explicit-type
+    # stance as the percent bool-check: a non-bool reset is a 400, and the stored
+    # value is left untouched.
+    cid = _make_conversion(app, test_user['id'], last_read_percent=80.0)
+    for bad in (1, 'true', 'yes', []):
+        resp = authenticated_client.patch(
+            f'/api/conversions/{cid}/progress', json={'reset': bad})
+        assert resp.status_code == 400, f'reset={bad!r} should be 400'
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent == 80.0
+
+
 def test_api_progress_accepts_integer_percent(app, authenticated_client, test_user):
     cid = _make_conversion(app, test_user['id'])
     resp = authenticated_client.patch(f'/api/conversions/{cid}/progress', json={'percent': 50})

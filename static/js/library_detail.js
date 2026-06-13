@@ -1417,16 +1417,16 @@ function initReadingProgress() {
     let lastPersistAt = 0;
     const PERSIST_THROTTLE_MS = 2000;
 
-    // R2-F: ">= 95" = "gelesen" (gleiche Schwelle wie Karte + Resume). Das
-    // "Gelesen"-Flag hängt am persistierten furthest-read (maxReached), NICHT
-    // an der Scroll-Position — es bleibt beim Hochscrollen stehen, während die
-    // Bar als Positions-Anzeige zurücklaufen darf (entkoppelt "wo bin ich" von
-    // "wie weit war ich"; Phase-1-Befund R2-F). maxReached wächst monoton, also
-    // schaltet das Flag nur an, nie wieder aus.
+    // ">= 95" = "gelesen" (gleiche Schwelle wie Karte + Resume). Das "Gelesen"-
+    // Flag hängt am furthest-read (maxReached), nicht an der Scroll-Position.
+    // R2-G: Bar UND Flag zeigen jetzt beide den Max (Readwise-Verhalten,
+    // Revision der R2-F-Positions-Bar). maxReached wächst beim Lesen monoton,
+    // kann aber per "Als ungelesen markieren" (resetProgress) auf 0 fallen —
+    // syncReadFlag folgt deshalb in BEIDE Richtungen, nicht mehr nur-monoton-an.
     const READ_COMPLETE_PERCENT = 95;
     const readFlag = document.getElementById('reader-read-flag');
     function syncReadFlag() {
-        if (readFlag && maxReached >= READ_COMPLETE_PERCENT) readFlag.hidden = false;
+        if (readFlag) readFlag.hidden = !(maxReached >= READ_COMPLETE_PERCENT);
     }
     syncReadFlag();
 
@@ -1470,7 +1470,12 @@ function initReadingProgress() {
         }
         wrapper.classList.remove('reading-progress--hidden');
         const percent = (scrollTop / scrollable) * 100;
-        fill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+        // R2-G: Die Bar zeigt furthest-read (max aus aktueller Position und
+        // maxReached), nicht die reine Position — beim Hochscrollen bleibt sie
+        // beim Max stehen, über den Max hinaus wächst sie mit (Readwise-Verhalten,
+        // Revision der R2-F-Positions-Bar). maxReached ist aus PageData geseedet,
+        // also steht die Bar schon vor dem rAF-Arming auf dem gespeicherten Max.
+        fill.style.width = `${Math.min(100, Math.max(0, percent, maxReached))}%`;
         // Nur vorwärts und nur nach Settle: kurze Docs (oben gefiltert) können
         // den gespeicherten Wert nicht mit 0 clobbern.
         if (persistArmed && percent > maxReached) {
@@ -1505,6 +1510,40 @@ function initReadingProgress() {
             persistProgress(maxReached, true);
         }
     });
+
+    // R2-G "Als ungelesen markieren": setzt den Fortschritt serverseitig auf
+    // NULL (reset-Flag umgeht den Forward-Clamp) und zieht die lokale Anzeige
+    // nach. Lebt in initReadingProgress, weil maxReached/update/syncReadFlag
+    // Closure-State sind; window-Expose darum hier statt im Modul-Footer.
+    function resetProgress() {
+        fetch(`/api/conversions/${CONVERSION_ID}/progress`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({reset: true}),
+        }).then(r => {
+            if (r.ok) {
+                // Pending Trailing-Persist canceln, sonst feuert er gleich mit
+                // dem (jetzt 0er) maxReached und schreibt 0.0 statt NULL zurück.
+                if (persistTimer !== null) { clearTimeout(persistTimer); persistTimer = null; }
+                maxReached = 0;
+                // persistArmed kurz aus: das sofortige update() zeichnet die Bar
+                // auf die aktuelle Position neu, soll sie aber NICHT als neuen
+                // Fortschritt zurückpersistieren (sonst stünde der Server gleich
+                // wieder auf currentPercent) — gleicher Self-Persist-Schutz wie
+                // beim Resume-Scroll. Nächster echter Vorwärts-Scroll trackt wieder.
+                persistArmed = false;
+                update();        // Bar fällt auf max(currentPercent, 0)
+                syncReadFlag();  // Label aus (maxReached < 95)
+                requestAnimationFrame(() => { persistArmed = true; });
+                showToast('Als ungelesen markiert.');
+            } else {
+                showToast(withServerSuffix('Zurücksetzen fehlgeschlagen. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
+            }
+        }).catch(() => {
+            showToast('Zurücksetzen fehlgeschlagen. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
+        });
+    }
+    window.resetProgress = resetProgress;
 }
 
 // --- Detail-Sidebar-Toggle (READER-MODE) ---

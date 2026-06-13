@@ -296,6 +296,22 @@ def register(app):
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
+        # R2-G "als ungelesen markieren": an explicit reset flag clears the mark
+        # to NULL ("never read", identical to fresh-ingested — no card bar, not
+        # in the Weiterlesen section) and deliberately bypasses the forward-clamp
+        # below. This is the explicit-flag escape hatch the R2-F note called for.
+        # reset must be a real bool (same explicit-type stance as the percent
+        # bool-check below): truthy garbage like 1 / "true" is a 400, not a
+        # silent reset, so the clamp can only ever be bypassed on purpose.
+        if 'reset' in data:
+            if not isinstance(data['reset'], bool):
+                return jsonify({'error': 'Feld "reset" muss ein Boolean sein.'}), 400
+            if data['reset']:
+                conversion.last_read_percent = None
+                db.session.commit()
+                return jsonify({'success': True, 'last_read_percent': None}), 200
+            # reset:false falls through to the normal forward-clamp path below.
+
         percent = data.get('percent')
         # Bool is an int subclass — reject it explicitly so True/False can't
         # pose as a 1/0 percent. Then require a real number: missing / None /
@@ -311,8 +327,8 @@ def register(app):
         # value), but this is a fire-and-forget signal over a shared endpoint —
         # clamping against the stored value guarantees a stale/re-seeded/buggy
         # client can never lower the mark. Phase 1 confirmed no active bug; this
-        # is defence-in-depth. A future "reset progress" feature would need an
-        # explicit flag to bypass this (see BACKLOG).
+        # is defence-in-depth. The one sanctioned way to lower it is the explicit
+        # reset flag above (R2-G "als ungelesen markieren").
         stored = conversion.last_read_percent or 0.0
         percent = max(stored, percent)
         conversion.last_read_percent = percent
