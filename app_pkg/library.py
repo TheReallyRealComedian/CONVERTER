@@ -306,6 +306,15 @@ def register(app):
         # Out-of-range is a rounding artefact of a fire-and-forget scroll
         # signal (e.g. 100.0001), not a client error — clamp instead of 400.
         percent = max(0.0, min(100.0, float(percent)))
+        # R2-F forward-clamp: furthest-read only ever moves forward. The client
+        # already sends only maxReached (forward-only, seeded from the stored
+        # value), but this is a fire-and-forget signal over a shared endpoint —
+        # clamping against the stored value guarantees a stale/re-seeded/buggy
+        # client can never lower the mark. Phase 1 confirmed no active bug; this
+        # is defence-in-depth. A future "reset progress" feature would need an
+        # explicit flag to bypass this (see BACKLOG).
+        stored = conversion.last_read_percent or 0.0
+        percent = max(stored, percent)
         conversion.last_read_percent = percent
         db.session.commit()
         return jsonify({'success': True, 'last_read_percent': percent}), 200

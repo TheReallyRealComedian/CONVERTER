@@ -164,6 +164,51 @@ function applyStatusControl(status) {
     });
 }
 
+// R2-F: Abschluss-Leiste-Archivieren. Nutzt denselben PUT-Mechanismus wie
+// setStatus (R2-C), aber mit Abschluss-UX statt stiller Segment-Aktivierung:
+// Erfolgs-Toast, dann zurück zur Library. Kurzer Delay vor der Navigation,
+// damit der Toast sichtbar ist, bevor die Seite entladen wird. Fehler bleiben
+// auf der Seite (Toast, keine Navigation).
+function finishArchive() {
+    fetch(`/api/conversions/${CONVERSION_ID}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({lifecycle_status: 'archive'})
+    }).then(r => {
+        if (r.ok) {
+            clearDetailAlert();
+            applyStatusControl('archive');
+            showToast('Archiviert');
+            setTimeout(() => { window.location.href = LIBRARY_URL; }, 700);
+        } else {
+            showToast(withServerSuffix('Archivieren fehlgeschlagen. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
+        }
+    }).catch(() => {
+        showToast('Archivieren fehlgeschlagen. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
+    });
+}
+
+// R2-F: "Zurück zur Library" der Abschluss-Leiste. Wenn der direkte Referrer
+// die Library-Liste war, via history.back() zurück — das erhält Scroll-Position
+// + Filter-State der Liste. Sonst navigiert der Klick normal über den href
+// (LIBRARY_URL), der auch ohne JS / History als Fallback funktioniert.
+function initFinishBackLink() {
+    const back = document.getElementById('reader-finish-back');
+    if (!back) return;
+    back.addEventListener('click', (e) => {
+        try {
+            const ref = document.referrer;
+            if (!ref) return;
+            const refUrl = new URL(ref);
+            const libPath = new URL(LIBRARY_URL, location.origin).pathname;
+            if (refUrl.origin === location.origin && refUrl.pathname === libPath) {
+                e.preventDefault();
+                history.back();
+            }
+        } catch (_) { /* malformed referrer → href-Fallback greift */ }
+    });
+}
+
 function copyFullContent() {
     const text = document.getElementById('content-source').textContent;
     fallbackCopyText(text).then(() => showToast('Kopiert'))
@@ -1372,6 +1417,19 @@ function initReadingProgress() {
     let lastPersistAt = 0;
     const PERSIST_THROTTLE_MS = 2000;
 
+    // R2-F: ">= 95" = "gelesen" (gleiche Schwelle wie Karte + Resume). Das
+    // "Gelesen"-Flag hängt am persistierten furthest-read (maxReached), NICHT
+    // an der Scroll-Position — es bleibt beim Hochscrollen stehen, während die
+    // Bar als Positions-Anzeige zurücklaufen darf (entkoppelt "wo bin ich" von
+    // "wie weit war ich"; Phase-1-Befund R2-F). maxReached wächst monoton, also
+    // schaltet das Flag nur an, nie wieder aus.
+    const READ_COMPLETE_PERCENT = 95;
+    const readFlag = document.getElementById('reader-read-flag');
+    function syncReadFlag() {
+        if (readFlag && maxReached >= READ_COMPLETE_PERCENT) readFlag.hidden = false;
+    }
+    syncReadFlag();
+
     function persistProgress(p, useKeepalive) {
         // Fire-and-forget über den globalen fetch-Wrapper (CSRF-Header
         // automatisch). Fehler still schlucken — der Reader bleibt ruhig,
@@ -1418,6 +1476,7 @@ function initReadingProgress() {
         if (persistArmed && percent > maxReached) {
             maxReached = percent;
             schedulePersist(maxReached);
+            syncReadFlag();
         }
     }
 
@@ -1431,7 +1490,7 @@ function initReadingProgress() {
     // öffnen statt ans Ende zu zwingen.
     requestAnimationFrame(() => {
         const scrollable = scroller.scrollHeight - scroller.clientHeight;
-        if (maxReached > 1 && maxReached < 95 && scrollable >= MIN_SCROLLABLE_PX) {
+        if (maxReached > 1 && maxReached < READ_COMPLETE_PERCENT && scrollable >= MIN_SCROLLABLE_PX) {
             scroller.scrollTop = (maxReached / 100) * scrollable;
         }
         update();
@@ -1484,12 +1543,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initMarkOnMouseup();
     initReadingProgress();
     initDetailSidebarToggle();
+    initFinishBackLink();
 });
 
 window.updateField = updateField;
 window.toggleFavorite = toggleFavorite;
 window.toggleQueue = toggleQueue;
 window.setStatus = setStatus;
+window.finishArchive = finishArchive;
 window.copyFullContent = copyFullContent;
 window.downloadContent = downloadContent;
 window.storeForReuse = storeForReuse;

@@ -51,9 +51,23 @@
                     <div class="reading-progress reading-progress--hidden" aria-hidden="true">
                         <div class="reading-progress__fill" id="reading-progress-fill"></div>
                     </div>
+                    <!-- R2-F: "Gelesen"-Flag — spiegelt den persistierten furthest-read
+                         (maxReached>=95), nicht die Scroll-Position; bleibt beim Hochscrollen
+                         oben-rechts gepinnt. JS schaltet sichtbar (initial hidden). -->
+                    <div class="reader-read-flag" id="reader-read-flag" hidden>
+                        <span class="reader-read-flag__pill">Gelesen</span>
+                    </div>
                     <article class="reader-view p-6">
                         {% if content_html %}{{ content_html | safe }}{% else %}<p class="reader-empty">Kein Inhalt.</p>{% endif %}
                     </article>
+                    {% if content_html %}
+                    <!-- R2-F: Abschluss-Leiste am Content-Ende — Zurück/Archivieren ohne
+                         Hochscrollen. Archivieren nutzt den R2-C-Status-PUT (finishArchive). -->
+                    <div class="reader-finish" role="group" aria-label="Dokument-Ende">
+                        <a href="{{ url_for('library') }}" class="c-btn c-btn--primary reader-finish__btn no-underline" id="reader-finish-back">Zurück zur Library</a>
+                        <button type="button" class="c-btn reader-finish__btn" onclick="finishArchive()">Archivieren</button>
+                    </div>
+                    {% endif %}
                     <script type="text/markdown" id="content-source">{{ conversion.content | script_safe }}</script>
                 </div>
                 <div id="highlight-action-popover" class="highlight-action-popover" style="display: none;" role="dialog" aria-label="Markierung">

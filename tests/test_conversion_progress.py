@@ -6,6 +6,11 @@ Locks in:
   and rejects bool / non-numeric / missing-key / non-dict bodies as 400 and a
   foreign conversion as 404 — the same atomic-endpoint contract as the R1-B-B
   note-PATCH.
+- R2-F forward-clamp: the persisted value only ever moves forward
+  (max(stored, incoming)); a smaller incoming percent is a no-op and the
+  response echoes the retained value, so no client regression can lower the
+  mark. Range-clamp still applies first (out-of-range-low keeps the stored
+  value rather than resetting to 0).
 - Conversion.to_dict surfaces last_read_percent.
 - _run_pending_migrations adds the last_read_percent column idempotently via
   inline ALTER TABLE (a second pass is a no-op).
@@ -75,6 +80,49 @@ def test_api_progress_clamps_below_0(app, authenticated_client, test_user):
     assert resp.get_json()['last_read_percent'] == 0.0
     with app.app_context():
         assert Conversion.query.get(cid).last_read_percent == 0.0
+
+
+# --- R2-F forward-clamp (furthest-read only moves forward) ---
+
+def test_api_progress_forward_clamp_ignores_lower_value(app, authenticated_client, test_user):
+    # A smaller incoming percent must not lower the stored mark — the response
+    # echoes the retained (higher) value, the DB is unchanged.
+    cid = _make_conversion(app, test_user['id'], last_read_percent=80.0)
+    resp = authenticated_client.patch(f'/api/conversions/{cid}/progress', json={'percent': 30})
+    assert resp.status_code == 200
+    assert resp.get_json()['last_read_percent'] == 80.0
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent == 80.0
+
+
+def test_api_progress_forward_clamp_accepts_higher_value(app, authenticated_client, test_user):
+    cid = _make_conversion(app, test_user['id'], last_read_percent=30.0)
+    resp = authenticated_client.patch(f'/api/conversions/{cid}/progress', json={'percent': 80})
+    assert resp.status_code == 200
+    assert resp.get_json()['last_read_percent'] == 80.0
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent == 80.0
+
+
+def test_api_progress_forward_clamp_below_zero_keeps_stored(app, authenticated_client, test_user):
+    # Range-clamp pins -7 to 0.0; forward-clamp then keeps the stored 50 — an
+    # out-of-range-low fire-and-forget signal must not reset progress.
+    cid = _make_conversion(app, test_user['id'], last_read_percent=50.0)
+    resp = authenticated_client.patch(f'/api/conversions/{cid}/progress', json={'percent': -7})
+    assert resp.status_code == 200
+    assert resp.get_json()['last_read_percent'] == 50.0
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent == 50.0
+
+
+def test_api_progress_forward_clamp_above_100_takes_100(app, authenticated_client, test_user):
+    # Range-clamp pins 100.0001 to 100.0; forward-clamp takes it (>= stored 50).
+    cid = _make_conversion(app, test_user['id'], last_read_percent=50.0)
+    resp = authenticated_client.patch(f'/api/conversions/{cid}/progress', json={'percent': 100.0001})
+    assert resp.status_code == 200
+    assert resp.get_json()['last_read_percent'] == 100.0
+    with app.app_context():
+        assert Conversion.query.get(cid).last_read_percent == 100.0
 
 
 def test_api_progress_accepts_integer_percent(app, authenticated_client, test_user):

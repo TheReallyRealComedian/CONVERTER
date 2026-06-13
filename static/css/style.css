@@ -1070,6 +1070,49 @@ body.reader-active .sidebar-toggle-floater--global {
     display: none;
 }
 
+/* R2-F: "Gelesen"-Flag — spiegelt den persistierten furthest-read (maxReached
+   >= 95), NICHT die Scroll-Position. Sticky height:0 Wrapper + absolute Pill:
+   bleibt beim Hochscrollen oben-rechts gepinnt (entkoppelt "wo bin ich" von
+   "wie weit war ich"), ohne Flow-Höhe zu verbrauchen. Eigener [hidden]-Guard,
+   weil display:contents-Resets im Stack den UA-Default kippen können. */
+.reader-read-flag {
+    position: sticky;
+    top: 0;
+    height: 0;
+    z-index: 11;
+    overflow: visible;
+}
+.reader-read-flag[hidden] {
+    display: none;
+}
+.reader-read-flag__pill {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--nm-text-muted);
+    background: var(--nm-bg);
+    border-radius: var(--nm-radius-pill);
+    box-shadow: var(--nm-pressed-sm);
+}
+
+/* R2-F: Abschluss-Leiste am Content-Ende — Zurück/Archivieren ohne Hochscrollen.
+   Innerhalb der Reader-Surface, durch eine Trennlinie (wie reader-view hr) vom
+   Text abgesetzt. Token-driven -> Dark-Mode für umsonst. */
+.reader-finish {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    padding: 1.5rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--nm-text-muted);
+}
+
 /* Card reading-progress — 3px-Balken am unteren Card-Rand der Library-List (R2-B).
    Letztes Kind der .c-card; deren overflow:hidden + border-radius clippen die
    unteren Ecken. Fill-Width = conv.last_read_percent. --read (>=95%) = voller,
