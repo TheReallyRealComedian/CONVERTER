@@ -700,8 +700,7 @@ select.c-input option {
 /* ===== PANE HEADERS ===== */
 .pane-header {
     background: transparent;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06),
-                0 2px 0 rgba(255,255,255,0.4);
+    box-shadow: var(--nm-sep-bottom);
     padding: var(--nm-space-md) var(--nm-space-lg);
     flex-shrink: 0;
 }
@@ -1531,7 +1530,15 @@ body.reader-active .sidebar-toggle-floater--global {
     gap: 1rem;
     padding: 0.75rem 1rem;
     border-radius: var(--nm-radius-sm);
-    background: var(--nm-bg);
+    background: var(--nm-surface-grad);
+    box-shadow: none;
+    transition: box-shadow 0.2s ease;
+}
+/* Elevation budget: a list of rows must not be N competing raised pillows.
+   Rows rest flat (toned face), and only the hovered/focused row lifts +
+   reveals its delete action (mirrors the library card-actions pattern). */
+.tag-manager-card:hover,
+.tag-manager-card:focus-within {
     box-shadow: var(--nm-raised-sm);
 }
 .tag-manager-card__name {
@@ -1544,6 +1551,32 @@ body.reader-active .sidebar-toggle-floater--global {
     color: var(--nm-text-muted);
     font-size: 0.8125rem;
     white-space: nowrap;
+}
+.tag-manager-card__delete {
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--nm-font);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--nm-danger);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+.tag-manager-card:hover .tag-manager-card__delete,
+.tag-manager-card:focus-within .tag-manager-card__delete {
+    opacity: 1;
+    pointer-events: auto;
+}
+.tag-manager-card__delete:hover { opacity: 0.78; }
+.tag-manager-card__delete:focus-visible {
+    outline: none;
+    text-decoration: underline;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* ===== TOAST NOTIFICATION ===== */
@@ -2143,11 +2176,7 @@ body.reader-active .theme-toggle-btn {
                 inset 0 2px 0 rgba(0,0,0,0.3);
 }
 
-/* Dark: Pane header separator */
-[data-global-theme="dark"] .pane-header {
-    box-shadow: 0 1px 0 rgba(255,255,255,0.04),
-                0 2px 0 rgba(0,0,0,0.3);
-}
+/* Dark: pane-header separator now rides the dark --nm-sep-bottom token (see dark :root) */
 
 /* Dark: Mobile header */
 [data-global-theme="dark"] .mobile-header {

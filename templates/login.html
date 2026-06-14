@@ -38,18 +38,18 @@
     <div class="w-full max-w-sm px-4">
         <div class="c-surface p-8">
             <h2 class="text-center text-xl font-bold text-neo-text mb-1">File Transformer</h2>
-            <p class="text-center text-sm text-neo-muted mb-6">Sign in to continue</p>
+            <p class="text-center text-sm text-neo-muted mb-8">Sign in to continue</p>
 
             {% include '_partials/flash_messages.html' %}
 
             <form method="POST" action="{{ url_for('login') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="mb-4">
+                <div class="mb-8">
                     <label for="username" class="block text-sm font-medium text-neo-muted mb-1.5">Username</label>
                     <input type="text" id="username" name="username" required autofocus
                         class="c-input w-full">
                 </div>
-                <div class="mb-6">
+                <div class="mb-8">
                     <label for="password" class="block text-sm font-medium text-neo-muted mb-1.5">Password</label>
                     <input type="password" id="password" name="password" required
                         class="c-input w-full">

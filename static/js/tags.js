@@ -45,7 +45,7 @@ async function loadTags() {
 
         const del = document.createElement('button');
         del.type = 'button';
-        del.className = 'c-btn c-btn--danger text-xs py-1 px-2';
+        del.className = 'tag-manager-card__delete';
         del.textContent = 'Löschen';
         del.addEventListener('click', () => deleteTag(tag.id, tag.name));
         card.appendChild(del);
