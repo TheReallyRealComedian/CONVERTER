@@ -59,7 +59,7 @@
                         aria-live="polite"
                         aria-busy="false"></textarea>
                     <p id="live-recording-hint" class="hidden mt-1 text-xs text-neo-faint italic">Live-Update läuft — Stop drücken, um zu bearbeiten</p>
-                    <div class="flex gap-2 mt-2">
+                    <div class="c-btn-row mt-2">
                         <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-live-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                             <span class="copy-btn__label">Kopieren</span>
@@ -103,7 +103,7 @@
             <div id="transcription-result-container" class="c-surface--flat p-4 min-h-[150px] whitespace-pre-wrap break-words text-sm text-neo-muted">
                 <span class="text-neo-faint" data-placeholder="true">Transkription erscheint hier nach der Verarbeitung.</span>
             </div>
-            <div class="flex gap-2 mt-2">
+            <div class="c-btn-row mt-2">
                 <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-file-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                     <span class="copy-btn__label">Kopieren</span>
@@ -127,7 +127,7 @@
             <p class="text-sm text-neo-muted mb-4">Wandle deinen Text in einen natürlich klingenden Podcast mit KI-Stimmen um.</p>
 
             <!-- Step 1: Choose Format & Language -->
-            <div class="c-surface--flat p-5 mb-4">
+            <div class="c-surface--flat p-5 mb-8">
                 <h5 class="text-sm font-semibold text-neo-text mb-4">Schritt 1: Setup</h5>
 
                 <div class="mb-4">
@@ -181,7 +181,7 @@
             </div>
 
             <!-- Step 2: Script -->
-            <div class="c-surface--flat p-5 mb-4">
+            <div class="c-surface--flat p-5 mb-8">
                 <h5 class="text-sm font-semibold text-neo-text mb-4">Schritt 2: Podcast erstellen</h5>
 
                 <div class="mb-4">
@@ -209,7 +209,7 @@
                 </div>
 
                 <!-- Advanced: Custom Prompt Editor -->
-                <div class="c-surface--flat">
+                <div class="prompt-editor">
                     <button type="button"
                         class="prompt-editor-toggle w-full px-3 py-2.5 neo-separator-bottom flex justify-between items-center text-sm font-medium text-neo-muted hover:text-neo-text transition-colors"
                         id="prompt-editor-toggle"
@@ -252,7 +252,7 @@
                     Dein Browser unterstützt das Audio-Element nicht.
                 </audio>
                 <div id="podcast-audio-error" class="hidden mb-3"></div>
-                <div class="flex gap-2">
+                <div class="c-btn-row">
                     <a id="download-podcast-btn" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         Herunterladen

@@ -2273,8 +2273,8 @@ html.theme-transitioning *::after {
     outline: none;
 }
 #mic-button.recording {
-    color: #ffffff;
-    background-color: rgba(225, 112, 85, 0.85);
+    color: var(--nm-danger);
+    background-color: var(--nm-tint-danger);
     box-shadow: var(--nm-pressed-sm);
 }
 
@@ -2378,14 +2378,15 @@ html.theme-transitioning *::after {
 .podcast-stage-indicator__bar {
     margin-top: 4px;
     height: 4px;
-    background: var(--nm-pressed-sm, rgba(0, 0, 0, 0.08));
-    border-radius: 2px;
+    background: var(--nm-tint-accent);
+    border-radius: var(--nm-radius-pill);
     overflow: hidden;
 }
 .podcast-stage-indicator__bar-fill {
     height: 100%;
-    background: var(--nm-accent-hover, #6c7ae0);
+    background: var(--nm-accent-hover);
     width: 0%;
+    border-radius: var(--nm-radius-pill);
     transition: width 0.3s ease;
 }
 
@@ -2399,10 +2400,10 @@ html.theme-transitioning *::after {
     text-align: right;
 }
 .char-counter.is-warning {
-    color: #c79100;
+    color: var(--nm-alert-warning-ink);
 }
 .char-counter.is-over {
-    color: #c0392b;
+    color: var(--nm-alert-danger-ink);
     font-weight: 600;
 }
 
@@ -2423,21 +2424,29 @@ html.theme-transitioning *::after {
 .mode-radio-input:checked + .mode-radio-label {
     background: var(--nm-tint-accent);
     color: var(--nm-accent-hover);
-    box-shadow: var(--nm-pressed-sm), inset 4px 0 0 var(--nm-accent-hover);
+    box-shadow: var(--nm-pressed-sm);
 }
 .mode-radio-input:focus-visible + .mode-radio-label {
-    box-shadow: var(--nm-raised-sm), 0 0 0 3px rgba(168, 180, 216, 0.55);
+    box-shadow: var(--nm-pressed-sm), 0 0 0 3px rgba(168, 180, 216, 0.55);
 }
 .mode-radio-input:checked:focus-visible + .mode-radio-label {
-    box-shadow: var(--nm-pressed-sm), inset 4px 0 0 var(--nm-accent-hover), 0 0 0 3px rgba(168, 180, 216, 0.55);
+    box-shadow: var(--nm-pressed-sm), 0 0 0 3px rgba(168, 180, 216, 0.55);
 }
 .mode-radio-label {
-    box-shadow: var(--nm-raised-sm);
+    box-shadow: none;
     border: none !important;
-    background: var(--nm-bg);
+    background: transparent;
 }
 .mode-radio-label:hover {
-    box-shadow: var(--nm-raised);
+    box-shadow: var(--nm-pressed-sm);
+}
+/* The advanced prompt-editor disclosure lives INSIDE the Step-2 card, so it
+   must not read as a second raised surface (elevation budget — nested raised
+   goes flat). The toggle's own neo-separator-bottom carves the division. */
+.prompt-editor {
+    background: transparent;
+    box-shadow: none;
+    border-radius: var(--nm-radius-sm);
 }
 .prompt-editor-content { display: none; }
 .prompt-editor-content.expanded { display: block; }
