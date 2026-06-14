@@ -1,5 +1,8 @@
 """Library list/detail and the /api/conversions CRUD endpoints."""
 import json
+import re
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
@@ -83,6 +86,86 @@ def _conversion_summary(conversion):
         'content_length': len(content),
         'content_preview': content[:300],
     }
+
+
+_BERLIN_TZ = ZoneInfo('Europe/Berlin')
+
+# MCP1: recording-timestamp parser for recorder filenames. YYYY first (so the
+# year position is never ambiguous), optional time after a T / space / - / _
+# separator. The (?<!\d)/(?!\d) anchors keep the token from being a slice of a
+# longer digit run, so a 10-digit blob isn't read as a date.
+_RECORDED_AT_RE = re.compile(
+    r'(?<!\d)'
+    r'(\d{4})[-_.]?(\d{2})[-_.]?(\d{2})'                  # date: Y M D, opt sep
+    r'(?:[T _-](\d{2})[:._]?(\d{2})(?:[:._]?(\d{2}))?)?'  # opt time: H M (S)
+    r'(?!\d)'
+)
+
+
+def parse_recorded_at_from_filename(filename):
+    """Best-effort recording timestamp from a recorder filename, or None.
+
+    Recognises clear YYYY-first date(+time) tokens — ``20260612``,
+    ``2026-06-12``, ``20260612_1430``, ``20260612-143005``,
+    ``2026-06-12 14.30``, ``2026_06_12T14_30`` — ignoring any leading recorder
+    prefix (REC/ZOOM/VOICE/WS/MIC/…) by simply searching for the substring.
+    Times are read as Europe/Berlin; the result is a tz-aware datetime whose
+    ``.isoformat()`` carries the offset. No time component → 00:00 local.
+
+    Conservative by design — a wrong recorded_at poisons later meeting matching,
+    so "falsch ist schlimmer als leer": the year must be 2000–2100 and y/m/d/
+    h/m/s must form a real datetime, else the candidate is dropped. Returns
+    None when nothing valid is found OR when the name carries two *different*
+    valid dates (ambiguous). Negative cases (`Besprechung.mp3`, `audio (1).mp3`,
+    `12345678.mp3`, `New Recording 7.m4a`) all yield None.
+    """
+    if not isinstance(filename, str):
+        return None
+
+    found = set()
+    for m in _RECORDED_AT_RE.finditer(filename):
+        year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if not (2000 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31):
+            continue
+        hour = int(m.group(4)) if m.group(4) is not None else 0
+        minute = int(m.group(5)) if m.group(5) is not None else 0
+        second = int(m.group(6)) if m.group(6) is not None else 0
+        if not (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+            continue
+        try:
+            dt = datetime(year, month, day, hour, minute, second, tzinfo=_BERLIN_TZ)
+        except ValueError:
+            continue  # impossible combo, e.g. Feb 30
+        found.add(dt)
+
+    if len(found) == 1:
+        return next(iter(found))
+    return None  # zero matches, or ambiguous (multiple distinct dates)
+
+
+def _normalize_client_recorded_at(value):
+    """Client-supplied recorded_at → ISO-8601 UTC string, or None.
+
+    Accepts an ISO-8601 string OR epoch-milliseconds as a number (e.g. JS
+    ``file.lastModified``). A naive ISO string is read as UTC. Unparseable
+    input returns None so the caller stays additive (no 400, just log + fall
+    back to the filename parser)."""
+    if isinstance(value, bool):
+        return None  # bool is an int subclass — never a timestamp
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat()
+        except (ValueError, OverflowError, OSError):
+            return None
+    if isinstance(value, str) and value.strip():
+        try:
+            dt = datetime.fromisoformat(value.strip().replace('Z', '+00:00'))
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    return None
 
 
 def register(app):
@@ -349,6 +432,33 @@ def register(app):
 
         title = data.get('title', 'Untitled')[:255]
 
+        # MCP1: take the metadata bag defensively (must be a dict, else {}).
+        metadata = data.get('metadata', {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        # MCP1 recorded_at-capture — additive, no schema touch, never a 400.
+        # Only fill it when the client didn't already put a recorded_at in the
+        # metadata bag itself. Precedence: explicit top-level client field >
+        # value derived from source_filename. An unparseable client value is
+        # logged and falls through to the filename parser (stay additive).
+        if 'recorded_at' not in metadata:
+            recorded_at, source = None, None
+            if 'recorded_at' in data:
+                recorded_at = _normalize_client_recorded_at(data.get('recorded_at'))
+                if recorded_at is not None:
+                    source = 'client'
+                else:
+                    app.logger.warning(
+                        'recorded_at unparseable, ignored: %r', data.get('recorded_at'))
+            if recorded_at is None:
+                parsed = parse_recorded_at_from_filename(data.get('source_filename'))
+                if parsed is not None:
+                    recorded_at, source = parsed.isoformat(), 'filename'
+            if recorded_at is not None:
+                metadata['recorded_at'] = recorded_at
+                metadata['recorded_at_source'] = source
+
         conversion = Conversion(
             user_id=current_user.id,
             conversion_type=conversion_type,
@@ -357,7 +467,7 @@ def register(app):
             source_filename=data.get('source_filename'),
             source_mimetype=data.get('source_mimetype'),
             source_size_bytes=data.get('source_size_bytes'),
-            metadata_json=json.dumps(data.get('metadata', {})),
+            metadata_json=json.dumps(metadata),
             tags=data.get('tags', ''),
         )
         db.session.add(conversion)
