@@ -1072,7 +1072,6 @@ body.reader-active header.lg\:hidden {
     align-items: center;
     justify-content: center;
     background: var(--nm-bg);
-    border: 1px solid var(--nm-text-muted);
     color: var(--nm-text-secondary);
     cursor: pointer;
     box-shadow: var(--nm-raised-sm);
@@ -1191,7 +1190,7 @@ body.reader-active .sidebar-toggle-floater--global {
     justify-content: center;
     padding: 1.5rem;
     margin-top: 0.5rem;
-    border-top: 1px solid var(--nm-text-muted);
+    box-shadow: var(--nm-sep-top);
 }
 
 /* Card reading-progress — 3px-Balken am unteren Card-Rand der Library-List (R2-B).
@@ -1336,9 +1335,8 @@ body.reader-active .sidebar-toggle-floater--global {
     z-index: 100;
     background: var(--nm-bg);
     color: var(--nm-text);
-    border: 1px solid var(--nm-text-muted);
-    border-radius: var(--nm-radius-sm);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: var(--nm-radius-md);
+    box-shadow: var(--nm-raised);
     font-family: var(--nm-font);
     padding: 0.5em;
     display: flex;
@@ -1366,15 +1364,14 @@ body.reader-active .sidebar-toggle-floater--global {
 .highlight-card {
     padding: 0.625rem 0.75rem;
     border-radius: var(--nm-radius-sm);
-    background: var(--nm-bg);
+    background: var(--nm-tint-accent);
     cursor: pointer;
-    box-shadow: var(--nm-raised-sm);
     font-size: 0.8125rem;
     line-height: 1.4;
-    transition: background-color 0.15s ease;
+    transition: box-shadow 0.15s ease;
 }
 .highlight-card:hover {
-    background: var(--nm-tint-accent);
+    box-shadow: var(--nm-pressed-sm);
 }
 .highlight-card__exact {
     color: var(--nm-text);
@@ -1421,8 +1418,7 @@ body.reader-active .sidebar-toggle-floater--global {
 }
 .highlight-card--cross-format {
     opacity: 0.7;
-    border-left: 3px solid var(--nm-text-muted);
-    padding-left: calc(0.75rem - 3px);
+    background: var(--nm-tint-warning);
 }
 .highlight-card--cross-format .highlight-card__exact::before {
     content: '⚠ ';
@@ -1450,8 +1446,8 @@ body.reader-active .sidebar-toggle-floater--global {
     flex-direction: column;
     gap: 0.35em;
     margin-top: 0.25em;
-    padding-top: 0.5em;
-    border-top: 1px solid rgba(131, 149, 167, 0.25);
+    padding-top: 0.6em;
+    box-shadow: var(--nm-sep-top);
 }
 .highlight-tag-section__label {
     font-size: 0.6875rem;
@@ -1486,7 +1482,7 @@ body.reader-active .sidebar-toggle-floater--global {
     align-items: center;
     gap: 0.25em;
     padding: 0.15em 0.55em;
-    border-radius: 999px;
+    border-radius: var(--nm-radius-pill);
     background: var(--nm-tint-accent);
     color: var(--nm-text);
     font-size: 0.75rem;
@@ -1639,7 +1635,7 @@ body.reader-active .sidebar-toggle-floater--global {
     align-items: center;
     gap: 0.25em;
     padding: 0.15em 0.55em;
-    border-radius: 999px;
+    border-radius: var(--nm-radius-pill);
     background: var(--nm-tint-accent);
     color: var(--nm-text);
     font-size: 0.75rem;
@@ -1904,8 +1900,10 @@ a.status-segmented__btn { text-decoration: none; }
     box-shadow: 0 0 0 2px var(--nm-accent-hover);
 }
 
-/* Detail-view queue toggle — labeled, full-width. Raised = "press to add",
-   pressed-in + accent = "on the list" (the neomorphism engaged metaphor). */
+/* Detail-view queue toggle — labeled, full-width. Rule 5: a toggle is FLAT when
+   off (flat accent tint, no rest elevation) and flips to pressed-in + accent
+   when on the list. The card's status-segmented active segment + this (when on)
+   are the only pressed elements; off-state stays flat so the card is calm. */
 .queue-toggle-btn {
     display: flex;
     align-items: center;
@@ -1918,10 +1916,9 @@ a.status-segmented__btn { text-decoration: none; }
     font-size: 0.8rem;
     font-weight: 500;
     color: var(--nm-text-muted);
-    background: var(--nm-bg);
+    background: var(--nm-tint-accent);
     border: none;
     border-radius: var(--nm-radius-pill);
-    box-shadow: var(--nm-raised-sm);
     cursor: pointer;
     transition: color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -1937,6 +1934,28 @@ a.status-segmented__btn { text-decoration: none; }
     box-shadow: var(--nm-pressed-sm);
 }
 .queue-toggle-btn__icon { font-size: 1rem; line-height: 1; }
+
+/* Notion target group (detail sidebar) — segmented choice: flat tinted options,
+   the selected target (library_detail.js toggles .c-btn--primary) is the one
+   pressed element. Scoped override of the global raised .c-btn so the (collapsed)
+   Notion card stays on the elevation budget; focus ring preserved for a11y. */
+#notion-target-group .c-btn,
+#notion-target-group .c-btn:hover {
+    background: var(--nm-tint-accent);
+    box-shadow: none;
+    transform: none;
+}
+#notion-target-group .c-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(168, 180, 216, 0.3);
+}
+#notion-target-group .c-btn--primary,
+#notion-target-group .c-btn--primary:hover {
+    background: var(--nm-tint-accent);
+    box-shadow: var(--nm-pressed-sm);
+    color: var(--nm-accent-hover);
+    transform: none;
+}
 
 /* Shadow separator lines (neomorphism alternative to borders) */
 .neo-separator-bottom {
