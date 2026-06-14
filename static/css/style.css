@@ -133,6 +133,14 @@
     --nm-tone-danger:  rgba(244, 63, 94, 0.10);   --nm-tone-danger-ink:  #be123c;
     --nm-tone-slate:   rgba(100, 116, 139, 0.12); --nm-tone-slate-ink:   #475569;
 
+    /* Alert inks — softer than the badge tones; the DS Alert palette. Pair with
+       the --nm-tint-* washes (rule 7: tint + ink, never a fill or bar). Dark
+       mirror in the dark :root block. */
+    --nm-alert-danger-ink:  #a85040;
+    --nm-alert-success-ink: #5a9a7a;
+    --nm-alert-warning-ink: #a07828;
+    --nm-alert-info-ink:    #4a7ab5;
+
     /* Surface gradient (subtle 145deg top-left light rake on raised faces) */
     --nm-surface-grad: linear-gradient(145deg, #dde2e9, #edf0f4);
 
@@ -247,6 +255,16 @@ html, body {
     color: var(--nm-text);
 }
 
+/* Toolbar / action-button cluster — raised .c-btn siblings fuse if too close
+   (rule 4: shadows need air). One convention for every tool-header and action
+   row: ≥24px gap so adjacent shadows breathe. */
+.c-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nm-space-lg);
+}
+
 /* ===== INPUT (replaces .glass-input) ===== */
 .c-input {
     background: var(--nm-bg);
@@ -343,7 +361,6 @@ select.c-input option {
     border: none;
     box-shadow: var(--nm-raised-sm);
     margin-bottom: 0.75rem;
-    border-left: 4px solid;
     position: relative;
 }
 
@@ -376,29 +393,10 @@ select.c-input option {
     outline: none;
 }
 
-.c-alert--danger {
-    background: var(--nm-tint-danger);
-    color: #a85040;
-    border-color: var(--nm-danger);
-}
-
-.c-alert--success {
-    background: var(--nm-tint-success);
-    color: #5a9a7a;
-    border-color: var(--nm-success);
-}
-
-.c-alert--warning {
-    background: var(--nm-tint-warning);
-    color: #a07828;
-    border-color: var(--nm-warning);
-}
-
-.c-alert--info {
-    background: var(--nm-tint-info);
-    color: #4a7ab5;
-    border-color: var(--nm-info);
-}
+.c-alert--danger  { background: var(--nm-tint-danger);  color: var(--nm-alert-danger-ink); }
+.c-alert--success { background: var(--nm-tint-success); color: var(--nm-alert-success-ink); }
+.c-alert--warning { background: var(--nm-tint-warning); color: var(--nm-alert-warning-ink); }
+.c-alert--info    { background: var(--nm-tint-info);    color: var(--nm-alert-info-ink); }
 
 /* ===== DROP ZONE (replaces .glass-drop-zone) ===== */
 .c-drop-zone {
@@ -446,7 +444,7 @@ select.c-input option {
     left: 50%;
     transform: translate(-50%, -50%);
     background: var(--nm-bg);
-    color: #a07828;
+    color: var(--nm-alert-warning-ink);
     font-size: 0.875rem;
     font-weight: 600;
     padding: 0.5rem 1rem;
@@ -725,7 +723,7 @@ select.c-input option {
 
 .pane-header-buttons {
     display: flex;
-    gap: var(--nm-space-sm);
+    gap: var(--nm-space-lg);
     align-items: center;
 }
 
@@ -931,23 +929,31 @@ body.reader-active header.lg\:hidden {
     --reader-text: #d4d4d8;
 }
 
+/* Reader-immersive-dark is a parallel mini-theme (--reader-bg, NOT the global
+   --nm-* primitives), so these neomorphic shadows are intentionally literal:
+   opaque clay + soft dark bevel instead of the old glassmorphism drop-shadow. */
 [data-theme="dark"] .reader-toolbar {
-    background: rgba(30, 30, 50, 0.92);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    background: #2e3142;
+    box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.45),
+               -8px -8px 16px rgba(255, 255, 255, 0.03);
 }
 
 [data-theme="dark"] .reader-toolbar button {
-    color: #aaa;
+    color: #a0a4b8;
 }
 
 [data-theme="dark"] .reader-toolbar button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #ddd;
+    background: transparent;
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.5),
+                inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+    color: #e0e0e8;
 }
 
 [data-theme="dark"] .reader-toolbar button.active {
-    background: rgba(255, 255, 255, 0.12);
-    color: #eee;
+    background: transparent;
+    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.5),
+                inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+    color: #9aa4d0;
 }
 
 [data-theme="dark"] .reader-toolbar .separator {
@@ -2101,6 +2107,12 @@ body.reader-active .theme-toggle-btn {
     --nm-tone-danger:  rgba(251, 113, 133, 0.16); --nm-tone-danger-ink:  #fb7185;
     --nm-tone-slate:   rgba(148, 163, 184, 0.16); --nm-tone-slate-ink:   #94a3b8;
 
+    /* Alert inks — dark mirror (lightened for dark tint backgrounds) */
+    --nm-alert-danger-ink:  #e88070;
+    --nm-alert-success-ink: #70c898;
+    --nm-alert-warning-ink: #e0b848;
+    --nm-alert-info-ink:    #80b8f0;
+
     color-scheme: dark;
 }
 
@@ -2118,11 +2130,7 @@ body.reader-active .theme-toggle-btn {
     background: linear-gradient(145deg, #3a3048, #302838);
 }
 
-/* Dark: Alert text colors (lightened for dark tint backgrounds) */
-[data-global-theme="dark"] .c-alert--danger  { color: #e88070; }
-[data-global-theme="dark"] .c-alert--success { color: #70c898; }
-[data-global-theme="dark"] .c-alert--warning { color: #e0b848; }
-[data-global-theme="dark"] .c-alert--info    { color: #80b8f0; }
+/* Dark: alert inks now ride the dark --nm-alert-*-ink tokens (see dark :root). */
 
 /* Dark: separator lines now ride the dark --nm-sep-* tokens (see dark :root) */
 [data-global-theme="dark"] .neo-sidebar-brand {

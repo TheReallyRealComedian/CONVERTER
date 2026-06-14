@@ -158,11 +158,19 @@ This is a blockquote to demonstrate styling.
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
 
     <style>
+        /* Orientation = a toggle pair (rule 5): flat tinted at rest, the active
+           option flips to pressed-in + accent. Overrides the raised .c-btn. */
         .orientation-btn {
             display: inline-flex;
             align-items: center;
             padding: 6px 14px;
             font-size: 0.85rem;
+            background: var(--nm-tint-accent);
+            box-shadow: none;
+        }
+        .orientation-btn:hover {
+            box-shadow: none;
+            transform: none;
         }
         .orientation-btn.active {
             background: var(--nm-tint-accent);
