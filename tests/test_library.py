@@ -238,3 +238,155 @@ def test_api_update_conversion_404_for_other_users_conversion(app, authenticated
         json={'is_favorite': True},
     )
     assert resp.status_code == 404
+
+
+# --- MCP1: JSON read-API (GET /api/conversions[/<id>]) ---
+
+
+def test_api_list_conversions_requires_login(client):
+    """MCP1: the JSON list endpoint is @login_required like the rest of the
+    /api surface — an anonymous client is redirected to the login view (302),
+    never served another user's rows."""
+    resp = client.get('/api/conversions')
+    assert resp.status_code == 302
+    assert '/login' in resp.headers['Location']
+
+
+def test_api_list_conversions_owner_scoped(app, authenticated_client, test_user):
+    """A sees only A's conversions, never B's (owner-scoped on current_user)."""
+    with app.app_context():
+        other = User(username='erin')
+        other.set_password('password1234')
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    _make_conversion(app, test_user['id'], title='Mine')
+    _make_conversion(app, other_id, title='Not mine')
+
+    resp = authenticated_client.get('/api/conversions')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert [it['title'] for it in data['items']] == ['Mine']
+    assert data['total'] == 1
+
+
+def test_api_list_conversions_type_filter(app, authenticated_client, test_user):
+    _make_conversion(app, test_user['id'], title='Doc',
+                     conversion_type='document_to_markdown')
+    _make_conversion(app, test_user['id'], title='Audio',
+                     conversion_type='audio_transcription')
+
+    resp = authenticated_client.get('/api/conversions?type=audio_transcription')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert [it['title'] for it in data['items']] == ['Audio']
+    assert data['total'] == 1
+
+
+def test_api_list_conversions_invalid_type_400(authenticated_client):
+    assert authenticated_client.get('/api/conversions?type=nonsense').status_code == 400
+
+
+def test_api_list_conversions_status_filter(app, authenticated_client, test_user):
+    _make_conversion(app, test_user['id'], title='Inbox one', lifecycle_status='inbox')
+    _make_conversion(app, test_user['id'], title='Archived one', lifecycle_status='archive')
+
+    resp = authenticated_client.get('/api/conversions?status=archive')
+    assert resp.status_code == 200
+    assert [it['title'] for it in resp.get_json()['items']] == ['Archived one']
+
+
+def test_api_list_conversions_invalid_status_400(authenticated_client):
+    assert authenticated_client.get('/api/conversions?status=bogus').status_code == 400
+
+
+def test_api_list_conversions_exclude_status(app, authenticated_client, test_user):
+    """exclude_status=archive yields the "unarchived" set the MCP wants."""
+    _make_conversion(app, test_user['id'], title='Live one', lifecycle_status='inbox')
+    _make_conversion(app, test_user['id'], title='Archived one', lifecycle_status='archive')
+
+    resp = authenticated_client.get('/api/conversions?exclude_status=archive')
+    assert resp.status_code == 200
+    titles = [it['title'] for it in resp.get_json()['items']]
+    assert 'Live one' in titles
+    assert 'Archived one' not in titles
+
+
+def test_api_list_conversions_invalid_exclude_status_400(authenticated_client):
+    assert authenticated_client.get('/api/conversions?exclude_status=bogus').status_code == 400
+
+
+def test_api_list_conversions_summary_omits_content(app, authenticated_client, test_user):
+    """Summary carries content_length + content_preview + parsed metadata but
+    NOT the full content body (the whole point of the slim list)."""
+    body = 'X' * 1000
+    _make_conversion(app, test_user['id'], title='Long', content=body,
+                     metadata_json=json.dumps({'src': 'test', 'k': 1}))
+    item = authenticated_client.get('/api/conversions').get_json()['items'][0]
+    assert 'content' not in item
+    assert item['content_length'] == 1000
+    assert item['content_preview'] == 'X' * 300
+    assert item['metadata'] == {'src': 'test', 'k': 1}
+    assert item['tag_refs'] == []
+
+
+def test_api_list_conversions_limit_offset_and_total(app, authenticated_client, test_user):
+    from datetime import datetime
+    for i in range(3):
+        _make_conversion(app, test_user['id'], title=f'C{i}',
+                         created_at=datetime(2026, 1, i + 1))
+    data = authenticated_client.get('/api/conversions?limit=1&offset=0').get_json()
+    assert len(data['items']) == 1
+    assert data['total'] == 3  # total is the full count, before the limit window
+    assert data['limit'] == 1
+    assert data['offset'] == 0
+
+
+def test_api_list_conversions_limit_caps_at_500(authenticated_client):
+    resp = authenticated_client.get('/api/conversions?limit=999')
+    assert resp.status_code == 200
+    assert resp.get_json()['limit'] == 500
+
+
+def test_api_list_conversions_invalid_limit_offset_400(authenticated_client):
+    assert authenticated_client.get('/api/conversions?limit=abc').status_code == 400
+    assert authenticated_client.get('/api/conversions?limit=0').status_code == 400
+    assert authenticated_client.get('/api/conversions?offset=-1').status_code == 400
+    assert authenticated_client.get('/api/conversions?offset=abc').status_code == 400
+
+
+def test_api_list_conversions_sorted_created_at_desc(app, authenticated_client, test_user):
+    from datetime import datetime
+    _make_conversion(app, test_user['id'], title='Oldest', created_at=datetime(2026, 1, 1))
+    _make_conversion(app, test_user['id'], title='Newest', created_at=datetime(2026, 6, 1))
+    _make_conversion(app, test_user['id'], title='Middle', created_at=datetime(2026, 3, 1))
+    titles = [it['title'] for it in
+              authenticated_client.get('/api/conversions').get_json()['items']]
+    assert titles == ['Newest', 'Middle', 'Oldest']
+
+
+def test_api_get_conversion_full_to_dict(app, authenticated_client, test_user):
+    body = 'Full body content here.'
+    cid = _make_conversion(app, test_user['id'], title='One', content=body,
+                           metadata_json=json.dumps({'recorded_at': '2026-06-12T10:00:00+02:00'}))
+    resp = authenticated_client.get(f'/api/conversions/{cid}')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['content'] == body  # single reader returns the FULL content
+    assert data['metadata'] == {'recorded_at': '2026-06-12T10:00:00+02:00'}
+    assert data['id'] == cid
+
+
+def test_api_get_conversion_404_missing(authenticated_client):
+    assert authenticated_client.get('/api/conversions/999999').status_code == 404
+
+
+def test_api_get_conversion_404_for_other_users_conversion(app, authenticated_client, test_user):
+    with app.app_context():
+        other = User(username='frank')
+        other.set_password('password1234')
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    cid = _make_conversion(app, other_id, title="Frank's secret")
+    assert authenticated_client.get(f'/api/conversions/{cid}').status_code == 404

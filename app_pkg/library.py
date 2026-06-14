@@ -55,6 +55,36 @@ def get_owned_conversion(conversion_id):
     ).first_or_404()
 
 
+def _conversion_summary(conversion):
+    """Slim per-row dict for the JSON list endpoint (MCP1) — everything the
+    MCP needs to triage a row without shipping the full ``content`` of every
+    conversion. Deliberately *not* Conversion.to_dict() (which carries the
+    full body and feeds the POST/PUT responses + frontend, so it stays
+    untouched). Drops ``content`` in favour of ``content_length`` +
+    ``content_preview``; ``tag_refs`` is the slim {id,name} pair, not the full
+    Tag.to_dict()."""
+    metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
+    content = conversion.content or ''
+    return {
+        'id': conversion.id,
+        'conversion_type': conversion.conversion_type,
+        'title': conversion.title,
+        'source_filename': conversion.source_filename,
+        'source_mimetype': conversion.source_mimetype,
+        'source_size_bytes': conversion.source_size_bytes,
+        'lifecycle_status': conversion.lifecycle_status,
+        'is_favorite': conversion.is_favorite,
+        'last_read_percent': conversion.last_read_percent,
+        'queue_position': conversion.queue_position,
+        'created_at': conversion.created_at.isoformat() if conversion.created_at else None,
+        'updated_at': conversion.updated_at.isoformat() if conversion.updated_at else None,
+        'tag_refs': [{'id': t.id, 'name': t.name} for t in conversion.tag_refs],
+        'metadata': metadata,
+        'content_length': len(content),
+        'content_preview': content[:300],
+    }
+
+
 def register(app):
     @app.route('/library')
     @login_required
@@ -223,6 +253,87 @@ def register(app):
             conversion_tag_refs=[t.to_dict() for t in conversion.tag_refs],
         )
 
+    @app.route('/api/conversions', methods=['GET'])
+    @login_required
+    def api_list_conversions():
+        """JSON list of the current user's conversions (MCP1 read-API).
+
+        Owner-scoped, read-only sibling of the HTML /library view. Returns slim
+        per-row summaries (no full ``content`` — only ``content_length`` and a
+        300-char ``content_preview``, see _conversion_summary) plus a ``total``
+        count taken *before* the limit/offset window.
+
+        Query params (all optional):
+          type           — filter conversion_type; must be in
+                           ALLOWED_CONVERSION_TYPES, else 400.
+          status         — exact lifecycle_status filter; must be in
+                           LIFECYCLE_STATUSES, else 400.
+          exclude_status — exclude this lifecycle_status; must be in
+                           LIFECYCLE_STATUSES, else 400. (exclude_status=archive
+                           yields the "unarchived" set the MCP wants.)
+          limit          — page size, default 100. Values >500 are *capped* to
+                           500 (not rejected); non-int or <1 → 400.
+          offset         — page offset, default 0; non-int or <0 → 400.
+
+        Sorted created_at desc (newest first).
+        """
+        conversion_type = request.args.get('type', '')
+        if conversion_type and conversion_type not in ALLOWED_CONVERSION_TYPES:
+            return jsonify({'error': f'Invalid conversion type: {conversion_type}'}), 400
+
+        status = request.args.get('status', '')
+        if status and status not in LIFECYCLE_STATUSES:
+            return jsonify({'error': 'Ungültiger Lifecycle-Status.'}), 400
+
+        exclude_status = request.args.get('exclude_status', '')
+        if exclude_status and exclude_status not in LIFECYCLE_STATUSES:
+            return jsonify({'error': 'Ungültiger Lifecycle-Status.'}), 400
+
+        # Parse limit/offset by hand (not request.args.get(type=int)) so an
+        # absent param falls back to the default while a present-but-invalid one
+        # is a 400 — type=int conflates the two by yielding None for both.
+        limit_raw = request.args.get('limit')
+        if limit_raw is None:
+            limit = 100
+        else:
+            try:
+                limit = int(limit_raw)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Feld "limit" muss eine ganze Zahl ≥ 1 sein.'}), 400
+            if limit < 1:
+                return jsonify({'error': 'Feld "limit" muss eine ganze Zahl ≥ 1 sein.'}), 400
+            limit = min(limit, 500)  # cap, not reject (see docstring)
+
+        offset_raw = request.args.get('offset')
+        if offset_raw is None:
+            offset = 0
+        else:
+            try:
+                offset = int(offset_raw)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Feld "offset" muss eine ganze Zahl ≥ 0 sein.'}), 400
+            if offset < 0:
+                return jsonify({'error': 'Feld "offset" muss eine ganze Zahl ≥ 0 sein.'}), 400
+
+        query = Conversion.query.filter_by(user_id=current_user.id)
+        if conversion_type:
+            query = query.filter_by(conversion_type=conversion_type)
+        if status:
+            query = query.filter(Conversion.lifecycle_status == status)
+        if exclude_status:
+            query = query.filter(Conversion.lifecycle_status != exclude_status)
+
+        total = query.count()  # full match count, before the limit/offset window
+        rows = (query.order_by(Conversion.created_at.desc())
+                     .limit(limit).offset(offset).all())
+
+        return jsonify({
+            'items': [_conversion_summary(c) for c in rows],
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+        })
+
     @app.route('/api/conversions', methods=['POST'])
     @login_required
     def api_create_conversion():
@@ -252,6 +363,15 @@ def register(app):
         db.session.add(conversion)
         db.session.commit()
         return jsonify(conversion.to_dict()), 201
+
+    @app.route('/api/conversions/<int:conversion_id>', methods=['GET'])
+    @login_required
+    def api_get_conversion(conversion_id):
+        """Full JSON of one owned conversion (MCP1 read-API), including the
+        full ``content`` + parsed ``metadata`` via Conversion.to_dict(). 404
+        (via get_owned_conversion) for a missing or foreign id."""
+        conversion = get_owned_conversion(conversion_id)
+        return jsonify(conversion.to_dict())
 
     @app.route('/api/conversions/<int:conversion_id>', methods=['PUT'])
     @login_required
