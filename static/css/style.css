@@ -1735,7 +1735,7 @@ body.reader-active .sidebar-toggle-floater--global {
 }
 .save-library-btn.saved {
     background: var(--nm-tint-success);
-    color: #5a9a7a;
+    color: var(--nm-alert-success-ink);
     box-shadow: var(--nm-pressed-sm);
 }
 
@@ -2193,10 +2193,7 @@ body.reader-active .theme-toggle-btn {
 /* Dark: type/status/view-switcher badges now ride the dark --nm-tone-* tokens
    (see dark :root) — no per-selector overrides needed. */
 
-/* Dark: Save button saved state */
-[data-global-theme="dark"] .save-library-btn.saved {
-    color: #70c898;
-}
+/* Dark: save-button saved-state ink now rides the dark --nm-alert-success-ink token (see dark :root) */
 
 /* Dark: Select dropdown options */
 [data-global-theme="dark"] select.c-input option {
