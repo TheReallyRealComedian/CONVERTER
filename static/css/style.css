@@ -37,8 +37,31 @@
 /* ===== NEOMORPHISM DESIGN SYSTEM ===== */
 :root {
     /* Font */
-    --nm-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    --nm-font: 'Nunito', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
     --nm-font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+
+    /* Typography scale (DS tokens — sizes / weights / leading / eyebrow) */
+    --text-xs:   0.75rem;    /* 12px — meta, chips, badges */
+    --text-sm:   0.875rem;   /* 14px — body default in chrome, buttons, inputs */
+    --text-base: 1rem;       /* 16px — root / reading body */
+    --text-md:   1.0625rem;  /* 17px — reader prose */
+    --text-lg:   1.125rem;   /* 18px — page heading (h2) */
+    --text-xl:   1.25rem;    /* 20px — login title */
+    --text-2xl:  1.5rem;     /* 24px — reader h2 */
+    --text-3xl:  1.875rem;   /* 30px — reader h1 */
+
+    --weight-regular:  400;
+    --weight-medium:   500;
+    --weight-semibold: 600;
+    --weight-bold:     700;
+
+    --leading-tight:   1.25;
+    --leading-snug:    1.4;
+    --leading-normal:  1.5;
+    --leading-relaxed: 1.65;
+
+    --eyebrow-size:    0.8rem;
+    --eyebrow-spacing: 0.04em;
 
     /* PDF Page Dimensions (unchanged) */
     --page-width: 21cm;
@@ -87,6 +110,10 @@
     --nm-pressed-sm:  inset 3px 3px 8px var(--nm-shadow-dark),
                       inset -2px -2px 5px var(--nm-shadow-light);
 
+    /* Hairline separators (neomorphic alternative to a border) */
+    --nm-sep-bottom: 0 1px 0 rgba(0,0,0,0.06), 0 2px 0 rgba(255,255,255,0.4);
+    --nm-sep-top:    inset 0 1px 0 rgba(0,0,0,0.06), inset 0 2px 0 rgba(255,255,255,0.4);
+
     /* Tints (12% opacity) */
     --nm-tint-accent:  rgba(168, 180, 216, 0.12);
     --nm-tint-success: rgba(126, 200, 160, 0.12);
@@ -94,6 +121,9 @@
     --nm-tint-warning: rgba(246, 185, 59, 0.12);
     --nm-tint-info:    rgba(116, 185, 255, 0.12);
     --nm-tint-highlight: rgba(255, 220, 0, 0.4);
+
+    /* Surface gradient (subtle 145deg top-left light rake on raised faces) */
+    --nm-surface-grad: linear-gradient(145deg, #dde2e9, #edf0f4);
 
     /* Radius */
     --nm-radius-sm: 12px;
@@ -108,6 +138,11 @@
     --nm-space-lg: 24px;
     --nm-space-xl: 32px;
     --nm-space-2xl: 48px;
+
+    /* Breathing room — the spacing rule of this system (shadows need air).
+       Min gap between raised/pressed siblings 24px, default 32px; 48px between groups. */
+    --nm-gap-control: 32px;
+    --nm-gap-section: 48px;
 
     /* Legacy aliases for components that reference old vars */
     --bg-page: #ffffff;
@@ -132,7 +167,7 @@ html, body {
 
 /* ===== SURFACE (replaces .glass) ===== */
 .c-surface {
-    background: linear-gradient(145deg, #dde2e9, #edf0f4);
+    background: var(--nm-surface-grad);
     border: none;
     border-radius: var(--nm-radius-md);
     box-shadow: var(--nm-raised);
@@ -239,7 +274,7 @@ select.c-input option {
 
 /* ===== CARD (replaces .glass-card) ===== */
 .c-card {
-    background: linear-gradient(145deg, #dde2e9, #edf0f4);
+    background: var(--nm-surface-grad);
     border: none;
     border-radius: var(--nm-radius-md);
     box-shadow: var(--nm-raised);
@@ -510,7 +545,7 @@ select.c-input option {
     right: var(--nm-space-lg);
     bottom: var(--nm-space-lg);
     left: var(--nm-space-lg);
-    background: linear-gradient(145deg, #dde2e9, #edf0f4);
+    background: var(--nm-surface-grad);
     box-shadow: var(--nm-raised);
     border-radius: var(--nm-radius-md);
     pointer-events: none;
@@ -1863,13 +1898,11 @@ a.status-segmented__btn { text-decoration: none; }
 
 /* Shadow separator lines (neomorphism alternative to borders) */
 .neo-separator-bottom {
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06),
-                0 2px 0 rgba(255,255,255,0.4);
+    box-shadow: var(--nm-sep-bottom);
 }
 
 .neo-separator-top {
-    box-shadow: inset 0 1px 0 rgba(0,0,0,0.06),
-                inset 0 2px 0 rgba(255,255,255,0.4);
+    box-shadow: var(--nm-sep-top);
 }
 
 /* Sidebar */
@@ -1991,21 +2024,19 @@ body.reader-active .theme-toggle-btn {
     --nm-tint-info:    rgba(96, 168, 240, 0.15);
     --nm-tint-highlight: rgba(232, 176, 64, 0.35);
 
+    /* Surface gradient — re-raked darker (consumed by .c-surface/.c-card/.main-container::before) */
+    --nm-surface-grad: linear-gradient(145deg, #2e3142, #262936);
+
+    /* Hairline separators — inverted for dark (highlight/cast swapped) */
+    --nm-sep-bottom: 0 1px 0 rgba(255,255,255,0.04), 0 2px 0 rgba(0,0,0,0.3);
+    --nm-sep-top:    inset 0 1px 0 rgba(255,255,255,0.04), inset 0 2px 0 rgba(0,0,0,0.3);
+
     color-scheme: dark;
 }
 
-/* Dark: Surface gradients */
-[data-global-theme="dark"] .c-surface {
-    background: linear-gradient(145deg, #2e3142, #262936);
-}
-
+/* Dark: flat surface stays the plain clay (no gradient face) */
 [data-global-theme="dark"] .c-surface--flat {
     background: var(--nm-bg);
-}
-
-/* Dark: Card gradient */
-[data-global-theme="dark"] .c-card {
-    background: linear-gradient(145deg, #2e3142, #262936);
 }
 
 /* Dark: Button variants */
@@ -2023,17 +2054,7 @@ body.reader-active .theme-toggle-btn {
 [data-global-theme="dark"] .c-alert--warning { color: #e0b848; }
 [data-global-theme="dark"] .c-alert--info    { color: #80b8f0; }
 
-/* Dark: Separator lines (inverted) */
-[data-global-theme="dark"] .neo-separator-bottom {
-    box-shadow: 0 1px 0 rgba(255,255,255,0.04),
-                0 2px 0 rgba(0,0,0,0.3);
-}
-
-[data-global-theme="dark"] .neo-separator-top {
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04),
-                inset 0 2px 0 rgba(0,0,0,0.3);
-}
-
+/* Dark: separator lines now ride the dark --nm-sep-* tokens (see dark :root) */
 [data-global-theme="dark"] .neo-sidebar-brand {
     box-shadow: 0 1px 0 rgba(255,255,255,0.04),
                 0 2px 0 rgba(0,0,0,0.3);
@@ -2056,11 +2077,7 @@ body.reader-active .theme-toggle-btn {
                 0 2px 0 rgba(0,0,0,0.3);
 }
 
-/* Dark: Split-pane unified surface */
-[data-global-theme="dark"] .main-container::before {
-    background: linear-gradient(145deg, #2e3142, #262936);
-}
-
+/* Dark: split-pane unified surface rides the dark --nm-surface-grad token (see dark :root) */
 [data-global-theme="dark"] .editor-pane,
 [data-global-theme="dark"] .preview-pane {
     background: transparent;
