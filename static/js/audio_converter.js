@@ -544,6 +544,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         filename: fileInput.files[0].name,
                         mimetype: fileInput.files[0].type,
                         size: fileInput.files[0].size,
+                        // MCP1: epoch-ms recording timestamp from the upload —
+                        // the backend (POST /api/conversions) normalises this to
+                        // metadata.recorded_at with recorded_at_source='client'.
+                        lastModified: fileInput.files[0].lastModified,
                         metadata: result.metadata || {}
                     };
                 }
@@ -1372,6 +1376,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         source_filename: data.filename,
                         source_mimetype: data.mimetype,
                         source_size_bytes: data.size,
+                        // MCP1: epoch-ms; backend writes metadata.recorded_at
+                        // (source='client'). Omitted from JSON if undefined →
+                        // backend falls back to the filename parser.
+                        recorded_at: data.lastModified,
                         metadata: data.metadata
                     })
                 });
