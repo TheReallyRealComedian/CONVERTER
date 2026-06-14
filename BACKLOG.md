@@ -8,6 +8,14 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ## P0 / P1 — Inbox
 
+### MCP1 — JSON-Read-API + `recorded_at`-Capture (P1, in-flight 2026-06-14)
+
+Macht CONVERTER **lese-fähig** für eine kommende `converter-mcp`-Anbindung (Treiber-Use-Case vom Top-Level-Koordinator: unarchivierte Audio-Transkripte → Meeting → Notion). **Übergabe-Kontext**: dieser Sprint wurde aus dem übergeordneten Thread heraus dispatcht (der versehentlich in den CONVERTER-Master-Sitz gerutscht war); Rolle ist 2026-06-14 zurück an den dedizierten CONVERTER-Master (diesen) übergeben. **Cross-cutting bleibt beim Top-Level-Koordinator** (nicht mein Scope): das separate `converter-mcp`-Projekt, Notion/Kalender-Orchestrierung, Mintbox-Deploy, `PROJECTS.md`. Sprint-Doc: [docs/archive/sprint-prompts/SPRINT_MCP1_api-read-and-recorded-at_2026-06-14.md](docs/archive/sprint-prompts/SPRINT_MCP1_api-read-and-recorded-at_2026-06-14.md). Memory zur Clone-Koordination: `reference_two_clone_coordination_mac_mintbox`.
+
+- **MCP1 Phase 1 — JSON-Read-Endpoints ☑ done 2026-06-14** (Master-Review + committet: `GET /api/conversions` (`api_list_conversions`: owner-scoped, Filter `type`/`status`/`exclude_status` gegen `ALLOWED_CONVERSION_TYPES`/`LIFECYCLE_STATUSES` mit 400, `limit` default 100 **gecappt auf 500**, `offset` ≥0, `total` vor dem Fenster, schlankes `_conversion_summary` ohne Full-Content mit 300-char-`content_preview`, Sort `created_at desc`) + `GET /api/conversions/<id>` (`api_get_conversion`: `get_owned_conversion` → 404, volles `to_dict()`); +272 Zeilen `app_pkg/library.py`/`tests/test_library.py`, **pytest 233 grün** (217→+16). `Conversion.to_dict()` unangetastet.)
+- **MCP1 Phase 2 — `recorded_at`-Capture (backend, additiv) — offen** (nächster Dispatch: `parse_recorded_at_from_filename` pure function + Client-`recorded_at` (ISO/Epoch-ms) → `metadata['recorded_at']` + `recorded_at_source`, Präzedenz client>filename, **konservativ — falsch schlimmer als leer**, kein Schema-Touch).
+- **MCP1 Phase 3 — Frontend recorded_at (discovery-gated) — offen** (Audio-Save-Pfad finden; falls keiner existiert → Scope-Frage zurück an Master, nicht hineinbauen).
+
 ### R1-Cluster Reader-Core ☑ abgeschlossen 2026-05-25
 
 Alle vier Sub-Sprints durch: **R1-A** Reading-View-Foundation + **R1-B-A** Highlight-Core + **R1-B-B** Notes/Sidebar inkl. Cross-Format-Marker + **R1-B-C** Tag-Foundation inkl. Cross-Format-Popover-Bridge. Architektur-Memo [docs/reader_architecture.md](docs/reader_architecture.md) bleibt aktive Referenz für R2/R3. Smoke-Artefakte in Container-DB (doc 2 Quartalsbericht 4 Highlights, doc 4 Cross-Format-Highlight mit Tag „test"+„lakmus", doc 7 Multi-Anker, doc 9 mit Tag „produkt") sind R2-A-Foundation für die CSV-Migration und R2-B-Foundation für Filtered Views.

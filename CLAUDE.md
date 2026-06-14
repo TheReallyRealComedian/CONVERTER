@@ -51,6 +51,8 @@ App runs on `localhost:5656`. Requires `.env` with `GEMINI_API_KEY`, `DEEPGRAM_A
 
 **Prinzip in einem Satz**: Master-Thread plant, pflegt Backlog, schreibt Sprint-Prompts. Sub-Thread pro Sprint führt aus. **Master macht keine Code-Edits.**
 
+**Arbeitsort & Deploy (wichtig — sonst Split-Brain)**: Mac-lokal `/Users/olivergluth/CODE/CONVERTER` ist **Source-of-Truth** — alle Master- und Sub-Thread-Arbeit (Edits, Commits, `git status`) passiert hier, gegen `origin` (GitHub). Der Mintbox-Mount `/Volumes/MintHome/CODE/CONVERTER` ist **nur Docker-Runtime, nie Arbeitsplatz** (er zeigt zudem einen spurious 0-change-dirty-tree — Memory `reference_two_clone_coordination_mac_mintbox`). **Deploy**: auf der Mintbox `git pull` von origin + `docker compose up -d --build` (Templates sind ins Image gebacken → `--build`, nicht `restart`); nie direkt in den Mount editieren.
+
 **Mechanik**:
 1. Master schreibt Sprint-Prompt-Doc unter `docs/archive/sprint-prompts/SPRINT_<CODE>_<NAME>_<datum>.md` — imperativ, in Phasen geschnitten, Stop-Regel nach jeder Phase.
 2. Master liefert **direkt im Chat einen copy-paste-fähigen Anfangs-Prompt** in folgendem Format:
@@ -62,7 +64,7 @@ App runs on `localhost:5656`. Requires `.env` with `GEMINI_API_KEY`, `DEEPGRAM_A
 
    Dann Phase 1 direkt starten — nicht zusammenfassen, nicht planen, nicht beurteilen. Sprint-Prompt = ausführen. Master macht Dispatch, du machst Execute. Nach jeder Phase Stop + Bericht.
 
-   Working-Practice in /Volumes/MintHome/CODE/CONVERTER/CLAUDE.md unter Sektion "Working Practice".
+   Working-Practice in /Users/olivergluth/CODE/CONVERTER/CLAUDE.md unter Sektion "Working Practice".
    ```
 
    Kein `cat ... | pbcopy`-Indirection-Schritt mehr — der direkte Prompt-Block pinnt den Sub-Thread auf Executor-Rolle und verhindert das „lies und plane"-Missverständnis.
