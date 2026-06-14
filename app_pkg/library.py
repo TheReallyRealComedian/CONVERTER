@@ -101,6 +101,13 @@ _RECORDED_AT_RE = re.compile(
     r'(?!\d)'
 )
 
+# MCP1-FIX: the real dictation-recorder dialect — YYMMDD_NNNN (2-digit year +
+# running sequence, no time), e.g. 260521_0176.MP3 = 2026-05-21. Anchored at the
+# *start* of the name so only the clear recorder form fires: a 6-digit run later
+# in the name (notes_260521_…) is not a match, nor is a bare date without the
+# _NNNN sequence (260521.mp3). YY → 20YY; the sequence number is never a date.
+_DICTATION_RE = re.compile(r'^(\d{2})(\d{2})(\d{2})_\d+')
+
 
 def parse_recorded_at_from_filename(filename):
     """Best-effort recording timestamp from a recorder filename, or None.
@@ -109,6 +116,10 @@ def parse_recorded_at_from_filename(filename):
     ``2026-06-12``, ``20260612_1430``, ``20260612-143005``,
     ``2026-06-12 14.30``, ``2026_06_12T14_30`` — ignoring any leading recorder
     prefix (REC/ZOOM/VOICE/WS/MIC/…) by simply searching for the substring.
+    MCP1-FIX also recognises the real dictation-recorder dialect
+    ``YYMMDD_NNNN`` (2-digit year + running sequence, no time) — ``260521_0176``
+    = 2026-05-21 00:00 — but only when it is *anchored at the start* of the name
+    (not a 6-digit run elsewhere, not a bare date without the _NNNN sequence).
     Times are read as Europe/Berlin; the result is a tz-aware datetime whose
     ``.isoformat()`` carries the offset. No time component → 00:00 local.
 
@@ -137,6 +148,19 @@ def parse_recorded_at_from_filename(filename):
         except ValueError:
             continue  # impossible combo, e.g. Feb 30
         found.add(dt)
+
+    # MCP1-FIX dictation dialect (YYMMDD_NNNN, anchored at the start). Shares the
+    # `found` set with the YYYY branch so the existing len(found) == 1 ambiguity
+    # gate stays in force: a (contrived) name that matched both branches with
+    # different dates would still be conservatively None.
+    md = _DICTATION_RE.match(filename)
+    if md is not None:
+        year, month, day = 2000 + int(md.group(1)), int(md.group(2)), int(md.group(3))
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            try:
+                found.add(datetime(year, month, day, tzinfo=_BERLIN_TZ))
+            except ValueError:
+                pass  # impossible calendar date, e.g. 260230 Feb-30
 
     if len(found) == 1:
         return next(iter(found))
@@ -439,22 +463,26 @@ def register(app):
 
         # MCP1 recorded_at-capture — additive, no schema touch, never a 400.
         # Only fill it when the client didn't already put a recorded_at in the
-        # metadata bag itself. Precedence: explicit top-level client field >
-        # value derived from source_filename. An unparseable client value is
-        # logged and falls through to the filename parser (stay additive).
+        # metadata bag itself. MCP1-FIX precedence flip: the device-authoritative
+        # source_filename date now beats the client recorded_at field, because the
+        # client value (file.lastModified) can be the copy time rather than the
+        # recording time, whereas the dictation filename carries the recording
+        # date. So: explicit metadata.recorded_at (handled by the guard above) >
+        # source_filename > client field. The client field is only consulted when
+        # the filename yields nothing; an unparseable client value is then logged
+        # and dropped (stay additive — no 400).
         if 'recorded_at' not in metadata:
             recorded_at, source = None, None
-            if 'recorded_at' in data:
+            parsed = parse_recorded_at_from_filename(data.get('source_filename'))
+            if parsed is not None:
+                recorded_at, source = parsed.isoformat(), 'filename'
+            elif 'recorded_at' in data:
                 recorded_at = _normalize_client_recorded_at(data.get('recorded_at'))
                 if recorded_at is not None:
                     source = 'client'
                 else:
                     app.logger.warning(
                         'recorded_at unparseable, ignored: %r', data.get('recorded_at'))
-            if recorded_at is None:
-                parsed = parse_recorded_at_from_filename(data.get('source_filename'))
-                if parsed is not None:
-                    recorded_at, source = parsed.isoformat(), 'filename'
             if recorded_at is not None:
                 metadata['recorded_at'] = recorded_at
                 metadata['recorded_at_source'] = source

@@ -33,6 +33,32 @@ def test_parser_dst_offset_flips_in_winter():
     assert dt.isoformat() == '2026-01-15T00:00:00+01:00'
 
 
+# --- Parser: MCP1-FIX dictation dialect (YYMMDD_NNNN, the real recorder form) ---
+
+@pytest.mark.parametrize('name,expected', [
+    ('260521_0176.MP3', '2026-05-21T00:00:00+02:00'),
+    ('260518_0172.MP3', '2026-05-18T00:00:00+02:00'),
+    ('260508_0171.MP3', '2026-05-08T00:00:00+02:00'),
+    ('260506_0170.MP3', '2026-05-06T00:00:00+02:00'),
+    ('260610_0184.MP3', '2026-06-10T00:00:00+02:00'),
+])
+def test_parser_dictation_dialect_positive(name, expected):
+    """YY→20YY, 00:00 Europe/Berlin, sequence number never read as a date."""
+    dt = parse_recorded_at_from_filename(name)
+    assert dt is not None
+    assert dt.isoformat() == expected
+
+
+@pytest.mark.parametrize('name', [
+    'notes_260521_0176.mp3',  # 6-digit run not at the stem start
+    '263421_0001.mp3',        # month 34 — out of range
+    '260230_0001.mp3',        # Feb 30 — impossible calendar date
+    '260521.mp3',             # no _NNNN sequence → not the dictation form
+])
+def test_parser_dictation_dialect_negative(name):
+    assert parse_recorded_at_from_filename(name) is None
+
+
 # --- Parser: the negative examples from the sprint must all be None ---
 
 @pytest.mark.parametrize('name', [
@@ -101,15 +127,17 @@ def test_create_captures_recorded_at_from_filename(authenticated_client):
     assert md['recorded_at_source'] == 'filename'
 
 
-def test_create_client_recorded_at_beats_filename(authenticated_client):
+def test_create_filename_beats_client_recorded_at(authenticated_client):
+    """MCP1-FIX precedence flip: a parseable source_filename now beats the client
+    recorded_at field (this was source 'client' in MCP1-P2 — inverted here)."""
     resp = _post(
         authenticated_client,
-        recorded_at='2026-06-12T14:30:00+02:00',
-        source_filename='REC_20200101_0000.m4a',  # different date — must lose
+        recorded_at='2026-06-12T14:30:00+02:00',  # client — must now lose
+        source_filename='REC_20200101_0000.m4a',  # filename → 2020-01-01 wins
     )
     md = resp.get_json()['metadata']
-    assert md['recorded_at'] == '2026-06-12T12:30:00+00:00'
-    assert md['recorded_at_source'] == 'client'
+    assert md['recorded_at'] == '2020-01-01T00:00:00+01:00'  # Berlin winter CET
+    assert md['recorded_at_source'] == 'filename'
 
 
 def test_create_without_any_recorded_at_source(authenticated_client):
@@ -134,9 +162,9 @@ def test_create_respects_client_preset_metadata_recorded_at(authenticated_client
     assert md['foo'] == 'bar'
 
 
-def test_create_unparseable_client_recorded_at_falls_back_to_filename(authenticated_client):
-    """Garbage client recorded_at is ignored (no 400, additive) and the
-    filename parser still gets a shot."""
+def test_create_filename_wins_over_unparseable_client(authenticated_client):
+    """MCP1-FIX: the filename is tried first, so a parseable name wins even when
+    the client value is garbage — no 400, additive, client value never consulted."""
     resp = _post(
         authenticated_client,
         recorded_at='not-a-date',
@@ -145,6 +173,29 @@ def test_create_unparseable_client_recorded_at_falls_back_to_filename(authentica
     assert resp.status_code == 201
     md = resp.get_json()['metadata']
     assert md['recorded_at'] == '2026-06-12T14:30:00+02:00'
+    assert md['recorded_at_source'] == 'filename'
+
+
+def test_create_client_recorded_at_used_when_filename_unparseable(authenticated_client):
+    """Fallback unchanged: when the filename parser yields nothing, the client
+    recorded_at field is still used (source 'client')."""
+    resp = _post(
+        authenticated_client,
+        recorded_at='2026-06-12T14:30:00+02:00',
+        source_filename='Besprechung.mp3',  # not parseable → client value wins
+    )
+    md = resp.get_json()['metadata']
+    assert md['recorded_at'] == '2026-06-12T12:30:00+00:00'
+    assert md['recorded_at_source'] == 'client'
+
+
+def test_create_captures_recorded_at_from_dictation_filename(authenticated_client):
+    """End-to-end: a real dictation filename (YYMMDD_NNNN) flows through POST to
+    metadata.recorded_at with source 'filename' — the actual MCP1-FIX case."""
+    resp = _post(authenticated_client, source_filename='260521_0176.MP3')
+    assert resp.status_code == 201
+    md = resp.get_json()['metadata']
+    assert md['recorded_at'] == '2026-05-21T00:00:00+02:00'
     assert md['recorded_at_source'] == 'filename'
 
 
