@@ -65,9 +65,9 @@
             {% endfor %}
         </div>
         {% endif %}
-        <div class="ml-auto flex gap-1">
-            <button type="button" class="c-btn text-xs py-1 px-2" onclick="copyContent({{ conv.id }})" title="Inhalt kopieren">Kopieren</button>
-            <button type="button" class="c-btn c-btn--danger text-xs py-1 px-2" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
+        <div class="card-actions">
+            <button type="button" class="card-action-btn" onclick="copyContent({{ conv.id }})" title="Inhalt kopieren">Kopieren</button>
+            <button type="button" class="card-action-btn card-action-btn--danger" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
         </div>
     </div>
     {% if view == 'inbox' %}
@@ -117,7 +117,7 @@
              Lese-Liste = R2-D-Queue + Weiterlesen-Sektion, Bibliothek =
              alles + Suche/Filter. Ersetzt View-Switcher UND die Top-Level-
              Status-Chips; der Ort-Filter lebt jetzt nur in der Bibliothek. -->
-        <nav class="view-switcher mb-6" aria-label="Bereich wählen">
+        <nav class="view-switcher mb-8" aria-label="Bereich wählen">
             <a href="{{ url_for('library', view='inbox') }}"
                class="view-switcher__tab{% if current_view == 'inbox' %} is-active{% endif %}"
                {% if current_view == 'inbox' %}aria-current="page"{% endif %}>Inbox{% if inbox_count %}<span class="view-switcher__badge" aria-hidden="true">{{ inbox_count }}</span><span class="sr-only">, {{ inbox_count }} untriagiert</span>{% endif %}</a>
@@ -135,7 +135,7 @@
         </div>
         <!-- Filter Bar -->
         <div class="c-surface p-4 md:p-5 mb-8">
-            <form method="GET" action="{{ url_for('library') }}" class="flex flex-wrap items-center gap-4">
+            <form method="GET" action="{{ url_for('library') }}" class="flex flex-wrap items-center gap-6">
                 <select name="type" class="c-input" onchange="this.form.submit()" title="Nach Typ filtern">
                     <option value="">Alle Typen</option>
                     <option value="document_to_markdown" {% if current_type == 'document_to_markdown' %}selected{% endif %}>Dokument</option>
@@ -261,7 +261,7 @@
         {% if current_view == 'queue' and reading_items %}
         <section class="mb-10" aria-label="Weiterlesen">
             <h2 class="text-base font-semibold text-neo-text mb-4">Weiterlesen</h2>
-            <div class="grid grid-cols-1 gap-6">
+            <div class="grid grid-cols-1 gap-8">
                 {% for conv in reading_items %}
                 {{ conversion_card(conv, current_view, status_labels) }}
                 {% endfor %}
@@ -271,7 +271,7 @@
 
         <!-- Results -->
         {% if conversions %}
-        <div class="grid grid-cols-1 {% if current_view != 'queue' %}md:grid-cols-2 xl:grid-cols-3{% endif %} gap-6">
+        <div class="grid grid-cols-1 {% if current_view != 'queue' %}md:grid-cols-2 xl:grid-cols-3{% endif %} gap-8">
             {% for conv in conversions %}
             {% if current_view == 'queue' %}
             {{ conversion_card(conv, current_view, status_labels,

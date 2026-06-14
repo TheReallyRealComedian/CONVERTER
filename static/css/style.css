@@ -122,6 +122,17 @@
     --nm-tint-info:    rgba(116, 185, 255, 0.12);
     --nm-tint-highlight: rgba(255, 220, 0, 0.4);
 
+    /* Badge/status tone palette — tint bg + ink (the DS Badge tones). One
+       source for .type-*, .status-badge--*, .view-switcher__badge; dark mirror
+       lives in the dark :root block, so no per-selector dark badge overrides. */
+    --nm-tone-info:    rgba(40, 110, 210, 0.10);  --nm-tone-info-ink:    #1e40af;
+    --nm-tone-success: rgba(34, 197, 94, 0.10);   --nm-tone-success-ink: #166534;
+    --nm-tone-purple:  rgba(168, 85, 247, 0.10);  --nm-tone-purple-ink:  #6b21a8;
+    --nm-tone-warning: rgba(217, 119, 6, 0.10);   --nm-tone-warning-ink: #b45309;
+    --nm-tone-teal:    rgba(20, 184, 166, 0.10);  --nm-tone-teal-ink:    #115e59;
+    --nm-tone-danger:  rgba(244, 63, 94, 0.10);   --nm-tone-danger-ink:  #be123c;
+    --nm-tone-slate:   rgba(100, 116, 139, 0.12); --nm-tone-slate-ink:   #475569;
+
     /* Surface gradient (subtle 145deg top-left light rake on raised faces) */
     --nm-surface-grad: linear-gradient(145deg, #dde2e9, #edf0f4);
 
@@ -287,6 +298,41 @@ select.c-input option {
 .c-card:hover {
     box-shadow: var(--nm-raised-lg);
     transform: translateY(-2px);
+}
+
+/* Library-card secondary actions (Kopieren/Löschen) — elevation budget: hidden
+   at rest, revealed on card hover OR keyboard focus-within (a11y). Flat text
+   buttons, no shadow, so the resting card stays calm. Pure CSS, no JS. */
+.card-actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--nm-space-md);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+.c-card:hover .card-actions,
+.c-card:focus-within .card-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+.card-action-btn {
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--nm-font);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--nm-text-muted);
+    transition: color 0.15s ease;
+}
+.card-action-btn:hover { color: var(--nm-text); }
+.card-action-btn--danger { color: var(--nm-danger); }
+.card-action-btn--danger:hover { color: var(--nm-danger); opacity: 0.78; }
+.card-action-btn:focus-visible {
+    outline: none;
+    text-decoration: underline;
 }
 
 /* ===== ALERTS (replaces .glass-alert) ===== */
@@ -1625,11 +1671,11 @@ body.reader-active .sidebar-toggle-floater--global {
     border: none;
 }
 
-.type-document_to_markdown { background: rgba(40, 110, 210, 0.10); color: #1e40af; }
-.type-audio_transcription { background: rgba(34, 197, 94, 0.10); color: #166534; }
-.type-dialogue_formatting { background: rgba(168, 85, 247, 0.10); color: #6b21a8; }
-.type-markdown_input { background: rgba(245, 158, 11, 0.10); color: #92400e; }
-.type-ai_newsletter { background: rgba(20, 184, 166, 0.10); color: #115e59; }
+.type-document_to_markdown { background: var(--nm-tone-info);    color: var(--nm-tone-info-ink); }
+.type-audio_transcription  { background: var(--nm-tone-success); color: var(--nm-tone-success-ink); }
+.type-dialogue_formatting  { background: var(--nm-tone-purple);  color: var(--nm-tone-purple-ink); }
+.type-markdown_input       { background: var(--nm-tone-warning); color: var(--nm-tone-warning-ink); }
+.type-ai_newsletter        { background: var(--nm-tone-teal);    color: var(--nm-tone-teal-ink); }
 
 /* Save to library button */
 .save-library-btn {
@@ -1707,20 +1753,19 @@ body.reader-active .sidebar-toggle-floater--global {
     opacity: 0.75;
     flex-shrink: 0;
 }
-.status-badge--inbox   { background: rgba(244, 63, 94, 0.10);   color: #be123c; }
-.status-badge--later   { background: rgba(217, 119, 6, 0.10);   color: #b45309; }
-.status-badge--archive { background: rgba(100, 116, 139, 0.12); color: #475569; }
+.status-badge--inbox   { background: var(--nm-tone-danger);  color: var(--nm-tone-danger-ink); }
+.status-badge--later   { background: var(--nm-tone-warning); color: var(--nm-tone-warning-ink); }
+.status-badge--archive { background: var(--nm-tone-slate);   color: var(--nm-tone-slate-ink); }
 
-/* Segmented 3-way status control — neutral on purpose: the colored badge is
-   the only tonal cue, the control just shows WHICH place is active via a
-   raised (pressed-out) segment sitting in a pressed-in track. Token-driven, so
-   dark mode adapts via the redefined --nm-bg / shadow primitives. */
+/* Segmented 3-way status control — elevation budget: FLAT track (no shadow),
+   the one active segment is the single pressed (level-2) element; inactive
+   segments are flat muted text. "Pressed-in = active." Token-driven, so dark
+   mode adapts via the redefined shadow primitives. */
 .status-segmented {
     display: inline-flex;
     gap: 2px;
     padding: 2px;
     border-radius: var(--nm-radius-pill);
-    box-shadow: var(--nm-pressed-sm);
 }
 .status-segmented--full {
     display: flex;
@@ -1751,21 +1796,19 @@ body.reader-active .sidebar-toggle-floater--global {
 .status-segmented__btn.is-active {
     color: var(--nm-text);
     font-weight: 600;
-    background: var(--nm-bg);
-    box-shadow: var(--nm-raised-sm);
+    box-shadow: var(--nm-pressed-sm);
 }
 
 /* ===== READING LIST (R2-D) ===== */
 /* View-switcher — the R2-E "Readwise-3er" tab bar (Inbox/Lese-Liste/
-   Bibliothek). Same pressed-track + raised-active neomorphism as
-   .status-segmented, scaled up so it reads as the page's primary mode
-   control. Token-driven -> dark-konsistent. */
+   Bibliothek). Same elevation-budget treatment as .status-segmented: FLAT
+   track, the active tab is the single pressed element, inactive tabs are flat
+   muted text. Scaled up so it reads as the page's primary mode control. */
 .view-switcher {
     display: inline-flex;
     gap: 4px;
     padding: 4px;
     border-radius: var(--nm-radius-pill);
-    box-shadow: var(--nm-pressed-sm);
 }
 .view-switcher__tab {
     font-size: 0.85rem;
@@ -1785,8 +1828,7 @@ body.reader-active .sidebar-toggle-floater--global {
 .view-switcher__tab.is-active {
     color: var(--nm-text);
     font-weight: 600;
-    background: var(--nm-bg);
-    box-shadow: var(--nm-raised-sm);
+    box-shadow: var(--nm-pressed-sm);
 }
 
 /* R2-E: untriaged count on the Inbox tab — same rose family as
@@ -1799,8 +1841,8 @@ body.reader-active .sidebar-toggle-floater--global {
     font-size: 0.68rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    background: rgba(244, 63, 94, 0.12);
-    color: #be123c;
+    background: var(--nm-tone-danger);
+    color: var(--nm-tone-danger-ink);
 }
 
 /* R2-E: the Ort filter in the Bibliothek view reuses .status-segmented with
@@ -2031,6 +2073,15 @@ body.reader-active .theme-toggle-btn {
     --nm-sep-bottom: 0 1px 0 rgba(255,255,255,0.04), 0 2px 0 rgba(0,0,0,0.3);
     --nm-sep-top:    inset 0 1px 0 rgba(255,255,255,0.04), inset 0 2px 0 rgba(0,0,0,0.3);
 
+    /* Badge/status tone palette — dark mirror (lifted ink for charcoal bg) */
+    --nm-tone-info:    rgba(96, 168, 240, 0.15);  --nm-tone-info-ink:    #80b8f0;
+    --nm-tone-success: rgba(106, 191, 138, 0.15); --nm-tone-success-ink: #70c898;
+    --nm-tone-purple:  rgba(152, 136, 184, 0.15); --nm-tone-purple-ink:  #b8a8d8;
+    --nm-tone-warning: rgba(245, 158, 11, 0.16);  --nm-tone-warning-ink: #fbbf24;
+    --nm-tone-teal:    rgba(94, 204, 188, 0.15);  --nm-tone-teal-ink:    #6fd4c0;
+    --nm-tone-danger:  rgba(251, 113, 133, 0.16); --nm-tone-danger-ink:  #fb7185;
+    --nm-tone-slate:   rgba(148, 163, 184, 0.16); --nm-tone-slate-ink:   #94a3b8;
+
     color-scheme: dark;
 }
 
@@ -2083,18 +2134,8 @@ body.reader-active .theme-toggle-btn {
     background: transparent;
 }
 
-/* Dark: Type badges (adjusted for contrast) */
-[data-global-theme="dark"] .type-document_to_markdown { background: rgba(96, 168, 240, 0.15); color: #80b8f0; }
-[data-global-theme="dark"] .type-audio_transcription { background: rgba(106, 191, 138, 0.15); color: #70c898; }
-[data-global-theme="dark"] .type-dialogue_formatting { background: rgba(152, 136, 184, 0.15); color: #b8a8d8; }
-[data-global-theme="dark"] .type-markdown_input { background: rgba(232, 176, 64, 0.15); color: #e0b848; }
-[data-global-theme="dark"] .type-ai_newsletter { background: rgba(94, 204, 188, 0.15); color: #6fd4c0; }
-
-/* Dark: Status badges (R2-C) — higher alpha + lighter text for contrast */
-[data-global-theme="dark"] .status-badge--inbox   { background: rgba(251, 113, 133, 0.16); color: #fb7185; }
-[data-global-theme="dark"] .status-badge--later   { background: rgba(245, 158, 11, 0.16);  color: #fbbf24; }
-[data-global-theme="dark"] .status-badge--archive { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
-[data-global-theme="dark"] .view-switcher__badge  { background: rgba(251, 113, 133, 0.16); color: #fb7185; }
+/* Dark: type/status/view-switcher badges now ride the dark --nm-tone-* tokens
+   (see dark :root) — no per-selector overrides needed. */
 
 /* Dark: Save button saved state */
 [data-global-theme="dark"] .save-library-btn.saved {
