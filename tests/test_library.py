@@ -34,18 +34,22 @@ def test_library_empty_renders(authenticated_client):
 
 def test_library_empty_state_filter_aware(authenticated_client):
     """F-6 P7: empty list with an active filter renders the filter-mismatch
-    variant with a reset link, not the global "first conversion" hint.
+    variant with a reset link, not the global "first conversion" hint. R2-H
+    retired ?favorites — an active search is the filter that trips it now.
     """
     global_empty = authenticated_client.get('/library')
     assert b'Noch keine gespeicherten Eintr' in global_empty.data
 
-    filtered_empty = authenticated_client.get('/library?favorites=1')
+    filtered_empty = authenticated_client.get('/library?search=zzznomatch')
     assert b'Keine Treffer mit aktuellen Filtern' in filtered_empty.data
     assert b'Filter zur' in filtered_empty.data
 
 
 def test_library_lists_existing_conversion(app, authenticated_client, test_user):
-    _make_conversion(app, test_user['id'], title='My Library Entry')
+    # R2-H: bare /library is the Bibliothek place (neutral shelf = later AND not
+    # queued), so a row has to live there to show on the landing view.
+    _make_conversion(app, test_user['id'], title='My Library Entry',
+                     lifecycle_status='later')
     resp = authenticated_client.get('/library')
     assert resp.status_code == 200
     assert b'My Library Entry' in resp.data
@@ -104,9 +108,10 @@ def test_api_create_conversion_accepts_ai_newsletter(app, authenticated_client, 
     )
     assert resp.status_code == 201
     assert resp.get_json()['conversion_type'] == 'ai_newsletter'
-    # The list view renders the new type badge: the template elif emits the
-    # "AI-Newsletter" label and the .type-ai_newsletter CSS hook for the row.
-    lib = authenticated_client.get('/library')
+    # A freshly-created row defaults to lifecycle_status='inbox' → the Inbox
+    # place (R2-H). The Inbox view renders the new type badge: the template elif
+    # emits the "AI-Newsletter" label and the .type-ai_newsletter CSS hook.
+    lib = authenticated_client.get('/library?view=inbox')
     assert lib.status_code == 200
     assert b'type-ai_newsletter' in lib.data
     assert b'AI-Newsletter' in lib.data
@@ -187,10 +192,11 @@ def test_format_card_datetime_filter_renders_de_month_abbr(app):
 
 def test_library_ignores_unknown_type_filter(app, authenticated_client, test_user):
     """F-6 P10: an unknown ``?type=...`` value falls back to the unfiltered
-    list (no DB query against the unknown enum value).
+    list (no DB query against the unknown enum value). R2-H: the row lives on
+    the Bibliothek shelf so the bare landing view surfaces it.
     """
     _make_conversion(app, test_user['id'], title='Markdown entry',
-                     conversion_type='markdown_input')
+                     conversion_type='markdown_input', lifecycle_status='later')
     resp = authenticated_client.get('/library?type=nonsense')
     assert resp.status_code == 200
     assert b'Markdown entry' in resp.data

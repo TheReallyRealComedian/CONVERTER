@@ -21,8 +21,18 @@ ALLOWED_CONVERSION_TYPES = {
 }
 
 # R2-C: lifecycle triage locations. Internal keys; DE labels (Inbox/Später/
-# Archiv) live in the templates. Used by the ?status filter + the PUT handler.
+# Archiv) live in the templates. Still the source of truth on the column +
+# the /api/conversions read-API + the PUT handler; R2-H derives "place" from it.
 LIFECYCLE_STATUSES = {'inbox', 'later', 'archive'}
+
+# R2-H: the flat four-place axis. Every item is in exactly one place, *derived*
+# from (lifecycle_status, queue_position) — no schema touch, no migration. The
+# derivation precedence (archive > queued > inbox > neutral shelf) lives in
+# library() (views) and api_set_conversion_place (the move-action). Internal
+# keys; the DE tab labels (Inbox/Lese-Liste/Bibliothek/Archiv) live in the
+# template. 'bibliothek' is the neutral shelf the bare /library lands on.
+PLACES = ('inbox', 'leseliste', 'bibliothek', 'archiv')
+DEFAULT_PLACE = 'bibliothek'
 
 ALLOWED_PER_PAGE = (20, 50, 100)
 DEFAULT_PER_PAGE = 20
@@ -198,24 +208,21 @@ def register(app):
     def library():
         conversion_type = request.args.get('type', '')
         search = request.args.get('search', '').strip()
-        favorites = request.args.get('favorites', '') == '1'
         # Tags are stored lowercase+trimmed (Tag.get_or_create) — normalise the
         # incoming value so ?tag=KI matches the stored "ki".
         tag = request.args.get('tag', '').strip().lower()
-        # R2-C: lifecycle triage filter. Only a known status filters; anything
-        # else is treated as "no status filter" (current_status stays '').
-        status = request.args.get('status', '').strip()
-        current_status = status if status in LIFECYCLE_STATUSES else ''
-        # R2-E "Readwise-3er" IA: 'inbox' = the untriaged pile (status inbox
-        # AND not queued — queueing an item triages it away without touching
-        # its status; de-queueing an item that is still 'inbox' drops it back
-        # into triage); 'queue' = the manual reading-list (queued + not
-        # archived, ordered by position, R2-D). Anything else — including the
-        # retired R2-D 'reading' — falls through to the default library list.
-        # A mode, not a filter — kept out of has_active_filter so the "Filter
-        # zurücksetzen" empty-state stays scoped to type/search/tag/status.
+        # R2-H flat four-place axis: ?view names one of the four places
+        # (Inbox/Lese-Liste/Bibliothek/Archiv); the query is derived from
+        # (lifecycle_status, queue_position) with no schema touch. An absent or
+        # unknown view lands on the neutral shelf (DEFAULT_PLACE = bibliothek),
+        # which is what the bare /library nav link resolves to. 'queue' is the
+        # retired R2-E token — accepted as a leseliste alias so the
+        # not-yet-restructured template's Lese-Liste tab + its pagination links
+        # keep resolving until the Phase-2 four-tab rewrite.
         view = request.args.get('view', '')
-        current_view = view if view in ('inbox', 'queue') else ''
+        if view == 'queue':
+            view = 'leseliste'
+        place = view if view in PLACES else DEFAULT_PLACE
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
@@ -226,15 +233,11 @@ def register(app):
 
         if conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES:
             query = query.filter_by(conversion_type=conversion_type)
-        if favorites:
-            query = query.filter_by(is_favorite=True)
         if tag:
             # R2-B: exact-match tag filter over the conversion_tags junction —
             # the same Conversion.tag_refs.any(...) path the R2-A search branch
             # uses, with == instead of ilike (the name is already normalised).
             query = query.filter(Conversion.tag_refs.any(Tag.name == tag))
-        if current_status:
-            query = query.filter(Conversion.lifecycle_status == current_status)
         if search:
             # R2-A: tag-search joins against the conversion_tags junction. The
             # legacy Conversion.tags CSV branch was removed — after the
@@ -253,21 +256,35 @@ def register(app):
                 )
             )
 
-        # View-mode filters AND on top of the type/tag/status/search chips.
-        if current_view == 'inbox':
+        # R2-H place scoping via the derivation precedence (archive > queued >
+        # inbox > neutral shelf). An active search is the global finder: it
+        # spans every non-archive place (Inbox+Lese-Liste+Bibliothek) and
+        # ignores the per-tab place filter ("alles sehen = Suche", Olis Wahl).
+        # The Bibliothek tab *without* a query is the neutral shelf only. The
+        # type/tag filters AND on top of whichever scope is active.
+        if search:
+            query = query.filter(Conversion.lifecycle_status != 'archive')
+        elif place == 'archiv':
+            query = query.filter(Conversion.lifecycle_status == 'archive')
+        elif place == 'leseliste':
+            query = query.filter(
+                Conversion.lifecycle_status != 'archive',
+                Conversion.queue_position.isnot(None),
+            )
+        elif place == 'inbox':
             query = query.filter(
                 Conversion.lifecycle_status == 'inbox',
                 Conversion.queue_position.is_(None),
             )
-        elif current_view == 'queue':
+        else:  # bibliothek — the neutral shelf (later AND not queued)
             query = query.filter(
-                Conversion.queue_position.isnot(None),
-                Conversion.lifecycle_status != 'archive',
+                Conversion.lifecycle_status == 'later',
+                Conversion.queue_position.is_(None),
             )
 
-        # The queue view overrides the sort param (manual position); the inbox
-        # view keeps the regular sort handling (newest first by default).
-        if current_view == 'queue':
+        # The Lese-Liste browses in manual queue order; a search (global finder)
+        # and every other place use the sort param (newest first by default).
+        if place == 'leseliste' and not search:
             query = query.order_by(Conversion.queue_position.asc())
         elif sort == 'oldest':
             query = query.order_by(Conversion.created_at.asc())
@@ -278,24 +295,8 @@ def register(app):
 
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-        # R2-E: "Weiterlesen" section above the queue — in-progress reads
-        # (0 < last_read_percent < 95) that are neither queued (their card
-        # progress bar already shows it) nor archived. Sort carried over from
-        # the retired view=reading: most-recently-touched first. Unpaginated
-        # and unfiltered by the chips; in practice rarely more than a handful.
-        reading_items = []
-        if current_view == 'queue':
-            reading_items = Conversion.query.filter(
-                Conversion.user_id == current_user.id,
-                Conversion.last_read_percent.isnot(None),
-                Conversion.last_read_percent > 0,
-                Conversion.last_read_percent < 95,
-                Conversion.queue_position.is_(None),
-                Conversion.lifecycle_status != 'archive',
-            ).order_by(Conversion.updated_at.desc()).all()
-
-        # R2-E: badge count for the Inbox tab — untriaged = status inbox AND
-        # not queued. Global per user (independent of the active filters) and
+        # R2-H: inbox badge count = the Inbox place (status inbox AND not
+        # queued). Global per user (independent of the active filters) and
         # computed for every view because the tab bar is always visible.
         inbox_count = Conversion.query.filter(
             Conversion.user_id == current_user.id,
@@ -303,12 +304,13 @@ def register(app):
             Conversion.queue_position.is_(None),
         ).count()
 
+        # R2-H retired the ?favorites + ?status filters; a place is a mode, not
+        # a filter, so it stays out of has_active_filter (the "Filter
+        # zurücksetzen" empty-state stays scoped to type/search/tag).
         has_active_filter = bool(
             (conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES)
             or search
-            or favorites
             or tag
-            or current_status
         )
 
         # Tags of this user that hang on at least one conversion — feeds the
@@ -327,18 +329,29 @@ def register(app):
             .all()
         )
 
+        # Phase-1 template-compat shim: the R2-E template keys its layout off
+        # the old view tokens ('' = library, 'inbox', 'queue'). Map the place
+        # back onto them so it renders until the Phase-2 four-tab rewrite
+        # (leseliste reuses the queue layout incl. the reorder rail; archiv
+        # falls back to the plain list, already query-scoped to archived rows).
+        # current_favorites/current_status/reading_items are passed empty for
+        # the same reason. Phase 2 deletes this shim together with the
+        # favorites-star, status-segmented, Ort-chip and Weiterlesen markup.
+        current_view = {'bibliothek': '', 'inbox': 'inbox',
+                        'leseliste': 'queue', 'archiv': ''}[place]
+
         return render_template('library.html',
                                conversions=pagination.items,
                                pagination=pagination,
-                               reading_items=reading_items,
+                               reading_items=[],
                                inbox_count=inbox_count,
                                current_type=conversion_type,
                                current_search=search,
-                               current_favorites=favorites,
+                               current_favorites=False,
                                current_sort=sort,
                                current_per_page=per_page,
                                current_tag=tag,
-                               current_status=current_status,
+                               current_status='',
                                current_view=current_view,
                                available_tags=available_tags,
                                allowed_per_page=ALLOWED_PER_PAGE,
@@ -593,51 +606,95 @@ def register(app):
         db.session.commit()
         return jsonify({'success': True, 'last_read_percent': percent}), 200
 
+    @app.route('/api/conversions/<int:conversion_id>/place', methods=['POST'])
+    @login_required
+    def api_set_conversion_place(conversion_id):
+        """R2-H: the one flat move-action. Sets the (lifecycle_status,
+        queue_position) combo for the requested place, holding the four places
+        mutually exclusive. Subsumes the old PUT-lifecycle toggle and the
+        add/remove half of /queue; the up/down reorder stays on /queue.
+
+        place ∈ PLACES:
+          inbox       → lifecycle_status='inbox',   queue_position=NULL
+          leseliste   → lifecycle_status='later',   queue_position=max+1.0
+                        (append at the end; idempotent — an item already on the
+                        list keeps its slot)
+          bibliothek  → lifecycle_status='later',   queue_position=NULL
+          archiv      → lifecycle_status='archive', queue_position=NULL
+                        (archiving takes the item off the reading list — the
+                        exclusive model makes this mandatory; this supersedes
+                        R2-D's "archiving does not dequeue")
+
+        Owner-scoped (404 for a missing/foreign id), 400 for an unknown place.
+        """
+        conversion = get_owned_conversion(conversion_id)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        place = data.get('place')
+        if place not in PLACES:
+            return jsonify({'error': 'Ungültiger Ort.'}), 400
+
+        if place == 'inbox':
+            conversion.lifecycle_status = 'inbox'
+            conversion.queue_position = None
+        elif place == 'bibliothek':
+            conversion.lifecycle_status = 'later'
+            conversion.queue_position = None
+        elif place == 'archiv':
+            conversion.lifecycle_status = 'archive'
+            conversion.queue_position = None
+        else:  # leseliste — append at the end, idempotent for an already-listed
+            # item (keep its slot). max() ignores NULLs in SQL, so this is the
+            # largest position in use across the user's rows.
+            conversion.lifecycle_status = 'later'
+            if conversion.queue_position is None:
+                max_pos = db.session.query(db.func.max(Conversion.queue_position)).filter(
+                    Conversion.user_id == current_user.id,
+                ).scalar()
+                conversion.queue_position = (max_pos + 1.0) if max_pos is not None else 1.0
+
+        db.session.commit()
+        return jsonify(conversion.to_dict())
+
     @app.route('/api/conversions/<int:conversion_id>/queue', methods=['POST'])
     @login_required
     def api_update_conversion_queue(conversion_id):
-        # R2-D reading-list queue: add/remove toggle + up/down reorder. Float
-        # positions so a future drag-reorder can slot between neighbours.
+        # R2-H: the Lese-Liste reorder (up/down swap). The add/remove half moved
+        # to /place (a move between the four places). Float positions so a
+        # future drag-reorder can slot between neighbours.
         conversion = get_owned_conversion(conversion_id)
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
         action = data.get('action')
-        if action not in {'add', 'remove', 'up', 'down'}:
+        if action not in {'up', 'down'}:
             return jsonify({'error': 'Ungültige Queue-Aktion.'}), 400
 
-        if action == 'add':
-            # Already on the list → no-op; otherwise append at the end. max()
-            # ignores NULLs in SQL, so this is the largest position in use.
-            if conversion.queue_position is None:
-                max_pos = db.session.query(db.func.max(Conversion.queue_position)).filter(
-                    Conversion.user_id == current_user.id,
-                ).scalar()
-                conversion.queue_position = (max_pos + 1.0) if max_pos is not None else 1.0
-        elif action == 'remove':
-            conversion.queue_position = None
-        else:
-            # up/down: swap queue_position with the direct neighbour among the
-            # user's queued items (sorted asc). Two-row update, one commit
-            # boundary. No-op at the top/bottom edge or when not queued at all.
-            # The set MUST match the queue-view's visible set (archive excluded,
-            # Decision #5 keeps archived rows queued) — else "up" swaps with an
-            # invisible archived neighbour and appears to do nothing.
-            if conversion.queue_position is not None:
-                queued = Conversion.query.filter(
-                    Conversion.user_id == current_user.id,
-                    Conversion.queue_position.isnot(None),
-                    Conversion.lifecycle_status != 'archive',
-                ).order_by(Conversion.queue_position.asc()).all()
-                idx = next((i for i, c in enumerate(queued) if c.id == conversion.id), None)
-                if idx is not None:
-                    neighbour_idx = (idx - 1) if action == 'up' else (idx + 1)
-                    if 0 <= neighbour_idx < len(queued):
-                        neighbour = queued[neighbour_idx]
-                        conversion.queue_position, neighbour.queue_position = (
-                            neighbour.queue_position, conversion.queue_position,
-                        )
+        # up/down: swap queue_position with the direct neighbour among the
+        # user's queued items (sorted asc). Two-row update, one commit boundary.
+        # No-op at the top/bottom edge or when not queued at all. The set MUST
+        # match the Lese-Liste view's visible set (archive excluded) — else "up"
+        # swaps with an invisible archived neighbour and appears to do nothing
+        # (R2-D-swap-fix; in the R2-H exclusive model archiving nulls the queue
+        # position via /place, so the guard now only catches directly-set
+        # archive rows, but it stays as defence for that and any stale data).
+        if conversion.queue_position is not None:
+            queued = Conversion.query.filter(
+                Conversion.user_id == current_user.id,
+                Conversion.queue_position.isnot(None),
+                Conversion.lifecycle_status != 'archive',
+            ).order_by(Conversion.queue_position.asc()).all()
+            idx = next((i for i, c in enumerate(queued) if c.id == conversion.id), None)
+            if idx is not None:
+                neighbour_idx = (idx - 1) if action == 'up' else (idx + 1)
+                if 0 <= neighbour_idx < len(queued):
+                    neighbour = queued[neighbour_idx]
+                    conversion.queue_position, neighbour.queue_position = (
+                        neighbour.queue_position, conversion.queue_position,
+                    )
 
         db.session.commit()
         return jsonify(conversion.to_dict())

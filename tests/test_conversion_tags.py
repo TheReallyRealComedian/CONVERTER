@@ -27,6 +27,11 @@ def _make_conversion(app, user_id, **overrides):
         content='Sample content body.',
         tags='',
         metadata_json=json.dumps({'src': 'test'}),
+        # R2-H: the tag chip-row + tag filter live on the Bibliothek tab, which
+        # is the neutral shelf (lifecycle_status='later' AND not queued). Default
+        # the fixtures there so the tag-filter tests below scope correctly; the
+        # attach/detach/migration tests don't care about the place.
+        lifecycle_status='later',
     )
     payload.update(overrides)
     with app.app_context():
@@ -439,7 +444,10 @@ def test_library_tag_filter_combines_with_type(app, authenticated_client, test_u
     assert b'Doc-Tagged' not in resp.data
 
 
-def test_library_tag_filter_combines_with_favorites(app, authenticated_client, test_user):
+def test_library_tag_filter_ignores_retired_favorites(app, authenticated_client, test_user):
+    # R2-H retired the ?favorites filter (the star is gone; the column stays
+    # unused). The old test proved tag+favorites compose — now it proves the
+    # tag filter no longer pays attention to is_favorite at all: both rows show.
     cid_fav = _make_conversion(app, test_user['id'], title='Fav-Tagged', is_favorite=True)
     authenticated_client.post(f'/api/conversions/{cid_fav}/tags', json={'name': 'shared'})
     cid_plain = _make_conversion(app, test_user['id'], title='Plain-Tagged', is_favorite=False)
@@ -448,7 +456,7 @@ def test_library_tag_filter_combines_with_favorites(app, authenticated_client, t
     resp = authenticated_client.get('/library?tag=shared&favorites=1')
     assert resp.status_code == 200
     assert b'Fav-Tagged' in resp.data
-    assert b'Plain-Tagged' not in resp.data
+    assert b'Plain-Tagged' in resp.data
 
 
 def test_library_tag_filter_unknown_tag_hits_empty_state(app, authenticated_client, test_user):

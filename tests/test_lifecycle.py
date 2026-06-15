@@ -6,13 +6,13 @@ Locks in:
   archive). A second pass is a no-op because the column already exists, so a
   user-triaged row is never re-clobbered.
 - PUT /api/conversions/<id> accepts lifecycle_status (validated against
-  LIFECYCLE_STATUSES) analogous to is_favorite, and persists it.
-- GET /library?status filters on the column, contributes to has_active_filter,
-  combines with ?tag, and is preserved across pagination. An unknown status is
-  not treated as a filter.
-"""
-import re
+  LIFECYCLE_STATUSES) analogous to is_favorite, and persists it. The column
+  stays the source of truth on the read-API + the to_dict payload.
 
+R2-H retired the GET /library?status location filter — the four-place views
+(Inbox/Lese-Liste/Bibliothek/Archiv) replace it; that coverage now lives in
+test_library_ia.py. The migration / PUT / to_dict behaviour is unchanged.
+"""
 from sqlalchemy import inspect, text
 
 from app_pkg import _run_pending_migrations
@@ -104,70 +104,6 @@ def test_put_rejects_invalid_lifecycle_status(app, authenticated_client, test_us
     assert 'Lifecycle-Status' in resp.get_json()['error']
     # The rejected write must not have touched the row (still the default).
     assert _status_of(app, cid) == 'inbox'
-
-
-# --- GET /library?status filter ---
-
-def test_library_status_filter_surfaces_only_matching(app, authenticated_client, test_user):
-    later_id = _make_conversion(app, test_user['id'], title='Later-Doc')
-    archive_id = _make_conversion(app, test_user['id'], title='Archive-Doc')
-    _set_status(app, later_id, 'later')
-    _set_status(app, archive_id, 'archive')
-
-    resp = authenticated_client.get('/library?status=later')
-    assert resp.status_code == 200
-    assert b'Later-Doc' in resp.data
-    assert b'Archive-Doc' not in resp.data
-
-
-def test_library_status_filter_unknown_value_shows_all(app, authenticated_client, test_user):
-    a = _make_conversion(app, test_user['id'], title='Alpha-Doc')
-    b = _make_conversion(app, test_user['id'], title='Beta-Doc')
-    _set_status(app, a, 'inbox')
-    _set_status(app, b, 'archive')
-    # ?status=bogus is not a known status -> no filtering, both rows show.
-    resp = authenticated_client.get('/library?status=bogus')
-    assert resp.status_code == 200
-    assert b'Alpha-Doc' in resp.data
-    assert b'Beta-Doc' in resp.data
-
-
-def test_library_status_filter_sets_active_filter_empty_state(app, authenticated_client, test_user):
-    cid = _make_conversion(app, test_user['id'], title='Inbox-Only')
-    _set_status(app, cid, 'inbox')
-    resp = authenticated_client.get('/library?status=archive')
-    assert resp.status_code == 200
-    assert b'Inbox-Only' not in resp.data
-    # status is in has_active_filter -> the 0-hit *filtered* empty-state renders.
-    assert 'Keine Treffer mit aktuellen Filtern'.encode() in resp.data
-
-
-def test_library_status_filter_combines_with_tag(app, authenticated_client, test_user):
-    a = _make_conversion(app, test_user['id'], title='Later-KI')
-    authenticated_client.post(f'/api/conversions/{a}/tags', json={'name': 'ki'})
-    _set_status(app, a, 'later')
-    b = _make_conversion(app, test_user['id'], title='Archive-KI')
-    authenticated_client.post(f'/api/conversions/{b}/tags', json={'name': 'ki'})
-    _set_status(app, b, 'archive')
-
-    resp = authenticated_client.get('/library?status=later&tag=ki')
-    assert resp.status_code == 200
-    assert b'Later-KI' in resp.data
-    assert b'Archive-KI' not in resp.data
-
-
-def test_library_status_filter_preserved_across_pagination(app, authenticated_client, test_user):
-    # 21 later-rows at default per_page=20 -> 2 pages. A page-2 pagination link
-    # must keep ?status=later so the next page stays filtered.
-    for i in range(21):
-        cid = _make_conversion(app, test_user['id'], title=f'Later-{i:02d}')
-        _set_status(app, cid, 'later')
-    resp = authenticated_client.get('/library?status=later')
-    assert resp.status_code == 200
-    html = resp.data.decode()
-    page2_links = re.findall(r'href="[^"]*page=2[^"]*"', html)
-    assert page2_links, 'expected a page-2 pagination link'
-    assert any('status=later' in link for link in page2_links)
 
 
 # --- to_dict ---

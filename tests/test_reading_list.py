@@ -1,21 +1,20 @@
 """Reading-list / queue (R2-D) characterization tests.
 
-Locks in:
+Locks in the queue *mechanics* that survive R2-H:
 - The inline ALTER-TABLE migration adds conversion.queue_position with NO
   backfill — every row stays NULL (off-list) after the column is (re-)added.
-- POST /api/conversions/<id>/queue with action add/remove/up/down: add appends
-  at max+1.0 (idempotent), remove nulls it, up/down swap with the direct
-  neighbour (one commit boundary) and are no-ops at the edges. Ownership is
-  scoped (404 for another user's row) and an unknown action is a 400.
-- GET /library?view=queue surfaces only queued + non-archived rows, ordered by
-  position, and ships the "Weiterlesen" section data (reading_items): in-
-  progress rows (0 < last_read_percent < 95) that are neither queued nor
-  archived, most-recently-touched first (R2-E; was the standalone
-  view=reading, which now falls through to the default list).
+- POST /api/conversions/<id>/queue is now the reorder-only endpoint: action
+  up/down swap with the direct neighbour over the *visible* (non-archived,
+  queued) reading-list (one commit boundary), no-op at the edges. Ownership is
+  scoped (404) and any other action (incl. the retired add/remove, now on
+  /place) is a 400.
 - to_dict exposes queue_position.
-"""
-from datetime import datetime, timezone
 
+R2-H moved the add/remove half of the queue onto POST /place (a move between
+the four places) and retired the "Weiterlesen" section + the view=queue tab;
+that coverage now lives in test_library_ia.py (POST /place + the Lese-Liste
+view). The Lese-Liste *place* is still derived from queue_position here.
+"""
 from sqlalchemy import inspect, text
 
 from app_pkg import _run_pending_migrations
@@ -52,8 +51,10 @@ def _set_status(app, cid, status):
         db.session.commit()
 
 
-def _add_to_queue(client, cid):
-    return client.post(f'/api/conversions/{cid}/queue', json={'action': 'add'})
+def _place_leseliste(client, cid):
+    """R2-H: put a row on the reading list (append at the end) via the move
+    endpoint — the replacement for the retired /queue {action:'add'}."""
+    return client.post(f'/api/conversions/{cid}/place', json={'place': 'leseliste'})
 
 
 # --- Migration: column-add, no backfill ---
@@ -90,43 +91,13 @@ def test_migration_second_run_keeps_positions(app, test_user):
     assert _queue_pos_of(app, cid) == 3.0
 
 
-# --- POST /api/conversions/<id>/queue : add / remove ---
-
-def test_queue_add_appends_at_end(app, authenticated_client, test_user):
-    a = _make_conversion(app, test_user['id'])
-    b = _make_conversion(app, test_user['id'])
-    r1 = _add_to_queue(authenticated_client, a)
-    assert r1.status_code == 200
-    assert r1.get_json()['queue_position'] == 1.0
-    r2 = _add_to_queue(authenticated_client, b)
-    assert r2.get_json()['queue_position'] == 2.0
-
-
-def test_queue_add_is_idempotent(app, authenticated_client, test_user):
-    a = _make_conversion(app, test_user['id'])
-    _add_to_queue(authenticated_client, a)
-    # Re-adding does not bump the position.
-    r = _add_to_queue(authenticated_client, a)
-    assert r.status_code == 200
-    assert r.get_json()['queue_position'] == 1.0
-
-
-def test_queue_remove_sets_null(app, authenticated_client, test_user):
-    a = _make_conversion(app, test_user['id'])
-    _add_to_queue(authenticated_client, a)
-    r = authenticated_client.post(f'/api/conversions/{a}/queue', json={'action': 'remove'})
-    assert r.status_code == 200
-    assert r.get_json()['queue_position'] is None
-    assert _queue_pos_of(app, a) is None
-
-
-# --- up / down reorder ---
+# --- POST /api/conversions/<id>/queue : up / down reorder ---
 
 def test_queue_up_swaps_with_neighbour(app, authenticated_client, test_user):
     a = _make_conversion(app, test_user['id'], title='A')
     b = _make_conversion(app, test_user['id'], title='B')
-    _add_to_queue(authenticated_client, a)  # 1.0
-    _add_to_queue(authenticated_client, b)  # 2.0
+    _place_leseliste(authenticated_client, a)  # 1.0
+    _place_leseliste(authenticated_client, b)  # 2.0
     r = authenticated_client.post(f'/api/conversions/{b}/queue', json={'action': 'up'})
     assert r.status_code == 200
     assert _queue_pos_of(app, b) == 1.0
@@ -136,8 +107,8 @@ def test_queue_up_swaps_with_neighbour(app, authenticated_client, test_user):
 def test_queue_down_swaps_with_neighbour(app, authenticated_client, test_user):
     a = _make_conversion(app, test_user['id'], title='A')
     b = _make_conversion(app, test_user['id'], title='B')
-    _add_to_queue(authenticated_client, a)  # 1.0
-    _add_to_queue(authenticated_client, b)  # 2.0
+    _place_leseliste(authenticated_client, a)  # 1.0
+    _place_leseliste(authenticated_client, b)  # 2.0
     r = authenticated_client.post(f'/api/conversions/{a}/queue', json={'action': 'down'})
     assert r.status_code == 200
     assert _queue_pos_of(app, a) == 2.0
@@ -147,8 +118,8 @@ def test_queue_down_swaps_with_neighbour(app, authenticated_client, test_user):
 def test_queue_up_at_top_is_noop(app, authenticated_client, test_user):
     a = _make_conversion(app, test_user['id'])
     b = _make_conversion(app, test_user['id'])
-    _add_to_queue(authenticated_client, a)  # 1.0
-    _add_to_queue(authenticated_client, b)  # 2.0
+    _place_leseliste(authenticated_client, a)  # 1.0
+    _place_leseliste(authenticated_client, b)  # 2.0
     r = authenticated_client.post(f'/api/conversions/{a}/queue', json={'action': 'up'})
     assert r.status_code == 200
     assert _queue_pos_of(app, a) == 1.0
@@ -158,8 +129,8 @@ def test_queue_up_at_top_is_noop(app, authenticated_client, test_user):
 def test_queue_down_at_bottom_is_noop(app, authenticated_client, test_user):
     a = _make_conversion(app, test_user['id'])
     b = _make_conversion(app, test_user['id'])
-    _add_to_queue(authenticated_client, a)  # 1.0
-    _add_to_queue(authenticated_client, b)  # 2.0
+    _place_leseliste(authenticated_client, a)  # 1.0
+    _place_leseliste(authenticated_client, b)  # 2.0
     r = authenticated_client.post(f'/api/conversions/{b}/queue', json={'action': 'down'})
     assert r.status_code == 200
     assert _queue_pos_of(app, a) == 1.0
@@ -167,17 +138,18 @@ def test_queue_down_at_bottom_is_noop(app, authenticated_client, test_user):
 
 
 def test_queue_swap_runs_over_visible_set_not_archived(app, authenticated_client, test_user):
-    # Decision #5: archiving does NOT dequeue, so an archived row keeps its
-    # queue_position. The up/down swap must operate over the *visible* (non-
-    # archived) set the queue-view renders — otherwise "up" swaps with an
-    # invisible archived neighbour and appears to do nothing.
+    # The up/down swap must operate over the *visible* (non-archived) Lese-Liste
+    # the view renders — otherwise "up" swaps with an invisible archived
+    # neighbour and appears to do nothing (R2-D-swap-fix). R2-H archives via
+    # /place (which nulls the queue), so we simulate a directly-set archive row
+    # that still carries a position to prove the guard still holds.
     a = _make_conversion(app, test_user['id'], title='AlphaDoc')
     b = _make_conversion(app, test_user['id'], title='BetaDoc')
     c = _make_conversion(app, test_user['id'], title='GammaDoc')
-    _add_to_queue(authenticated_client, a)  # 1.0
-    _add_to_queue(authenticated_client, b)  # 2.0
-    _add_to_queue(authenticated_client, c)  # 3.0
-    _set_status(app, b, 'archive')          # middle row archived, keeps 2.0
+    _place_leseliste(authenticated_client, a)  # 1.0
+    _place_leseliste(authenticated_client, b)  # 2.0
+    _place_leseliste(authenticated_client, c)  # 3.0
+    _set_status(app, b, 'archive')             # middle row archived, keeps 2.0
     # Visible queue is [A, C]; move the bottom (C) up -> it must become first.
     r = authenticated_client.post(f'/api/conversions/{c}/queue', json={'action': 'up'})
     assert r.status_code == 200
@@ -185,10 +157,21 @@ def test_queue_swap_runs_over_visible_set_not_archived(app, authenticated_client
     assert _queue_pos_of(app, c) < _queue_pos_of(app, a)
     assert _queue_pos_of(app, b) == 2.0  # archived row untouched
     # The view reflects it: C now precedes A, B stays hidden.
-    resp = authenticated_client.get('/library?view=queue')
-    html = resp.data.decode()
+    html = authenticated_client.get('/library?view=leseliste').data.decode()
     assert 'BetaDoc' not in html
     assert html.index('GammaDoc') < html.index('AlphaDoc')
+
+
+def test_view_leseliste_reflects_reorder(app, authenticated_client, test_user):
+    alpha = _make_conversion(app, test_user['id'], title='AlphaDoc')
+    beta = _make_conversion(app, test_user['id'], title='BetaDoc')
+    _place_leseliste(authenticated_client, alpha)  # 1.0
+    _place_leseliste(authenticated_client, beta)   # 2.0
+    authenticated_client.post(f'/api/conversions/{beta}/queue', json={'action': 'up'})
+
+    html = authenticated_client.get('/library?view=leseliste').data.decode()
+    # After moving Beta up it now precedes Alpha.
+    assert html.index('BetaDoc') < html.index('AlphaDoc')
 
 
 # --- guards: ownership + invalid action ---
@@ -201,16 +184,18 @@ def test_queue_other_users_conversion_404(app, authenticated_client, test_user):
         db.session.commit()
         bob_id = bob.id
     cid = _make_conversion(app, bob_id)
-    r = authenticated_client.post(f'/api/conversions/{cid}/queue', json={'action': 'add'})
+    r = authenticated_client.post(f'/api/conversions/{cid}/queue', json={'action': 'up'})
     assert r.status_code == 404
     assert _queue_pos_of(app, cid) is None
 
 
 def test_queue_invalid_action_400(app, authenticated_client, test_user):
+    # add/remove moved to /place — they are no longer valid queue actions, the
+    # endpoint only reorders now.
     a = _make_conversion(app, test_user['id'])
-    r = authenticated_client.post(f'/api/conversions/{a}/queue', json={'action': 'bogus'})
-    assert r.status_code == 400
-    # The rejected action must not have queued the row.
+    for action in ('bogus', 'add', 'remove'):
+        r = authenticated_client.post(f'/api/conversions/{a}/queue', json={'action': action})
+        assert r.status_code == 400, action
     assert _queue_pos_of(app, a) is None
 
 
@@ -218,89 +203,6 @@ def test_queue_missing_action_400(app, authenticated_client, test_user):
     a = _make_conversion(app, test_user['id'])
     r = authenticated_client.post(f'/api/conversions/{a}/queue', json={})
     assert r.status_code == 400
-
-
-# --- GET /library?view=queue ---
-
-def test_view_queue_orders_by_position_and_excludes_archive(app, authenticated_client, test_user):
-    alpha = _make_conversion(app, test_user['id'], title='AlphaDoc')
-    beta = _make_conversion(app, test_user['id'], title='BetaDoc')
-    archived = _make_conversion(app, test_user['id'], title='ArchivedDoc')
-    _make_conversion(app, test_user['id'], title='PlainDoc')  # never queued
-    _add_to_queue(authenticated_client, alpha)     # 1.0
-    _add_to_queue(authenticated_client, beta)      # 2.0
-    _add_to_queue(authenticated_client, archived)  # 3.0
-    _set_status(app, archived, 'archive')
-
-    resp = authenticated_client.get('/library?view=queue')
-    assert resp.status_code == 200
-    html = resp.data.decode()
-    # Archived-but-queued is filtered out; never-queued is absent.
-    assert 'ArchivedDoc' not in html
-    assert 'PlainDoc' not in html
-    # Ordered by position asc.
-    assert 'AlphaDoc' in html and 'BetaDoc' in html
-    assert html.index('AlphaDoc') < html.index('BetaDoc')
-
-
-def test_view_queue_reflects_reorder(app, authenticated_client, test_user):
-    alpha = _make_conversion(app, test_user['id'], title='AlphaDoc')
-    beta = _make_conversion(app, test_user['id'], title='BetaDoc')
-    _add_to_queue(authenticated_client, alpha)  # 1.0
-    _add_to_queue(authenticated_client, beta)   # 2.0
-    authenticated_client.post(f'/api/conversions/{beta}/queue', json={'action': 'up'})
-
-    resp = authenticated_client.get('/library?view=queue')
-    html = resp.data.decode()
-    # After moving Beta up it now precedes Alpha.
-    assert html.index('BetaDoc') < html.index('AlphaDoc')
-
-
-# --- "Weiterlesen" section data on view=queue (R2-E, was view=reading) ---
-
-def test_queue_view_reading_section_filters_in_progress_unqueued_unarchived(
-        app, authenticated_client, test_user, captured_templates):
-    _make_conversion(app, test_user['id'], title='StartedDoc', last_read_percent=40.0)
-    _make_conversion(app, test_user['id'], title='FreshDoc')  # NULL
-    _make_conversion(app, test_user['id'], title='ZeroDoc', last_read_percent=0.0)
-    _make_conversion(app, test_user['id'], title='DoneDoc', last_read_percent=99.0)
-    queued = _make_conversion(app, test_user['id'], title='QueuedDoc', last_read_percent=50.0)
-    archived = _make_conversion(app, test_user['id'], title='ArchivedDoc', last_read_percent=50.0)
-    _add_to_queue(authenticated_client, queued)
-    _set_status(app, archived, 'archive')
-
-    resp = authenticated_client.get('/library?view=queue')
-    assert resp.status_code == 200
-    _, ctx = captured_templates[-1]
-    titles = [c.title for c in ctx['reading_items']]
-    # In-progress only (0 < percent < 95), and neither queued (its card
-    # progress bar already shows it) nor archived.
-    assert titles == ['StartedDoc']
-
-
-def test_queue_view_reading_section_sorts_most_recent_first(
-        app, authenticated_client, test_user, captured_templates):
-    _make_conversion(app, test_user['id'], title='OlderDoc', last_read_percent=20.0,
-                     updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
-    _make_conversion(app, test_user['id'], title='NewerDoc', last_read_percent=20.0,
-                     updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc))
-
-    authenticated_client.get('/library?view=queue')
-    _, ctx = captured_templates[-1]
-    assert [c.title for c in ctx['reading_items']] == ['NewerDoc', 'OlderDoc']
-
-
-def test_view_reading_param_falls_back_to_default_list(app, authenticated_client, test_user):
-    # R2-E retired view=reading — an unknown view value falls through to the
-    # default library list: no in-progress filter, everything shows.
-    _make_conversion(app, test_user['id'], title='FreshDoc')  # NULL percent
-    _make_conversion(app, test_user['id'], title='StartedDoc', last_read_percent=40.0)
-
-    resp = authenticated_client.get('/library?view=reading')
-    assert resp.status_code == 200
-    html = resp.data.decode()
-    assert 'FreshDoc' in html
-    assert 'StartedDoc' in html
 
 
 # --- to_dict ---
