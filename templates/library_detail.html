@@ -3,7 +3,6 @@
 {% block title %}{{ conversion.title or 'Ohne Titel' }} – Library{% endblock %}
 
 {% block content %}
-{% set status_labels = {'inbox': 'Inbox', 'later': 'Später', 'archive': 'Archiv'} %}
 <div class="flex-1 p-6 lg:p-8">
     <div class="max-w-6xl mx-auto">
         <!-- Header -->
@@ -20,9 +19,6 @@
                     {% elif conversion.conversion_type == 'ai_newsletter' %}AI-Newsletter
                     {% else %}{{ conversion.conversion_type }}{% endif %}
                 </span>
-                <button type="button" class="favorite-btn {% if conversion.is_favorite %}active{% endif %}" onclick="toggleFavorite(this)" title="Favorit umschalten">
-                    {{ '★' if conversion.is_favorite else '☆' }}
-                </button>
             </div>
             <div id="detail-alert-container"></div>
         </div>
@@ -102,29 +98,24 @@
                  falls Markierungen/Notion/Details über Viewport-Höhe wachsen, scrollt die
                  Sidebar intern statt mit der Page. -->
             <div class="flex flex-col gap-8 min-w-0 lg:sticky lg:top-0 lg:max-h-screen lg:overflow-y-auto lg:py-2">
-                <!-- Status (R2-C): Lifecycle-Triage. Derselbe Toggle wie in der
-                     List-View-Card; nutzt den PUT, den Phase 1 validiert. -->
+                <!-- Ablage (R2-H): die EINE flache Vier-Orte-Achse — dasselbe
+                     .place-control wie auf der Listen-Karte, abgeleiteter Ort
+                     gedrückt, Klick = POST /place (hält Exklusivität, archiv
+                     dequeued). Ersetzt status-segmented + Lese-Liste-Toggle. -->
+                {% set place_key = 'archiv' if conversion.lifecycle_status == 'archive'
+                   else ('leseliste' if conversion.queue_position is not none
+                   else ('inbox' if conversion.lifecycle_status == 'inbox' else 'bibliothek')) %}
                 <div class="c-surface--flat p-4">
-                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Status</h6>
-                    <div class="status-segmented status-segmented--full" role="group" aria-label="Status ändern" data-status-control>
-                        {% for s_key, s_label in status_labels.items() %}
+                    <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Ablage</h6>
+                    <div class="place-control" role="group" aria-label="Ablage ändern" data-place-control>
+                        {% for p_key, p_label in [('inbox', 'Inbox'), ('leseliste', 'Lese-Liste'), ('bibliothek', 'Bibliothek'), ('archiv', 'Archiv')] %}
                         <button type="button"
-                                class="status-segmented__btn{% if conversion.lifecycle_status == s_key %} is-active{% endif %}"
-                                data-status="{{ s_key }}"
-                                aria-pressed="{{ 'true' if conversion.lifecycle_status == s_key else 'false' }}"
-                                onclick="setStatus('{{ s_key }}')">{{ s_label }}</button>
+                                class="place-control__btn{% if place_key == p_key %} is-active{% endif %}"
+                                data-place="{{ p_key }}"
+                                aria-pressed="{{ 'true' if place_key == p_key else 'false' }}"
+                                onclick="setPlace('{{ p_key }}')">{{ p_label }}</button>
                         {% endfor %}
                     </div>
-                    <!-- Lese-Liste-Toggle (R2-D): orthogonal zum Status-Ort.
-                         Eigener JS-Pfad mit fixer CONVERSION_ID. -->
-                    <button type="button"
-                            class="queue-toggle-btn{% if conversion.queue_position is not none %} active{% endif %}"
-                            onclick="toggleQueue(this)"
-                            aria-pressed="{{ 'true' if conversion.queue_position is not none else 'false' }}"
-                            title="Auf die Lese-Liste setzen oder davon entfernen">
-                        <span class="queue-toggle-btn__icon" aria-hidden="true">{{ '⚑' if conversion.queue_position is not none else '⚐' }}</span>
-                        <span class="queue-toggle-btn__label">{{ 'Von der Lese-Liste' if conversion.queue_position is not none else 'Auf die Lese-Liste' }}</span>
-                    </button>
                 </div>
 
                 <!-- Lese-Fortschritt (R2-G): orthogonal zu Status (Ort) und

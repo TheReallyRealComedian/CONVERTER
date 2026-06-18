@@ -23,8 +23,8 @@
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
      CONVERSION TAG              – .conversion-tag-chip (library_detail sidebar inline picker)
      TAG CHIP                    – .c-tag (shared pill), .c-tag--active (R2-B library tag-filter chip)
-     LIFECYCLE STATUS            – .status-badge (R2-C inbox/later/archive), .status-segmented toggle
-     READING LIST (R2-D/R2-E)    – .view-switcher (+__badge tab bar), .queue-btn, .queue-reorder, .queue-toggle-btn
+     PLACE CONTROL (R2-H)        – .place-control (flat four-place move-control, list card + detail sidebar)
+     READING LIST (R2-D/R2-H)    – .view-switcher (+__badge tab bar), .queue-reorder (Lese-Liste reorder rail)
      TAG MANAGER                 – .tag-manager-card (per-tag row on /tags page)
      TOAST NOTIFICATION          – .toast-notification
      UTILITY                     – misc helpers (line-clamp etc.)
@@ -123,8 +123,8 @@
     --nm-tint-highlight: rgba(255, 220, 0, 0.4);
 
     /* Badge/status tone palette — tint bg + ink (the DS Badge tones). One
-       source for .type-*, .status-badge--*, .view-switcher__badge; dark mirror
-       lives in the dark :root block, so no per-selector dark badge overrides. */
+       source for .type-* and .view-switcher__badge; dark mirror lives in the
+       dark :root block, so no per-selector dark badge overrides. */
     --nm-tone-info:    rgba(40, 110, 210, 0.10);  --nm-tone-info-ink:    #1e40af;
     --nm-tone-success: rgba(34, 197, 94, 0.10);   --nm-tone-success-ink: #166534;
     --nm-tone-purple:  rgba(168, 85, 247, 0.10);  --nm-tone-purple-ink:  #6b21a8;
@@ -1739,20 +1739,6 @@ body.reader-active .sidebar-toggle-floater--global {
     box-shadow: var(--nm-pressed-sm);
 }
 
-/* Favorite button */
-.favorite-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.2rem;
-    color: var(--nm-text-muted);
-    padding: 0 4px;
-    line-height: 1;
-    transition: color 0.15s ease;
-}
-.favorite-btn.active { color: rgba(255, 215, 0, 0.8); }
-.favorite-btn:hover { color: rgba(255, 215, 0, 0.6); }
-
 /* Tag chip */
 .c-tag {
     background: var(--nm-tint-accent);
@@ -1764,81 +1750,12 @@ body.reader-active .sidebar-toggle-floater--global {
     box-shadow: inset 0 0 0 1px var(--nm-accent-hover);
 }
 
-/* ===== LIFECYCLE STATUS (R2-C) ===== */
-/* Status badge — Title-Case + a leading dot so it reads as a DIFFERENT badge
-   family than the UPPERCASE .type-* badges that share the card header (sprint:
-   "nicht mit den type-*-Badges verwechselbar"). Three dezent, mutually-
-   distinct tones (rose / amber / slate); token-tinted, dark mirrored below. */
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 3px 8px;
-    border-radius: var(--nm-radius-pill);
-    white-space: nowrap;
-}
-.status-badge::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.75;
-    flex-shrink: 0;
-}
-.status-badge--inbox   { background: var(--nm-tone-danger);  color: var(--nm-tone-danger-ink); }
-.status-badge--later   { background: var(--nm-tone-warning); color: var(--nm-tone-warning-ink); }
-.status-badge--archive { background: var(--nm-tone-slate);   color: var(--nm-tone-slate-ink); }
-
-/* Segmented 3-way status control — elevation budget: FLAT track (no shadow),
-   the one active segment is the single pressed (level-2) element; inactive
-   segments are flat muted text. "Pressed-in = active." Token-driven, so dark
-   mode adapts via the redefined shadow primitives. */
-.status-segmented {
-    display: inline-flex;
-    gap: 2px;
-    padding: 2px;
-    border-radius: var(--nm-radius-pill);
-}
-.status-segmented--full {
-    display: flex;
-    width: 100%;
-}
-.status-segmented--full .status-segmented__btn {
-    flex: 1;
-    text-align: center;
-}
-.status-segmented__btn {
-    font-family: inherit;
-    font-size: 0.68rem;
-    font-weight: 500;
-    padding: 3px 10px;
-    border: none;
-    border-radius: var(--nm-radius-pill);
-    background: transparent;
-    color: var(--nm-text-muted);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color 0.15s ease, box-shadow 0.15s ease;
-}
-.status-segmented__btn:hover { color: var(--nm-text); }
-.status-segmented__btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--nm-accent-hover);
-}
-.status-segmented__btn.is-active {
-    color: var(--nm-text);
-    font-weight: 600;
-    box-shadow: var(--nm-pressed-sm);
-}
-
-/* R2-H: the one flat four-place move-control on each list card — same
-   elevation-budget treatment as the .view-switcher tabs and .status-segmented
-   (FLAT track, the active place is the single pressed element), split into four
-   equal full-width segments and scaled down to fit the card. Replaces the
-   R2-C status-segmented + the queue-flag + favorite-star glyph buttons. */
+/* ===== PLACE CONTROL (R2-H) ===== */
+/* R2-H: the one flat four-place move-control — identical on each list card and
+   in the detail sidebar, same elevation-budget treatment as the .view-switcher
+   tabs (FLAT track, the active place is the single pressed element), split into
+   four equal full-width segments and scaled down to fit. Replaced the R2-C
+   status-segmented + status-badge + the queue-flag + favorite-star buttons. */
 .place-control {
     display: flex;
     gap: 2px;
@@ -1871,9 +1788,9 @@ body.reader-active .sidebar-toggle-floater--global {
     box-shadow: var(--nm-pressed-sm);
 }
 
-/* ===== READING LIST (R2-D) ===== */
-/* View-switcher — the R2-E "Readwise-3er" tab bar (Inbox/Lese-Liste/
-   Bibliothek). Same elevation-budget treatment as .status-segmented: FLAT
+/* ===== READING LIST (R2-D / R2-H) ===== */
+/* View-switcher — the R2-H flat four-place tab bar (Inbox/Lese-Liste/
+   Bibliothek/Archiv). Same elevation-budget treatment as .place-control: FLAT
    track, the active tab is the single pressed element, inactive tabs are flat
    muted text. Scaled up so it reads as the page's primary mode control. */
 .view-switcher {
@@ -1903,8 +1820,8 @@ body.reader-active .sidebar-toggle-floater--global {
     box-shadow: var(--nm-pressed-sm);
 }
 
-/* R2-E: untriaged count on the Inbox tab — same rose family as
-   .status-badge--inbox so the badge reads as "inbox signal", not an alert. */
+/* R2-E: untriaged count on the Inbox tab — the rose danger tone so the badge
+   reads as "inbox signal", not an alert. */
 .view-switcher__badge {
     display: inline-block;
     margin-left: 7px;
@@ -1916,27 +1833,6 @@ body.reader-active .sidebar-toggle-floater--global {
     background: var(--nm-tone-danger);
     color: var(--nm-tone-danger-ink);
 }
-
-/* R2-E: the Ort filter in the Bibliothek view reuses .status-segmented with
-   anchor chips — same family as the card status control, deliberately NOT
-   tag-chip styling. */
-a.status-segmented__btn { text-decoration: none; }
-
-/* Queue toggle on the list card — flag glyph next to the favorite star. The
-   filled (⚑) vs outline (⚐) glyph carries the on/off state; accent colour
-   reinforces it and keeps it visually distinct from the gold favorite. */
-.queue-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.05rem;
-    color: var(--nm-text-muted);
-    padding: 0 4px;
-    line-height: 1;
-    transition: color 0.15s ease;
-}
-.queue-btn:hover { color: var(--nm-accent-hover); }
-.queue-btn.active { color: var(--nm-accent-hover); }
 
 /* Reorder rail — top strip of each card in the single-column queue-view:
    #rank on the left, round up/down nudge buttons on the right. */
@@ -1975,41 +1871,6 @@ a.status-segmented__btn { text-decoration: none; }
     outline: none;
     box-shadow: 0 0 0 2px var(--nm-accent-hover);
 }
-
-/* Detail-view queue toggle — labeled, full-width. Rule 5: a toggle is FLAT when
-   off (flat accent tint, no rest elevation) and flips to pressed-in + accent
-   when on the list. The card's status-segmented active segment + this (when on)
-   are the only pressed elements; off-state stays flat so the card is calm. */
-.queue-toggle-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    margin-top: 12px;
-    padding: 8px 12px;
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--nm-text-muted);
-    background: var(--nm-tint-accent);
-    border: none;
-    border-radius: var(--nm-radius-pill);
-    cursor: pointer;
-    transition: color 0.15s ease, box-shadow 0.15s ease;
-}
-.queue-toggle-btn:hover { color: var(--nm-text); }
-.queue-toggle-btn:active { box-shadow: var(--nm-pressed-sm); }
-.queue-toggle-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--nm-accent-hover);
-}
-.queue-toggle-btn.active {
-    color: var(--nm-accent-hover);
-    font-weight: 600;
-    box-shadow: var(--nm-pressed-sm);
-}
-.queue-toggle-btn__icon { font-size: 1rem; line-height: 1; }
 
 /* Notion target group (detail sidebar) — segmented choice: flat tinted options,
    the selected target (library_detail.js toggles .c-btn--primary) is the one

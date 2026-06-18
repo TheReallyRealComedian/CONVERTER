@@ -87,97 +87,50 @@ function updatePageTitle(value) {
     document.title = `${cleanTitle || 'Ohne Titel'} – Library`;
 }
 
-function toggleFavorite(btn) {
-    const isFav = btn.classList.contains('active');
-    fetch(`/api/conversions/${CONVERSION_ID}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({is_favorite: !isFav})
-    }).then(r => {
-        if (r.ok) {
-            clearDetailAlert();
-            btn.classList.toggle('active');
-            btn.innerHTML = btn.classList.contains('active') ? '&#9733;' : '&#9734;';
-        } else {
-            showAlert(detailAlertContainer(), 'danger',
-                withServerSuffix('Favorit konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.', r.status));
-        }
-    }).catch(() => {
-        showAlert(detailAlertContainer(), 'danger',
-            'Favorit konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.');
-    });
-}
-
-// R2-D: reading-list toggle (detail view). Mirrors toggleFavorite but POSTs
-// add/remove to the queue endpoint; the conversion id is fixed to this page.
-// Updates the labeled button (flag icon + DE label) in place; errors use showToast.
-function toggleQueue(btn) {
-    const isQueued = btn.classList.contains('active');
-    const action = isQueued ? 'remove' : 'add';
-    fetch(`/api/conversions/${CONVERSION_ID}/queue`, {
+// R2-H: the one flat move-action (detail view). POSTs the target place; the
+// conversion id is fixed to this page. Success is silent (the pressed segment
+// is the feedback) — no reload needed, the control just reflects the new place;
+// errors use showToast. Subsumes the old lifecycle-toggle + queue-toggle pair
+// and holds the four places mutually exclusive server-side (incl. dequeue).
+function setPlace(place) {
+    fetch(`/api/conversions/${CONVERSION_ID}/place`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ place })
     }).then(r => {
         if (r.ok) {
             clearDetailAlert();
-            const queued = !isQueued;
-            btn.classList.toggle('active', queued);
-            btn.setAttribute('aria-pressed', queued ? 'true' : 'false');
-            const icon = btn.querySelector('.queue-toggle-btn__icon');
-            const label = btn.querySelector('.queue-toggle-btn__label');
-            if (icon) icon.innerHTML = queued ? '&#9873;' : '&#9872;';
-            if (label) label.textContent = queued ? 'Von der Lese-Liste' : 'Auf die Lese-Liste';
+            applyPlaceControl(place);
         } else {
-            showToast(withServerSuffix('Lese-Liste konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
+            showToast(withServerSuffix('Ablage konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
         }
     }).catch(() => {
-        showToast('Lese-Liste konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
+        showToast('Ablage konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
     });
 }
 
-// R2-C: lifecycle triage toggle (detail view). Mirrors the list-view setStatus
-// but takes only the status — the conversion id is fixed to this page. Success
-// is silent (the active segment is the feedback); errors use showToast.
-function setStatus(status) {
-    fetch(`/api/conversions/${CONVERSION_ID}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({lifecycle_status: status})
-    }).then(r => {
-        if (r.ok) {
-            clearDetailAlert();
-            applyStatusControl(status);
-        } else {
-            showToast(withServerSuffix('Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.', r.status), { level: 'danger' });
-        }
-    }).catch(() => {
-        showToast('Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.', { level: 'danger' });
-    });
-}
-
-function applyStatusControl(status) {
-    document.querySelectorAll('[data-status-control] .status-segmented__btn').forEach(btn => {
-        const active = btn.dataset.status === status;
+function applyPlaceControl(place) {
+    document.querySelectorAll('[data-place-control] .place-control__btn').forEach(btn => {
+        const active = btn.dataset.place === place;
         btn.classList.toggle('is-active', active);
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
 }
 
-// R2-F: Abschluss-Leiste-Archivieren. Nutzt denselben PUT-Mechanismus wie
-// setStatus (R2-C), aber mit Abschluss-UX statt stiller Segment-Aktivierung:
-// Erfolgs-Toast, dann zurück zur Library. Kurzer Delay vor der Navigation,
-// damit der Toast sichtbar ist, bevor die Seite entladen wird. Fehler bleiben
-// auf der Seite (Toast, keine Navigation).
+// R2-F/R2-H: Abschluss-Leiste-Archivieren. Nutzt jetzt denselben POST /place
+// wie das Move-Control (archiv nimmt das Item auch von der Lese-Liste —
+// Exklusivität), mit Abschluss-UX: Erfolgs-Toast, dann zurück zur Library.
+// Kurzer Delay vor der Navigation, damit der Toast sichtbar ist, bevor die
+// Seite entladen wird. Fehler bleiben auf der Seite (Toast, keine Navigation).
 function finishArchive() {
-    fetch(`/api/conversions/${CONVERSION_ID}`, {
-        method: 'PUT',
+    fetch(`/api/conversions/${CONVERSION_ID}/place`, {
+        method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({lifecycle_status: 'archive'})
+        body: JSON.stringify({place: 'archiv'})
     }).then(r => {
         if (r.ok) {
             clearDetailAlert();
-            applyStatusControl('archive');
+            applyPlaceControl('archiv');
             showToast('Archiviert');
             setTimeout(() => { window.location.href = LIBRARY_URL; }, 700);
         } else {
@@ -1586,9 +1539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.updateField = updateField;
-window.toggleFavorite = toggleFavorite;
-window.toggleQueue = toggleQueue;
-window.setStatus = setStatus;
+window.setPlace = setPlace;
 window.finishArchive = finishArchive;
 window.copyFullContent = copyFullContent;
 window.downloadContent = downloadContent;
