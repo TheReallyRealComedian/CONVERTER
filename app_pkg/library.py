@@ -38,21 +38,19 @@ ALLOWED_PER_PAGE = (20, 50, 100)
 DEFAULT_PER_PAGE = 20
 
 
-def pagination_args(page, conversion_type, search, favorites, sort, per_page, tag='', status='', view=''):
-    """Build the **kwargs for url_for('library', …) so favorites='', the
-    default per_page, an empty tag, an empty status and an empty view drop out
-    of the URL entirely (F-6 P9 + P12; R2-B adds the tag filter, R2-C the status
-    filter, R2-D the view mode)."""
+def pagination_args(page, conversion_type, search, sort, per_page, tag='', view=''):
+    """Build the **kwargs for url_for('library', …) so the default per_page, an
+    empty tag and the default place drop out of the URL entirely (F-6 P9 + P12;
+    R2-B adds the tag filter, R2-H the four-place view). The ?favorites + ?status
+    args were retired in R2-H."""
     args = {'page': page, 'type': conversion_type, 'search': search, 'sort': sort}
-    if favorites:
-        args['favorites'] = '1'
     if per_page != DEFAULT_PER_PAGE:
         args['per_page'] = per_page
     if tag:
         args['tag'] = tag
-    if status:
-        args['status'] = status
-    if view:
+    # The bare /library is the default place, so only a non-default view needs
+    # to ride along (keeps Bibliothek URLs clean: ?page=2, not ?view=bibliothek).
+    if view and view != DEFAULT_PLACE:
         args['view'] = view
     return args
 
@@ -215,13 +213,8 @@ def register(app):
         # (Inbox/Lese-Liste/Bibliothek/Archiv); the query is derived from
         # (lifecycle_status, queue_position) with no schema touch. An absent or
         # unknown view lands on the neutral shelf (DEFAULT_PLACE = bibliothek),
-        # which is what the bare /library nav link resolves to. 'queue' is the
-        # retired R2-E token — accepted as a leseliste alias so the
-        # not-yet-restructured template's Lese-Liste tab + its pagination links
-        # keep resolving until the Phase-2 four-tab rewrite.
+        # which is what the bare /library nav link resolves to.
         view = request.args.get('view', '')
-        if view == 'queue':
-            view = 'leseliste'
         place = view if view in PLACES else DEFAULT_PLACE
         sort = request.args.get('sort', 'newest')
         page = request.args.get('page', 1, type=int)
@@ -229,9 +222,13 @@ def register(app):
         if per_page not in ALLOWED_PER_PAGE:
             per_page = DEFAULT_PER_PAGE
 
+        # A content filter (valid type, search, or tag) flips the view into the
+        # global finder below; an unknown ?type is ignored and does not.
+        type_active = bool(conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES)
+
         query = Conversion.query.filter_by(user_id=current_user.id)
 
-        if conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES:
+        if type_active:
             query = query.filter_by(conversion_type=conversion_type)
         if tag:
             # R2-B: exact-match tag filter over the conversion_tags junction —
@@ -257,12 +254,13 @@ def register(app):
             )
 
         # R2-H place scoping via the derivation precedence (archive > queued >
-        # inbox > neutral shelf). An active search is the global finder: it
-        # spans every non-archive place (Inbox+Lese-Liste+Bibliothek) and
-        # ignores the per-tab place filter ("alles sehen = Suche", Olis Wahl).
-        # The Bibliothek tab *without* a query is the neutral shelf only. The
-        # type/tag filters AND on top of whichever scope is active.
-        if search:
+        # inbox > neutral shelf). Any active content filter (search / tag /
+        # type) turns the view into the *global finder*: it spans every
+        # non-archive place (Inbox+Lese-Liste+Bibliothek) and ignores the
+        # per-tab place filter ("alles sehen = filtern", Olis Wahl). The
+        # Bibliothek tab *without* a filter is the neutral shelf only.
+        finder = bool(search or tag or type_active)
+        if finder:
             query = query.filter(Conversion.lifecycle_status != 'archive')
         elif place == 'archiv':
             query = query.filter(Conversion.lifecycle_status == 'archive')
@@ -282,9 +280,9 @@ def register(app):
                 Conversion.queue_position.is_(None),
             )
 
-        # The Lese-Liste browses in manual queue order; a search (global finder)
-        # and every other place use the sort param (newest first by default).
-        if place == 'leseliste' and not search:
+        # The Lese-Liste browses in manual queue order; the global finder and
+        # every other place use the sort param (newest first by default).
+        if place == 'leseliste' and not finder:
             query = query.order_by(Conversion.queue_position.asc())
         elif sort == 'oldest':
             query = query.order_by(Conversion.created_at.asc())
@@ -306,12 +304,9 @@ def register(app):
 
         # R2-H retired the ?favorites + ?status filters; a place is a mode, not
         # a filter, so it stays out of has_active_filter (the "Filter
-        # zurücksetzen" empty-state stays scoped to type/search/tag).
-        has_active_filter = bool(
-            (conversion_type and conversion_type in ALLOWED_CONVERSION_TYPES)
-            or search
-            or tag
-        )
+        # zurücksetzen" empty-state stays scoped to type/search/tag). This is
+        # exactly the global-finder predicate.
+        has_active_filter = finder
 
         # Tags of this user that hang on at least one conversion — feeds the
         # tag chip row. R2-E: each row carries its usage count over the
@@ -329,30 +324,17 @@ def register(app):
             .all()
         )
 
-        # Phase-1 template-compat shim: the R2-E template keys its layout off
-        # the old view tokens ('' = library, 'inbox', 'queue'). Map the place
-        # back onto them so it renders until the Phase-2 four-tab rewrite
-        # (leseliste reuses the queue layout incl. the reorder rail; archiv
-        # falls back to the plain list, already query-scoped to archived rows).
-        # current_favorites/current_status/reading_items are passed empty for
-        # the same reason. Phase 2 deletes this shim together with the
-        # favorites-star, status-segmented, Ort-chip and Weiterlesen markup.
-        current_view = {'bibliothek': '', 'inbox': 'inbox',
-                        'leseliste': 'queue', 'archiv': ''}[place]
-
         return render_template('library.html',
                                conversions=pagination.items,
                                pagination=pagination,
-                               reading_items=[],
                                inbox_count=inbox_count,
                                current_type=conversion_type,
                                current_search=search,
-                               current_favorites=False,
                                current_sort=sort,
                                current_per_page=per_page,
                                current_tag=tag,
-                               current_status='',
-                               current_view=current_view,
+                               current_view=place,
+                               places=PLACES,
                                available_tags=available_tags,
                                allowed_per_page=ALLOWED_PER_PAGE,
                                default_per_page=DEFAULT_PER_PAGE,

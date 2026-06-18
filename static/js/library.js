@@ -1,12 +1,9 @@
-/* Library list view: per-card actions (favorite, copy, delete). */
+/* Library list view: per-card actions (place move, reorder, copy, delete). */
 
-const FAVORITE_FAILURE_MSG = 'Favorit konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.';
 const DELETE_FAILURE_MSG = 'Löschen fehlgeschlagen. Verbindung prüfen und erneut versuchen.';
 const DELETE_RACE_MSG = 'Eintrag wurde bereits entfernt.';
-const STATUS_FAILURE_MSG = 'Status konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
-const STATUS_LABELS = { inbox: 'Inbox', later: 'Später', archive: 'Archiv' };
+const PLACE_FAILURE_MSG = 'Ablage konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
 const SESSION_EXPIRED_MSG = 'Sitzung abgelaufen. Seite neu laden und erneut anmelden.';
-const QUEUE_FAILURE_MSG = 'Lese-Liste konnte nicht aktualisiert werden. Verbindung prüfen und erneut versuchen.';
 const REORDER_FAILURE_MSG = 'Reihenfolge konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
 
 function libraryAlertContainer() { return document.getElementById('library-alert-container'); }
@@ -22,74 +19,47 @@ function handleFetchError(error, fallbackMsg) {
     showAlert(libraryAlertContainer(), 'danger', msg);
 }
 
-function toggleFavorite(id, btn) {
-    const isFav = btn.classList.contains('active');
-    fetch(`/api/conversions/${id}`, {
-        method: 'PUT',
+// R2-H: the one flat move-action. POSTs the target place; the pressed segment IS
+// the feedback, so success is silent. Reload-gate (Memory
+// reference_reorder_over_filtered_set): when the item leaves the visible set its
+// derived display state (#rank, edge-disabled arrows, inbox badge, pagination)
+// goes stale, so reload; otherwise flip the pressed segment in-place. The item
+// leaves the set on a move to a different place when browsing a place; in the
+// global finder (search/tag/type spans non-archive) only a move to Archiv drops
+// it off. Clicking the already-active place is a no-op.
+function setPlace(id, place, btn) {
+    if (btn.classList.contains('is-active')) return;
+    fetch(`/api/conversions/${id}/place`, {
+        method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({is_favorite: !isFav})
+        body: JSON.stringify({ place })
     }).then(r => {
         if (r.ok) {
             const container = libraryAlertContainer();
             if (container) container.innerHTML = '';
-            btn.classList.toggle('active');
-            btn.innerHTML = btn.classList.contains('active') ? '&#9733;' : '&#9734;';
-            return null;
-        }
-        return safeJSON(r).catch(() => null).then(() => {
-            showAlert(libraryAlertContainer(), 'danger', withServerSuffix(FAVORITE_FAILURE_MSG, r.status));
-        });
-    }).catch(err => handleFetchError(err, FAVORITE_FAILURE_MSG));
-}
-
-// R2-C: lifecycle triage toggle. PUTs lifecycle_status like toggleFavorite;
-// success is silent (the badge + active segment ARE the feedback), errors use
-// showToast. The card stays in place even under an active ?status filter — the
-// reload after triage reflects the filtered set.
-function setStatus(id, status) {
-    const card = document.querySelector(`[data-id="${id}"]`);
-    fetch(`/api/conversions/${id}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({lifecycle_status: status})
-    }).then(r => {
-        if (r.ok) {
-            const container = libraryAlertContainer();
-            if (container) container.innerHTML = '';
-            // Reload when the card leaves the view's visible set, so derived
-            // display state (#rank badges, edge-disabled arrows, the inbox
-            // tab badge, pagination) never goes stale: in the queue-view an
-            // archived item drops off the to-read list (R2-D); in the
-            // inbox-view (R2-E) any triage away from 'inbox' removes it.
             const view = window.PageData ? window.PageData.currentView : '';
-            const leavesVisibleSet =
-                (view === 'queue' && status === 'archive') ||
-                (view === 'inbox' && status !== 'inbox');
+            const finder = window.PageData ? window.PageData.finder : false;
+            const leavesVisibleSet = finder ? (place === 'archiv') : (place !== view);
+            const card = document.querySelector(`[data-id="${id}"]`);
             if (card && leavesVisibleSet) {
                 window.location.reload();
                 return null;
             }
-            if (card) applyStatusToCard(card, status);
+            if (card) applyPlaceToCard(card, place);
             return null;
         }
         return safeJSON(r).catch(() => null).then(() => {
-            showToast(withServerSuffix(STATUS_FAILURE_MSG, r.status), { level: 'danger' });
+            showToast(withServerSuffix(PLACE_FAILURE_MSG, r.status), { level: 'danger' });
         });
     }).catch(err => {
-        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : STATUS_FAILURE_MSG;
+        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : PLACE_FAILURE_MSG;
         showToast(msg, { level: 'danger' });
     });
 }
 
-function applyStatusToCard(card, status) {
-    const badge = card.querySelector('[data-status-badge]');
-    if (badge) {
-        badge.classList.remove('status-badge--inbox', 'status-badge--later', 'status-badge--archive');
-        badge.classList.add(`status-badge--${status}`);
-        badge.textContent = STATUS_LABELS[status] || status;
-    }
-    card.querySelectorAll('[data-status-control] .status-segmented__btn').forEach(btn => {
-        const active = btn.dataset.status === status;
+function applyPlaceToCard(card, place) {
+    card.querySelectorAll('[data-place-control] .place-control__btn').forEach(btn => {
+        const active = btn.dataset.place === place;
         btn.classList.toggle('is-active', active);
         btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
@@ -144,53 +114,9 @@ function deleteConversion(id, btn) {
     }).catch(err => handleFetchError(err, DELETE_FAILURE_MSG));
 }
 
-// R2-D: reading-list toggle. POSTs add/remove to the queue endpoint. The flag
-// icon (filled/outline) IS the feedback, so success is silent like the favorite
-// star. In the queue-view a just-removed item no longer belongs to the visible
-// set, so its card is pulled from the DOM instead of just flipping the icon.
-function toggleQueue(id, btn) {
-    const isQueued = btn.classList.contains('active');
-    const action = isQueued ? 'remove' : 'add';
-    fetch(`/api/conversions/${id}/queue`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ action })
-    }).then(r => {
-        if (r.ok) {
-            const container = libraryAlertContainer();
-            if (container) container.innerHTML = '';
-            // Reload when the toggle moves the card across the view's visible
-            // sets: in the queue-view BOTH directions move it (remove drops it
-            // off the list, add promotes a Weiterlesen-section card into the
-            // ranked queue, R2-E); in the inbox-view add = triage, the card
-            // leaves the untriaged pile and the tab badge changes.
-            const view = window.PageData ? window.PageData.currentView : '';
-            if (view === 'queue' || (view === 'inbox' && action === 'add')) {
-                window.location.reload();
-                return null;
-            }
-            applyQueueToButton(btn, !isQueued);
-            return null;
-        }
-        return safeJSON(r).catch(() => null).then(() => {
-            showToast(withServerSuffix(QUEUE_FAILURE_MSG, r.status), { level: 'danger' });
-        });
-    }).catch(err => {
-        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : QUEUE_FAILURE_MSG;
-        showToast(msg, { level: 'danger' });
-    });
-}
-
-function applyQueueToButton(btn, queued) {
-    btn.classList.toggle('active', queued);
-    btn.setAttribute('aria-pressed', queued ? 'true' : 'false');
-    btn.innerHTML = queued ? '&#9873;' : '&#9872;';
-    btn.title = queued ? 'Von der Lese-Liste nehmen' : 'Auf die Lese-Liste setzen';
-}
-
 // R2-D: reorder a queued item by one slot (swap server-side). The list is small
-// and the swap is atomic, so a plain reload of the queue-view is the simplest
-// robust reflection of the new order (sprint: DOM-swap is optional polish).
+// and the swap is atomic, so a plain reload of the Lese-Liste view is the
+// simplest robust reflection of the new order.
 function moveQueue(id, dir) {
     fetch(`/api/conversions/${id}/queue`, {
         method: 'POST',
@@ -249,9 +175,7 @@ if (document.readyState === 'loading') {
     initTagRow();
 }
 
-window.toggleFavorite = toggleFavorite;
-window.setStatus = setStatus;
+window.setPlace = setPlace;
 window.copyContent = copyContent;
 window.deleteConversion = deleteConversion;
-window.toggleQueue = toggleQueue;
 window.moveQueue = moveQueue;

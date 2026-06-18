@@ -1834,6 +1834,43 @@ body.reader-active .sidebar-toggle-floater--global {
     box-shadow: var(--nm-pressed-sm);
 }
 
+/* R2-H: the one flat four-place move-control on each list card — same
+   elevation-budget treatment as the .view-switcher tabs and .status-segmented
+   (FLAT track, the active place is the single pressed element), split into four
+   equal full-width segments and scaled down to fit the card. Replaces the
+   R2-C status-segmented + the queue-flag + favorite-star glyph buttons. */
+.place-control {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--nm-radius-pill);
+}
+.place-control__btn {
+    flex: 1;
+    text-align: center;
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 500;
+    padding: 4px 6px;
+    border: none;
+    border-radius: var(--nm-radius-pill);
+    background: transparent;
+    color: var(--nm-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s ease, box-shadow 0.15s ease;
+}
+.place-control__btn:hover { color: var(--nm-text); }
+.place-control__btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--nm-accent-hover);
+}
+.place-control__btn.is-active {
+    color: var(--nm-text);
+    font-weight: 600;
+    box-shadow: var(--nm-pressed-sm);
+}
+
 /* ===== READING LIST (R2-D) ===== */
 /* View-switcher — the R2-E "Readwise-3er" tab bar (Inbox/Lese-Liste/
    Bibliothek). Same elevation-budget treatment as .status-segmented: FLAT
