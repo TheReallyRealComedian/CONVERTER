@@ -6,7 +6,7 @@ runs without PRAGMA foreign_keys=ON, so the ON DELETE SET NULL declared on
 card.highlight_id is inert — an ORM before_delete event is the real mechanic.
 Without it, deleting a Highlight leaves a dangling highlight_id on the card.
 """
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from models import Card, Conversion, Highlight, Review, Tag, User, db
 
@@ -38,15 +38,45 @@ def _make_highlight(app, conversion_id, exact='foo', note=None, created_at=None,
         return hl.id
 
 
-def _make_card(app, user_id, highlight_id=None, ctype='atomic', with_review=True, due=None):
+def _make_card(app, user_id, highlight_id=None, ctype='atomic', with_review=True,
+               due=None, state='ok'):
     with app.app_context():
         card = Card(user_id=user_id, highlight_id=highlight_id, type=ctype,
-                    front='Q', back='A')
+                    front='Q', back='A', state=state)
         if with_review:
-            card.review = Review(due=due or datetime.utcnow())
+            card.review = Review(due=due or datetime.now(timezone.utc))
         db.session.add(card)
         db.session.commit()
         return card.id
+
+
+def _make_other_user(app, username='mallory'):
+    with app.app_context():
+        u = User(username=username)
+        u.set_password('password1234')
+        db.session.add(u)
+        db.session.commit()
+        return u.id
+
+
+CARD_TOKEN = 'r4-test-card-token-9b2e'
+CARDS_URL = '/api/cards'
+
+
+def _card_auth(token=CARD_TOKEN):
+    return {'Authorization': f'Bearer {token}'}
+
+
+def _atomic_payload(**ov):
+    p = {'type': 'atomic', 'front': 'Was ist X?', 'back': 'X ist Y.'}
+    p.update(ov)
+    return p
+
+
+def _generative_payload(**ov):
+    p = {'type': 'generative', 'prompt': 'Erkläre X laut.'}
+    p.update(ov)
+    return p
 
 
 # --- schema: tables exist + persistence + tags + review ----------------------
@@ -226,3 +256,253 @@ def test_parse_since_helper():
     assert _parse_since('garbage') is None
     assert _parse_since('') is None
     assert _parse_since(None) is None
+
+
+# =============================================================================
+# Phase 2 — card write API (token) + card/review reads (session)
+# =============================================================================
+
+# --- write auth: 503 fail-closed / 401 missing+wrong / 201 real -------------
+
+def test_card_create_fail_closed_without_token(app, client, test_user, monkeypatch):
+    monkeypatch.delenv('CARD_TOKEN', raising=False)
+    # Unset -> 503 even with a Bearer present (config check precedes auth).
+    assert client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload()).status_code == 503
+    # Empty string is "unset" too.
+    monkeypatch.setenv('CARD_TOKEN', '')
+    assert client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload()).status_code == 503
+    with app.app_context():
+        assert Card.query.count() == 0
+
+
+def test_card_create_401_missing_and_wrong_token(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    assert client.post(CARDS_URL, json=_atomic_payload()).status_code == 401
+    assert client.post(CARDS_URL, headers=_card_auth('the-wrong-token'),
+                       json=_atomic_payload()).status_code == 401
+    with app.app_context():
+        assert Card.query.count() == 0
+
+
+def test_card_create_201_persists_card_and_review(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(tags=['Biologie', 'Wichtig'],
+                                            note='merken', source_doc_title='Doc',
+                                            source_snapshot='quote in context'))
+    assert resp.status_code == 201
+    body = resp.get_json()
+    assert body['type'] == 'atomic'
+    assert body['state'] == 'ok'              # default
+    assert body['created_by'] == 'agent'      # default
+    assert body['source_doc_title'] == 'Doc'
+    assert sorted(t['name'] for t in body['tags']) == ['biologie', 'wichtig']
+    # locked decision: the Review row is created in the FSRS-"new" state
+    assert body['review'] is not None
+    assert body['review']['due'] is not None
+    assert body['review']['reps'] == 0
+    assert body['review']['lapses'] == 0
+    with app.app_context():
+        card = Card.query.filter_by(user_id=uid).one()
+        assert card.user_id == uid            # stamped from the resolver
+        assert card.review is not None
+        assert card.review.due is not None
+        assert sorted(t.name for t in card.tags) == ['biologie', 'wichtig']  # via card_tags
+
+
+def test_card_create_targets_ingest_user(app, client, test_user, monkeypatch):
+    # The card write resolves the target user via the SAME INGEST_USER hook.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    alice = test_user['id']
+    bob = _make_other_user(app, 'bob')
+    monkeypatch.setenv('INGEST_USER', 'bob')
+    resp = client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload())
+    assert resp.status_code == 201
+    with app.app_context():
+        assert Card.query.filter_by(user_id=bob).count() == 1
+        assert Card.query.filter_by(user_id=alice).count() == 0
+
+
+# --- CSRF: exempt only the two write views (proven under enforced CSRF) ------
+
+def test_card_create_csrf_exempt_under_enforced_csrf(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    # conftest disables CSRF globally; flip it back ON. A Bearer-only POST has no
+    # CSRF token and must still succeed because the view is exempt.
+    monkeypatch.setitem(app.config, 'WTF_CSRF_ENABLED', True)
+    assert client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload()).status_code == 201
+
+
+def test_only_card_write_views_are_csrf_exempt(app):
+    csrf = app.extensions['csrf']
+    assert 'app_pkg.cards.api_create_card' in csrf._exempt_views
+    assert 'app_pkg.cards.api_patch_card' in csrf._exempt_views
+    # session-authed reads are NOT exempt
+    assert 'app_pkg.cards.api_list_cards' not in csrf._exempt_views
+    assert 'app_pkg.cards.api_review_state' not in csrf._exempt_views
+
+
+# --- per-type validation: 400 ------------------------------------------------
+
+def test_card_create_atomic_cloze_is_valid(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json={'type': 'atomic', 'cloze_text': 'Die {{Mitochondrien}} sind ...'})
+    assert resp.status_code == 201
+
+
+def test_card_create_atomic_missing_fields_400(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    # neither (front AND back) nor cloze_text
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json={'type': 'atomic', 'front': 'only front'}).status_code == 400
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json={'type': 'atomic'}).status_code == 400
+
+
+def test_card_create_generative_valid_and_invalid(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json=_generative_payload()).status_code == 201
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json={'type': 'generative'}).status_code == 400
+
+
+def test_card_create_invalid_type_and_body_400(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json={'type': 'bogus', 'front': 'a', 'back': 'b'}).status_code == 400
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json=['not', 'a', 'dict']).status_code == 400
+
+
+# --- highlight_id ownership --------------------------------------------------
+
+def test_card_create_highlight_ownership(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    # own highlight -> 201
+    conv = _make_conversion(app, uid)
+    hl = _make_highlight(app, conv, exact='q')
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(highlight_id=hl)).status_code == 201
+    # foreign highlight -> 400 (target user is first()=alice)
+    other_id = _make_other_user(app)
+    conv_o = _make_conversion(app, other_id)
+    hl_o = _make_highlight(app, conv_o, exact='foreign')
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(highlight_id=hl_o)).status_code == 400
+    # nonexistent highlight -> 400
+    assert client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(highlight_id=999999)).status_code == 400
+
+
+def test_card_create_reuses_existing_tag(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    with app.app_context():
+        Tag.get_or_create(uid, 'ki')
+        db.session.commit()
+        existing = Tag.query.filter_by(user_id=uid, name='ki').first().id
+    resp = client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload(tags=['KI', 'neu']))
+    assert resp.status_code == 201
+    with app.app_context():
+        assert Tag.query.filter_by(user_id=uid, name='ki').count() == 1
+        card = Card.query.filter_by(user_id=uid).one()
+        ki = next(t for t in card.tags if t.name == 'ki')
+        assert ki.id == existing
+
+
+# --- PATCH -------------------------------------------------------------------
+
+def test_card_patch_refines_and_toggles_state(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload()).get_json()['id']
+    resp = client.patch(f'/api/cards/{cid}', headers=_card_auth(),
+                        json={'back': 'Neue Antwort', 'state': 'wackelt', 'tags': ['neu']})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body['back'] == 'Neue Antwort'
+    assert body['state'] == 'wackelt'
+    assert [t['name'] for t in body['tags']] == ['neu']
+    # reset wackelt -> ok
+    resp2 = client.patch(f'/api/cards/{cid}', headers=_card_auth(), json={'state': 'ok'})
+    assert resp2.get_json()['state'] == 'ok'
+
+
+def test_card_patch_requires_token_and_rejects_bad_state(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = client.post(CARDS_URL, headers=_card_auth(), json=_atomic_payload()).get_json()['id']
+    # no token -> 401
+    assert client.patch(f'/api/cards/{cid}', json={'state': 'ok'}).status_code == 401
+    # bad state -> 400
+    assert client.patch(f'/api/cards/{cid}', headers=_card_auth(),
+                        json={'state': 'bogus'}).status_code == 400
+
+
+def test_card_patch_foreign_card_404(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    other_id = _make_other_user(app)
+    foreign = _make_card(app, other_id)   # owned by mallory; target=first()=alice
+    assert client.patch(f'/api/cards/{foreign}', headers=_card_auth(),
+                        json={'state': 'wackelt'}).status_code == 404
+
+
+# --- reads: owner-scoped, filtered, paginated --------------------------------
+
+def test_cards_list_owner_scoped_with_filters(app, authenticated_client, test_user):
+    uid = test_user['id']
+    conv = _make_conversion(app, uid)
+    hl = _make_highlight(app, conv, exact='q')
+    c1 = _make_card(app, uid, highlight_id=hl, state='ok')
+    c2 = _make_card(app, uid, state='wackelt')
+    _make_card(app, _make_other_user(app), state='ok')   # foreign — must not appear
+
+    allc = authenticated_client.get(CARDS_URL).get_json()
+    assert {c['id'] for c in allc} == {c1, c2}
+    assert 'back' not in allc[0]                          # slim summary, no answer side
+    # state filter
+    assert [c['id'] for c in authenticated_client.get(CARDS_URL + '?state=wackelt').get_json()] == [c2]
+    # highlight_id filter
+    assert [c['id'] for c in authenticated_client.get(f'{CARDS_URL}?highlight_id={hl}').get_json()] == [c1]
+
+
+def test_cards_list_limit_offset(app, authenticated_client, test_user):
+    uid = test_user['id']
+    for _ in range(3):
+        _make_card(app, uid)
+    assert len(authenticated_client.get(CARDS_URL + '?limit=2&offset=0').get_json()) == 2
+    assert len(authenticated_client.get(CARDS_URL + '?limit=2&offset=2').get_json()) == 1
+
+
+def test_card_get_full_and_foreign_404(app, authenticated_client, test_user):
+    uid = test_user['id']
+    cid = _make_card(app, uid)
+    full = authenticated_client.get(f'/api/cards/{cid}').get_json()
+    assert full['id'] == cid
+    assert 'back' in full                 # full to_dict carries the answer side
+    assert full['review'] is not None
+    foreign = _make_card(app, _make_other_user(app))
+    assert authenticated_client.get(f'/api/cards/{foreign}').status_code == 404
+
+
+def test_review_state_due_now_vs_future(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    c_due = _make_card(app, uid, due=now - timedelta(days=1))
+    c_future = _make_card(app, uid, due=now + timedelta(days=1))
+    body = authenticated_client.get('/api/review-state').get_json()
+    due_ids = [c['id'] for c in body['due_cards']]
+    assert c_due in due_ids
+    assert c_future not in due_ids
+    assert body['due_count'] == 1
+    assert body['total_count'] == 2
+    # due_cards are full cards (the Phase-4 review queue renders without refetch)
+    assert 'back' in body['due_cards'][0]
+
+
+def test_card_reads_require_login(client):
+    assert client.get(CARDS_URL).status_code in (302, 401)
+    assert client.get(CARDS_URL + '/1').status_code in (302, 401)
+    assert client.get('/api/review-state').status_code in (302, 401)
