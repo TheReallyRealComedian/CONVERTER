@@ -23,6 +23,7 @@ session) is resolved by the SAME ``INGEST_USER``/first() resolver Ingest uses,
 so agent-authored cards land on the same account as ingested conversions.
 """
 import hmac
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -32,6 +33,7 @@ from flask_login import current_user, login_required
 from sqlalchemy.orm import contains_eager, joinedload
 
 from models import Card, Conversion, Highlight, Review, Tag, db
+from services.scheduler import RATINGS, get_scheduler
 
 # Reuse the Ingest auth primitives so card writes resolve the SAME target user
 # and parse the Bearer header identically — a single source of truth for "who
@@ -93,6 +95,16 @@ def _parse_offset(raw):
 def _nonblank(value):
     """True iff ``value`` is a non-empty (post-strip) string."""
     return isinstance(value, str) and bool(value.strip())
+
+
+def _naive_utc(dt):
+    """Strip an aware datetime to naive UTC for storage (the column convention —
+    SQLite holds naive UTC wall-clock). The scheduler returns aware-UTC."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc)
+    return dt.replace(tzinfo=None)
 
 
 # --- card write helpers ------------------------------------------------------
@@ -355,6 +367,66 @@ def register(app):
             'total_count': total_count,
             'due_cards': [c.to_dict() for c in due_cards],
         })
+
+    @app.route('/api/cards/<int:card_id>/review', methods=['POST'])
+    @login_required
+    def api_review_card(card_id):
+        # The USER rates in the review UI → SESSION auth (not the agent token).
+        # No auto-grading: the rating always comes from the body.
+        card = Card.query.filter_by(id=card_id, user_id=current_user.id).first_or_404()
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        rating = data.get('rating')
+        if rating not in RATINGS:
+            return jsonify({'error': "Feld 'rating' muss again|hard|good|easy sein."}), 400
+
+        scheduler = get_scheduler()
+        review = card.review
+        if review is None:
+            # Defensive: POST /api/cards always creates the row, but never assume.
+            review = Review(card_id=card.id)
+            db.session.add(review)
+            current_state = scheduler.new_card_state()
+        else:
+            current_state = {
+                'due': review.due,
+                'stability': review.stability,
+                'difficulty': review.difficulty,
+                'last_reviewed': review.last_reviewed,
+                'reps': review.reps or 0,
+                'lapses': review.lapses or 0,
+            }
+
+        new_state = scheduler.apply_rating(current_state, rating)
+        review.due = _naive_utc(new_state['due'])
+        review.stability = new_state['stability']
+        review.difficulty = new_state['difficulty']
+        review.last_reviewed = _naive_utc(new_state['last_reviewed'])
+        review.reps = new_state['reps']
+        review.lapses = new_state['lapses']
+
+        # Append to the rating history log (JSON list on the Review row).
+        history = []
+        if review.rating_history:
+            try:
+                parsed = json.loads(review.rating_history)
+                if isinstance(parsed, list):
+                    history = parsed
+            except (ValueError, TypeError):
+                history = []
+        history.append({'rating': rating,
+                        'reviewed_at': new_state['last_reviewed'].isoformat()})
+        review.rating_history = json.dumps(history)
+
+        # Generative card + weak rating optionally flags it shaky — the entry
+        # point into the agent dialogue-recall ("Vertiefen", Phase 4).
+        if card.type == 'generative' and rating in ('again', 'hard'):
+            card.state = 'wackelt'
+
+        db.session.commit()
+        return jsonify(card.to_dict())
 
     # Token-authed, session-less writes carry no CSRF cookie → waive CSRF for
     # THESE TWO views only (the reads stay protected by the global CSRFProtect).

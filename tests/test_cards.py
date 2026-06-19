@@ -506,3 +506,84 @@ def test_card_reads_require_login(client):
     assert client.get(CARDS_URL).status_code in (302, 401)
     assert client.get(CARDS_URL + '/1').status_code in (302, 401)
     assert client.get('/api/review-state').status_code in (302, 401)
+
+
+# =============================================================================
+# Phase 3 — rate endpoint (session, FSRS/SM-2)
+# =============================================================================
+
+def test_review_endpoint_updates_review_row(app, authenticated_client, test_user):
+    uid = test_user['id']
+    cid = _make_card(app, uid, ctype='atomic')
+    resp = authenticated_client.post(f'/api/cards/{cid}/review', json={'rating': 'good'})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body['id'] == cid
+    review = body['review']
+    assert review['reps'] == 1
+    assert review['lapses'] == 0
+    assert review['due'] is not None
+    assert review['last_reviewed'] is not None
+    assert review['rating_history'][-1]['rating'] == 'good'   # history appended
+    with app.app_context():                                   # persisted
+        r = db.session.get(Card, cid).review
+        assert r.reps == 1
+        assert r.last_reviewed is not None
+
+
+def test_review_endpoint_again_is_a_lapse(app, authenticated_client, test_user):
+    uid = test_user['id']
+    cid = _make_card(app, uid, ctype='atomic')
+    authenticated_client.post(f'/api/cards/{cid}/review', json={'rating': 'good'})
+    resp = authenticated_client.post(f'/api/cards/{cid}/review', json={'rating': 'again'})
+    review = resp.get_json()['review']
+    assert review['reps'] == 2
+    assert review['lapses'] == 1
+
+
+def test_review_endpoint_generative_weak_sets_wackelt(app, authenticated_client, test_user):
+    uid = test_user['id']
+    cid = _make_card(app, uid, ctype='generative')
+    resp = authenticated_client.post(f'/api/cards/{cid}/review', json={'rating': 'hard'})
+    assert resp.get_json()['state'] == 'wackelt'
+
+
+def test_review_endpoint_atomic_weak_stays_ok(app, authenticated_client, test_user):
+    uid = test_user['id']
+    cid = _make_card(app, uid, ctype='atomic')
+    resp = authenticated_client.post(f'/api/cards/{cid}/review', json={'rating': 'again'})
+    assert resp.get_json()['state'] == 'ok'   # only generative flips to wackelt
+
+
+def test_review_endpoint_bad_rating_400(app, authenticated_client, test_user):
+    uid = test_user['id']
+    cid = _make_card(app, uid)
+    assert authenticated_client.post(f'/api/cards/{cid}/review',
+                                     json={'rating': 'bogus'}).status_code == 400
+    assert authenticated_client.post(f'/api/cards/{cid}/review', json={}).status_code == 400
+
+
+def test_review_endpoint_requires_login_not_token(app, client, test_user, monkeypatch):
+    # The rate endpoint is @login_required — a CARD_TOKEN bearer (agent) must NOT
+    # authorize it. Proves the auth-split: user rates, agent writes.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = _make_card(app, test_user['id'])
+    resp = client.post(f'/api/cards/{cid}/review', headers=_card_auth(), json={'rating': 'good'})
+    assert resp.status_code in (302, 401)   # NOT 200
+
+
+def test_review_endpoint_foreign_card_404(app, authenticated_client, test_user):
+    foreign = _make_card(app, _make_other_user(app))
+    assert authenticated_client.post(f'/api/cards/{foreign}/review',
+                                     json={'rating': 'good'}).status_code == 404
+
+
+def test_review_endpoint_engine_swap_to_sm2(app, authenticated_client, test_user, monkeypatch):
+    # Engine swap via config — the rate endpoint produces a plausible due either way.
+    monkeypatch.setenv('SCHEDULER_ENGINE', 'sm2')
+    cid = _make_card(app, test_user['id'])
+    resp = authenticated_client.post(f'/api/cards/{cid}/review', json={'rating': 'good'})
+    assert resp.status_code == 200
+    review = resp.get_json()['review']
+    assert review['due'] is not None
+    assert review['reps'] == 1
