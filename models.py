@@ -3,6 +3,7 @@ import re
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from sqlalchemy import event
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
@@ -184,3 +185,135 @@ class Tag(db.Model):
         if conversion_count is not None:
             out['conversion_count'] = conversion_count
         return out
+
+
+# --- R4-LEARN: the spaced-repetition / recall layer over the Highlights ---
+
+card_tags = db.Table(
+    'card_tags',
+    db.Column('card_id', db.Integer, db.ForeignKey('card.id', ondelete='CASCADE'),
+              primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id', ondelete='CASCADE'),
+              primary_key=True),
+)
+
+
+class Card(db.Model):
+    """A spaced-repetition card sitting over a Highlight (R4-LEARN).
+
+    **Self-contained**: ``front``/``back``/``cloze_text``/``prompt`` live on the
+    card; review never reads the Highlight live. ``highlight_id`` is best-effort
+    provenance only — the ``before_delete`` event below nulls it when the
+    Highlight goes away (the card + its Review survive). Cards are authored by
+    the external agent via the token-auth write API (Phase 2), never generated
+    inside CONVERTER.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    # Owner scope. A card is a top-level entity that outlives its highlight, so
+    # it carries its own user_id (like Conversion/Tag) rather than scoping
+    # through the nullable highlight — the owner-scoped reads must still work
+    # after the provenance link is broken.
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    # Provenance FK. Bare column, no Highlight<->Card relationship: the declared
+    # ON DELETE SET NULL is INERT (no PRAGMA foreign_keys=ON) — the before_delete
+    # event is the real mechanic. Declared anyway to mirror the junction tables.
+    highlight_id = db.Column(db.Integer, db.ForeignKey('highlight.id', ondelete='SET NULL'),
+                             nullable=True, index=True)
+    # Authoring-time snapshot of the source, so a later edit/delete of the
+    # Highlight or Conversion never changes what the card shows.
+    source_snapshot = db.Column(db.Text, nullable=True)
+    source_doc_title = db.Column(db.Text, nullable=True)
+    type = db.Column(db.String(20), nullable=False)  # 'atomic' | 'generative'
+    front = db.Column(db.Text, nullable=True)
+    back = db.Column(db.Text, nullable=True)
+    cloze_text = db.Column(db.Text, nullable=True)
+    prompt = db.Column(db.Text, nullable=True)
+    note = db.Column(db.Text, nullable=True)
+    state = db.Column(db.String(20), default='ok', nullable=False)  # 'ok' | 'wackelt'
+    created_by = db.Column(db.String(40), default='agent', nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+
+    tags = db.relationship('Tag', secondary=card_tags, lazy='joined',
+                           backref=db.backref('cards', lazy='dynamic'))
+    # 1:1 FSRS state. ORM cascade (DB-level cascade is inert without the pragma);
+    # POST /api/cards creates the row in the "new" state.
+    review = db.relationship('Review', uselist=False, backref='card',
+                             cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'highlight_id': self.highlight_id,
+            'source_snapshot': self.source_snapshot,
+            'source_doc_title': self.source_doc_title,
+            'type': self.type,
+            'front': self.front,
+            'back': self.back,
+            'cloze_text': self.cloze_text,
+            'prompt': self.prompt,
+            'note': self.note,
+            'state': self.state,
+            'created_by': self.created_by,
+            'tags': [{'id': t.id, 'name': t.name} for t in self.tags],
+            'review': self.review.to_dict() if self.review else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Review(db.Model):
+    """1:1 FSRS scheduling state for a Card (R4-LEARN).
+
+    Own table (clean for a future review-history layer, not merged onto the
+    card). Created alongside the card in the FSRS-"new" state (``due`` = now,
+    ``reps`` = 0, ``lapses`` = 0, rest NULL); the rate endpoint (Phase 3)
+    advances it through the swappable Scheduler.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    card_id = db.Column(db.Integer, db.ForeignKey('card.id'), nullable=False,
+                        unique=True, index=True)
+    due = db.Column(db.DateTime, index=True)
+    stability = db.Column(db.Float, nullable=True)
+    difficulty = db.Column(db.Float, nullable=True)
+    last_reviewed = db.Column(db.DateTime, nullable=True)
+    reps = db.Column(db.Integer, default=0, nullable=False)
+    lapses = db.Column(db.Integer, default=0, nullable=False)
+    rating_history = db.Column(db.Text, nullable=True)  # JSON list, appended on rate
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'card_id': self.card_id,
+            'due': self.due.isoformat() if self.due else None,
+            'stability': self.stability,
+            'difficulty': self.difficulty,
+            'last_reviewed': self.last_reviewed.isoformat() if self.last_reviewed else None,
+            'reps': self.reps,
+            'lapses': self.lapses,
+            'rating_history': json.loads(self.rating_history) if self.rating_history else [],
+        }
+
+
+@event.listens_for(Highlight, 'before_delete')
+def _null_card_provenance_on_highlight_delete(mapper, connection, target):
+    """Break the card→highlight provenance link ORM-side — the real delete
+    mechanic (R4-LEARN must-fix).
+
+    CONVERTER runs SQLite WITHOUT ``PRAGMA foreign_keys=ON``, so the
+    ``ON DELETE SET NULL`` declared on ``card.highlight_id`` never fires at the
+    DB level. We do it here instead: whenever a Highlight is deleted — directly
+    via the DELETE endpoint OR swept by the Conversion ``delete-orphan`` cascade
+    (this event fires once per deleted Highlight either way) — null
+    ``highlight_id`` on every Card that points at it. The Card and its Review
+    survive; only the provenance link is lost.
+
+    Runs on the flush ``connection`` with a Core UPDATE (never the Session — it
+    is mid-flush). Cards already in the identity map pick up the change after
+    the post-commit expire.
+    """
+    tbl = Card.__table__
+    connection.execute(
+        tbl.update().where(tbl.c.highlight_id == target.id).values(highlight_id=None)
+    )
