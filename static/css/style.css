@@ -23,6 +23,7 @@
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
      CONVERSION TAG              – .conversion-tag-chip (library_detail sidebar inline picker)
      TAG CHIP                    – .c-tag (shared pill), .c-tag--active (R2-B library tag-filter chip)
+     REVIEW (R4-LEARN)           – .review-card (Lernen: card, reveal, rating, cloze, deepen, note)
      PLACE CONTROL (R2-H)        – .place-control (flat four-place move-control, list card + detail sidebar)
      READING LIST (R2-D/R2-H)    – .view-switcher (+__badge tab bar), .queue-reorder (Lese-Liste reorder rail)
      TAG MANAGER                 – .tag-manager-card (per-tag row on /tags page)
@@ -1748,6 +1749,153 @@ body.reader-active .sidebar-toggle-floater--global {
    it above the muted inactive chips. Token-driven -> dark-mode-konsistent. */
 .c-tag--active {
     box-shadow: inset 0 0 0 1px var(--nm-accent-hover);
+}
+
+/* ===== REVIEW (R4-LEARN) ===== */
+/* Spaced-repetition "Lernen" UI. One flat panel (c-surface--flat) per card on
+   the page bg; reveal + rating are .c-btn action buttons ("Gut" the single
+   primary default). Token-driven — dark mode follows the :root mirror, no
+   per-selector overrides. */
+.review-shell { max-width: 720px; }
+
+.review-progress {
+    margin-top: 4px;
+    font-size: var(--text-sm);
+    color: var(--nm-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.review-status {
+    padding: var(--nm-space-lg) 0;
+    color: var(--nm-text-muted);
+    font-size: var(--text-sm);
+}
+
+.review-card { padding: var(--nm-space-xl); }
+
+.review-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nm-space-sm);
+    margin-bottom: var(--nm-space-md);
+}
+.review-card__source {
+    font-size: var(--text-xs);
+    color: var(--nm-text-muted);
+    margin-bottom: var(--nm-space-md);
+}
+.review-tags { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+/* review badge tones (reuse the .type-badge base) */
+.type-atomic     { background: var(--nm-tone-info);    color: var(--nm-tone-info-ink); }
+.type-generative { background: var(--nm-tone-purple);  color: var(--nm-tone-purple-ink); }
+.type-wackelt    { background: var(--nm-tone-warning); color: var(--nm-tone-warning-ink); }
+
+.review-question {
+    font-size: var(--text-xl);
+    font-weight: var(--weight-medium);
+    line-height: var(--leading-snug);
+    color: var(--nm-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.review-hint {
+    margin-top: var(--nm-space-sm);
+    font-size: var(--text-sm);
+    color: var(--nm-text-muted);
+}
+
+.review-reveal-row { margin-top: var(--nm-space-lg); }
+
+.review-answer {
+    margin-top: var(--nm-space-lg);
+    padding-top: var(--nm-space-lg);
+    box-shadow: var(--nm-sep-top);   /* hairline separator, not a border */
+}
+.review-answer__label {
+    font-size: var(--eyebrow-size);
+    letter-spacing: var(--eyebrow-spacing);
+    text-transform: uppercase;
+    color: var(--nm-text-muted);
+    margin-bottom: var(--nm-space-sm);
+}
+.review-answer__body {
+    font-size: var(--text-md);
+    line-height: var(--leading-relaxed);
+    color: var(--nm-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.review-rating { margin-top: var(--nm-space-lg); }
+.review-rate-btn { flex: 1; min-width: 0; }
+
+.review-cloze-blank {
+    display: inline-block;
+    min-width: 3ch;
+    padding: 0 8px;
+    border-radius: var(--nm-radius-sm);
+    background: var(--nm-tint-accent);
+    color: var(--nm-text-muted);
+}
+.review-cloze-fill {
+    background: var(--nm-tint-highlight);
+    border-radius: 4px;
+    padding: 0 3px;
+    font-weight: var(--weight-semibold);
+    color: var(--nm-text);
+}
+
+.review-actions {
+    display: flex;
+    gap: var(--nm-space-lg);
+    margin-top: var(--nm-space-lg);
+}
+.review-link-btn {
+    background: none;
+    border: none;
+    padding: 2px 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--text-sm);
+    color: var(--nm-text-muted);
+    transition: color 0.15s ease;
+}
+.review-link-btn:hover { color: var(--nm-text); }
+.review-link-btn.is-active { color: var(--nm-accent-hover); font-weight: var(--weight-semibold); }
+.review-link-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--nm-accent-hover);
+    border-radius: 4px;
+}
+
+.review-note { margin-top: var(--nm-space-md); }
+.review-note__input { width: 100%; resize: vertical; }
+.review-note__actions {
+    margin-top: var(--nm-space-sm);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.review-empty {
+    padding: var(--nm-space-2xl) var(--nm-space-xl);
+    text-align: center;
+}
+.review-empty__title {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--nm-text);
+    margin-bottom: var(--nm-space-sm);
+}
+.review-empty__text {
+    font-size: var(--text-sm);
+    color: var(--nm-text-muted);
+    margin-bottom: var(--nm-space-lg);
+    line-height: var(--leading-normal);
+    max-width: 42ch;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* ===== PLACE CONTROL (R2-H) ===== */

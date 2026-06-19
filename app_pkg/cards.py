@@ -28,7 +28,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from flask import jsonify, request
+from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 from sqlalchemy.orm import contains_eager, joinedload
 
@@ -50,6 +50,7 @@ CARDS_MAX_LIMIT = 500
 
 CARD_TYPES = ('atomic', 'generative')
 CARD_STATES = ('ok', 'wackelt')
+MAX_CARD_NOTE_LEN = 2000
 
 
 # --- shared parsing helpers --------------------------------------------------
@@ -199,6 +200,13 @@ def _card_summary(card):
 
 
 def register(app):
+    @app.route('/review', methods=['GET'])
+    @login_required
+    def review_page():
+        # The review UI shell. The due queue + counters are fetched client-side
+        # from /api/review-state; the page itself is static chrome.
+        return render_template('review.html')
+
     @app.route('/api/highlights/recent', methods=['GET'])
     @login_required
     def api_highlights_recent():
@@ -424,6 +432,37 @@ def register(app):
         # point into the agent dialogue-recall ("Vertiefen", Phase 4).
         if card.type == 'generative' and rating in ('again', 'hard'):
             card.state = 'wackelt'
+
+        db.session.commit()
+        return jsonify(card.to_dict())
+
+    @app.route('/api/cards/<int:card_id>/annotate', methods=['POST'])
+    @login_required
+    def api_annotate_card(card_id):
+        # The session user's review-time card update: flag 'wackelt' (the
+        # "Vertiefen" button → entry into agent dialogue-recall) and/or set the
+        # inline note. The PATCH endpoint is agent-token-only, so the review UI
+        # user (a session, no CARD_TOKEN) needs this separate session path.
+        card = Card.query.filter_by(id=card_id, user_id=current_user.id).first_or_404()
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        if 'state' not in data and 'note' not in data:
+            return jsonify({'error': 'Nichts zu ändern (state oder note erwartet).'}), 400
+
+        if 'state' in data:
+            if data['state'] not in CARD_STATES:
+                return jsonify({'error': "Feld 'state' muss 'ok' oder 'wackelt' sein."}), 400
+            card.state = data['state']
+        if 'note' in data:
+            note = data['note']
+            if note is not None and not isinstance(note, str):
+                return jsonify({'error': 'Notiz muss Text oder null sein.'}), 400
+            if isinstance(note, str) and len(note) > MAX_CARD_NOTE_LEN:
+                return jsonify({'error': f'Notiz zu lang (max {MAX_CARD_NOTE_LEN} Zeichen).'}), 400
+            # Empty string is a delete-intent — store NULL, not "".
+            card.note = None if (isinstance(note, str) and note == '') else note
 
         db.session.commit()
         return jsonify(card.to_dict())

@@ -587,3 +587,56 @@ def test_review_endpoint_engine_swap_to_sm2(app, authenticated_client, test_user
     review = resp.get_json()['review']
     assert review['due'] is not None
     assert review['reps'] == 1
+
+
+# =============================================================================
+# Phase 4 — review page route + session annotate path (Vertiefen + note)
+# =============================================================================
+
+def test_review_page_requires_login(client):
+    assert client.get('/review').status_code in (302, 401)
+
+
+def test_review_page_renders_for_user(authenticated_client):
+    resp = authenticated_client.get('/review')
+    assert resp.status_code == 200
+    assert b'review-card' in resp.data          # the shell rendered
+
+
+def test_annotate_sets_wackelt(app, authenticated_client, test_user):
+    cid = _make_card(app, test_user['id'], ctype='atomic')
+    resp = authenticated_client.post(f'/api/cards/{cid}/annotate', json={'state': 'wackelt'})
+    assert resp.status_code == 200
+    assert resp.get_json()['state'] == 'wackelt'
+    with app.app_context():
+        assert db.session.get(Card, cid).state == 'wackelt'
+
+
+def test_annotate_sets_and_clears_note(app, authenticated_client, test_user):
+    cid = _make_card(app, test_user['id'])
+    assert authenticated_client.post(f'/api/cards/{cid}/annotate',
+                                     json={'note': 'merken'}).get_json()['note'] == 'merken'
+    # empty string is a delete-intent → null
+    assert authenticated_client.post(f'/api/cards/{cid}/annotate',
+                                     json={'note': ''}).get_json()['note'] is None
+
+
+def test_annotate_rejects_bad_state_and_empty_body(app, authenticated_client, test_user):
+    cid = _make_card(app, test_user['id'])
+    assert authenticated_client.post(f'/api/cards/{cid}/annotate',
+                                     json={'state': 'bogus'}).status_code == 400
+    assert authenticated_client.post(f'/api/cards/{cid}/annotate', json={}).status_code == 400
+
+
+def test_annotate_foreign_card_404(app, authenticated_client, test_user):
+    foreign = _make_card(app, _make_other_user(app))
+    assert authenticated_client.post(f'/api/cards/{foreign}/annotate',
+                                     json={'state': 'wackelt'}).status_code == 404
+
+
+def test_annotate_requires_login_not_token(app, client, test_user, monkeypatch):
+    # Session-only — a CARD_TOKEN bearer must NOT authorize the user's annotate path.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = _make_card(app, test_user['id'])
+    resp = client.post(f'/api/cards/{cid}/annotate', headers=_card_auth(), json={'state': 'wackelt'})
+    assert resp.status_code in (302, 401)
