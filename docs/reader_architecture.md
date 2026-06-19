@@ -1,8 +1,8 @@
 # Reader-Architecture — Entscheidungs-Memo
 
 **Stand**: 2026-06-14
-**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31; R2-C-Workshop 2026-06-03; R2-D-Workshop 2026-06-04; R2-E/R2-F-Workshop 2026-06-12; VIS1-DS-Angleichung 2026-06-14 (visuell, Decision-Log); R2-H-Workshop 2026-06-15 (flache Vier-Orte-IA, Knoten 10)
-**Status**: Aktive Referenz für R2 (☑ A–H komplett) + R3 + R4-LEARN Sprints — nicht archiviert. **Das Datenmodell hat drei orthogonale Reader-Achsen (Ort · Lese-Zustand · Priorität, Knoten 6); die *Bedien-Schicht* darüber ist seit R2-H eine EINE flache Vier-Orte-Achse (Inbox · Lese-Liste · Bibliothek · Archiv, Knoten 10) — die Achsen bleiben im Schema, „place" ist eine abgeleitete Single-Select-Sicht.** Reader-Screens visuell auf die nachgeschärften DS-Regeln angeglichen (VIS1, Decision-Log unten).
+**Workshop-Datum**: 2026-05-25 (Master-Workshop nach R1-A done); R2-B-Workshop 2026-05-29; READER-FIX-B Anker-Korrektur 2026-05-31; R2-C-Workshop 2026-06-03; R2-D-Workshop 2026-06-04; R2-E/R2-F-Workshop 2026-06-12; VIS1-DS-Angleichung 2026-06-14 (visuell, Decision-Log); R2-H-Workshop 2026-06-15 (flache Vier-Orte-IA, Knoten 10); R4-LEARN-Build 2026-06-19 (SR-/Recall-Layer, Knoten 11)
+**Status**: Aktive Referenz für R2 (☑ A–H komplett) + R4-LEARN (☑ done 2026-06-19, Knoten 11) + R3 — nicht archiviert. **Das Datenmodell hat drei orthogonale Reader-Achsen (Ort · Lese-Zustand · Priorität, Knoten 6); die *Bedien-Schicht* darüber ist seit R2-H eine EINE flache Vier-Orte-Achse (Inbox · Lese-Liste · Bibliothek · Archiv, Knoten 10) — die Achsen bleiben im Schema, „place" ist eine abgeleitete Single-Select-Sicht.** Reader-Screens visuell auf die nachgeschärften DS-Regeln angeglichen (VIS1, Decision-Log unten).
 
 ---
 
@@ -194,6 +194,32 @@ Cleanup-Sprint mit clean ALTER TABLE.
 
 **Knoten 6 + 7 bleiben als Daten-/Historie-Referenz gültig** (das Schema ist unverändert orthogonal); ihre *Bedien-Schicht* (Tabs/Chips/Weiterlesen/Favorit-Stern) ist durch Knoten 10 ersetzt. Verallgemeinerbare Lehre → Memory `reference_collapse_orthogonal_axes_to_flat_single_select`.
 
+## Knoten 11 — SR-/Recall-Layer: Karten · FSRS · Review-UI (R4-LEARN)
+
+**Entscheidung** (R4-LEARN, 2026-06-19, aus einem 2×-code-review'ten Produkt-Brief geschnitten): ein **Spaced-Repetition-/Recall-Layer über den bestehenden Highlights** — das ursprüngliche Readwise-Herz. **Teilung**: der externe **Agent erzeugt** Karten (CONVERTER **nicht** — keine Generierung im Stack), CONVERTER **speichert/plant/zeigt** und liefert die Schreib-Endpoints + einen globalen Highlights-Reader. Die Wissenslandkarte ist bewusst **out** (spätere Phase).
+
+**Schema** (neue Tabellen via `db.create_all`, **keine Migration** — `_run_pending_migrations` nur für Spalten-Adds an *bestehenden* Tabellen, hier nichts):
+
+- **`Card`** — **self-contained**: `front`/`back`/`cloze_text`/`prompt`/`note` stehen auf der Karte, das Review liest das Highlight **nie live**. `user_id` FK (Owner-Scope — eine Karte überlebt ihr Highlight, scopet also nicht über das nullbare Highlight; wie `Conversion`/`Tag`). `highlight_id` FK **nullable** = Best-Effort-Provenienz (bare Column, **keine** `Highlight`↔`Card`-Relationship). `source_snapshot`/`source_doc_title` = Authoring-Snapshot. `type` (`atomic`|`generative`), `state` (`ok`|`wackelt`), `created_by` (default `agent`). Tags M:N via **`card_tags`** (analog `highlight_tags`).
+- **`Review`** — eigene **1:1**-Tabelle (sauber für eine spätere Review-History, nicht auf die Karte gemerged): `due`/`stability`/`difficulty`/`last_reviewed`/`reps`/`lapses`/`rating_history`. ORM-cascade `Card.review = relationship(uselist=False, cascade='all, delete-orphan')`. `POST /api/cards` legt sie gleich im FSRS-„new"-Zustand mit an (`due=jetzt`, `reps`/`lapses`=0, Rest NULL).
+
+**Lösch-Mechanik = ORM-`before_delete`-Event** (der Muss-Fix): CONVERTER läuft SQLite **ohne `PRAGMA foreign_keys=ON`** → ein deklariertes `ON DELETE SET NULL`/`CASCADE` ist am DB-Level **inert**. Die echte Mechanik ist ein `@event.listens_for(Highlight, 'before_delete')`, der `card.highlight_id` per Core-UPDATE auf der Flush-`connection` (nicht der Session — mid-flush) nullt. Feuert **direkt** (DELETE-Endpoint) **und** über den Conversion-`delete-orphan`-Cascade (pro Highlight-Delete) → Karte+Review überleben, nur der Provenienz-Link bricht. **Alle Cascades in diesem Stack sind ORM-Level**, nie DB-Level. Memory `reference_sqlite_no_fk_pragma_orm_delete`.
+
+**FSRS hinter einer swappable Scheduler-Schnittstelle** (`services/scheduler/`): kleine ABC `new_card_state()` + `apply_rating(review_state, rating)->dict` (deals in plain dicts, storage-agnostisch). Zwei Impls — **FSRS** (Default, via `fsrs==6.3.1`, `enable_fuzzing=False` für deterministische Intervalle) + **SM-2-Fallback** hinter derselben ABC; `get_scheduler()` wählt per Config `SCHEDULER_ENGINE` (Default `fsrs`) / `FSRS_DESIRED_RETENTION` (Default 0.9). **Kein Auto-Grading** (Rating kommt immer vom User). `reps`/`lapses` besitzen wir (FSRS-6-`Card` trackt sie nicht mehr; „again = lapse"). **Dokumentierte Vereinfachung**: das gesperrte `Review`-Schema hat keine Spalte für FSRS-`state`/`step` → eine bereits bewertete Karte wird im Review-State **rekonstruiert** (graduiert); die stability/difficulty-getriebene Intervall-Math bleibt voll erhalten, nur die Sub-Day-Learning-Step-Rampe kollabiert. Memory `reference_swappable_scheduler_interface`.
+
+**Drei-Wege-Auth-Split** (gesperrt): die Schreib-/Lese-Pfade haben drei verschiedene Auth-Modelle, je nach Akteur:
+
+| Pfad | Endpoint(s) | Auth | Akteur |
+|---|---|---|---|
+| **Agent-Write** | `POST` / `PATCH /api/cards` | **Token** (`CARD_TOKEN`, Ingest-Muster — eigenes Env-Token, unabhängige Rotation; constant-time, fail-closed, nur diese 2 Views CSRF-exempt, Token nie geloggt; Ziel-User via `INGEST_USER`/first()) | externer Agent |
+| **User-Rate** | `POST /api/cards/<id>/review` | **Session** (`@login_required`, CSRF-protected) | User in der Review-UI |
+| **User-Annotate** | `POST /api/cards/<id>/annotate` (Vertiefen→`wackelt` + Inline-Notiz) | **Session** (`@login_required`) — eigener Pfad, weil PATCH token-only ist | User in der Review-UI |
+| **Reads** | `GET /api/highlights/recent`, `/api/cards`, `/api/cards/<id>`, `/api/review-state` | **Session** (`@login_required`, owner-scoped) | MCP/Agent **und** UI |
+
+**Für den converter-mcp-Owner (Koordinator-Scope, nicht CONVERTER)**: zu wrappen sind die **Writes** (`POST` + `PATCH /api/cards`, mit `CARD_TOKEN`) und die **vier Reader** (`/api/highlights/recent`, `/api/cards`, `/api/cards/<id>`, `/api/review-state`, Session). **`POST /review` und `POST /annotate` sind UI-only** (der User bewertet/vertieft in der Oberfläche) — **nicht** für den Agent wrappen.
+
+**Review-UI** (`/review`, Jinja/Vanilla, `@login_required`): läuft die `due<=jetzt`-Queue aus `/api/review-state` ab — atomar (`front` oder Cloze-Lücke) → Aufdecken → Rating `again/hard/good/easy` → `POST /review` → nächste; generativ (`prompt` → erklären → Musterantwort als Stichpunkte). „Vertiefen" + Inline-Notiz über `POST /annotate`; alle POSTs über den globalen `base.html`-CSRF-fetch-Wrapper. DS-konform (`c-surface--flat`, „Gut"-primary, Status-als-Tint, Cloze XSS-safe via DOM-Nodes, token-driven).
+
 ## Vollständiges Reader-Schema-Diagramm
 
 ```
@@ -214,7 +240,20 @@ Tag (NEW — R1-B-C)
  ├── user_id FK
  ├── name (unique per user)
  ├── conversions  (M:N via conversion_tags — R2-A migriert von CSV)
- └── highlights   (M:N via highlight_tags — R1-B-C)
+ ├── highlights   (M:N via highlight_tags — R1-B-C)
+ └── cards        (M:N via card_tags — R4-LEARN)
+
+Card (NEW — R4-LEARN)
+ ├── user_id FK              (Owner-Scope — Karte überlebt ihr Highlight)
+ ├── highlight_id FK         (nullable = Best-Effort-Provenienz; before_delete-Event nullt es)
+ ├── source_snapshot/_doc_title  (Authoring-Snapshot — Review liest das Highlight nie live)
+ ├── type (atomic|generative), front/back/cloze_text/prompt, note
+ ├── state (ok|wackelt), created_by
+ ├── review                  (NEW 1:1 — ORM cascade delete-orphan)
+ └── tags                    (M:N via card_tags)
+
+Review (NEW — R4-LEARN, 1:1 zu Card)
+ └── due/stability/difficulty/last_reviewed/reps/lapses/rating_history  (FSRS-State)
 ```
 
 ## Sprint-Schneidung R1-B (statt eines L-Sprints)
@@ -305,3 +344,7 @@ R1-A liefert die kritischen Anker-Voraussetzungen:
 | 2026-06-15 | R2-H: die drei *Bedien*-Achsen (Ort/Lese-Liste-Flag/Favorit) + die zwei Nav-Listen (Tabs+Ort-Chips) kollabieren auf **EINE flache Single-Select-Achse mit vier exklusiven Orten** (Inbox/Lese-Liste/Bibliothek/Archiv), identisch Tab↔Karte↔Detail (Knoten 10) | Drei orthogonale Achsen + zwei Listen waren als Oberfläche verwirrend („wofür ist die Flag / Später=WTF"). Die Orte werden aus `lifecycle_status`+`queue_position` **abgeleitet** (Präzedenz archive>queued>inbox>neutrales Regal) — **kein Schema-Touch** (das Knoten-6/7-Schema bleibt, nur die Bedien-Schicht ist ersetzt). Eine `POST /place`-Move-Aktion setzt die Kombi + hält Exklusivität; `is_favorite` liegt brach (reversibel). Memory `reference_collapse_orthogonal_axes_to_flat_single_select` |
 | 2026-06-15 | R2-H: **Archivieren dequeued** (`queue_position=NULL`) — **Revision** der R2-D/Knoten-6-Entscheidung „Archiv ∩ Lese-Liste via View-Filter, kein Auto-Dequeue" | Im exklusiven Vier-Orte-Modell kann ein Item nicht zugleich Archiv und Lese-Liste sein — die Orte schließen sich aus, also nullt jeder Move (auch Archiv) die fremden Spalten. Der Hoch/Runter-Swap bleibt über die sichtbare Menge (Knoten 6 unverändert) |
 | 2026-06-15 | R2-H: **Suche/Tag/Typ = globaler Finder** über alle Nicht-Archiv-Orte — Master-Umlenkung in P2A: **jeder** Content-Filter, nicht nur Suche | „Alles sehen" = filtern (Olis Wahl) statt eines „Alle"-Tabs. Bibliothek-Tab ohne Filter = neutrales Regal; mit Filter spannt er Inbox+Lese-Liste+Bibliothek. Der Default-Scope war zuerst „nur Suche global", per Master-Diff-Read auf `search OR tag OR type` erweitert — der eine bewusst smoke-justierbare Punkt |
+| 2026-06-19 | R4-LEARN: `card`/`review`/`card_tags` als neue Tabellen via `db.create_all`, **keine Migration**; Karte **self-contained** + `Review` als eigene 1:1-Tabelle | Neue Tabellen brauchen keinen `_run_pending_migrations`-Eintrag (der ist nur für Spalten-Adds an *bestehenden* Tabellen). Self-contained, weil das Review das Highlight nie live lesen darf (Highlight kann gelöscht/editiert werden); `Review` eigen statt auf die Karte gemerged → spätere Review-History sauber. `Card.user_id` ergänzt (Owner-Scope), weil die Karte ihr nullbares Highlight überlebt (Knoten 11) |
+| 2026-06-19 | R4-LEARN: Lösch-Mechanik **ORM-`before_delete`-Event** statt DB-`ON DELETE SET NULL` | Kein `PRAGMA foreign_keys=ON` in SQLite → deklarierte FK-Actions sind inert; das Event nullt `card.highlight_id` per Core-UPDATE auf der Flush-`connection` (greift direkt + über den Conversion-`delete-orphan`-Cascade). Generalisierter, wiederkehrender Trap → Memory `reference_sqlite_no_fk_pragma_orm_delete` |
+| 2026-06-19 | R4-LEARN: **Drei-Wege-Auth-Split** — Agent-Write=Token (`CARD_TOKEN`), User-Rate=Session, User-Annotate=Session; Reader=Session | Drei Akteure/Trust-Boundaries: der Agent schreibt session-los (Ingest-Token-Muster, eigenes Token für unabhängige Rotation), der User bewertet/vertieft in der UI (Session+CSRF). `POST /annotate` ist ein eigener Session-Pfad, weil `PATCH /api/cards` token-only ist — der Browser hat kein `CARD_TOKEN`. **Rate + Annotate sind UI-only** (nicht für den converter-mcp-Agent wrappen) |
+| 2026-06-19 | R4-LEARN: **FSRS hinter swappable Scheduler-Schnittstelle** (SM-2-Fallback, Config), FSRS-`state`/`step` nicht persistiert | Engine austauschbar (`SCHEDULER_ENGINE`/`FSRS_DESIRED_RETENTION`) hinter einer dict-basierten ABC, damit der Endpoint+Schema engine-agnostisch bleiben; `fuzzing` aus für deterministische Intervalle. `reps`/`lapses` besitzen wir (FSRS-6-Card trackt sie nicht). Das gesperrte `Review`-Schema hat keine `state`/`step`-Spalte → graduierte Rekonstruktion (Intervall-Math erhalten, nur Sub-Day-Learning-Rampe kollabiert). Memory `reference_swappable_scheduler_interface` |
