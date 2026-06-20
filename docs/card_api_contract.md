@@ -32,6 +32,7 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 
 ## NICHT wrappen (UI-only, Session)
 - **`POST /api/cards/<id>/review`** (Bewerten again/hard/good/easy) und **`POST /api/cards/<id>/annotate`** (Vertiefen/Notiz) — das macht der **User** in der „Lernen"-Oberfläche, nicht der Agent. Nicht als MCP-Tool exponieren.
+- **`DELETE /api/cards/<id>`** (R4-LEARN-FIX) — Karte löschen (`@login_required`, owner-scoped → fremd/fehlend 404, ORM-Cascade nimmt `review` + `card_tags` mit, **200** `{"success": true}`). Der **User** löscht in der „Lernen"-Oberfläche; der Agent **erzeugt/patcht**, löscht nicht. Nicht als MCP-Tool exponieren — falls je Agent-Delete nötig, eigener Token-`DELETE`-Follow-up.
 
 ## End-to-end-Kette (zur Einordnung)
 Claude-Agent (Session mit dem CONVERTER-Connector) → `recent_highlights`/`list_cards` lesen → Karteninhalt generieren → `create_card` schreiben (Bearer). Der User wiederholt dann im „Lernen"-Tab (Session, ohne MCP).

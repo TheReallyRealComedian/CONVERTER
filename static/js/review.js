@@ -1,9 +1,10 @@
 /* Review ("Lernen") UI — walks the due queue from /api/review-state, reveals the
-   answer, rates via POST /api/cards/<id>/review (FSRS), and lets the user flag
-   "wackelt" (Vertiefen) or set a note via POST /api/cards/<id>/annotate. Every
-   POST goes through the global base.html fetch wrapper, which adds X-CSRFToken —
-   a raw fetch without it would 400. User content is rendered via textContent /
-   DOM nodes (XSS-safe). */
+   answer, rates via POST /api/cards/<id>/review (FSRS), lets the user flag
+   "wackelt" (Vertiefen) or set a note via POST /api/cards/<id>/annotate, and
+   delete the card via DELETE /api/cards/<id>. Every state-changing request goes
+   through the global base.html fetch wrapper, which adds X-CSRFToken (DELETE is
+   covered too) — a raw fetch without it would 400. User content is rendered via
+   textContent / DOM nodes (XSS-safe). */
 (function () {
     'use strict';
 
@@ -35,6 +36,7 @@
     const ratingEl = el('review-rating');
     const deepenBtn = el('review-deepen-btn');
     const noteToggle = el('review-note-toggle');
+    const deleteBtn = el('review-delete-btn');
     const noteWrap = el('review-note-wrap');
     const noteInput = el('review-note-input');
     const noteSave = el('review-note-save');
@@ -220,6 +222,38 @@
         }
     }
 
+    async function deleteCard() {
+        if (busy) return;
+        const card = currentCard();
+        // Irreversible → confirm. Mirrors the library delete-confirm convention.
+        if (!confirm('Diese Karte wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
+        busy = true;
+        try {
+            // DELETE rides the global fetch wrapper for X-CSRFToken (state-changing);
+            // a raw fetch would 400. Owner-scoped server-side (404 on foreign/missing).
+            const resp = await fetch(`/api/cards/${card.id}`, { method: 'DELETE' });
+            await safeJSON(resp);
+            if (!resp.ok) throw new Error();
+            // The card is GONE (not rated) — drop it from the queue and the due
+            // counter, keeping `index` so the next card shifts into this slot.
+            queue.splice(index, 1);
+            totalDue = Math.max(0, totalDue - 1);
+            showToast('Karte gelöscht');
+            if (index >= queue.length) {
+                // Cleared the tail — re-fetch so the panel reflects the true due
+                // state (Empty "Nichts fällig" when none remain), not a
+                // "wiederholt" done-count a delete didn't earn.
+                load();
+            } else {
+                renderCard(currentCard());
+            }
+        } catch (e) {
+            showToast('Karte konnte nicht gelöscht werden. Erneut versuchen.', { level: 'danger' });
+        } finally {
+            busy = false;
+        }
+    }
+
     async function load() {
         show(loadingEl); hide(emptyEl); hide(doneEl); hide(cardEl);
         try {
@@ -230,7 +264,9 @@
             totalDue = (typeof data.due_count === 'number') ? data.due_count : queue.length;
             index = 0;
             hide(loadingEl);
-            if (!queue.length) { show(emptyEl); return; }
+            // Clear any stale "Karte N von M" — matters when a delete empties the
+            // queue and re-loads into this branch (finishSession clears it too).
+            if (!queue.length) { progressEl.textContent = ''; show(emptyEl); return; }
             renderCard(currentCard());
         } catch (e) {
             hide(loadingEl);
@@ -252,6 +288,7 @@
         if (open) noteInput.focus();
     });
     noteSave.addEventListener('click', saveNote);
+    deleteBtn.addEventListener('click', deleteCard);
     el('review-reload').addEventListener('click', load);
 
     // Keyboard: Space/Enter reveals, 1–4 rate. Ignore while typing a note.

@@ -1864,6 +1864,10 @@ body.reader-active .sidebar-toggle-floater--global {
 }
 .review-link-btn:hover { color: var(--nm-text); }
 .review-link-btn.is-active { color: var(--nm-accent-hover); font-weight: var(--weight-semibold); }
+/* Danger-toned footer link (Löschen) — dezent, kein gefüllter Button; token-
+   driven via --nm-danger (light + dark beide definiert). Mirrors card-action-btn--danger. */
+.review-link-btn--danger { color: var(--nm-danger); }
+.review-link-btn--danger:hover { color: var(--nm-danger); opacity: 0.78; }
 .review-link-btn:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--nm-accent-hover);
