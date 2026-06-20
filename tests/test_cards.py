@@ -338,6 +338,8 @@ def test_only_card_write_views_are_csrf_exempt(app):
     csrf = app.extensions['csrf']
     assert 'app_pkg.cards.api_create_card' in csrf._exempt_views
     assert 'app_pkg.cards.api_patch_card' in csrf._exempt_views
+    # the token-authed highlight write joins the exempt set (session-less write)
+    assert 'app_pkg.cards.api_annotate_highlight' in csrf._exempt_views
     # session-authed reads are NOT exempt
     assert 'app_pkg.cards.api_list_cards' not in csrf._exempt_views
     assert 'app_pkg.cards.api_review_state' not in csrf._exempt_views
@@ -700,3 +702,185 @@ def test_card_delete_requires_login_not_token(app, client, test_user, monkeypatc
     assert resp.status_code in (302, 401)
     with app.app_context():
         assert db.session.get(Card, cid) is not None   # not deleted
+
+
+# =============================================================================
+# Phase 6 — PATCH /api/highlights/<id>/annotate (token; the AGENT writes back
+# tags/note onto an existing highlight for persistent bucket-tagging)
+# =============================================================================
+
+HL_ANNOTATE = '/api/highlights/{}/annotate'
+
+
+def _make_owned_highlight(app, uid, exact='quote', note=None):
+    """A highlight on the target user's own conversion. The token write target
+    is first()=alice (unless INGEST_USER is set), so highlights must hang off
+    alice's conversion to be 'owned'."""
+    conv = _make_conversion(app, uid)
+    return _make_highlight(app, conv, exact=exact, note=note)
+
+
+# --- write auth: 503 fail-closed / 401 missing+wrong ------------------------
+
+def test_highlight_annotate_fail_closed_without_token(app, client, test_user, monkeypatch):
+    monkeypatch.delenv('CARD_TOKEN', raising=False)
+    hl = _make_owned_highlight(app, test_user['id'])
+    # Unset -> 503 even with a Bearer present (config check precedes auth).
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'tags': ['ki']}).status_code == 503
+    # Empty string is "unset" too.
+    monkeypatch.setenv('CARD_TOKEN', '')
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'tags': ['ki']}).status_code == 503
+
+
+def test_highlight_annotate_401_missing_and_wrong_token(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    hl = _make_owned_highlight(app, test_user['id'])
+    assert client.patch(HL_ANNOTATE.format(hl), json={'tags': ['ki']}).status_code == 401
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth('the-wrong-token'),
+                        json={'tags': ['ki']}).status_code == 401
+
+
+# --- ownership: foreign + missing are 404 (path resource, not body ref) ------
+
+def test_highlight_annotate_foreign_and_missing_404(app, client, test_user, monkeypatch):
+    # The id is the addressed RESOURCE: a foreign/missing highlight is 404 (not
+    # the 400 the card writes give a bad body highlight_id, not 403). No leak.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    other_id = _make_other_user(app)            # mallory; target=first()=alice
+    conv_o = _make_conversion(app, other_id)
+    hl_o = _make_highlight(app, conv_o, exact='foreign')
+    assert client.patch(HL_ANNOTATE.format(hl_o), headers=_card_auth(),
+                        json={'tags': ['ki']}).status_code == 404
+    assert client.patch(HL_ANNOTATE.format(999999), headers=_card_auth(),
+                        json={'tags': ['ki']}).status_code == 404
+
+
+# --- tags: set / replace / clear --------------------------------------------
+
+def test_highlight_annotate_sets_replaces_clears_tags(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    hl = _make_owned_highlight(app, uid)
+    # set
+    resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'tags': ['Biologie', 'Wichtig']})
+    assert resp.status_code == 200
+    with app.app_context():
+        assert sorted(t.name for t in db.session.get(Highlight, hl).tags) == ['biologie', 'wichtig']
+    # full replacement
+    client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(), json={'tags': ['neu']})
+    with app.app_context():
+        assert [t.name for t in db.session.get(Highlight, hl).tags] == ['neu']
+    # [] clears all tags
+    client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(), json={'tags': []})
+    with app.app_context():
+        assert db.session.get(Highlight, hl).tags == []
+
+
+def test_highlight_annotate_tags_must_be_list_400(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    hl = _make_owned_highlight(app, test_user['id'])
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'tags': 'ki'}).status_code == 400
+
+
+# --- note: set / clear ('' -> NULL) / type-guard ----------------------------
+
+def test_highlight_annotate_sets_and_clears_note(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    hl = _make_owned_highlight(app, test_user['id'])
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'note': 'merken'}).get_json()['note'] == 'merken'
+    # empty string is a delete-intent → NULL
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'note': ''}).get_json()['note'] is None
+    # non-str, non-null → 400
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'note': 123}).status_code == 400
+
+
+# --- normalisation + shared vocabulary --------------------------------------
+
+def test_highlight_annotate_normalises_tags(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    hl = _make_owned_highlight(app, uid)
+    resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'tags': ['KI', 'ki', ' KI ']})
+    assert resp.status_code == 200
+    with app.app_context():
+        # exactly one Tag row (name='ki'), and exactly one tag on the highlight
+        assert Tag.query.filter_by(user_id=uid, name='ki').count() == 1
+        assert [t.name for t in db.session.get(Highlight, hl).tags] == ['ki']
+
+
+def test_highlight_annotate_reuses_card_tag_row(app, client, test_user, monkeypatch):
+    # Shared vocabulary, no parallel system: a tag first created on a CARD is the
+    # SAME row when later set on a highlight (same id, count stays 1).
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    card = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(tags=['ki'])).get_json()
+    card_tag_id = card['tags'][0]['id']
+    hl = _make_owned_highlight(app, uid)
+    resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(), json={'tags': ['KI']})
+    assert resp.get_json()['tags'][0]['id'] == card_tag_id
+    with app.app_context():
+        assert Tag.query.filter_by(user_id=uid, name='ki').count() == 1
+
+
+# --- response shape + anchor immutability + empty body ----------------------
+
+def test_highlight_annotate_response_carries_resolved_tags(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    hl = _make_owned_highlight(app, test_user['id'])
+    resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(), json={'tags': ['ki']})
+    assert resp.status_code == 200
+    tags = resp.get_json()['tags']
+    assert tags[0]['name'] == 'ki'
+    assert 'id' in tags[0]
+
+
+def test_highlight_annotate_ignores_anchor_keys(app, client, test_user, monkeypatch):
+    # exact/prefix/suffix in the body are ignored — the agent annotates, it never
+    # moves a marker. The PATCH still succeeds via the tag; the anchors stay put.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    conv = _make_conversion(app, uid)
+    hl = _make_highlight(app, conv, exact='original')
+    with app.app_context():
+        o = db.session.get(Highlight, hl)
+        before = (o.exact, o.prefix, o.suffix)
+    resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={'tags': ['ki'], 'exact': 'HACKED',
+                              'prefix': 'P', 'suffix': 'S'})
+    assert resp.status_code == 200
+    with app.app_context():
+        after = db.session.get(Highlight, hl)
+        assert (after.exact, after.prefix, after.suffix) == before
+        assert after.exact == 'original'                       # not overwritten
+
+
+def test_highlight_annotate_empty_body_and_non_dict_400(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    hl = _make_owned_highlight(app, test_user['id'])
+    # neither tags nor note → 400
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json={}).status_code == 400
+    # non-dict body → 400
+    assert client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(),
+                        json=['nope']).status_code == 400
+
+
+# --- CSRF: exempt under enforced CSRF (Bearer-only, no CSRF token) -----------
+
+def test_highlight_annotate_csrf_exempt_under_enforced_csrf(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    # conftest disables CSRF globally; flip it back ON. A Bearer-only PATCH has no
+    # CSRF token and must still succeed because the view is exempt.
+    monkeypatch.setitem(app.config, 'WTF_CSRF_ENABLED', True)
+    hl = _make_owned_highlight(app, test_user['id'])
+    resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(), json={'tags': ['ki']})
+    assert resp.status_code == 200   # NOT 400/403

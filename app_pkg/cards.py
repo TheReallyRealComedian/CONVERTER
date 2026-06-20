@@ -181,6 +181,18 @@ def _replace_card_tags(card, names, user_id):
             card.tags.append(tag)
 
 
+def _replace_highlight_tags(highlight, names, user_id):
+    """Replace a highlight's tags with the normalised get_or_create set
+    (shared vocabulary — identische Tag-Rows wie Card-/UI-Tags)."""
+    highlight.tags = []
+    if not isinstance(names, list):
+        return
+    for name in names:
+        tag = Tag.get_or_create(user_id, name)
+        if tag is not None and tag not in highlight.tags:
+            highlight.tags.append(tag)
+
+
 def _card_summary(card):
     """Slim per-row dict for the list endpoint — the question side + triage
     fields, no answer/snapshot bulk. (Full card is GET /api/cards/<id>.)"""
@@ -324,6 +336,48 @@ def register(app):
 
         db.session.commit()  # updated_at bumps via the column onupdate
         return jsonify(card.to_dict())
+
+    @app.route('/api/highlights/<int:highlight_id>/annotate', methods=['PATCH'])
+    def api_annotate_highlight(highlight_id):
+        # The agent's token-authed write-back onto an EXISTING highlight: set,
+        # replace or clear its tags (persistent bucket-tagging) and/or its note.
+        # Same posture as the card writes (token auth, CSRF-exempt), but here the
+        # highlight_id is a PATH param = the addressed resource → a missing or
+        # foreign highlight is 404, NOT the 400 the card writes give a bad *body*
+        # highlight_id. The anchor keys (exact/prefix/suffix) are deliberately
+        # ignored — the agent annotates, it never moves a marker. The session
+        # note path (PATCH /api/highlights/<id>) stays the UI's.
+        target, err = _authorize_card_write()
+        if err:
+            return err
+
+        hl = Highlight.query.filter_by(id=highlight_id).first()
+        if hl is None or hl.conversion.user_id != target.id:
+            # 404 (not 403/400) — the id is the addressed resource; never leak
+            # the existence of another user's highlight.
+            return jsonify({'error': 'Nicht gefunden.'}), 404
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        if 'tags' not in data and 'note' not in data:
+            return jsonify({'error': 'Nichts zu ändern (tags oder note erwartet).'}), 400
+
+        if 'tags' in data:
+            if not isinstance(data['tags'], list):
+                return jsonify({'error': "Feld 'tags' muss eine Liste sein."}), 400
+            _replace_highlight_tags(hl, data['tags'], target.id)
+        if 'note' in data:
+            note = data['note']
+            if note is not None and not isinstance(note, str):
+                return jsonify({'error': 'Notiz muss Text oder null sein.'}), 400
+            if isinstance(note, str) and len(note) > MAX_CARD_NOTE_LEN:
+                return jsonify({'error': f'Notiz zu lang (max {MAX_CARD_NOTE_LEN} Zeichen).'}), 400
+            # Empty string is a delete-intent — store NULL, not "".
+            hl.note = None if (isinstance(note, str) and note == '') else note
+
+        db.session.commit()  # updated_at bumps via the column onupdate
+        return jsonify(hl.to_dict())
 
     @app.route('/api/cards', methods=['GET'])
     @login_required
@@ -487,3 +541,4 @@ def register(app):
     # THESE TWO views only (the reads stay protected by the global CSRFProtect).
     app.extensions['csrf'].exempt(api_create_card)
     app.extensions['csrf'].exempt(api_patch_card)
+    app.extensions['csrf'].exempt(api_annotate_highlight)
