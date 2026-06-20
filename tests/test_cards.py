@@ -8,7 +8,7 @@ Without it, deleting a Highlight leaves a dangling highlight_id on the card.
 """
 from datetime import datetime, timedelta, timezone
 
-from models import Card, Conversion, Highlight, Review, Tag, User, db
+from models import Card, Conversion, Highlight, Review, Tag, User, card_tags, db
 
 
 # --- helpers -----------------------------------------------------------------
@@ -341,6 +341,8 @@ def test_only_card_write_views_are_csrf_exempt(app):
     # session-authed reads are NOT exempt
     assert 'app_pkg.cards.api_list_cards' not in csrf._exempt_views
     assert 'app_pkg.cards.api_review_state' not in csrf._exempt_views
+    # the session-authed user DELETE stays under CSRF too (state-changing)
+    assert 'app_pkg.cards.api_delete_card' not in csrf._exempt_views
 
 
 # --- per-type validation: 400 ------------------------------------------------
@@ -640,3 +642,61 @@ def test_annotate_requires_login_not_token(app, client, test_user, monkeypatch):
     cid = _make_card(app, test_user['id'])
     resp = client.post(f'/api/cards/{cid}/annotate', headers=_card_auth(), json={'state': 'wackelt'})
     assert resp.status_code in (302, 401)
+
+
+# =============================================================================
+# Phase 5 — DELETE /api/cards/<id> (session; the USER deletes their own card)
+# =============================================================================
+
+def test_card_delete_removes_card_review_and_junction(app, authenticated_client, test_user):
+    # The cascade proof: a card carrying BOTH a Review row and a card_tags
+    # junction — the two rows a raw DELETE FROM card would orphan (no FK pragma).
+    # The ORM delete must take both, while the shared Tag itself survives.
+    uid = test_user['id']
+    with app.app_context():
+        card = Card(user_id=uid, type='atomic', front='Q', back='A')
+        card.review = Review(due=datetime.now(timezone.utc))
+        card.tags.append(Tag.get_or_create(uid, 'biologie'))
+        db.session.add(card)
+        db.session.commit()
+        cid, tag_id = card.id, card.tags[0].id
+    # sanity: the junction row exists before the delete, so the assert means something
+    with app.app_context():
+        rows = db.session.execute(
+            card_tags.select().where(card_tags.c.card_id == cid)).fetchall()
+        assert len(rows) == 1
+
+    resp = authenticated_client.delete(f'/api/cards/{cid}')
+    assert resp.status_code == 200
+    assert resp.get_json() == {'success': True}
+
+    with app.app_context():
+        assert db.session.get(Card, cid) is None                   # card gone
+        assert Review.query.filter_by(card_id=cid).count() == 0    # review cascaded, no orphan
+        rows = db.session.execute(
+            card_tags.select().where(card_tags.c.card_id == cid)).fetchall()
+        assert rows == []                                          # junction swept, no orphan
+        assert db.session.get(Tag, tag_id) is not None             # shared Tag survives
+
+
+def test_card_delete_foreign_card_404(app, authenticated_client, test_user):
+    # Another user's card → 404 (never leak existence), and it stays put.
+    foreign = _make_card(app, _make_other_user(app))
+    assert authenticated_client.delete(f'/api/cards/{foreign}').status_code == 404
+    with app.app_context():
+        assert db.session.get(Card, foreign) is not None
+
+
+def test_card_delete_nonexistent_404(app, authenticated_client, test_user):
+    assert authenticated_client.delete('/api/cards/999999').status_code == 404
+
+
+def test_card_delete_requires_login_not_token(app, client, test_user, monkeypatch):
+    # Session-only — a CARD_TOKEN bearer (agent) must NOT authorize delete; the
+    # agent writes, the user deletes in the UI. Proves the auth-split.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = _make_card(app, test_user['id'])
+    resp = client.delete(f'/api/cards/{cid}', headers=_card_auth())
+    assert resp.status_code in (302, 401)
+    with app.app_context():
+        assert db.session.get(Card, cid) is not None   # not deleted

@@ -467,6 +467,22 @@ def register(app):
         db.session.commit()
         return jsonify(card.to_dict())
 
+    @app.route('/api/cards/<int:card_id>', methods=['DELETE'])
+    @login_required
+    def api_delete_card(card_id):
+        # The session USER deletes THEIR OWN card from the review UI. Owner-scoped
+        # via Card.user_id (foreign/missing id → 404, same first_or_404 posture as
+        # api_annotate_card — never leak another user's card existence). Deleted
+        # through the ORM, NOT raw SQL: card.review rides the 'all, delete-orphan'
+        # cascade and the card_tags junction rows are swept via the secondary
+        # relationship — a bare DELETE FROM card would orphan both (no
+        # PRAGMA foreign_keys=ON). Session-write → stays under the global CSRF
+        # protection (the base.html fetch wrapper sends X-CSRFToken); NOT exempt.
+        card = Card.query.filter_by(id=card_id, user_id=current_user.id).first_or_404()
+        db.session.delete(card)
+        db.session.commit()
+        return jsonify({'success': True})
+
     # Token-authed, session-less writes carry no CSRF cookie → waive CSRF for
     # THESE TWO views only (the reads stay protected by the global CSRFProtect).
     app.extensions['csrf'].exempt(api_create_card)
