@@ -9,7 +9,7 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 - **Reads** → die bestehende **Session** (wie `get_transcript`/`list_audio_transcripts`). `@login_required`.
 - **Writes** → **`Authorization: Bearer <CARD_TOKEN>`** (CSRF-exempt, fail-closed). Der Token steht in beiden `.env` (CONVERTER + converter-mcp) und matcht bereits.
 
-## Zu wrappen (6 Tools)
+## Zu wrappen (7 Tools)
 
 ### Writes (Bearer `CARD_TOKEN`)
 **`POST /api/cards`** — Karte anlegen. Body (JSON):
@@ -23,6 +23,14 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 - Auth-Fehler: **503** (kein `CARD_TOKEN` konfiguriert), **401** (fehlend/falsch).
 
 **`PATCH /api/cards/<id>`** — Karte verfeinern/annotieren: dieselben Felder, plus `state` (`"ok"`|`"wackelt"`), `tags` ersetzbar. Fremde Karte → 404.
+
+**`PATCH /api/highlights/<id>/annotate`** — Tags/Notiz auf einem **bestehenden** Highlight setzen/ersetzen/leeren (persistentes Bucket-Tagging; **kein** neues Highlight, **kein** Anker-Edit). Body (JSON):
+- `tags` — Liste von Strings, optional: **Voll-Ersetzung** des Tag-Sets (`[]` = alle Tags weg), normalisiert über das **geteilte Vokabular** (`Tag.get_or_create` — dieselben Tag-Rows wie Card-/UI-Tags, kein Parallelsystem). Kein Listen-Typ → 400.
+- `note` — String oder `null`, optional: `""` → NULL (Notiz löschen), max 2000 Zeichen (sonst 400).
+- **Mind. einer von `tags`/`note` Pflicht** (leerer/keiner → 400 „Nichts zu ändern…").
+- `exact`/`prefix`/`suffix` im Body werden **ignoriert** (Anker/Marker über diesen Pfad unveränderbar — der Agent annotiert, bewegt keinen Marker).
+- **Ownership**: fremdes **oder** fehlendes Highlight → **404** (nicht 400, nicht 403 — die `<id>` ist die adressierte Ressource, kein Body-Feld).
+- Auth-Fehler: **503**/**401** wie die Card-Writes. → **200** + volles Highlight-JSON **inkl. aufgelöster Tags** (`[{id,name}]`).
 
 ### Reads (Session)
 - **`GET /api/highlights/recent?since=<ISO-8601>&limit=<n>`** — **globaler** Reader über alle Docs: jüngste Markierungen mit `note`, `tags` `[{id,name}]`, Eltern-`{conversion_id, title}`, `created_at`. (`since` optional, `limit` Default 100/Cap 500, Sort neueste zuerst.) *Das ist der „jüngste Markierungen"-Reader für den Recall-Loop.*

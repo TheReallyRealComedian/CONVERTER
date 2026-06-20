@@ -19,6 +19,7 @@ CONVERTER plant das Scheduling (FSRS) und zeigt die fällige Queue — du musst 
 | `get_card` | eine volle Karte. |
 | `create_card` | **Karte anlegen** (s.u.). |
 | `update_card` | Karte verfeinern/korrigieren, `state` zurücksetzen. |
+| `update_highlight` | **Tags/Notiz auf einem bestehenden Highlight** setzen/ersetzen/leeren — für persistentes Bucket-Tagging (nicht pro Lauf neu ableiten). Voll-Ersetzung der Tags, geteiltes Vokabular. Anker/Marker bleiben unberührt. |
 | `review_state` | aktuelle fällige Queue (informativ; das Üben macht der User). |
 
 **Nicht für dich**: Bewerten, Vertiefen/Notiz, Löschen — das sind UI-only User-Aktionen. Es gibt dafür **bewusst keine Tools**.
@@ -48,6 +49,12 @@ CONVERTER plant das Scheduling (FSRS) und zeigt die fällige Queue — du musst 
 3. **Karte(n) generieren** und via `create_card` schreiben — mit `highlight_id` + `source_snapshot` + `source_doc_title`.
 4. **Verfeinerungs-Loop (`wackelt`)**: der User markiert beim Üben Karten als **„wackelt"** (Knopf „Vertiefen") — das ist sein Signal an **dich**: „hier hakt's, vertief das mit mir". Poll `list_cards state=wackelt` → bespreche/erkläre die Stelle mit dem User, generiere ggf. Zusatz-/Teilkarten, **verbessere die Karte via `update_card`** und setze `state` zurück auf `ok`.
 
+## Highlights annotieren (Bucket-Tagging)
+
+Du kannst **Tags und eine Notiz auf bestehende Highlights zurückschreiben** (`update_highlight`) — gedacht für **persistentes Bucket-Tagging**: statt dein Themen-Bucketing pro Lauf neu abzuleiten, schreibst du es einmal aufs Highlight und liest es beim nächsten Lauf über `list_recent_highlights` (Feld `tags`) wieder ein. Die Tags sind **Voll-Ersetzung** (das übergebene Set ersetzt das bestehende; `[]` leert alle) aus dem **geteilten Vokabular** (dieselben Tag-Rows wie Karten-/UI-Tags). Die Notiz folgt der PATCH-Semantik (`""` löscht sie).
+
+**Was hier bewusst NICHT geht**: den markierten Text bzw. seine Anker (`exact`/`prefix`/`suffix`) ändern, ein Highlight **löschen** oder ein **neues** Highlight anlegen — das bleibt User-/Reader-only.
+
 ## Gute Karten (Prinzipien)
 
 - **Atomar**: ein Fakt pro Karte. Kipp **nicht** ein ganzes Highlight in eine Karte — zerleg es in mehrere kleine.
@@ -60,4 +67,4 @@ CONVERTER plant das Scheduling (FSRS) und zeigt die fällige Queue — du musst 
 ## Grenzen (nicht überschreiten)
 - Kein Bewerten/Scheduling (FSRS macht der Server, Üben macht der User).
 - Kein Löschen (User-only). Falsche Karte? → `update_card` korrigieren, nicht „neu + alt weg" (du kannst eh nicht löschen).
-- Kein Highlight-Schreiben/-Löschen über diesen Layer.
+- **Kein** Highlight-**Löschen** (User-/Reader-only), **kein** Ändern der Anker/Marker (`exact`/`prefix`/`suffix`) und **kein** Anlegen neuer Highlights über den Agent. (Tags/Notiz auf **bestehenden** Highlights zurückschreiben geht — siehe „Highlights annotieren".)
