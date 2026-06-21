@@ -41,6 +41,7 @@
                     {% if conversion.conversion_type == 'markdown_input' %}
                     <a href="{{ url_for('markdown_converter') }}" class="c-btn text-xs py-1.5 px-3 no-underline" onclick="storeForReuse()">Im Editor öffnen</a>
                     {% endif %}
+                    <button type="button" id="kindle-send-btn" class="c-btn text-xs py-1.5 px-3" onclick="sendToKindle()">An Kindle</button>
                     <button type="button" id="delete-btn" class="c-btn c-btn--danger text-xs py-1.5 px-3" onclick="deleteConversion()">Löschen</button>
                 </div>
                 <div class="c-surface relative" id="content-body">

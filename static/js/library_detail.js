@@ -17,6 +17,8 @@ const SAVE_MESSAGES = {
 // attach/detach endpoints now, no auto-save needed.
 const AUTOSAVE_INPUTS = { title: 'detail-title' };
 const DIRTY_TOOLTIP = 'Ungespeicherte Änderung — Tab oder Klick außerhalb speichert.';
+const KINDLE_FAILURE_MSG = 'Versand an Kindle fehlgeschlagen. Verbindung prüfen und erneut versuchen.';
+const SESSION_EXPIRED_MSG = 'Sitzung abgelaufen. Seite neu laden und erneut anmelden.';
 
 // Conversion-Tag-State: list of {id, name, ...} dicts seeded from PageData
 // at load time, then mutated by addTagToConversion / removeTagFromConversion.
@@ -436,6 +438,30 @@ function sendToNotion() {
             'Verbindung zu Notion fehlgeschlagen. Netzwerk und Notion-MCP-Server-Status prüfen.');
     })
     .finally(() => { btn.disabled = false; btn.textContent = 'An Notion senden'; });
+}
+
+// Send this conversion to the Kindle (EPUB via Send-to-Kindle email). Non-
+// destructive, so no confirm. The button disables for the in-flight request
+// (double-click guard) and restores in .finally. On error we surface the
+// server's message verbatim (503 → „Kindle nicht konfiguriert.", 502 →
+// „Versand an Kindle fehlgeschlagen.").
+function sendToKindle() {
+    const btn = document.getElementById('kindle-send-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sende …'; }
+    fetch(`/api/conversions/${CONVERSION_ID}/send-to-kindle`, { method: 'POST' }).then(r => {
+        if (r.ok) {
+            showToast('An Kindle gesendet');
+            return null;
+        }
+        return safeJSON(r).then(data => {
+            showToast((data && data.error) || KINDLE_FAILURE_MSG, { level: 'danger' });
+        });
+    }).catch(err => {
+        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : KINDLE_FAILURE_MSG;
+        showToast(msg, { level: 'danger' });
+    }).finally(() => {
+        if (btn) { btn.disabled = false; btn.textContent = 'An Kindle'; }
+    });
 }
 
 // --- Conversion tag picker (R2-A) ---
@@ -1548,3 +1574,4 @@ window.deleteConversion = deleteConversion;
 window.toggleNotionPanel = toggleNotionPanel;
 window.selectTarget = selectTarget;
 window.sendToNotion = sendToNotion;
+window.sendToKindle = sendToKindle;

@@ -5,6 +5,7 @@ const DELETE_RACE_MSG = 'Eintrag wurde bereits entfernt.';
 const PLACE_FAILURE_MSG = 'Ablage konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
 const SESSION_EXPIRED_MSG = 'Sitzung abgelaufen. Seite neu laden und erneut anmelden.';
 const REORDER_FAILURE_MSG = 'Reihenfolge konnte nicht geändert werden. Verbindung prüfen und erneut versuchen.';
+const KINDLE_FAILURE_MSG = 'Versand an Kindle fehlgeschlagen. Verbindung prüfen und erneut versuchen.';
 
 function libraryAlertContainer() { return document.getElementById('library-alert-container'); }
 function libraryActionStatus() { return document.getElementById('library-action-status'); }
@@ -72,6 +73,28 @@ function copyContent(id) {
         showToast('Inhalt kopiert');
     }).catch(() => {
         showToast('Kopieren fehlgeschlagen', { level: 'danger' });
+    });
+}
+
+// Send this conversion to the Kindle (EPUB via Send-to-Kindle email). Non-
+// destructive, so no confirm. The button disables for the in-flight request
+// (double-click guard). On error we surface the server's message verbatim
+// (503 → „Kindle nicht konfiguriert.", 502 → „Versand an Kindle fehlgeschlagen.").
+function sendToKindle(id, btn) {
+    if (btn) btn.disabled = true;
+    fetch(`/api/conversions/${id}/send-to-kindle`, { method: 'POST' }).then(r => {
+        if (r.ok) {
+            showToast('An Kindle gesendet');
+            return null;
+        }
+        return safeJSON(r).then(data => {
+            showToast((data && data.error) || KINDLE_FAILURE_MSG, { level: 'danger' });
+        });
+    }).catch(err => {
+        const msg = (err && /Session expired/i.test(err.message)) ? SESSION_EXPIRED_MSG : KINDLE_FAILURE_MSG;
+        showToast(msg, { level: 'danger' });
+    }).finally(() => {
+        if (btn) btn.disabled = false;
     });
 }
 
@@ -177,5 +200,6 @@ if (document.readyState === 'loading') {
 
 window.setPlace = setPlace;
 window.copyContent = copyContent;
+window.sendToKindle = sendToKindle;
 window.deleteConversion = deleteConversion;
 window.moveQueue = moveQueue;

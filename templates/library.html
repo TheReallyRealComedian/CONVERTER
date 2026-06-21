@@ -62,6 +62,7 @@
         {% endif %}
         <div class="card-actions">
             <button type="button" class="card-action-btn" onclick="copyContent({{ conv.id }})" title="Inhalt kopieren">Kopieren</button>
+            <button type="button" class="card-action-btn" onclick="sendToKindle({{ conv.id }}, this)" title="An Kindle senden">An Kindle</button>
             <button type="button" class="card-action-btn card-action-btn--danger" onclick="deleteConversion({{ conv.id }}, this)" title="Eintrag löschen">Löschen</button>
         </div>
     </div>
