@@ -38,6 +38,7 @@ App runs on `localhost:5656`. Requires `.env` with `GEMINI_API_KEY`, `DEEPGRAM_A
 - Frontend polls `/podcast-status/<job_id>` until complete.
 - **Routing pattern:** route modules in `app_pkg/` expose a `register(app)` function rather than Flask `Blueprint(...)` objects, to keep endpoint names flat. New routes must follow the same pattern.
 - **Service-singleton pattern:** SDK clients (`deepgram_service`, `gemini_service`, `google_tts_service`, `task_queue`, `async_playwright`, `partition`) are bound at the top level of `app.py` so tests patch them at `app.<name>`. New SDK integrations must follow this convention or update test patches.
+- **Send-to-Kindle (KINDLE):** ein Library-Element geht als **EPUB** (via `ebooklib`, gebaut aus dem geteilten `render_markdown_to_html`) per **Send-to-Kindle-E-Mail** (stdlib `smtplib`, einziger programmatischer Pfad — keine API) raus; SMTP-Config + **server-fester** Empfänger (`KINDLE_TO_EMAIL`, Anti-Relay) aus `.env`, **fail-closed wie `CARD_TOKEN`**. Details: [docs/kindle.md](docs/kindle.md). `services/epub_service.py` + `services/kindle_service.py` sind pure Module (kein SDK-Singleton), Tests mocken den SMTP-Transport.
 - **Test-Suite-Limit:** Charakterisierungstests rendern keine Templates und mocken SDK-Boundaries. UI-/Template-Bugs (z.B. Jinja2-Syntax) werden nicht gefangen — Live-Smoke nach Template-Änderungen erforderlich.
 
 ## Code-Stil
