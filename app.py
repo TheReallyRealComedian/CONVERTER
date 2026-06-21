@@ -30,6 +30,7 @@ from app_pkg import create_app
 from app_pkg import documents as documents_module
 from app_pkg import highlights as highlights_module
 from app_pkg import ingest as ingest_module
+from app_pkg import kindle as kindle_module
 from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
@@ -67,6 +68,7 @@ documents_module.register(app)
 audio_module.register(app)
 library_module.register(app)
 highlights_module.register(app)
+kindle_module.register(app)
 cards_module.register(app)
 ingest_module.register(app)
 tags_module.register(app)
