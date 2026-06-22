@@ -38,6 +38,23 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 - **`GET /api/cards/<id>`** — volle Karte.
 - **`GET /api/review-state`** — fällige Karten (`due <= jetzt`) als volle Karten + `due_count`/`total_count`.
 
+## Document-Content-Writes (Bearer `CARD_TOKEN`)
+
+> **MCP-DOCWRITE (2026-06-22)**: der converter-mcp kann den **Markdown-Inhalt** einer `Conversion` editieren — **derselbe** Bearer-`CARD_TOKEN` wie die Card-/Highlight-Writes (**kein neuer Token**), **CSRF-exempt**, Ziel-User **server-seitig** (`INGEST_USER`/first(), nie aus dem Request → Anti-Relay). Fremde/fehlende Conversion → **404** (kein Existenz-Leak). Response beider = die **volle aktualisierte Conversion** (`to_dict()`, inkl. `content`) → der Agent verifiziert sein Write direkt. Der Session-Pfad `PUT /api/conversions/<id>` bleibt der UI-/Editor-Weg (CSRF-geschützt, für den MCP unbrauchbar) — **nicht** anfassen. Zwei MCP-Tools, gegen diese Endpoints zu bauen (Koordinator-Scope):
+
+**`update_document`** — **`PATCH /api/conversions/<id>/content`** — Voll-Ersetzung von `content`. Body (JSON):
+- `content` — String, **Pflicht + nicht-leer** (Schutz gegen versehentliches Doc-Wipe durch einen Agent-Bug). Leer/fehlend/non-String → **400** „Feld content (nicht-leerer Text) erwartet."
+- → **200** + volle Conversion. Auth-Fehler **503** (kein `CARD_TOKEN` konfiguriert), **401** (fehlend/falsch). Fremd/fehlend → **404**.
+
+**`replace_section`** — **`PATCH /api/conversions/<id>/section`** — ein per **Heading** adressierter Abschnitt wird ersetzt (Notion-`replace_section`-analog). Body (JSON):
+- `heading` — String, Pflicht-non-blank: der Ziel-Heading-**Text** (führende `#` werden gestrippt; Match **level-agnostisch** auf den Text).
+- `content` — String, Pflicht-non-blank: die **neue Section** inkl. eigener Heading (darf die Heading umbenennen; eine Heading wird nicht erzwungen).
+- **Abschnitts-Semantik** (ATX-Headings `#`…`######`, **fenced-code-aware** — eine `#`-Zeile in einem Code-Block ist **kein** Heading): die Section = Heading + Body bis zum nächsten Heading mit **gleichem oder höherem Level** (Subsections gehören dazu, bis zum nächsten `#`/gleich-oder-höher).
+- **0 Treffer → 404** „Abschnitt nicht gefunden." (unterscheidbar von der Owner-404 „Nicht gefunden."); **>1 Treffer → 409** „Abschnitt mehrdeutig (mehrere Headings gleichen Texts)." (konservativ, nie raten); fehlende/leere Felder → **400**.
+- → **200** + volle Conversion. Auth-/Owner-Fehler wie bei `update_document`.
+
+**Nicht v1**: Setext-Headings (`===`/`---`), Multi-Section-/Index-/Zeilen-Range-Adressierung, ETag/Concurrency-Schutz (Single-User; Voll-Ersetzung clobbert bewusst — YAGNI). **CONVERTER-Seite fertig + getestet** (+29 Tests); **kein Schema-Touch, keine Migration, kein neuer Token**.
+
 ## NICHT wrappen (UI-only, Session)
 - **`POST /api/cards/<id>/review`** (Bewerten again/hard/good/easy) und **`POST /api/cards/<id>/annotate`** (Vertiefen/Notiz) — das macht der **User** in der „Lernen"-Oberfläche, nicht der Agent. Nicht als MCP-Tool exponieren.
 - **`DELETE /api/cards/<id>`** (R4-LEARN-FIX) — Karte löschen (`@login_required`, owner-scoped → fremd/fehlend 404, ORM-Cascade nimmt `review` + `card_tags` mit, **200** `{"success": true}`). Der **User** löscht in der „Lernen"-Oberfläche; der Agent **erzeugt/patcht**, löscht nicht. Nicht als MCP-Tool exponieren — falls je Agent-Delete nötig, eigener Token-`DELETE`-Follow-up.
