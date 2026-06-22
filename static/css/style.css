@@ -980,6 +980,41 @@ body.reader-active .reader-aa-trigger {
     background: var(--nm-tint-accent);
 }
 
+/* ===== LIBRARY READER MODE (READER-ADJ) =====
+   A focused, centered reading view of .reader-view in library_detail. Reuses
+   body.reader-active for the global chrome-hide (sidebar, mobile header,
+   theme-toggle — all keyed on it, incl. body.reader-active .grid → block). The
+   library-specific layout lives under body.library-reader: hide the page header,
+   action row and distraction-free floaters, drop the right sidebar column, and
+   center #content-body on --reader-width with --reader-font-size on the text.
+   Highlighting, the reading-progress bar and the finish bar stay live. Width +
+   text-size come from the shared "Aa" popover (no dark toggle — global theme). */
+body.library-reader .library-reader-hide,
+body.library-reader .sidebar-toggle-floater {
+    display: none !important;
+}
+body.library-reader .detail-grid > div:last-child {
+    display: none;
+}
+/* Let the reading column own the width instead of the .max-w-6xl page cap, so
+   the width presets (incl. ultrawide 80%) are viewport-relative. */
+body.library-reader .flex-1 {
+    padding: 1.5rem 0;
+}
+body.library-reader .max-w-6xl {
+    max-width: none;
+}
+body.library-reader #content-body {
+    max-width: var(--reader-width, 800px);
+    margin: 0 auto;
+    background: transparent;
+    box-shadow: none;
+}
+body.library-reader .reader-view {
+    font-size: var(--reader-font-size, 18px);
+    line-height: 1.7;
+}
+
 /* ===== DARK MODE (Reader only) ===== */
 [data-theme="dark"] {
     --reader-bg: #1a1a2e;

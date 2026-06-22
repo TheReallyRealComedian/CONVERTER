@@ -1554,6 +1554,54 @@ function initDetailSidebarToggle() {
     });
 }
 
+// --- Library Reader Mode (READER-ADJ) ---
+// Focused, centered reading view of .reader-view. Reuses body.reader-active for the
+// global chrome-hide; body.library-reader adds the library-specific layout. Width +
+// text-size come from the shared reader_settings.js "Aa" popover (no dark toggle —
+// the library follows the global theme). Distraction-free floater, highlighting and
+// the reading-progress bar stay live underneath.
+let libraryReaderSettings = null;
+
+function toggleLibraryReader() {
+    const isActive = document.body.classList.toggle('library-reader');
+    document.body.classList.toggle('reader-active', isActive);
+    if (isActive) {
+        // Drop focus from the (now-hidden) entry button so it isn't left focused
+        // while invisible, and so the first Esc isn't swallowed by a focused control.
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        if (libraryReaderSettings) libraryReaderSettings.applyPrefs();
+    } else if (libraryReaderSettings) {
+        libraryReaderSettings.closePopover();
+    }
+    // The on/off state is intentionally NOT persisted: readerPrefs.modeOn belongs to
+    // the markdown-converter's auto-restore. Only width/font-size are shared, so a
+    // size set there carries over here, but each detail page opens in normal view.
+}
+
+function initLibraryReader() {
+    const trigger = document.getElementById('reader-aa-trigger');
+    const contentBody = document.getElementById('content-body');
+    if (!trigger || !contentBody || !window.ReaderSettings) return;
+    libraryReaderSettings = window.ReaderSettings.create({
+        target: contentBody,
+        trigger: trigger,
+        popover: document.getElementById('reader-aa-popover'),
+        onExit: function () { toggleLibraryReader(); },
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if (!document.body.classList.contains('library-reader')) return;
+        // Esc first closes an open Aa-popover; a second Esc then exits reader-mode.
+        if (libraryReaderSettings && libraryReaderSettings.handleEscape()) return;
+        // Guard typing surfaces only (highlight note / tag input). BUTTON is
+        // deliberately NOT guarded here: the entry, exit and Aa-trigger buttons are
+        // <button>s, and Esc must still exit reader-mode when one of them holds focus.
+        const active = document.activeElement;
+        if (active && ['TEXTAREA', 'INPUT', 'SELECT'].includes(active.tagName)) return;
+        toggleLibraryReader();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setupAutoSaveTracking();
     initConversionTagPicker();
@@ -1562,6 +1610,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initReadingProgress();
     initDetailSidebarToggle();
     initFinishBackLink();
+    initLibraryReader();
 });
 
 window.updateField = updateField;
@@ -1575,3 +1624,4 @@ window.toggleNotionPanel = toggleNotionPanel;
 window.selectTarget = selectTarget;
 window.sendToNotion = sendToNotion;
 window.sendToKindle = sendToKindle;
+window.toggleLibraryReader = toggleLibraryReader;
