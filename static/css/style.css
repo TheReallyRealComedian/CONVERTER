@@ -2179,6 +2179,47 @@ body.reader-active .theme-toggle-btn {
     display: none;
 }
 
+/* READER-ADJ-FIX: Fixer Reader-Mode-Einstieg auf library_detail — 1:1 die
+   .theme-toggle-btn-Shell (36×36-Kreis, token-driven), nur eine Reihe nach
+   unten versetzt (top:58px = 14 + 36 + 8 Gap), sitzt also direkt unter dem
+   Theme-Toggle. Im Reader-Mode versteckt (drinnen reichen Aa-Trigger + Esc/
+   Exit), genau wie der Theme-Toggle — beide Eck-Buttons machen dem Aa-Trigger
+   am selben Fleck (top:14/right:16) Platz. */
+.library-reader-enter {
+    position: fixed;
+    top: 58px;
+    right: 16px;
+    z-index: 50;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: var(--nm-bg);
+    box-shadow: var(--nm-raised-sm);
+    color: var(--nm-text-secondary);
+    cursor: pointer;
+    transition: box-shadow 0.3s ease, transform 0.15s ease;
+    padding: 0;
+}
+
+.library-reader-enter:hover {
+    box-shadow: var(--nm-raised);
+    transform: scale(1.08);
+}
+
+.library-reader-enter:active {
+    box-shadow: var(--nm-pressed-sm);
+    transform: scale(0.94);
+}
+
+body.reader-active .library-reader-enter,
+body.library-reader .library-reader-enter {
+    display: none;
+}
+
 /* ===== MOBILE HEADER ===== */
 .mobile-header {
     background: var(--nm-bg);
@@ -2376,6 +2417,12 @@ html.theme-transitioning *::after {
 @media (max-width: 1023px) {
     .theme-toggle-btn {
         top: 10px;
+        right: 12px;
+    }
+    /* READER-ADJ-FIX: mit dem Theme-Toggle mit-rücken, eine Reihe darunter
+       (top:54px = 10 + 36 + 8 Gap). */
+    .library-reader-enter {
+        top: 54px;
         right: 12px;
     }
 }

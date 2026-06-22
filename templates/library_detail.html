@@ -35,8 +35,14 @@
         <div class="detail-grid grid lg:grid-cols-[1fr_300px] gap-8">
             <!-- Main Content -->
             <div class="min-w-0">
+                <!-- READER-ADJ-FIX: Fixer Reader-Mode-Einstieg oben rechts, direkt unter
+                     dem Theme-Toggle. Ersetzt den alten c-btn-row-Button, der bei einem
+                     resume-gescrollten Doc (R2-B) aus dem Viewport rausscrollt. Fixed-
+                     positioniert, lebt nur auf der Detailseite; im Reader-Mode versteckt. -->
+                <button type="button" class="library-reader-enter" onclick="toggleLibraryReader()" title="Reader Mode" aria-label="Reader Mode öffnen">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                </button>
                 <div class="c-btn-row mb-4 library-reader-hide">
-                    <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="toggleLibraryReader()">Reader Mode</button>
                     <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="copyFullContent()">Kopieren</button>
                     <button type="button" class="c-btn text-xs py-1.5 px-3" onclick="downloadContent()">Als .txt herunterladen</button>
                     {% if conversion.conversion_type == 'markdown_input' %}
