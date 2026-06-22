@@ -27,6 +27,7 @@ from app_pkg import audio as audio_module
 from app_pkg import auth as auth_module
 from app_pkg import cards as cards_module
 from app_pkg import create_app
+from app_pkg import docwrite as docwrite_module
 from app_pkg import documents as documents_module
 from app_pkg import highlights as highlights_module
 from app_pkg import ingest as ingest_module
@@ -70,6 +71,7 @@ library_module.register(app)
 highlights_module.register(app)
 kindle_module.register(app)
 cards_module.register(app)
+docwrite_module.register(app)
 ingest_module.register(app)
 tags_module.register(app)
 notion_module.register(app)
