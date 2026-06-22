@@ -8,7 +8,7 @@ Prio-Skala: **P0** kritisch (Production kaputt) · **P1** als nächstes dran · 
 
 ## P0 / P1 — Inbox
 
-> **Aktiv offen (P1, Oli 2026-06-22)**: **alle P1 durch.** Nächstes: **Web-Article-Save (P2)** (eigener Master-Workshop, s. unten R3). (**READER-ADJ** ☑ done 2026-06-22 · **MCP-DOCWRITE** ☑ done 2026-06-22 · **KINDLE** ☑ done 2026-06-21.)
+> **Aktiv offen (P1, Oli 2026-06-22)**: **alle P1 durch**, ein XS-Follow-up läuft — **READER-ADJ-FIX** (fixer Reader-Mode-Einstieg oben rechts unter dem Theme-Toggle; der `c-btn-row`-Button war bei resume-gescrollten Docs rausgescrollt; Sprint-Doc [SPRINT_READER-ADJ-FIX_reader-entry-button_2026-06-22.md](docs/archive/sprint-prompts/SPRINT_READER-ADJ-FIX_reader-entry-button_2026-06-22.md), dispatcht 2026-06-22, Frontend-only). Danach: **Web-Article-Save (P2)** (eigener Master-Workshop, s. unten R3). (**READER-ADJ** ☑ done 2026-06-22 · **MCP-DOCWRITE** ☑ done 2026-06-22 · **KINDLE** ☑ done 2026-06-21.)
 
 ### KINDLE — Library-Element nach Kindle senden (P1, ☑ done 2026-06-21)
 
