@@ -13,17 +13,13 @@ function setOrientation(value) {
     }
 }
 
-/* Reader Mode Logic */
-const READER_PREFS_KEY = 'readerPrefs';
-const WIDTH_MAP = { narrow: '600px', medium: '800px', wide: '1000px', ultrawide: '80%' };
-
-function getReaderPrefs() {
-    return loadViewState(READER_PREFS_KEY, {});
-}
-
-function saveReaderPrefs(prefs) {
-    saveViewState(READER_PREFS_KEY, prefs);
-}
+/* Reader Mode Logic. The size/width controls + "Aa" popover live in the shared
+   reader_settings.js module; this file owns the markdown-specific bits: the
+   reader-mode toggle (re-renders the preview iframe), the reader-scoped dark
+   toggle, and Esc-to-exit. */
+const getReaderPrefs = window.ReaderSettings.getPrefs;
+const saveReaderPrefs = window.ReaderSettings.savePrefs;
+let readerSettings = null;
 
 function toggleReaderMode() {
     const container = document.querySelector('.main-container');
@@ -33,12 +29,11 @@ function toggleReaderMode() {
     const prefs = getReaderPrefs();
     if (isActive) {
         if (prefs.dark) applyDarkMode(true);
-        if (prefs.fontSize) container.style.setProperty('--reader-font-size', prefs.fontSize + 'px');
-        if (prefs.width) applyWidth(prefs.width);
-        updateWidthButtons(prefs.width || 'medium');
+        if (readerSettings) readerSettings.applyPrefs(prefs);
     } else {
         document.body.classList.remove('reader-active');
         document.documentElement.removeAttribute('data-theme');
+        if (readerSettings) readerSettings.closePopover();
     }
     prefs.modeOn = isActive;
     saveReaderPrefs(prefs);
@@ -60,42 +55,13 @@ function applyDarkMode(on) {
     if (typeof window.renderIframe === 'function') window.renderIframe();
 }
 
-function changeFontSize(delta) {
-    const container = document.querySelector('.main-container');
-    const current = parseInt(getComputedStyle(container).getPropertyValue('--reader-font-size')) || 18;
-    const next = Math.min(32, Math.max(12, current + delta));
-    container.style.setProperty('--reader-font-size', next + 'px');
-    const prefs = getReaderPrefs();
-    prefs.fontSize = next;
-    saveReaderPrefs(prefs);
-    if (typeof window.renderIframe === 'function') window.renderIframe();
-}
-
-function changeWidth(size) {
-    applyWidth(size);
-    const prefs = getReaderPrefs();
-    prefs.width = size;
-    saveReaderPrefs(prefs);
-}
-
-function applyWidth(size) {
-    const px = WIDTH_MAP[size] || WIDTH_MAP.medium;
-    document.querySelector('.main-container').style.setProperty('--reader-width', px);
-    updateWidthButtons(size);
-}
-
-function updateWidthButtons(active) {
-    ['narrow', 'medium', 'wide', 'ultrawide'].forEach(function(s) {
-        const btn = document.getElementById('width-' + s);
-        if (btn) btn.classList.toggle('active', s === active);
-    });
-}
-
 const READER_ESC_FORM_TAGS = ['TEXTAREA', 'INPUT', 'SELECT', 'BUTTON'];
 
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     if (!document.querySelector('.main-container.reader-mode')) return;
+    // Esc first closes an open Aa-popover; a second Esc then exits reader-mode.
+    if (readerSettings && readerSettings.handleEscape()) return;
     const active = document.activeElement;
     if (active && READER_ESC_FORM_TAGS.includes(active.tagName)) return;
     toggleReaderMode();
@@ -181,9 +147,6 @@ function attachAutoDismissToServerBanners() {
 
 window.setOrientation = setOrientation;
 window.toggleReaderMode = toggleReaderMode;
-window.toggleDarkMode = toggleDarkMode;
-window.changeFontSize = changeFontSize;
-window.changeWidth = changeWidth;
 window.saveMarkdownToLibrary = saveMarkdownToLibrary;
 
 window.addEventListener('load', function() {
@@ -367,11 +330,21 @@ window.addEventListener('load', function() {
         localStorage.removeItem('libraryReuse');
     }
 
+    // Build the shared reader-settings controller (Aa popover + size/width).
+    readerSettings = window.ReaderSettings.create({
+        target: document.querySelector('.main-container'),
+        trigger: document.getElementById('reader-aa-trigger'),
+        popover: document.getElementById('reader-aa-popover'),
+        onChange: function () { if (typeof window.renderIframe === 'function') window.renderIframe(); },
+        onDark: function () { toggleDarkMode(); },
+        onExit: function () { toggleReaderMode(); },
+    });
+
     // Rehydrate reader-mode state from localStorage. Width-buttons get their
-    // active marker before the first reader-toggle so the toolbar shows the
+    // active marker before the first reader-toggle so the popover shows the
     // correct selection from frame one.
     const initialPrefs = getReaderPrefs();
-    updateWidthButtons(initialPrefs.width || 'medium');
+    readerSettings.updateWidthButtons(initialPrefs.width || 'medium');
     if (initialPrefs.modeOn === true) {
         toggleReaderMode();
     }

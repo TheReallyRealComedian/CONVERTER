@@ -118,20 +118,10 @@ This is a blockquote to demonstrate styling.
             </form>
         </div>
 
-        <!-- READER TOOLBAR (visible only in reader mode) -->
-        <div class="reader-toolbar" id="reader-toolbar">
-            <button type="button" onclick="changeFontSize(-2)" title="Smaller text">A-</button>
-            <button type="button" onclick="changeFontSize(2)" title="Larger text">A+</button>
-            <div class="separator"></div>
-            <button type="button" onclick="changeWidth('narrow')" title="Narrow" id="width-narrow">&#9612;</button>
-            <button type="button" onclick="changeWidth('medium')" title="Medium" id="width-medium">&#9612;&#9612;</button>
-            <button type="button" onclick="changeWidth('wide')" title="Wide" id="width-wide">&#9612;&#9612;&#9612;</button>
-            <button type="button" onclick="changeWidth('ultrawide')" title="Ultra-wide (80%)" id="width-ultrawide">&#9612;&#9612;&#9612;&#9612;</button>
-            <div class="separator"></div>
-            <button type="button" onclick="toggleDarkMode()" id="dark-mode-btn" title="Toggle dark mode">&#127769;</button>
-            <div class="separator"></div>
-            <button type="button" onclick="toggleReaderMode()" title="Exit reader mode (Esc)">&#10005;</button>
-        </div>
+        <!-- READER "Aa" CONTROLS (on-demand popover; visible only in reader mode) -->
+        {% set reader_aa_dark = true %}
+        {% set reader_aa_exit = true %}
+        {% include '_partials/reader_aa.html' %}
 
         <!-- RIGHT PANE: LIVE PREVIEW -->
         <div class="preview-pane">
@@ -179,5 +169,6 @@ This is a blockquote to demonstrate styling.
         }
     </style>
 
+    <script src="{{ url_for('static', filename='js/reader_settings.js') }}"></script>
     <script src="{{ url_for('static', filename='js/markdown_converter.js') }}"></script>
 {% endblock %}

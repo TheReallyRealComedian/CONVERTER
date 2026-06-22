@@ -1,0 +1,43 @@
+{# Reader "Aa" controls (READER-ADJ) — a discrete corner trigger + on-demand
+   popover for text-size and column-width. Replaces the old persistent
+   .reader-toolbar that hung over the text. Shared by markdown-converter and the
+   library reading view; wired by static/js/reader_settings.js.
+
+   Per-consumer flags (set with {% set %} before the include):
+     reader_aa_dark — render the dark-mode toggle (markdown-converter only)
+     reader_aa_exit — render the "leave reader" button (default: on)
+
+   The trigger shows only in reader-mode (body.reader-active); the popover is
+   JS-toggled (.is-open) and dismisses on outside-click + Esc. #}
+<button type="button" class="reader-aa-trigger" id="reader-aa-trigger"
+        aria-haspopup="dialog" aria-expanded="false"
+        aria-label="Lese-Einstellungen" title="Lese-Einstellungen">Aa</button>
+<div class="reader-aa-popover" id="reader-aa-popover" role="dialog" aria-label="Lese-Einstellungen">
+    <div class="reader-aa-group">
+        <span class="reader-aa-group__label">Textgröße</span>
+        <div class="reader-aa-row">
+            <button type="button" class="reader-aa-btn" data-reader-font="-2" aria-label="Text kleiner">A&minus;</button>
+            <button type="button" class="reader-aa-btn" data-reader-font="2" aria-label="Text größer">A+</button>
+        </div>
+    </div>
+    <div class="reader-aa-group">
+        <span class="reader-aa-group__label">Breite</span>
+        <div class="reader-aa-row">
+            <button type="button" class="reader-aa-btn reader-aa-btn--width" data-reader-width="narrow" title="Schmal" aria-label="Schmal">&#9612;</button>
+            <button type="button" class="reader-aa-btn reader-aa-btn--width" data-reader-width="medium" title="Mittel" aria-label="Mittel">&#9612;&#9612;</button>
+            <button type="button" class="reader-aa-btn reader-aa-btn--width" data-reader-width="wide" title="Breit" aria-label="Breit">&#9612;&#9612;&#9612;</button>
+            <button type="button" class="reader-aa-btn reader-aa-btn--width" data-reader-width="ultrawide" title="Sehr breit" aria-label="Sehr breit">&#9612;&#9612;&#9612;&#9612;</button>
+        </div>
+    </div>
+    {% if reader_aa_dark|default(false) %}
+    <div class="reader-aa-group">
+        <span class="reader-aa-group__label">Darstellung</span>
+        <div class="reader-aa-row">
+            <button type="button" class="reader-aa-btn" data-reader-dark id="dark-mode-btn" aria-label="Dunkelmodus umschalten" title="Dunkelmodus umschalten">&#127769;</button>
+        </div>
+    </div>
+    {% endif %}
+    {% if reader_aa_exit|default(true) %}
+    <button type="button" class="reader-aa-btn reader-aa-exit" data-reader-exit title="Lesemodus verlassen (Esc)">Lesemodus verlassen</button>
+    {% endif %}
+</div>

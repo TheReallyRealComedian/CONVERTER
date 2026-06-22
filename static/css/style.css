@@ -873,91 +873,117 @@ body.reader-active header.lg\:hidden {
     display: none !important;
 }
 
-/* Reader Toolbar */
-.reader-toolbar {
-    display: none;
+/* Reader "Aa" controls (READER-ADJ) — discrete corner trigger + on-demand
+   popover (text-size + column-width), replacing the old persistent .reader-toolbar
+   that hung over the text. Shown only in reader-mode (body.reader-active); the
+   popover is JS-toggled (.is-open) and dismisses on outside-click + Esc. Fully
+   token-driven, so dark mode comes from the global tokens for free — no per-theme
+   overrides. Shared by markdown-converter + library reading view. */
+.reader-aa-trigger {
+    display: none;            /* shown only in reader-mode */
     position: fixed;
-    top: 12px;
+    top: 14px;
     right: 16px;
     z-index: 1000;
-    background: var(--nm-bg);
-    box-shadow: var(--nm-raised);
-    border-radius: var(--nm-radius-pill);
-    padding: 6px 8px;
-    gap: 4px;
     align-items: center;
-    transition: opacity 0.3s ease;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: var(--nm-bg);
+    box-shadow: var(--nm-raised-sm);
+    color: var(--nm-text-secondary);
+    font-family: var(--nm-font);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: box-shadow 0.3s ease, color 0.15s ease;
 }
-
-.reader-mode .reader-toolbar {
+body.reader-active .reader-aa-trigger {
     display: flex;
 }
-
-.reader-toolbar button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 6px 10px;
-    border-radius: var(--nm-radius-sm);
-    font-size: 14px;
-    color: var(--nm-text-secondary);
-    transition: box-shadow 0.3s ease, color 0.15s ease;
-    white-space: nowrap;
-    line-height: 1;
-}
-
-.reader-toolbar button:hover {
-    box-shadow: var(--nm-pressed-sm);
+.reader-aa-trigger:hover {
+    box-shadow: var(--nm-raised);
     color: var(--nm-text);
 }
-
-.reader-toolbar button.active {
+.reader-aa-trigger[aria-expanded="true"] {
     box-shadow: var(--nm-pressed-sm);
     color: var(--nm-accent-hover);
 }
 
-.reader-toolbar .separator {
-    width: 1px;
-    height: 20px;
-    background: rgba(0, 0, 0, 0.08);
-    margin: 0 2px;
+.reader-aa-popover {
+    display: none;            /* JS toggles .is-open */
+    position: fixed;
+    top: 58px;
+    right: 16px;
+    z-index: 1000;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 220px;
+    padding: 0.875rem;
+    background: var(--nm-bg);
+    color: var(--nm-text);
+    border-radius: var(--nm-radius-md);
+    box-shadow: var(--nm-raised);
+    font-family: var(--nm-font);
+}
+.reader-aa-popover.is-open {
+    display: flex;
+}
+.reader-aa-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+.reader-aa-group__label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--nm-text-muted);
+}
+.reader-aa-row {
+    display: flex;
+    gap: 0.375rem;
+}
+/* Nested inside a raised popover → flat at rest, pressed on hover/active
+   (DS elevation-budget rule). */
+.reader-aa-btn {
+    flex: 1;
+    min-width: 34px;
+    padding: 0.45rem 0.5rem;
+    border: none;
+    border-radius: var(--nm-radius-sm);
+    background: none;
+    box-shadow: none;
+    color: var(--nm-text-secondary);
+    font-family: var(--nm-font);
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, color 0.15s ease;
+}
+.reader-aa-btn:hover {
+    box-shadow: var(--nm-pressed-sm);
+    color: var(--nm-text);
+}
+.reader-aa-btn.active {
+    box-shadow: var(--nm-pressed-sm);
+    color: var(--nm-accent-hover);
+}
+.reader-aa-exit {
+    flex: none;
+    width: 100%;
+    margin-top: 0.125rem;
+    background: var(--nm-tint-accent);
 }
 
 /* ===== DARK MODE (Reader only) ===== */
 [data-theme="dark"] {
     --reader-bg: #1a1a2e;
     --reader-text: #d4d4d8;
-}
-
-/* Reader-immersive-dark is a parallel mini-theme (--reader-bg, NOT the global
-   --nm-* primitives), so these neomorphic shadows are intentionally literal:
-   opaque clay + soft dark bevel instead of the old glassmorphism drop-shadow. */
-[data-theme="dark"] .reader-toolbar {
-    background: #2e3142;
-    box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.45),
-               -8px -8px 16px rgba(255, 255, 255, 0.03);
-}
-
-[data-theme="dark"] .reader-toolbar button {
-    color: #a0a4b8;
-}
-
-[data-theme="dark"] .reader-toolbar button:hover {
-    background: transparent;
-    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.5),
-                inset -2px -2px 5px rgba(255, 255, 255, 0.04);
-    color: #e0e0e8;
-}
-
-[data-theme="dark"] .reader-toolbar button.active {
-    background: transparent;
-    box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.5),
-                inset -2px -2px 5px rgba(255, 255, 255, 0.04);
-    color: #9aa4d0;
-}
-
-[data-theme="dark"] .reader-toolbar .separator {
-    background: rgba(255, 255, 255, 0.12);
 }
 
 [data-theme="dark"] #sidebar {
