@@ -71,6 +71,25 @@ function getMarkdownAlertContainer() {
     return document.querySelector('.editor-pane .px-6.pt-4');
 }
 
+// TITLE-FIX (client mirror of services/markdown_sections.derive_title): strip
+// HTML comments first so a heading after a leading `<!-- Seite 1 -->` marker
+// wins and a `#` inside a multi-line comment is never read as a heading, then
+// take the first ATX heading (emphasis markers stripped), else the first
+// non-empty line. Best-effort; the server re-derives only if this is degenerate.
+function deriveTitle(content) {
+    const stripped = content.replace(/<!--[\s\S]*?-->/g, '');
+    const heading = stripped.match(/^#{1,6}\s+(.+)/m);
+    if (heading) {
+        const title = heading[1].replace(/^[*_\s]+|[*_\s]+$/g, '').trim();
+        if (title) return title.substring(0, 100);
+    }
+    for (const line of stripped.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed) return trimmed.substring(0, 100);
+    }
+    return 'Untitled Markdown';
+}
+
 async function saveMarkdownToLibrary() {
     const content = document.getElementById('markdown_text').value.trim();
     const alertContainer = getMarkdownAlertContainer();
@@ -84,8 +103,7 @@ async function saveMarkdownToLibrary() {
     btn.textContent = 'Speichert …';
 
     try {
-        const firstLine = content.split('\n')[0].replace(/^#+\s*/, '').trim();
-        const title = firstLine.substring(0, 100) || 'Untitled Markdown';
+        const title = deriveTitle(content);
         const theme = document.getElementById('style_theme').value;
         const filename = document.getElementById('output_filename').value || '';
         const fileInput = document.getElementById('markdown_file');

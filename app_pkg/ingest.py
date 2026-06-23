@@ -47,6 +47,7 @@ from datetime import datetime
 from flask import jsonify, request
 
 from models import Conversion, Tag, User, db
+from services.markdown_sections import derive_title, _is_degenerate_title
 
 from .library import ALLOWED_CONVERSION_TYPES
 
@@ -149,7 +150,12 @@ def register(app):
         if not content:
             return jsonify({'error': 'Content is required'}), 400
 
-        title = (data.get('title') or 'Untitled')[:255]
+        # TITLE-FIX: same smart-derive as the session create route — a degenerate
+        # posted title (blank / placeholder / leftover ``<!-- … -->`` marker) is
+        # replaced by the content's first heading; a real title is kept verbatim.
+        posted = data.get('title')
+        title = (derive_title(content) if _is_degenerate_title(posted)
+                 else posted)[:255]
         source_id = data.get('source_id')
         if source_id is not None and not isinstance(source_id, str):
             source_id = None

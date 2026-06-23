@@ -63,6 +63,54 @@ def _iter_headings(lines):
             yield i, len(m.group(1)), m.group(2).strip()
 
 
+# An HTML comment, single- or multi-line. PDF→Markdown decks open with page
+# markers like ``<!-- Seite 1 -->`` / ``<!-- Grafik: … -->``; ``DOTALL`` lets a
+# single pattern span newlines, and the non-greedy ``.*?`` plus the global
+# substitution below close each comment independently (so ``# foo`` *inside* a
+# multi-line comment is removed, never read as a heading — ``_iter_headings``
+# knows code fences but not HTML comments).
+_HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.DOTALL)
+
+
+def derive_title(markdown_text: str) -> str:
+    """Derive a human title from Markdown: first ATX heading, else first line.
+
+    Used to rescue degenerate titles (e.g. a deck whose first line is the page
+    marker ``<!-- Seite 1 -->``). HTML comments are stripped first so a heading
+    *after* a leading comment wins, and a ``#`` *inside* a multi-line comment is
+    never mistaken for one. The first heading's text has surrounding emphasis
+    markers stripped (``# *Opt*`` → ``Opt``). Falls back to the first non-empty
+    line of the comment-stripped content, then ``'Untitled'``.
+
+    Pure; **not** truncated — the caller clips to its own column/UI limit.
+    """
+    stripped = _HTML_COMMENT_RE.sub('', markdown_text or '')
+    for _i, _level, text in _iter_headings(stripped.split('\n')):
+        # Strip surrounding emphasis markers (and any whitespace they leave).
+        title = text.strip().strip('*_ ').strip()
+        if title:
+            return title
+    for line in stripped.split('\n'):
+        line = line.strip()
+        if line:
+            return line
+    return 'Untitled'
+
+
+def _is_degenerate_title(title) -> bool:
+    """True when ``title`` carries no real information and should be re-derived.
+
+    Degenerate = empty/blank, a literal placeholder (``Untitled`` /
+    ``Untitled Markdown``), or a leftover HTML comment marker (``<!-- … -->``)
+    that the old "first line" heuristic captured verbatim. A real client title
+    is left untouched by the callers — the trigger is solely degeneracy.
+    """
+    t = (title or '').strip()
+    return (not t
+            or t.lower() in ('untitled', 'untitled markdown')
+            or t.startswith('<!--'))
+
+
 def replace_section(markdown_text: str, heading: str, new_section: str) -> str:
     """Return ``markdown_text`` with the section under ``heading`` replaced.
 

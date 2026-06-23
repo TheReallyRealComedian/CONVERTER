@@ -8,6 +8,7 @@ from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from models import Conversion, Tag, conversion_tags, db
+from services.markdown_sections import derive_title, _is_degenerate_title
 
 from .markdown_render import render_markdown_to_html
 
@@ -449,7 +450,13 @@ def register(app):
         if conversion_type not in ALLOWED_CONVERSION_TYPES:
             return jsonify({'error': f'Invalid conversion type: {conversion_type}'}), 400
 
-        title = data.get('title', 'Untitled')[:255]
+        # TITLE-FIX: keep the client's title verbatim, but when it is degenerate
+        # (blank / placeholder / a leftover ``<!-- … -->`` page marker) derive a
+        # real one from the content's first heading. Applies to all types — the
+        # trigger is solely the degenerate title, never the conversion_type.
+        posted = data.get('title')
+        title = (derive_title(data['content']) if _is_degenerate_title(posted)
+                 else posted)[:255]
 
         # MCP1: take the metadata bag defensively (must be a dict, else {}).
         metadata = data.get('metadata', {})
