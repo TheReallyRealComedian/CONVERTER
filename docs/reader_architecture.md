@@ -239,6 +239,30 @@ Cleanup-Sprint mit clean ALTER TABLE.
 
 **Esc-Guard-Lehre** (per echtem Maus-Drag gefangen): der vom markdown-converter übernommene Esc-Guard listete `BUTTON` — nach einem **echten** Klick auf „Reader Mode" behält der (dann versteckte) Button den Fokus → der erste Esc wurde geschluckt, primärer Exit kaputt. Synthetisches `.click()` maskierte es (es bewegt den Fokus nicht). Fix in der Library: `BUTTON` aus dem Guard raus (Esc verlässt auch bei fokussiertem Control) + Blur-on-Enter; `TEXTAREA`/`INPUT`/`SELECT` bleiben geschützt (Highlight-Notiz/Tag-Input). Verstärkt Memory `feedback_selection_anchor_coordinate_system` (echter Drag deckt auf, was synthetisch maskiert bleibt); verallgemeinerte Lehre → Memory `reference_shared_reader_settings_aa_popover`.
 
+## Knoten 13 — LaTeX-Mathe-Rendering: schützen + rendern (MATH-RENDER)
+
+**Problem** (Oli 2026-06-23, Reader-Screenshot): Markdown mit LaTeX-Mathe (`$…$` inline, `$$…$$` Block) wurde **roh** angezeigt — `\frac{dC}{dt}`, `C_{\text{in}}` etc. als Quelltext. Der geteilte `render_markdown_to_html` hatte kein Mathe-Plugin, im Frontend kein KaTeX. Eine **rein client-seitige** Lösung wäre fragil: der Markdown-Inline-Parser frisst `_`/`\`/`{}` schon vor jedem Client-Render.
+
+**Entscheidung: schützen (Server) + rendern (KaTeX client), drei Asset-Strategien je Render-Kontext.**
+
+**1. Schützen — `dollarmath` im geteilten Renderer** ([app_pkg/markdown_render.py](../app_pkg/markdown_render.py)): `dollarmath_plugin` aus `mdit-py-plugins` tokenisiert die Mathe **vor** der Markdown-Inline-Zerlegung. **Konservativ konfiguriert** (`allow_space=False`, `allow_digits=False`, `allow_labels=False`, `double_inline=False`) → Streu-`$` (Preise wie „5$"/„10$"/„$ 5 $") bleibt **Text**, wird nicht zu Mathe. **Eigene Render-Rules** (statt der Plugin-Defaults `math inline`/`math block`) erzeugen class-getaggte Spans: `<span class="math-inline">` / `<span class="math-display">` mit dem **rohen LaTeX** als `escapeHtml`'ter Body. Zwei Eigenschaften fallen daraus:
+- **nh3 ohne Allow-List-Touch**: `span` + `class` sind in `_ALLOWED_TAGS`/`_ALLOWED_ATTRIBUTES` schon erlaubt → das Markup übersteht die Sanitisierung unverändert; der Display-Modus reist über die **Klasse**, nicht ein `data-`-Attr.
+- **XSS-safe**: der `escapeHtml`'te Body neutralisiert `$<script>$`; KaTeX liest später den **dekodierten `textContent`** und rendert ihn als Mathe, nie als HTML.
+
+**2. Rendern — KaTeX pro Fläche** (vendored `static/vendor/katex/`, 0.16.11, CSS+JS+20 woff2-Fonts; woff2-first → keine Font-404). Die Render-JS ist überall identisch (`.math-inline`/`.math-display` → `katex.render(el.textContent, el, {displayMode, throwOnError:false})`), aber **die Asset-Auflösung unterscheidet sich je Kontext**:
+
+| Fläche | Render-Trigger | Asset-Strategie | Warum |
+|---|---|---|---|
+| **Reader** (`library_detail`) | `renderMath()` in [library_detail.js](../static/js/library_detail.js) on load, **vor den Highlights** | KaTeX-CSS als `<link>` (`head_extra`) + JS vendored | normale Static-URL löst auf; `throwOnError:false` = kaputte Formel bleibt Quelltext statt Seiten-Crash |
+| **markdown-converter-Preview** | `markdown-it-texmath` (vendored) rendert `$…$`/`$$…$$` direkt mit `katex.renderToString` in den Token-Stream | iframe-`<head>` kriegt **nur** den KaTeX-CSS-`<link>` (absolute URL via `PageData.katexCssUrl`) | die gerenderte KaTeX-HTML kommt aus dem **Parent** → der iframe braucht kein JS, nur CSS; absolute URL → `@font-face`-`fonts/`-URLs lösen relativ zur **CSS-Datei** auf (nicht zur iframe-Base), kein 404 |
+| **PDF-Export** (Playwright) | `page.evaluate` rendert die Spans nach `set_content`, **vor** `page.pdf()` (synchron, keine Race) | `_katex_pdf_assets()` ([app_pkg/markdown.py](../app_pkg/markdown.py)) inlinet **alles**: CSS mit woff2-Fonts als **data-URIs** (woff/ttf-Fallbacks rausregext) + JS als Inline-Script | `set_content` lädt mit **about:blank-Base** → externe/relative URLs lösen **nicht** auf; nur ein self-contained Bundle rendert mit Fonts. Render **vor** `document.fonts.ready`, damit KaTeX' data-URI-Fonts in den Fonts-Wait einfließen |
+
+**Render-vor-Highlights-Ordnung** (Reader): `renderMath()` läuft **vor** `initHighlights()` — sonst säßen die Text-Quote-Anker der Highlights auf rohem LaTeX, das KaTeX dann unter ihnen wegrendert (Anker-Drift auf Mathe-Docs). Bewusst geordnet.
+
+**`texmath`-Config spiegelt den Server**: `delimiters:'dollars'` + `outerSpace:false` → dieselbe konservative `$`-Semantik wie `dollarmath` (Preise/Spaces bleiben Text), damit Preview == Reader/PDF.
+
+**Bewusst out — EPUB/Kindle-Math** (Folge-Item, BACKLOG P3): das EPUB wird aus demselben `render_markdown_to_html` gebaut und trägt die Mathe als class-getaggte LaTeX-Spans — also **roh wie bisher, nicht schlechter**. Client-KaTeX im EPUB ist unzuverlässig (E-Reader-JS); echter EPUB-Math bräuchte **Server-Render zur Build-Zeit** (KaTeX→MathML oder KaTeX-HTML+inline-CSS) im `epub_service` → eigener Sprint. Verallgemeinerte Lehre → Memory `reference_math_protect_then_render`.
+
 ## Vollständiges Reader-Schema-Diagramm
 
 ```
