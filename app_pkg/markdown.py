@@ -1,5 +1,8 @@
 """Markdown→PDF converter routes."""
+import base64
+import functools
 import os
+import re
 import tempfile
 from html.parser import HTMLParser
 from io import BytesIO
@@ -13,6 +16,55 @@ from .markdown_render import render_markdown_to_html
 
 
 STYLE_DIR = Path('/app/static/css/pdf_styles')
+
+# MATH-RENDER: vendored KaTeX, relativ zum Paket aufgelöst (läuft unter /app im
+# Docker *und* lokal beim Smoke).
+_KATEX_DIR = Path(__file__).resolve().parent.parent / 'static' / 'vendor' / 'katex'
+_KATEX_FONT_URL_RE = re.compile(r'url\(fonts/([A-Za-z0-9_.-]+)\.woff2\) format\("woff2"\)')
+# woff/ttf-Fallbacks nach dem woff2-Eintrag (deren fonts/-Pfade lösen unter dem
+# about:blank-Kontext von set_content nicht auf → entfernen, woff2 reicht).
+_KATEX_FONT_FALLBACK_RE = re.compile(
+    r',url\(fonts/[A-Za-z0-9_.-]+\.woff\) format\("woff"\),'
+    r'url\(fonts/[A-Za-z0-9_.-]+\.ttf\) format\("truetype"\)'
+)
+
+
+@functools.lru_cache(maxsize=1)
+def _katex_pdf_assets():
+    """Self-contained KaTeX-Bundle für den Playwright-PDF-Flow.
+
+    ``page.set_content`` lädt das HTML mit about:blank-Base — externe/relative
+    Asset-URLs lösen nicht auf. Darum inlinen wir: die CSS mit den woff2-Fonts als
+    data-URIs (Fallback-woff/ttf-Einträge raus) + die JS als Inline-Script. So
+    rendert KaTeX *mit* Fonts, unabhängig von Origin/Base. Einmal gebaut (lru_cache).
+    """
+    css = (_KATEX_DIR / 'katex.min.css').read_text()
+
+    def _inline_font(match):
+        name = match.group(1)
+        data = base64.b64encode((_KATEX_DIR / 'fonts' / f'{name}.woff2').read_bytes()).decode()
+        return f'url(data:font/woff2;base64,{data}) format("woff2")'
+
+    css = _KATEX_FONT_FALLBACK_RE.sub('', css)
+    css = _KATEX_FONT_URL_RE.sub(_inline_font, css)
+    js = (_KATEX_DIR / 'katex.min.js').read_text()
+    return css, js
+
+
+# Rendert alle server-geschützten Mathe-Spans (.math-inline/.math-display, rohes
+# LaTeX als textContent) mit dem inline geladenen KaTeX. Synchron → keine Race
+# vor page.pdf(); throwOnError:false lässt eine kaputte Formel als Quelltext stehen.
+_KATEX_RENDER_JS = '''() => {
+    if (typeof katex === 'undefined') return;
+    document.querySelectorAll('.math-inline, .math-display').forEach(el => {
+        try {
+            katex.render(el.textContent, el, {
+                displayMode: el.classList.contains('math-display'),
+                throwOnError: false,
+            });
+        } catch (e) {}
+    });
+}'''
 
 # Single source of truth for what /convert-markdown accepts as a file upload.
 # The template reads this via the route context for both the file-input
@@ -140,6 +192,7 @@ def register(app):
 
         html_content = render_markdown_to_html(markdown_text)
         html_content = _wrap_wide_tables(html_content, column_threshold=6)
+        katex_css, katex_js = _katex_pdf_assets()
         full_html = f"""
         <!DOCTYPE html>
         <html>
@@ -147,6 +200,8 @@ def register(app):
             <meta charset="UTF-8">
             <style>{style_content}</style>
             {'<style>@page { size: A4 landscape; }</style>' if is_landscape else ''}
+            <style>{katex_css}</style>
+            <script>{katex_js}</script>
         </head>
         <body>
             {html_content}
@@ -162,6 +217,10 @@ def register(app):
                 browser = await p.chromium.launch()
                 page = await browser.new_page()
                 await page.set_content(full_html, wait_until='networkidle')
+                # MATH-RENDER: Mathe-Spans rendern, *bevor* auf Fonts gewartet wird,
+                # damit die von KaTeX referenzierten Fonts mit in document.fonts.ready
+                # einfließen. KaTeX rendert synchron → keine Race vor page.pdf().
+                await page.evaluate(_KATEX_RENDER_JS)
                 # Wait until all web fonts (Google Fonts etc.) are loaded before rendering
                 await page.evaluate('document.fonts.ready')
                 # Detect tables that overflow the page width (few but very wide columns)

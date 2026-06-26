@@ -186,6 +186,20 @@ window.addEventListener('load', function() {
         linkify: true,
     });
 
+    // MATH-RENDER: client-Mathe im Parser. texmath rendert $…$/$$…$$ direkt mit
+    // KaTeX (renderToString) in den Token-Stream → die fertige KaTeX-HTML wandert
+    // aus dem Parent in den iframe (der braucht nur das CSS, kein JS). delimiters
+    // 'dollars' + outerSpace:false spiegelt die konservative Server-Config
+    // (Streu-$/Preise bleiben Text). Fehlt eine Lib (offline), bleibt der Preview
+    // ohne Mathe statt zu crashen.
+    if (typeof texmath !== 'undefined' && typeof katex !== 'undefined') {
+        md.use(texmath, {
+            engine: katex,
+            delimiters: 'dollars',
+            katexOptions: { throwOnError: false },
+        });
+    }
+
     let currentThemeCSS = '';
 
     function isDarkActive() {
@@ -245,7 +259,12 @@ window.addEventListener('load', function() {
             ? `html{font-size:${fontSize}px;}body{font-size:${fontSize}px;line-height:1.7;}`
             : '';
         const darkCSS = dark ? DARK_OVERRIDES_CSS : '';
+        // MATH-RENDER: KaTeX-CSS als <link> (nicht inline), damit die @font-face
+        // fonts/-URLs relativ zur CSS-Datei auflösen statt zur iframe-Base.
+        const katexCss = window.PageData && window.PageData.katexCssUrl
+            ? `<link rel="stylesheet" href="${window.PageData.katexCssUrl}">` : '';
         return `<!DOCTYPE html><html${dark ? ' data-theme="dark"' : ''}><head><meta charset="UTF-8">` +
+               katexCss +
                `<style>${wrapperCSS}</style>` +
                `<style>${themeCSS}</style>` +
                `<style>${darkCSS}${fontCSS}</style>` +

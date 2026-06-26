@@ -143,9 +143,16 @@ This is a blockquote to demonstrate styling.
     <script>
         window.PageData = {
             acceptedExtensions: {{ accepted_extensions|tojson }},
+            // MATH-RENDER: absolute URL der vendored KaTeX-CSS — als <link> in den
+            // Preview-iframe injiziert, damit die @font-face-fonts/-URLs relativ zur
+            // CSS-Datei (…/static/vendor/katex/) auflösen, nicht zur iframe-Base.
+            katexCssUrl: '{{ url_for('static', filename='vendor/katex/katex.min.css') }}',
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <!-- MATH-RENDER: vendored KaTeX (Engine für texmath.renderToString) + markdown-it-texmath. -->
+    <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/markdown-it-texmath/texmath.js') }}"></script>
 
     <style>
         /* Orientation = a toggle pair (rule 5): flat tinted at rest, the active
