@@ -1,6 +1,7 @@
 # requirements.txt
 Flask[async]==3.1.3
 markdown-it-py==3.0.0
+mdit-py-plugins==0.4.2  # dollarmath: LaTeX-Mathe ($…$/$$…$$) vor Markdown-Zerlegung schützen (MATH-RENDER)
 Pygments==2.20.0
 playwright==1.44.0
 gunicorn==22.0.0  # WSGI/ASGI server (Dockerfile CMD); not imported

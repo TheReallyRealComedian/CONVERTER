@@ -1602,7 +1602,28 @@ function initLibraryReader() {
     });
 }
 
+// MATH-RENDER: rendert die server-geschützten Mathe-Spans (.math-inline /
+// .math-display, rohes LaTeX als textContent) mit KaTeX. Greift auf der
+// Detailseite *und* im Reader-Mode (gleicher DOM). KaTeX rendert synchron;
+// throwOnError:false lässt eine fehlerhafte Formel als roten Quelltext stehen
+// statt die ganze Seite zu werfen. Vor den Highlights, damit deren Text-Anker
+// nicht auf rohem LaTeX sitzen.
+function renderMath() {
+    if (typeof katex === 'undefined') return;
+    document.querySelectorAll('.reader-view .math-inline, .reader-view .math-display').forEach(el => {
+        if (el.dataset.mathRendered) return;
+        try {
+            katex.render(el.textContent, el, {
+                displayMode: el.classList.contains('math-display'),
+                throwOnError: false,
+            });
+            el.dataset.mathRendered = '1';
+        } catch (_e) { /* throwOnError:false sollte das schon abfangen */ }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    renderMath();
     setupAutoSaveTracking();
     initConversionTagPicker();
     initHighlights();

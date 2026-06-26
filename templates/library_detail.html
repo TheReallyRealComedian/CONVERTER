@@ -2,6 +2,11 @@
 
 {% block title %}{{ conversion.title or 'Ohne Titel' }} – Library{% endblock %}
 
+{% block head_extra %}
+<!-- MATH-RENDER: vendored KaTeX-CSS (Fonts relativ unter fonts/). -->
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/katex/katex.min.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="flex-1 p-6 lg:p-8">
     <div class="max-w-6xl mx-auto">
@@ -247,6 +252,8 @@
         lastReadPercent: {{ conversion.last_read_percent | tojson }}
     };
 </script>
+<!-- MATH-RENDER: vendored KaTeX-JS vor library_detail.js (renderMath() braucht das katex-Global). -->
+<script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reader_settings.js') }}"></script>
 <script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>
 {% endblock %}
