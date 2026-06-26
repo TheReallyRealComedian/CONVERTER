@@ -108,6 +108,20 @@ def _naive_utc(dt):
     return dt.replace(tzinfo=None)
 
 
+def _parse_owned_tag(raw):
+    """Resolve a ``?tag=`` query value to the current user's Tag, or None when
+    it is non-numeric, unknown, or foreign (LERN-GROUP review scope). Callers
+    map None → 404 so a foreign id leaks nothing."""
+    try:
+        tag_id = int(raw)
+    except (TypeError, ValueError):
+        return None
+    tag = Tag.query.get(tag_id)
+    if tag is None or tag.user_id != current_user.id:
+        return None
+    return tag
+
+
 # --- card write helpers ------------------------------------------------------
 
 def _authorize_card_write():
@@ -415,15 +429,29 @@ def register(app):
         # The due queue (due <= now) the Phase-4 review UI walks, newest-due
         # first, plus the counters. Full cards so the UI renders without an
         # extra fetch per card; contains_eager avoids the review N+1.
+        #
+        # LERN-GROUP scope filter (optional, Achse A):
+        #   ?tag=<id>  cards whose tag is in the SUBTREE of <id>
+        # When scoped, total_count reflects the SCOPE (cards in the scope, not
+        # just due ones); unscoped it stays "all of the user's cards".
         now = datetime.now(timezone.utc)
-        due_cards = (Card.query
-                     .filter_by(user_id=current_user.id)
+        base = Card.query.filter_by(user_id=current_user.id)
+
+        tag_arg = request.args.get('tag')
+        if tag_arg is not None:
+            tag = _parse_owned_tag(tag_arg)
+            if tag is None:
+                return jsonify({'error': 'Tag nicht gefunden.'}), 404
+            subtree = Tag.subtree_ids(tag.id, current_user.id)
+            base = base.filter(Card.tags.any(Tag.id.in_(subtree)))
+
+        due_cards = (base
                      .join(Card.review)
                      .filter(Review.due <= now)
                      .order_by(Review.due.asc())
                      .options(contains_eager(Card.review))
                      .all())
-        total_count = Card.query.filter_by(user_id=current_user.id).count()
+        total_count = base.count()
         return jsonify({
             'due_count': len(due_cards),
             'total_count': total_count,

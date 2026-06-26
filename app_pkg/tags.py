@@ -11,7 +11,7 @@ from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
-from models import Highlight, Tag, conversion_tags, db, highlight_tags
+from models import Highlight, Tag, card_tags, conversion_tags, db, highlight_tags
 
 
 def _get_owned_highlight(highlight_id):
@@ -49,16 +49,59 @@ def register(app):
         )
             .group_by(conversion_tags.c.tag_id)
             .subquery())
-        rows = (db.session.query(Tag, highlight_counts.c.cnt, conversion_counts.c.cnt)
+        card_counts = (db.session.query(
+            card_tags.c.tag_id,
+            func.count(card_tags.c.card_id).label('cnt'),
+        )
+            .group_by(card_tags.c.tag_id)
+            .subquery())
+        rows = (db.session.query(
+            Tag, highlight_counts.c.cnt, conversion_counts.c.cnt, card_counts.c.cnt)
                 .outerjoin(highlight_counts, Tag.id == highlight_counts.c.tag_id)
                 .outerjoin(conversion_counts, Tag.id == conversion_counts.c.tag_id)
+                .outerjoin(card_counts, Tag.id == card_counts.c.tag_id)
                 .filter(Tag.user_id == current_user.id)
                 .order_by(Tag.name.asc())
                 .all())
         return jsonify([
-            t.to_dict(highlight_count=int(hc or 0), conversion_count=int(cc or 0))
-            for t, hc, cc in rows
+            t.to_dict(highlight_count=int(hc or 0), conversion_count=int(cc or 0),
+                      card_count=int(cardc or 0))
+            for t, hc, cc, cardc in rows
         ])
+
+    @app.route('/api/tags/<int:tag_id>', methods=['PATCH'])
+    @login_required
+    def api_update_tag(tag_id):
+        # LERN-GROUP Achse A: ein Tag in den Wald einordnen (parent_id setzen
+        # oder auf NULL = Wurzel lösen). Owner-scoped, Zyklus-Guard.
+        tag = Tag.query.get_or_404(tag_id)
+        if tag.user_id != current_user.id:
+            return jsonify({'error': 'Nicht gefunden.'}), 404
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or 'parent_id' not in data:
+            return jsonify({'error': "Feld 'parent_id' fehlt (int oder null)."}), 400
+        parent_id = data.get('parent_id')
+
+        if parent_id is None:
+            tag.parent_id = None
+            db.session.commit()
+            return jsonify(tag.to_dict())
+
+        if not isinstance(parent_id, int) or isinstance(parent_id, bool):
+            return jsonify({'error': "Feld 'parent_id' muss int oder null sein."}), 400
+
+        parent = Tag.query.get(parent_id)
+        if parent is None or parent.user_id != current_user.id:
+            return jsonify({'error': 'Eltern-Tag nicht gefunden.'}), 400
+        # Zyklus-Guard: das neue Eltern-Tag darf nicht das Tag selbst noch im
+        # Teilbaum des Tags liegen — sonst hängt der Wald in einer Schleife.
+        if parent_id in Tag.subtree_ids(tag_id, current_user.id):
+            return jsonify({'error': 'Zyklus: Eltern-Tag liegt im Teilbaum.'}), 400
+
+        tag.parent_id = parent_id
+        db.session.commit()
+        return jsonify(tag.to_dict())
 
     @app.route('/api/highlights/<int:highlight_id>/tags', methods=['POST'])
     @login_required
@@ -104,6 +147,15 @@ def register(app):
         tag = Tag.query.get_or_404(tag_id)
         if tag.user_id != current_user.id:
             return jsonify({'error': 'Nicht gefunden.'}), 404
+        # LERN-GROUP: Kinder an die Wurzel reparenten, bevor das Tag verschwindet
+        # — SQLite fährt ohne PRAGMA foreign_keys, das deklarierte ON DELETE ist
+        # inert (Memory reference_sqlite_no_fk_pragma_orm_delete), sonst bliebe ein
+        # totes parent_id zurück. Direkter UPDATE statt ORM-Iteration.
+        db.session.execute(
+            Tag.__table__.update()
+            .where(Tag.parent_id == tag.id)
+            .values(parent_id=None)
+        )
         # Drain both M:N-Junctions manuell — SQLAlchemy cascade='all,delete-orphan'
         # greift bei secondary= nicht. Direkter DELETE auf den Junction-Tabellen ist
         # atomar und entgeht einer vollen Iteration über Highlights + Conversions.
@@ -112,6 +164,11 @@ def register(app):
         )
         db.session.execute(
             conversion_tags.delete().where(conversion_tags.c.tag_id == tag.id)
+        )
+        # card_tags (R4-LEARN) teilt dieselbe inerte ON-DELETE-Lage — auch hier
+        # die Junction explizit drainen, sonst bleibt eine Karte mit totem Tag-Link.
+        db.session.execute(
+            card_tags.delete().where(card_tags.c.tag_id == tag.id)
         )
         db.session.delete(tag)
         db.session.commit()

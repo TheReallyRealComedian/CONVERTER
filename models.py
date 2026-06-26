@@ -132,7 +132,18 @@ class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     name = db.Column(db.String(80), nullable=False)
+    # LERN-GROUP Achse A: hierarchische Tags. NULL = Wurzel. Die Hierarchie
+    # ordnet das geteilte Tag-Vokabular zu einem Wald — keine Karte/Highlight/
+    # Conversion muss neu getaggt werden. Self-FK; ON DELETE ist ohne PRAGMA
+    # foreign_keys inert (Memory reference_sqlite_no_fk_pragma_orm_delete), das
+    # Reparenten der Kinder beim Tag-Delete erledigt die Delete-View explizit.
+    parent_id = db.Column(db.Integer, db.ForeignKey('tag.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    children = db.relationship(
+        'Tag', backref=db.backref('parent', remote_side=[id]),
+        lazy='select',
+    )
 
     __table_args__ = (
         db.UniqueConstraint('user_id', 'name', name='uq_tag_user_name'),
@@ -174,16 +185,42 @@ class Tag(db.Model):
             db.session.flush()
         return tag
 
-    def to_dict(self, highlight_count=None, conversion_count=None):
+    @classmethod
+    def subtree_ids(cls, root_id, user_id):
+        """The set ``{root_id} ∪ all descendants`` within the user's tag forest
+        (LERN-GROUP Achse A). Loads the user's (id, parent_id) pairs once and
+        BFS-walks down — the tag count per user is small, so load-all + BFS is
+        simpler and cheaper than a recursive CTE. Returns ``{root_id}`` even if
+        the root has no children; an unknown/foreign root yields ``{root_id}``
+        too (callers validate ownership before calling)."""
+        rows = (db.session.query(cls.id, cls.parent_id)
+                .filter(cls.user_id == user_id).all())
+        children_map = {}
+        for tid, pid in rows:
+            children_map.setdefault(pid, []).append(tid)
+        result = set()
+        queue = [root_id]
+        while queue:
+            node = queue.pop()
+            if node in result:
+                continue
+            result.add(node)
+            queue.extend(children_map.get(node, []))
+        return result
+
+    def to_dict(self, highlight_count=None, conversion_count=None, card_count=None):
         out = {
             'id': self.id,
             'name': self.name,
+            'parent_id': self.parent_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
         if highlight_count is not None:
             out['highlight_count'] = highlight_count
         if conversion_count is not None:
             out['conversion_count'] = conversion_count
+        if card_count is not None:
+            out['card_count'] = card_count
         return out
 
 

@@ -111,6 +111,14 @@ def _run_pending_migrations(app):
             # starts with an empty list. Idempotent via the column guard above.
             db.session.commit()
             app.logger.info("R2-D: conversion.queue_position added via ALTER TABLE")
+    if 'tag' in inspector.get_table_names():
+        cols = {c['name'] for c in inspector.get_columns('tag')}
+        if 'parent_id' not in cols:
+            db.session.execute(text('ALTER TABLE tag ADD COLUMN parent_id INTEGER'))
+            # No backfill — NULL means "root", so every existing tag starts at the
+            # top of the forest. Idempotent via the column guard above.
+            db.session.commit()
+            app.logger.info("LERN-GROUP: tag.parent_id column added via ALTER TABLE")
     _migrate_conversion_tags_csv_to_junction(app)
 
 
