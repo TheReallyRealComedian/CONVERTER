@@ -20,6 +20,9 @@ CONVERTER plant das Scheduling (FSRS) und zeigt die fällige Queue — du musst 
 | `create_card` | **Karte anlegen** (s.u.). |
 | `update_card` | Karte verfeinern/korrigieren, `state` zurücksetzen. |
 | `update_highlight` | **Tags/Notiz auf einem bestehenden Highlight** setzen/ersetzen/leeren — für persistentes Bucket-Tagging (nicht pro Lauf neu ableiten). Voll-Ersetzung der Tags, geteiltes Vokabular. Anker/Marker bleiben unberührt. |
+| `list_tags` | den **Themen-Wald** lesen (jedes Tag mit `parent_id` + `card_count`) — um konsistent unter bestehende Themen einzuordnen, bevor du `set_tag_parent` aufrufst. |
+| `set_tag_parent` | ein Thema **in den Tag-Baum einordnen** (`{tag, parent\|null}`, by-name) — s. „Karten organisieren". |
+| `list_collections` | die **Sammlungen** des Users lesen (jede mit `card_count`) — vor dem `collections`-Write, um konsistent einzuordnen. |
 | `review_state` | aktuelle fällige Queue (informativ; das Üben macht der User). |
 
 **Nicht für dich**: Bewerten, Vertiefen/Notiz, Löschen — das sind UI-only User-Aktionen. Es gibt dafür **bewusst keine Tools**.
@@ -35,6 +38,7 @@ CONVERTER plant das Scheduling (FSRS) und zeigt die fällige Queue — du musst 
   - **Generativ**: `prompt` (Aufgabe „erkläre/leite her", offen). `back` optional = **Stichpunkt-Musterantwort** (der User erklärt frei, deckt deine Stichpunkte als Gedächtnisstütze auf, bewertet sich selbst). Kein Auto-Grading.
   - Validierungs-Regel exakt: `atomic` = (`front` UND `back`) ODER `cloze_text`; `generative` = `prompt`.
 - **`tags`** — Liste Strings (werden lowercase-normalisiert; nutz das geteilte Vokabular).
+- **`collections`** — Liste Strings, optional: die **Sammlungen**, in die die Karte gehört (s. „Karten organisieren"). get_or_create **by-name**, **case-erhaltend** (Eigennamen), Voll-Ersetzung.
 - **`note`** — optionale Vertiefungs-/Kontext-Notiz an der Karte.
 - **Provenienz (wichtig, immer setzen wenn aus einem Highlight):**
   - **`highlight_id`** — die Quelle (wird auf Ownership geprüft).
@@ -54,6 +58,16 @@ CONVERTER plant das Scheduling (FSRS) und zeigt die fällige Queue — du musst 
 Du kannst **Tags und eine Notiz auf bestehende Highlights zurückschreiben** (`update_highlight`) — gedacht für **persistentes Bucket-Tagging**: statt dein Themen-Bucketing pro Lauf neu abzuleiten, schreibst du es einmal aufs Highlight und liest es beim nächsten Lauf über `list_recent_highlights` (Feld `tags`) wieder ein. Die Tags sind **Voll-Ersetzung** (das übergebene Set ersetzt das bestehende; `[]` leert alle) aus dem **geteilten Vokabular** (dieselben Tag-Rows wie Karten-/UI-Tags). Die Notiz folgt der PATCH-Semantik (`""` löscht sie).
 
 **Was hier bewusst NICHT geht**: den markierten Text bzw. seine Anker (`exact`/`prefix`/`suffix`) ändern, ein Highlight **löschen** oder ein **neues** Highlight anlegen — das bleibt User-/Reader-only.
+
+## Karten organisieren (Gruppieren)
+
+Du ordnest Karten jetzt auch **selbst** in die zwei Gruppierungs-Achsen ein — nicht nur der User. Beides läuft über deinen normalen Token.
+
+**Achse B — Sammlungen** (flache, kuratierte Bündel: ein Horizont, ein Kurs, ein Themenpaket). Über das **`collections`-Feld** an `create_card`/`update_card`: eine Liste von Namen, **by-name get_or_create** (neue Sammlung wird angelegt, falls es sie nicht gibt), **Voll-Ersetzung** (`[]` entfernt die Karte aus allen Sammlungen). Namen sind **Eigennamen, case-erhaltend** („Boehringer-Pipeline" bleibt so) — anders als Tags, die lowercasen. Du legst+taggst+sammelst in **einem** `create_card`-Call.
+
+**Achse A — Tag-Baum** (hierarchische Themen). Mit **`set_tag_parent`** `{tag, parent}` hängst du ein Thema unter ein anderes (`parent: null` macht es zur Wurzel). Beide Namen by-name (get_or_create, **lowercased** wie alle Tags). Ein **Zyklus-Guard** lehnt ab, wenn das Eltern-Tag im Teilbaum des Tags läge. **Lies vorher `list_tags`** (jedes Tag mit `parent_id` + `card_count`), damit du konsistent unter bestehende Themen einordnest statt Parallel-Äste zu bauen. Das ordnet nur das geteilte Tag-Vokabular — **keine Karte wird neu getaggt**; deine `create_card`-`tags` landen automatisch im Teilbaum.
+
+**Grenze**: Sammlungen **löschen/umbenennen** und den Tag-Baum aufräumen bleibt **User-UI** (Kuratierung). Du legst an + ordnest zu; du räumst nicht auf. Sammlungen frei anzulegen ist ok (gewollte Autonomie) — sei trotzdem konsistent (erst `list_collections`/`list_tags` lesen).
 
 ## Gute Karten (Prinzipien)
 

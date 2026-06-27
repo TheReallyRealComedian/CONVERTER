@@ -199,15 +199,16 @@ def _replace_card_tags(card, names, user_id):
 def _replace_card_collections(card, names, user_id):
     """Replace a card's collections with the get_or_create-by-name set
     (LERN-GROUP Achse B, agent-write). Case-preserving normalisation, owner-
-    scoped, full replacement. non-list → no-op clear avoided: only clears when
-    given a list (the caller gates the patch path on isinstance separately).
+    scoped, full replacement. non-list → no-op (leaves the set untouched); the
+    patch path validates isinstance → 400 before reaching here, create passes
+    None for a missing key onto an already-empty card.
 
     Caveat (same as _replace_card_tags): the card must already be in the
     session before this runs — get_or_create's lookup autoflushes and the
     Collection.cards backref would drop the M2M row otherwise."""
-    card.collections = []
     if not isinstance(names, list):
         return
+    card.collections = []
     for name in names:
         coll = Collection.get_or_create(user_id, name)
         if coll is not None and coll not in card.collections:

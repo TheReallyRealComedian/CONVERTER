@@ -2,14 +2,15 @@
 
 > **An**: converter-mcp-Entwickler (Koordinator-Repo).
 > **Von**: CONVERTER-Master, 2026-06-27.
-> **Worum**: CONVERTER kann jetzt **Lernkarten gruppieren** (Sprint LERN-GROUP) über zwei Achsen — **Taxonomie-Baum** (hierarchische Tags) + **Sammlungen** (kuratierte Bündel), beide als Filter auf die Wiederhol-Queue. Dieser Brief sagt, **was der converter-mcp davon weiterreichen kann — und was (noch) nicht**.
+> **Worum**: CONVERTER kann jetzt **Lernkarten gruppieren** (Sprint LERN-GROUP) über zwei Achsen — **Taxonomie-Baum** (hierarchische Tags) + **Sammlungen** (kuratierte Bündel), beide als Filter auf die Wiederhol-Queue. **Update 2026-06-27 (Sprint LERN-GROUP-AW)**: der Agent kann die Gruppierung jetzt **auch schreiben** — über token-authed Pfade. Dieser Brief sagt, **was der converter-mcp davon weiterreichen kann**.
 
-## TL;DR (bitte zuerst lesen — Auth-Falle)
+## TL;DR (bitte zuerst lesen)
 
-Alle LERN-GROUP-Endpoints sind **`@login_required` (Session) + unter dem globalen CSRF-Schutz** — bewusst **User-Seite**, **nicht** token-authed wie die Card-/Highlight-/Doc-Writes.
-
-- **READS** (`GET`): der converter-mcp wrappt sie **sofort** mit seiner **bestehenden Session** (wie `list_audio_transcripts`/`list_cards`). **Keine CONVERTER-Änderung nötig.**
-- **WRITES** (`PATCH`/`POST`/`DELETE`): **CSRF-geschützt** → der Bearer-`CARD_TOKEN`-Pfad des MCP erreicht sie **nicht**, und ein Session-POST ohne CSRF-Token gibt **400**. **Der Agent kann die Gruppierung lesen, aber mit den heutigen Endpoints nicht schreiben.** Agent-Schreiben bräuchte token-authed, CSRF-exempt Varianten in CONVERTER (das Card-Write-Muster) → **CONVERTER-Folge-Sprint, kein MCP-only-Thema** (s.u.).
+- **READS** (`GET`): `@login_required` (Session). Der converter-mcp wrappt sie **sofort** mit seiner **bestehenden Session** (wie `list_audio_transcripts`/`list_cards`). **Keine CONVERTER-Änderung nötig.**
+- **GRUPPIERUNGS-WRITES** (LERN-GROUP-AW, **token-authed + CSRF-exempt**, `Authorization: Bearer <CARD_TOKEN>` — derselbe Token wie Card-/Highlight-/Doc-Writes, **kein neuer Token**): **jetzt da, für den MCP zu wrappen.**
+  - **Sammlungen** (Achse B) → **kein eigener Endpoint**, sondern ein **`collections: [namen]`-Feld an `create_card`/`update_card`** (get_or_create by-name, Voll-Ersetzung). Der Agent erzeugt+taggt+sammelt in **einem** Call.
+  - **Tag-Baum** (Achse A) → **`POST /api/tags/parent`** `{tag, parent|null}` (by-name, Zyklus-Guard).
+- **KURATIER-WRITES** (Sammlungen löschen/umbenennen, der Tag-Baum-Editor): bleiben **Session+CSRF** (User-UI) — bewusst **nicht** token-exposed (Aufräumen ist User-Sache).
 
 ## Was LERN-GROUP gebaut hat (Kontext)
 
@@ -36,35 +37,44 @@ Liefert pro Tag jetzt **`parent_id`** (Hierarchie) + **`card_count`**:
 ### `GET /api/review-state?tag=<id>&collection=<id>` — Filter ergänzt
 Die **fällige** Queue, optional gefiltert: `?tag=` = Teilbaum von `<id>`, `?collection=` = Sammlung, **kombinierbar → AND**. Owner-scoped (fremd/unbekannt → 404), `total_count` reflektiert den Scope. *Das ist die User-Lern-Queue — für den Agent meist weniger relevant, aber verfügbar.*
 
-## WRITES — dokumentiert, aber **NICHT** über den MCP-Token erreichbar
+## GRUPPIERUNGS-WRITES — jetzt token-authed, für den MCP zu wrappen (LERN-GROUP-AW)
 
-Diese Endpoints existieren, sind aber **Session+CSRF** (User-UI). Der MCP kann sie **nicht** über den Bearer-Token aufrufen.
+Bearer-`CARD_TOKEN`, CSRF-exempt, Ziel-User server-seitig (`INGEST_USER`/first()). **Voller Kontrakt** in [docs/card_api_contract.md](docs/card_api_contract.md).
+
+| Pfad | Write | Zweck |
+|---|---|---|
+| `POST`/`PATCH /api/cards` | `collections: [namen]` (neues Feld) | Karte in N Sammlungen legen (get_or_create **by-name, case-erhaltend**, Voll-Ersetzung) |
+| `POST /api/tags/parent` | `{tag, parent\|null}` | Thema in den Baum einordnen (by-name, **lowercased** Vokabular, Zyklus-Guard) |
+
+→ MCP-Arbeit: den bestehenden `create_card`/`update_card`-Wrappern den **`collections`-Param** zugeben + ein neues Tool **`set_tag_parent`** für `POST /api/tags/parent`.
+
+## KURATIER-WRITES — bleiben Session+CSRF (NICHT token-exposen)
+
+Diese sind bewusst **User-Kuratierung** (UI, nicht Agent): Sammlungen löschen/umbenennen, der Tag-Baum-Verwaltungs-Editor. Der MCP wrappt sie **nicht**.
 
 | Endpoint | Zweck |
 |---|---|
-| `PATCH /api/tags/<id>` `{parent_id}` | Tag in den Baum einordnen (Hierarchie bauen) |
-| `POST /api/collections` `{name, description?}` | Sammlung anlegen |
+| `PATCH /api/tags/<id>` `{parent_id}` | Session-Variante (Tag-Manager-UI; by-id) |
+| `POST /api/collections` `{name, description?}` | Sammlung explizit anlegen (UI) |
 | `PATCH /api/collections/<id>` `{name?, description?}` | umbenennen |
 | `DELETE /api/collections/<id>` | löschen |
-| `POST /api/collections/<id>/cards` `{card_id}` | Karte zu Sammlung |
-| `DELETE /api/collections/<id>/cards/<card_id>` | Karte aus Sammlung |
-
-**Warum nicht einfach token-exposen?** LERN-GROUP hat die Gruppierung bewusst als **User-Kuratierung** gebaut: der User arrangiert den Tag-Baum + schnürt Sammlungen in der UI. Der Agent **partizipiert an Achse A schon vollständig** ohne neue Endpoints — er setzt Leaf-Tags via `create_card`, die in den vom User gebauten Baum einsortiert werden.
+| `POST`/`DELETE /api/collections/<id>/cards[/<card_id>]` | Karte einzeln zu/aus Sammlung (UI) |
 
 ## Empfehlung fürs converter-mcp (jetzt)
 
-1. **`list_tags` wrappen/anreichern** → `parent_id` + `card_count` durchreichen (Agent liest den Themen-Wald, taggt konsistent).
+1. **`list_tags` wrappen/anreichern** → `parent_id` + `card_count` durchreichen (Agent liest den Themen-Wald, ordnet konsistent ein).
 2. **`list_collections` wrappen** (Read).
-3. **Sonst nichts** — der Agent gruppiert Achse A bereits über die `create_card`-`tags`.
+3. **`collections`-Param** an `create_card`/`update_card` durchreichen (Sammlungs-Write).
+4. **`set_tag_parent`** neu wrappen (`POST /api/tags/parent`, Tag-Baum-Write).
 
-## Offene Entscheidung (Koordinator ↔ CONVERTER-Master)
+## ☑ Entschieden + gebaut (LERN-GROUP-AW, 2026-06-27)
 
-Falls der Agent **schreiben** soll, sind das **CONVERTER-Folge-Sprints** (nicht MCP-only):
+Die frühere „offene Entscheidung" ist **erledigt**: Oli hat **volle Agent-Autonomie** beim Gruppieren gewählt. Beide Schreibpfade sind gebaut + getestet:
 
-- **Agent ordnet Karten in Sammlungen** (z.B. neue Karten aus einer Quelle automatisch in den passenden Horizont) → CONVERTER braucht einen **token-authed, CSRF-exempt** `POST /api/collections/<id>/cards`-Pfad (Muster wie `update_highlight`/`update_document`). Bitte beim CONVERTER-Master anfordern, wenn real gebraucht.
-- **Agent baut die Taxonomie-Hierarchie** → analog token-`PATCH /api/tags/<id>`. (Vermutlich **nicht** nötig — Hierarchie ist User-Kuratierung; der Agent liest sie nur.)
-- **Agent fragt Karten nach Gruppe ab** (nicht nur *fällige*): `GET /api/cards` filtert heute nur nach `state`/`highlight_id` — **kein** `tag`/`collection`-Filter (der liegt nur auf `/api/review-state`, due-only). Wenn der Agent „alle Karten in Thema X / Sammlung Y" braucht, ist das ein kleiner CONVERTER-Add (`/api/cards?tag=&collection=`, Teilbaum/AND wie review-state).
+- **Agent ordnet Karten in Sammlungen** → ✅ über das `collections`-Feld an `create_card`/`update_card` (frei anlegbar; Aufräumen = User-UI).
+- **Agent baut die Taxonomie-Hierarchie** → ✅ über `POST /api/tags/parent` (by-name, Zyklus-Guard).
+- **Agent fragt Karten nach Gruppe ab** (nicht nur *fällige*): **weiterhin offen, optional**. `GET /api/cards` filtert nur nach `state`/`highlight_id`; ein `?tag=&collection=`-Filter (Teilbaum/AND wie review-state) ist ein kleiner CONVERTER-Add, falls real gebraucht. Bitte beim CONVERTER-Master anfordern.
 
 ---
 
-*CONVERTER-Seite: LERN-GROUP fertig + deployed. Reads sind sofort MCP-wrappbar; jeder Agent-Write-Bedarf ist ein separater, token-authed CONVERTER-Endpoint — sagt dem CONVERTER-Master, was ihr braucht, dann liefern wir den passenden Schreibpfad nach. Geschwister-Brief: [docs/converter_mcp_list_conversions_brief.md](docs/converter_mcp_list_conversions_brief.md), Kontrakt-Muster: [docs/card_api_contract.md](docs/card_api_contract.md).*
+*CONVERTER-Seite: LERN-GROUP + LERN-GROUP-AW fertig + deployed. Reads **und** die Gruppierungs-Writes sind MCP-wrappbar; nur das Kuratieren (Löschen/Umbenennen) bleibt User-UI. Geschwister-Brief: [docs/converter_mcp_list_conversions_brief.md](docs/converter_mcp_list_conversions_brief.md), Kontrakt-Muster: [docs/card_api_contract.md](docs/card_api_contract.md).*
