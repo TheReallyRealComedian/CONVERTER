@@ -11,6 +11,16 @@
             <p id="review-progress" class="review-progress" aria-live="polite"></p>
         </div>
 
+        <!-- Scope selector: alles fällig / Taxonomie-Ast / Sammlung -->
+        <div class="review-scope mb-5">
+            <label for="review-scope-select" class="review-scope__label">Üben</label>
+            <select id="review-scope-select" class="c-input review-scope__select">
+                <option value="all">Alles fällig</option>
+                <optgroup id="review-scope-tags" label="Taxonomie-Ast" hidden></optgroup>
+                <optgroup id="review-scope-collections" label="Sammlung" hidden></optgroup>
+            </select>
+        </div>
+
         <div id="review-alert-container"></div>
 
         <!-- Loading -->
@@ -18,8 +28,8 @@
 
         <!-- Empty: nothing due -->
         <div id="review-empty" class="review-empty c-surface--flat hidden">
-            <p class="review-empty__title">Nichts fällig.</p>
-            <p class="review-empty__text">Du bist mit dem Wiederholen durch. Neue Karten erscheinen, sobald sie wieder fällig sind.</p>
+            <p id="review-empty-title" class="review-empty__title">Nichts fällig.</p>
+            <p id="review-empty-text" class="review-empty__text">Du bist mit dem Wiederholen durch. Neue Karten erscheinen, sobald sie wieder fällig sind.</p>
             <a href="{{ url_for('library') }}" class="c-btn">Zur Library</a>
         </div>
 
@@ -67,6 +77,8 @@
                 <button type="button" id="review-deepen-btn" class="review-link-btn"
                         title="Karte als „wackelt“ markieren — Einstieg in den Agent-Dialog">Vertiefen</button>
                 <button type="button" id="review-note-toggle" class="review-link-btn">Notiz</button>
+                <button type="button" id="review-collection-toggle" class="review-link-btn"
+                        title="Diese Karte einer Sammlung hinzufügen">Sammlung</button>
                 <button type="button" id="review-delete-btn" class="review-link-btn review-link-btn--danger"
                         title="Diese Karte endgültig löschen">Löschen</button>
             </div>
@@ -77,6 +89,15 @@
                     <button type="button" id="review-note-save" class="c-btn text-xs py-1.5 px-3">Notiz speichern</button>
                 </div>
             </div>
+            <div id="review-collection-wrap" class="review-collection hidden">
+                <select id="review-collection-select" class="c-input review-collection__select">
+                    <option value="">Sammlung wählen …</option>
+                    <option value="__new__">+ Neue Sammlung …</option>
+                </select>
+                <input type="text" id="review-collection-new" class="c-input review-collection__new hidden"
+                       maxlength="120" placeholder="Name der neuen Sammlung">
+                <button type="button" id="review-collection-add" class="c-btn text-xs py-1.5 px-3">Hinzufügen</button>
+            </div>
         </article>
     </div>
 </div>
@@ -86,6 +107,8 @@
 <script>
     window.PageData = {
         reviewStateUrl: '{{ url_for("api_review_state") }}',
+        tagsUrl: '{{ url_for("api_list_tags") }}',
+        collectionsUrl: '{{ url_for("api_list_collections") }}',
         libraryUrl: '{{ url_for("library") }}',
     };
 </script>

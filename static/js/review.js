@@ -9,12 +9,17 @@
     'use strict';
 
     const REVIEW_STATE_URL = window.PageData.reviewStateUrl;
+    const TAGS_URL = window.PageData.tagsUrl;
+    const COLLECTIONS_URL = window.PageData.collectionsUrl;
 
     let queue = [];
     let index = 0;
     let totalDue = 0;
     let revealed = false;
     let busy = false;
+    // LERN-GROUP scope: which slice of the queue to walk. {mode, id, label}.
+    let scope = { mode: 'all', id: null, label: 'Alles fällig' };
+    let collections = [];  // cached /api/collections (scope picker + footer add)
 
     const el = (id) => document.getElementById(id);
     const loadingEl = el('review-loading');
@@ -40,6 +45,16 @@
     const noteWrap = el('review-note-wrap');
     const noteInput = el('review-note-input');
     const noteSave = el('review-note-save');
+    const scopeSelect = el('review-scope-select');
+    const scopeTagsGroup = el('review-scope-tags');
+    const scopeCollectionsGroup = el('review-scope-collections');
+    const emptyTitle = el('review-empty-title');
+    const emptyText = el('review-empty-text');
+    const collectionToggle = el('review-collection-toggle');
+    const collectionWrap = el('review-collection-wrap');
+    const collectionSelect = el('review-collection-select');
+    const collectionNew = el('review-collection-new');
+    const collectionAdd = el('review-collection-add');
 
     const alertContainer = () => el('review-alert-container');
     const currentCard = () => queue[index];
@@ -112,6 +127,7 @@
         hide(ratingEl);
         hide(noteWrap);
         noteToggle.classList.remove('is-active');
+        resetCollectionPanel();
         noteInput.value = card.note || '';
         deepenBtn.classList.toggle('is-active', card.state === 'wackelt');
 
@@ -254,10 +270,29 @@
         }
     }
 
+    function scopeUrl() {
+        if (scope.mode === 'tag') return `${REVIEW_STATE_URL}?tag=${scope.id}`;
+        if (scope.mode === 'collection') return `${REVIEW_STATE_URL}?collection=${scope.id}`;
+        return REVIEW_STATE_URL;
+    }
+
+    function applyEmptyScope() {
+        // Scope-aware empty state — "Nichts fällig in <Scope>" vs. the global text.
+        if (scope.mode === 'all') {
+            emptyTitle.textContent = 'Nichts fällig.';
+            emptyText.textContent =
+                'Du bist mit dem Wiederholen durch. Neue Karten erscheinen, sobald sie wieder fällig sind.';
+        } else {
+            emptyTitle.textContent = `Nichts fällig in „${scope.label}“.`;
+            emptyText.textContent =
+                'In diesem Bereich ist gerade nichts dran. Wähle oben einen anderen Bereich oder „Alles fällig“.';
+        }
+    }
+
     async function load() {
         show(loadingEl); hide(emptyEl); hide(doneEl); hide(cardEl);
         try {
-            const resp = await fetch(REVIEW_STATE_URL);
+            const resp = await fetch(scopeUrl());
             const data = await safeJSON(resp);
             if (!resp.ok) throw new Error();
             queue = data.due_cards || [];
@@ -266,7 +301,7 @@
             hide(loadingEl);
             // Clear any stale "Karte N von M" — matters when a delete empties the
             // queue and re-loads into this branch (finishSession clears it too).
-            if (!queue.length) { progressEl.textContent = ''; show(emptyEl); return; }
+            if (!queue.length) { progressEl.textContent = ''; applyEmptyScope(); show(emptyEl); return; }
             renderCard(currentCard());
         } catch (e) {
             hide(loadingEl);
@@ -274,6 +309,154 @@
                 'Karten konnten nicht geladen werden. Seite neu laden.');
         }
     }
+
+    // --- Scope selector population -------------------------------------------
+    // Build the indented tag forest (parent_id → children) as <option>s; a
+    // pre-order walk with NBSP indentation per depth. Siblings stay alphabetical
+    // (the API already sorts by name, we only group by parent).
+    function buildForestOptions(tags) {
+        const childrenOf = new Map();
+        tags.forEach((t) => {
+            const key = t.parent_id == null ? 'root' : t.parent_id;
+            if (!childrenOf.has(key)) childrenOf.set(key, []);
+            childrenOf.get(key).push(t);
+        });
+        const out = [];
+        const walk = (key, depth) => {
+            (childrenOf.get(key) || []).forEach((t) => {
+                out.push({ id: t.id, label: '  '.repeat(depth) + t.name });
+                walk(t.id, depth + 1);
+            });
+        };
+        walk('root', 0);
+        return out;
+    }
+
+    function fillOptgroup(group, items, valuePrefix) {
+        group.textContent = '';
+        items.forEach((it) => {
+            const opt = document.createElement('option');
+            opt.value = `${valuePrefix}:${it.id}`;
+            opt.textContent = it.label;
+            group.appendChild(opt);
+        });
+        group.hidden = items.length === 0;
+    }
+
+    async function loadScopeOptions() {
+        try {
+            const [tagsResp, colResp] = await Promise.all([
+                fetch(TAGS_URL), fetch(COLLECTIONS_URL),
+            ]);
+            const tags = tagsResp.ok ? await safeJSON(tagsResp) : [];
+            collections = colResp.ok ? await safeJSON(colResp) : [];
+            fillOptgroup(scopeTagsGroup, buildForestOptions(tags || []), 'tag');
+            fillOptgroup(scopeCollectionsGroup,
+                (collections || []).map((c) => ({ id: c.id, label: c.name })), 'collection');
+            populateCollectionFooter();
+        } catch (e) {
+            // Non-fatal: the queue still loads, only the scope picker stays bare.
+        }
+    }
+
+    function onScopeChange() {
+        const val = scopeSelect.value;
+        if (val === 'all') {
+            scope = { mode: 'all', id: null, label: 'Alles fällig' };
+        } else {
+            const [mode, id] = val.split(':');
+            const opt = scopeSelect.options[scopeSelect.selectedIndex];
+            scope = { mode, id: Number(id), label: (opt.textContent || '').trim() };
+        }
+        load();
+    }
+
+    // --- Karte → Sammlung (footer) -------------------------------------------
+    function populateCollectionFooter() {
+        // Rebuild the existing-collection options, preserving the placeholder and
+        // the "+ Neue Sammlung" sentinel at the ends.
+        collectionSelect.querySelectorAll('option[data-existing]').forEach((o) => o.remove());
+        const newOpt = collectionSelect.querySelector('option[value="__new__"]');
+        (collections || []).forEach((c) => {
+            const opt = document.createElement('option');
+            opt.value = String(c.id);
+            opt.textContent = c.name;
+            opt.dataset.existing = '1';
+            collectionSelect.insertBefore(opt, newOpt);
+        });
+    }
+
+    function resetCollectionPanel() {
+        hide(collectionWrap);
+        collectionToggle.classList.remove('is-active');
+        collectionSelect.value = '';
+        collectionNew.value = '';
+        hide(collectionNew);
+    }
+
+    async function addToCollection() {
+        if (busy) return;
+        const card = currentCard();
+        const sel = collectionSelect.value;
+        if (!sel) { showToast('Bitte eine Sammlung wählen.', { level: 'danger' }); return; }
+        busy = true;
+        collectionAdd.disabled = true;
+        try {
+            let collectionId;
+            if (sel === '__new__') {
+                const name = collectionNew.value.trim();
+                if (!name) { showToast('Bitte einen Namen eingeben.', { level: 'danger' }); return; }
+                const cResp = await fetch(COLLECTIONS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                });
+                const cData = await safeJSON(cResp);
+                if (cResp.status === 409) {
+                    showToast('Sammlung existiert bereits.', { level: 'danger' }); return;
+                }
+                if (!cResp.ok) throw new Error();
+                collectionId = cData.id;
+                collections.push({ id: cData.id, name: cData.name, card_count: 0 });
+            } else {
+                collectionId = Number(sel);
+            }
+            const resp = await fetch(`/api/collections/${collectionId}/cards`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ card_id: card.id }),
+            });
+            await safeJSON(resp);
+            if (!resp.ok) throw new Error();
+            const colName = (collections.find((c) => c.id === collectionId) || {}).name || 'Sammlung';
+            showToast(`Zu „${colName}“ hinzugefügt`);
+            resetCollectionPanel();
+            // Keep the scope picker + footer select in sync with a freshly created collection.
+            fillOptgroup(scopeCollectionsGroup,
+                collections.map((c) => ({ id: c.id, label: c.name })), 'collection');
+            populateCollectionFooter();
+        } catch (e) {
+            showToast('Konnte nicht hinzufügen. Erneut versuchen.', { level: 'danger' });
+        } finally {
+            busy = false;
+            collectionAdd.disabled = false;
+        }
+    }
+
+    scopeSelect.addEventListener('change', onScopeChange);
+    collectionToggle.addEventListener('click', () => {
+        const opening = collectionWrap.classList.contains('hidden');
+        // Mutually exclusive with the note panel — only one footer drawer open.
+        hide(noteWrap); noteToggle.classList.remove('is-active');
+        collectionWrap.classList.toggle('hidden', !opening);
+        collectionToggle.classList.toggle('is-active', opening);
+    });
+    collectionSelect.addEventListener('change', () => {
+        const isNew = collectionSelect.value === '__new__';
+        collectionNew.classList.toggle('hidden', !isNew);
+        if (isNew) collectionNew.focus();
+    });
+    collectionAdd.addEventListener('click', addToCollection);
 
     revealBtn.addEventListener('click', revealAnswer);
     ratingEl.addEventListener('click', (e) => {
@@ -285,7 +468,8 @@
         noteWrap.classList.toggle('hidden');
         const open = !noteWrap.classList.contains('hidden');
         noteToggle.classList.toggle('is-active', open);
-        if (open) noteInput.focus();
+        // Mutually exclusive with the Sammlung drawer — only one open at a time.
+        if (open) { resetCollectionPanel(); noteInput.focus(); }
     });
     noteSave.addEventListener('click', saveNote);
     deleteBtn.addEventListener('click', deleteCard);
@@ -303,5 +487,6 @@
         }
     });
 
+    loadScopeOptions();
     load();
 })();

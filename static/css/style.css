@@ -1832,6 +1832,20 @@ body.reader-active .sidebar-toggle-floater--global {
     font-size: var(--text-sm);
 }
 
+/* Scope selector (LERN-GROUP): "Üben" label + grouped select (Alles fällig /
+   Taxonomie-Ast / Sammlung). Inline row, token-driven via select.c-input. */
+.review-scope {
+    display: flex;
+    align-items: center;
+    gap: var(--nm-space-md);
+}
+.review-scope__label {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--nm-text-muted);
+}
+.review-scope__select { min-width: 220px; max-width: 100%; }
+
 .review-card { padding: var(--nm-space-xl); }
 
 .review-card__meta {
@@ -1942,6 +1956,18 @@ body.reader-active .sidebar-toggle-floater--global {
     display: flex;
     justify-content: flex-end;
 }
+
+/* Karte → Sammlung drawer: collection picker + inline "new" input + add button,
+   one flat row mirroring the note drawer. */
+.review-collection {
+    margin-top: var(--nm-space-md);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nm-space-sm);
+}
+.review-collection__select { flex: 1 1 180px; min-width: 0; }
+.review-collection__new { flex: 1 1 180px; min-width: 0; }
 
 .review-empty {
     padding: var(--nm-space-2xl) var(--nm-space-xl);
