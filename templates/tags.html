@@ -6,10 +6,23 @@
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-4xl mx-auto">
         <a href="{{ url_for('library') }}" class="text-sm text-neo-faint hover:text-neo-text no-underline transition-colors">&larr; Zurück zur Library</a>
-        <h1 class="text-2xl font-semibold mt-2 mb-6">Tags</h1>
+        <h1 class="text-2xl font-semibold mt-2 mb-2">Tags</h1>
+        <p class="text-sm text-neo-faint mb-6">Ordne Tags zu einem Baum — beim Lernen übst du dann einen ganzen Ast auf einmal.</p>
         <div id="tag-alert-container"></div>
-        <div id="tag-list" class="grid gap-4"></div>
+        <div id="tag-list" class="grid gap-3"></div>
         <p id="tag-list-empty" class="text-neo-faint italic hidden">Noch keine Tags. In einem Dokument einen Highlight markieren und Tags hinzufügen.</p>
+
+        <section class="mt-12">
+            <h2 class="text-xl font-semibold mb-2">Sammlungen</h2>
+            <p class="text-sm text-neo-faint mb-5">Kuratierte Karten-Bündel für einen Zweck. Karten fügst du beim Lernen hinzu.</p>
+            <div class="collection-create-row mb-5">
+                <input type="text" id="collection-new-name" class="c-input" maxlength="120"
+                       placeholder="Neue Sammlung …">
+                <button type="button" id="collection-create-btn" class="c-btn c-btn--primary">Anlegen</button>
+            </div>
+            <div id="collection-list" class="grid gap-3"></div>
+            <p id="collection-list-empty" class="text-neo-faint italic hidden">Noch keine Sammlungen.</p>
+        </section>
     </div>
 </div>
 {% endblock %}
