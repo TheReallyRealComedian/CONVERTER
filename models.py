@@ -234,6 +234,18 @@ card_tags = db.Table(
               primary_key=True),
 )
 
+# LERN-GROUP Achse B: kuratierte, flache Sammlungen (karten-only v1). M2M; eine
+# Karte in beliebig vielen Sammlungen. ondelete='CASCADE' ist ohne PRAGMA
+# foreign_keys inert (dokumentarisch) — die echte Lösch-Mechanik läuft ORM-seitig
+# über die Card.collections-Relationship (Memory reference_sqlite_no_fk_pragma_orm_delete).
+card_collections = db.Table(
+    'card_collections',
+    db.Column('card_id', db.Integer, db.ForeignKey('card.id', ondelete='CASCADE'),
+              primary_key=True),
+    db.Column('collection_id', db.Integer,
+              db.ForeignKey('collection.id', ondelete='CASCADE'), primary_key=True),
+)
+
 
 class Card(db.Model):
     """A spaced-repetition card sitting over a Highlight (R4-LEARN).
@@ -274,6 +286,10 @@ class Card(db.Model):
 
     tags = db.relationship('Tag', secondary=card_tags, lazy='joined',
                            backref=db.backref('cards', lazy='dynamic'))
+    # LERN-GROUP Achse B: kuratierte Sammlungen. Owning side hier → deleting a
+    # card sweeps its card_collections rows via the ORM (no FK pragma).
+    collections = db.relationship('Collection', secondary=card_collections,
+                                  backref=db.backref('cards', lazy='dynamic'))
     # 1:1 FSRS state. ORM cascade (DB-level cascade is inert without the pragma);
     # POST /api/cards creates the row in the "new" state.
     review = db.relationship('Review', uselist=False, backref='card',
@@ -354,3 +370,36 @@ def _null_card_provenance_on_highlight_delete(mapper, connection, target):
     connection.execute(
         tbl.update().where(tbl.c.highlight_id == target.id).values(highlight_id=None)
     )
+
+
+class Collection(db.Model):
+    """A curated, flat bundle of cards (LERN-GROUP Achse B).
+
+    One named card-set for a purpose the user picks (a horizon, a course, a
+    topic pack — one entity, no kind distinction in v1). Cross-cutting: a card
+    sits in any number of collections. Owner-scoped (own user_id) and per-user
+    unique by name, mirroring Tag. The M2M side lives on ``Card.collections``;
+    ``Collection.cards`` is the backref.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='uq_collection_user_name'),
+    )
+
+    MAX_NAME_LEN = 120
+
+    def to_dict(self, card_count=None):
+        out = {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+        if card_count is not None:
+            out['card_count'] = card_count
+        return out

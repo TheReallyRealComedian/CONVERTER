@@ -32,7 +32,7 @@ from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 from sqlalchemy.orm import contains_eager, joinedload
 
-from models import Card, Conversion, Highlight, Review, Tag, db
+from models import Card, Collection, Conversion, Highlight, Review, Tag, db
 from services.scheduler import RATINGS, get_scheduler
 
 # Reuse the Ingest auth primitives so card writes resolve the SAME target user
@@ -108,18 +108,19 @@ def _naive_utc(dt):
     return dt.replace(tzinfo=None)
 
 
-def _parse_owned_tag(raw):
-    """Resolve a ``?tag=`` query value to the current user's Tag, or None when
-    it is non-numeric, unknown, or foreign (LERN-GROUP review scope). Callers
-    map None → 404 so a foreign id leaks nothing."""
+def _parse_owned(raw, model):
+    """Resolve a numeric query value to the current user's row of ``model``, or
+    None when it is non-numeric, unknown, or foreign (LERN-GROUP review scope).
+    Callers map None → 404 so a foreign id leaks nothing. Shared by ``?tag=``
+    and ``?collection=``."""
     try:
-        tag_id = int(raw)
+        obj_id = int(raw)
     except (TypeError, ValueError):
         return None
-    tag = Tag.query.get(tag_id)
-    if tag is None or tag.user_id != current_user.id:
+    obj = model.query.get(obj_id)
+    if obj is None or obj.user_id != current_user.id:
         return None
-    return tag
+    return obj
 
 
 # --- card write helpers ------------------------------------------------------
@@ -430,20 +431,30 @@ def register(app):
         # first, plus the counters. Full cards so the UI renders without an
         # extra fetch per card; contains_eager avoids the review N+1.
         #
-        # LERN-GROUP scope filter (optional, Achse A):
-        #   ?tag=<id>  cards whose tag is in the SUBTREE of <id>
-        # When scoped, total_count reflects the SCOPE (cards in the scope, not
-        # just due ones); unscoped it stays "all of the user's cards".
+        # LERN-GROUP scope filters (optional, combinable → AND):
+        #   ?tag=<id>        cards whose tag is in the SUBTREE of <id> (Achse A)
+        #   ?collection=<id> cards in collection <id> (Achse B)
+        # Both chain onto the SAME `base`, so combining them ANDs and the
+        # scope-correct total_count falls out for free. When scoped, total_count
+        # reflects the SCOPE (cards in the scope, not just due ones); unscoped it
+        # stays "all of the user's cards".
         now = datetime.now(timezone.utc)
         base = Card.query.filter_by(user_id=current_user.id)
 
         tag_arg = request.args.get('tag')
         if tag_arg is not None:
-            tag = _parse_owned_tag(tag_arg)
+            tag = _parse_owned(tag_arg, Tag)
             if tag is None:
                 return jsonify({'error': 'Tag nicht gefunden.'}), 404
             subtree = Tag.subtree_ids(tag.id, current_user.id)
             base = base.filter(Card.tags.any(Tag.id.in_(subtree)))
+
+        collection_arg = request.args.get('collection')
+        if collection_arg is not None:
+            collection = _parse_owned(collection_arg, Collection)
+            if collection is None:
+                return jsonify({'error': 'Sammlung nicht gefunden.'}), 404
+            base = base.filter(Card.collections.any(Collection.id == collection.id))
 
         due_cards = (base
                      .join(Card.review)
