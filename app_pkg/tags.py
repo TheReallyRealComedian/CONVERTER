@@ -13,6 +13,10 @@ from sqlalchemy import func
 
 from models import Highlight, Tag, card_tags, conversion_tags, db, highlight_tags
 
+# LERN-GROUP-AW: der Agent baut den Tag-Baum über den Token-Gate (CARD_TOKEN),
+# nicht die Session — derselbe Gate wie Card-/Highlight-Annotate-/Doc-Write.
+from .cards import _authorize_card_write as _authorize_agent_write
+
 
 def _get_owned_highlight(highlight_id):
     highlight = Highlight.query.get_or_404(highlight_id)
@@ -103,6 +107,46 @@ def register(app):
         db.session.commit()
         return jsonify(tag.to_dict())
 
+    @app.route('/api/tags/parent', methods=['POST'])
+    def api_set_tag_parent():
+        # LERN-GROUP-AW Achse A, agent-write: der Agent baut den Tag-Baum
+        # by-name über den Token-Gate. DISTINCT vom Session-PATCH
+        # /api/tags/<id> (kein Path-Clash, by-name statt by-id, token statt
+        # session). Body {tag: str, parent: str|null}. Beide Tags via
+        # Tag.get_or_create (lowercased, shared vocabulary — "KI" → "ki",
+        # konsistent mit den Karten-Tags). Spiegelt den Session-Zyklus-Guard.
+        target, err = _authorize_agent_write()
+        if err:
+            return err
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        tag = Tag.get_or_create(target.id, data.get('tag'))
+        if tag is None:
+            return _tag_name_error()
+
+        parent_name = data.get('parent')
+        if parent_name is None:
+            # Entwurzeln — Tag wird Wurzel.
+            tag.parent_id = None
+            db.session.commit()
+            return jsonify(tag.to_dict())
+
+        parent = Tag.get_or_create(target.id, parent_name)
+        if parent is None:
+            return _tag_name_error()
+        # Zyklus-Guard (Spiegel der Session-Logik): das Eltern-Tag darf weder
+        # das Tag selbst sein noch in dessen Teilbaum liegen — fängt
+        # Selbst-Referenz (tag == parent nach Normalisierung) gleich mit.
+        if parent.id in Tag.subtree_ids(tag.id, target.id):
+            return jsonify({'error': 'Zyklus: Eltern-Tag liegt im Teilbaum.'}), 400
+
+        tag.parent_id = parent.id
+        db.session.commit()
+        return jsonify(tag.to_dict())
+
     @app.route('/api/highlights/<int:highlight_id>/tags', methods=['POST'])
     @login_required
     def api_attach_tag(highlight_id):
@@ -173,3 +217,7 @@ def register(app):
         db.session.delete(tag)
         db.session.commit()
         return jsonify({'success': True})
+
+    # Token-authed, session-less write carries no CSRF cookie → waive CSRF for
+    # THIS view only (the session reads/writes stay under the global CSRFProtect).
+    app.extensions['csrf'].exempt(api_set_tag_parent)
