@@ -310,6 +310,7 @@ class Card(db.Model):
             'state': self.state,
             'created_by': self.created_by,
             'tags': [{'id': t.id, 'name': t.name} for t in self.tags],
+            'collections': [{'id': c.id, 'name': c.name} for c in self.collections],
             'review': self.review.to_dict() if self.review else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
@@ -392,6 +393,36 @@ class Collection(db.Model):
     )
 
     MAX_NAME_LEN = 120
+
+    @classmethod
+    def normalize_name(cls, name):
+        """Canonical collection-name normalisation — trim + collapse internal
+        whitespace runs, but **preserve case**. Unlike ``Tag.normalize_name``
+        (which lowercases the shared vocabulary), collections are proper names
+        the user picks ("Boehringer-Pipeline"), so casing is significant. The
+        UI does the de-duplication/cleanup; we accept the resulting sprawl.
+        Returns '' when nothing survives (caller decides skip/None)."""
+        if not isinstance(name, str):
+            return ''
+        return re.sub(r'\s+', ' ', name).strip()
+
+    @classmethod
+    def get_or_create(cls, user_id, name):
+        # Mirror of Tag.get_or_create but with Collection.normalize_name (case
+        # preserved). Returns None on non-str/blank-after-normalisation/oversize
+        # so callers can skip without re-validating. Owner-scoped + unique by
+        # (user_id, name).
+        if not isinstance(name, str):
+            return None
+        normalized = cls.normalize_name(name)
+        if not normalized or len(normalized) > cls.MAX_NAME_LEN:
+            return None
+        coll = cls.query.filter_by(user_id=user_id, name=normalized).first()
+        if coll is None:
+            coll = cls(user_id=user_id, name=normalized)
+            db.session.add(coll)
+            db.session.flush()
+        return coll
 
     def to_dict(self, card_count=None):
         out = {

@@ -196,6 +196,24 @@ def _replace_card_tags(card, names, user_id):
             card.tags.append(tag)
 
 
+def _replace_card_collections(card, names, user_id):
+    """Replace a card's collections with the get_or_create-by-name set
+    (LERN-GROUP Achse B, agent-write). Case-preserving normalisation, owner-
+    scoped, full replacement. non-list → no-op clear avoided: only clears when
+    given a list (the caller gates the patch path on isinstance separately).
+
+    Caveat (same as _replace_card_tags): the card must already be in the
+    session before this runs — get_or_create's lookup autoflushes and the
+    Collection.cards backref would drop the M2M row otherwise."""
+    card.collections = []
+    if not isinstance(names, list):
+        return
+    for name in names:
+        coll = Collection.get_or_create(user_id, name)
+        if coll is not None and coll not in card.collections:
+            card.collections.append(coll)
+
+
 def _replace_highlight_tags(highlight, names, user_id):
     """Replace a highlight's tags with the normalised get_or_create set
     (shared vocabulary — identische Tag-Rows wie Card-/UI-Tags)."""
@@ -305,6 +323,7 @@ def register(app):
         # the session (the M2M row would be dropped from the tag side).
         db.session.add(card)
         _replace_card_tags(card, data.get('tags'), target.id)
+        _replace_card_collections(card, data.get('collections'), target.id)
         # Locked decision: create the Review row alongside the card in the
         # FSRS-"new" state — due now, reps/lapses 0, the rest NULL.
         card.review = Review(due=datetime.now(timezone.utc), reps=0, lapses=0)
@@ -348,6 +367,10 @@ def register(app):
             if not isinstance(data['tags'], list):
                 return jsonify({'error': "Feld 'tags' muss eine Liste sein."}), 400
             _replace_card_tags(card, data['tags'], target.id)
+        if 'collections' in data:
+            if not isinstance(data['collections'], list):
+                return jsonify({'error': "Feld 'collections' muss eine Liste sein."}), 400
+            _replace_card_collections(card, data['collections'], target.id)
 
         db.session.commit()  # updated_at bumps via the column onupdate
         return jsonify(card.to_dict())
