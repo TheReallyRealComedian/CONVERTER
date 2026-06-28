@@ -9,7 +9,7 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 - **Reads** → die bestehende **Session** (wie `get_transcript`/`list_audio_transcripts`). `@login_required`.
 - **Writes** → **`Authorization: Bearer <CARD_TOKEN>`** (CSRF-exempt, fail-closed). Der Token steht in beiden `.env` (CONVERTER + converter-mcp) und matcht bereits.
 
-## Zu wrappen (8 Tools)
+## Zu wrappen (10 Tools)
 
 ### Writes (Bearer `CARD_TOKEN`)
 **`POST /api/cards`** — Karte anlegen. Body (JSON):
@@ -41,6 +41,45 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 - blank `tag`/`parent` → **400**. → **200** + Tag-JSON (inkl. `parent_id`).
 - Auth-Fehler: **503**/**401** wie die Card-Writes.
 - **Hierarchie lesen**: über das Read-Tool für `GET /api/tags` (`parent_id` + Counts je Tag) — der Agent liest den bestehenden Baum, um konsistent einzuordnen.
+
+**`POST /api/tags/merge`** — zwei Tags zusammenführen (TAG-CLEANUP, **destruktiv**, Tool z.B. `merge_tags`). Hängt alle Refs (Cards+Highlights+Conversions) von `source` auf `target` um, reparentet `source`-Kinder → `target`, löscht `source`. Body (JSON):
+- `source` / `target` — Strings, Pflicht-non-blank. **by-name Lookup-only** (NICHT get_or_create) — **beide müssen existieren**, sonst **404** (`source` fehlt → „Quell-Tag nicht gefunden.", `target` fehlt → „Ziel-Tag nicht gefunden."). Grund: ein Merge konsolidiert auf ein **bekanntes** Kanon-Tag, kein Phantom-Ziel aus einem Tippfehler. Existiert das Ziel noch nicht → erst über die normalen Pfade anlegen. Namen normalisiert wie das geteilte Vokabular (**lowercased** + getrimmt).
+- `dry_run` — Bool, **Default `true`**. **Nur ein echtes JSON-`false`** löst den destruktiven Lauf aus; jeder andere Wert (auch `0`/`""`/`"false"`) bleibt sicher dry-run. dry-run liefert **apply-treue** Counts ohne Schreibwirkung (same-path-rollback).
+- **`source == target`** (nach Normalisierung) → **No-op** (200, Counts 0, `source_deleted:false`).
+- **Zyklus-Guard**: ist `target` echter Nachfahre von `source` → **400** (das Kinder-Reparenten würde eine Schleife bauen) — erst via `set_tag_parent` entwirren.
+- **Dedup**: trägt ein Objekt **beide** Tags, wird der `source`-Link entfernt (kein Duplikat) statt umgehängt — pro Junction als `deduped` gezählt.
+- Auth-Fehler: **503**/**401** wie die Card-Writes. → **200** mit dieser **Response-Shape**:
+  ```json
+  {"dry_run": bool, "applied": bool,
+   "source": {"id": int|null, "name": str}, "target": {"id": int|null, "name": str},
+   "reassigned": {"cards": {"moved": int, "deduped": int},
+                  "highlights": {"moved": int, "deduped": int},
+                  "conversions": {"moved": int, "deduped": int}},
+   "children_reparented": [{"id": int, "name": str}],
+   "source_deleted": bool}
+  ```
+  (Beim `source==target`-No-op sind die `id`s `null`.)
+
+**`POST /api/tags/delete`** — ein Tag löschen (TAG-CLEANUP, **destruktiv**, Tool z.B. `delete_tag`). **by-name**, distinct vom Session-`DELETE /api/tags/<id>` (by-id). Body (JSON):
+- `tag` — String, Pflicht-non-blank. Lookup-only → fehlt → **404** „Tag nicht gefunden."
+- `reassign_to` — String **oder** `null` (Default `null`). Gesetzt → Refs werden auf `reassign_to` umgehängt (Dedup wie Merge), `tag`-Kinder → `reassign_to`, dann `tag` gelöscht. Lookup-only → fehlt → **404** „Ziel-Tag (reassign_to) nicht gefunden."; `reassign_to == tag` → **400**; Zyklus (`reassign_to` im Teilbaum von `tag`) → **400**.
+- `dry_run` — Bool, **Default `true`** (gleiche strikte Semantik wie merge).
+- `force` — Bool, **Default `false`**. **Nur ein echtes JSON-`true`** lüftet die Guard-Rail.
+- **force-Guard-Rail** (ohne `reassign_to`): hat `tag` angehängte Objekte **und** `force=false` → es wird **nicht** gelöst:
+  - **dry-run** (Default): **200**-Preview mit `requires_force:true`, `tag_deleted:false` (kein 409, nichts geschrieben).
+  - **echter Lauf** (`dry_run:false`): **409** + `affected`-Counts + `requires_force:true`, nichts geschrieben.
+- Ohne `reassign_to` **und** (keine Objekte **ODER** `force=true`): **detach-all** über die drei Junctions + Kinder → **NULL** (Wurzel) + löschen.
+- Auth-Fehler: **503**/**401** wie die Card-Writes. → **200** (außer dem 409-Refuse-Pfad) mit dieser **Response-Shape**:
+  ```json
+  {"dry_run": bool, "applied": bool,
+   "tag": {"id": int, "name": str},
+   "reassign_to": {"id": int, "name": str} | null,
+   "reassigned": {"cards": {...}, "highlights": {...}, "conversions": {...}} | null,
+   "affected": {"cards": int, "highlights": int, "conversions": int},
+   "children_reparented": [{"id": int, "name": str}],
+   "requires_force": bool, "tag_deleted": bool}
+  ```
+  `affected` = **Objekt-Counts** (ints, treibt die Guard-Rail; immer da). `reassigned` = das `moved`/`deduped`-Detail (nur bei gesetztem `reassign_to`, sonst `null`).
 
 ### Reads (Session)
 - **`GET /api/highlights/recent?since=<ISO-8601>&limit=<n>`** — **globaler** Reader über alle Docs: jüngste Markierungen mit `note`, `tags` `[{id,name}]`, Eltern-`{conversion_id, title}`, `created_at`. (`since` optional, `limit` Default 100/Cap 500, Sort neueste zuerst.) *Das ist der „jüngste Markierungen"-Reader für den Recall-Loop.*

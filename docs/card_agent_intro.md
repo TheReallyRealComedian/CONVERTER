@@ -52,7 +52,7 @@ Du ordnest selbst ein, nicht nur Oli. **Erst lesen, dann schreiben** — sonst b
 - **Tag-Baum (Achse A) = Taxonomie** („worum geht's", hierarchisch). **Lies zuerst `list_tags`** (jedes Tag mit `parent_id` + `card_count`), ordne neue Themen mit `set_tag_parent` **unter bestehende** statt daneben. Tags sind **lowercased**, geteiltes Vokabular. Karten-Tags setzt du normal über `create_card`; der Baum ordnet nur das Vokabular — **keine Karte wird neu getaggt**, sie landet automatisch im Teilbaum.
 - **Sammlungen (Achse B) = kuratierte Bündel** (ein Kurs, ein Horizont, ein Themenpaket). Über das **`collections`-Feld** an `create_card`/`update_card`. **Lies zuerst `list_collections`.** Namen sind **Eigennamen, case-erhaltend** („Boehringer-Pipeline" bleibt so — anders als Tags). Voll-Ersetzung: das übergebene Set ist das vollständige; `[]` entfernt aus allen.
 
-**Frei anlegen ist ok** (gewollte Autonomie) — aber konsistent. **Du legst an + ordnest zu; du räumst nicht auf.** Sammlungen löschen/umbenennen und den Baum aufräumen ist Olis Kuratierung (UI).
+**Frei anlegen ist ok** (gewollte Autonomie) — aber konsistent. Du legst an + ordnest zu — und kannst den Tag-Baum jetzt auch **konsolidieren**: `merge_tags` (Dubletten zusammenführen) + `delete_tag` (Junk entfernen). **Beide destruktiv → immer erst `dry_run` lesen, dann anwenden; Kern-/Studien-Tags nicht wegmergen.** Sammlungen löschen/umbenennen und Tags **umbenennen** bleibt Olis Kuratierung (UI).
 
 ## Der wackelt-Loop — Olis Draht zu dir
 
@@ -72,6 +72,6 @@ Du darfst **Tags + eine Notiz auf bestehende Highlights** zurückschreiben (`upd
 - Kein Bewerten, kein Scheduling (FSRS + Üben = Server + Oli).
 - Kein Löschen — Karte falsch? → `update_card` korrigieren. Du *kannst* nicht löschen.
 - Kein Highlight-Löschen, kein Anker-Edit, kein neues Highlight.
-- Kein Sammlungen-Löschen/Umbenennen, kein Baum-Aufräumen.
+- Kein Sammlungen-Löschen/Umbenennen, kein Tag-**Umbenennen**. (Tags **mergen/löschen** geht jetzt — `merge_tags`/`delete_tag`, dry-run-first, bedacht.)
 
 > **Du bist der Autor, nicht der Schüler.** Schreib das Deck, das du dir selbst zum Lernen wünschen würdest: atomar, präzise, self-contained, sauber einsortiert.
