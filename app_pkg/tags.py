@@ -32,6 +32,34 @@ def _tag_name_error():
     }), 400
 
 
+def _require_tag_name(raw):
+    """Validate + normalise a by-name lookup field for the destructive token
+    tools. Returns ``(normalized, None)`` or ``(None, error_response)``.
+
+    A *truthy* non-string (``{"source": 123}``) must 400, not 500 — passing it
+    straight to ``normalize_name`` would ``.replace`` on a non-str and raise an
+    AttributeError. Mirrors the ``get_or_create`` isinstance guard."""
+    if not isinstance(raw, str):
+        return None, _tag_name_error()
+    norm = Tag.normalize_name(raw)
+    if not norm:
+        return None, _tag_name_error()
+    return norm, None
+
+
+def _is_dry_run(data):
+    """Strict dry-run read for the destructive tools: the write fires ONLY on a
+    real JSON ``false``. Default true; any non-False value (a falsy non-bool like
+    ``0``/``""`` OR a ``"false"`` string) stays a safe dry-run — a typo must never
+    silently apply a destructive run."""
+    return data.get('dry_run', True) is not False
+
+
+def _is_force(data):
+    """Strict force read: the guard-rail lifts ONLY on a real JSON ``true``."""
+    return data.get('force', False) is True
+
+
 # TAG-CLEANUP: die drei Junctions teilen alle die Tag-Rows. Jeder Reassign
 # (merge_tags ODER delete_tag mit reassign_to) muss alle drei umhängen.
 _TAG_JUNCTIONS = (
@@ -217,16 +245,18 @@ def register(app):
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
-        source_norm = Tag.normalize_name(data.get('source') or '')
-        target_norm = Tag.normalize_name(data.get('target') or '')
-        if not source_norm or not target_norm:
-            return _tag_name_error()
-        dry_run = data.get('dry_run', True)
+        source_norm, err = _require_tag_name(data.get('source'))
+        if err:
+            return err
+        target_norm, err = _require_tag_name(data.get('target'))
+        if err:
+            return err
+        dry_run = _is_dry_run(data)
 
         # source == target nach Normalisierung → No-op (nichts zu mergen).
         if source_norm == target_norm:
             return jsonify({
-                'dry_run': bool(dry_run), 'applied': False,
+                'dry_run': dry_run, 'applied': False,
                 'source': {'id': None, 'name': source_norm},
                 'target': {'id': None, 'name': target_norm},
                 'reassigned': {k: {'moved': 0, 'deduped': 0}
@@ -275,12 +305,121 @@ def register(app):
             db.session.commit()
 
         return jsonify({
-            'dry_run': bool(dry_run), 'applied': not dry_run,
+            'dry_run': dry_run, 'applied': not dry_run,
             'source': {'id': source_id, 'name': source_name},
             'target': {'id': target_id, 'name': target_name},
             'reassigned': counts,
             'children_reparented': children_reparented,
             'source_deleted': not dry_run,
+        }), 200
+
+    @app.route('/api/tags/delete', methods=['POST'])
+    def api_delete_tag_token():
+        # TAG-CLEANUP: destruktives Löschen über den Token-Gate (CARD_TOKEN).
+        # Name DISTINCT von der Session-api_delete_tag (by-id, bleibt unberührt).
+        # Body {tag, reassign_to=null, dry_run=true, force=false}.
+        #  • mit reassign_to → Refs auf reassign_to umhängen (geteilter Helper),
+        #    Kinder → reassign_to, tag löschen.
+        #  • ohne reassign_to, tag HAT Objekte, force=false → GUARD-RAIL: dry-run
+        #    liefert requires_force ohne 409, echter Lauf → 409 (nichts geschrieben).
+        #  • ohne reassign_to (keine Objekte ODER force=true) → detach-all über die
+        #    drei Junctions + Kinder → NULL (Wurzel, wie Session-Delete) + löschen.
+        # dry_run=true = DEFAULT (same-path-rollback, apply-treu).
+        target_user, err = _authorize_agent_write()
+        if err:
+            return err
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        tag_norm, err = _require_tag_name(data.get('tag'))
+        if err:
+            return err
+        dry_run = _is_dry_run(data)
+        force = _is_force(data)
+
+        tag = Tag.query.filter_by(user_id=target_user.id, name=tag_norm).first()
+        if tag is None:
+            return jsonify({'error': 'Tag nicht gefunden.'}), 404
+
+        affected = _tag_object_counts(tag.id)
+        has_objects = any(v > 0 for v in affected.values())
+
+        tag_id, tag_name = tag.id, tag.name
+        re_raw = data.get('reassign_to')
+        reassign_to = None
+        reassigned = None
+
+        if re_raw is not None:
+            # --- reassign-then-delete path ---
+            re_norm, err = _require_tag_name(re_raw)
+            if err:
+                return err
+            if re_norm == tag_norm:
+                return jsonify({'error': 'reassign_to == tag.'}), 400
+            reassign_to = Tag.query.filter_by(user_id=target_user.id, name=re_norm).first()
+            if reassign_to is None:
+                return jsonify({'error': 'Ziel-Tag (reassign_to) nicht gefunden.'}), 404
+            # Zyklus-Guard (wie Merge): reassign_to darf nicht echter Nachfahre
+            # von tag sein — sonst baut das Kinder-Reparenten eine Schleife.
+            if reassign_to.id in Tag.subtree_ids(tag_id, target_user.id) and reassign_to.id != tag_id:
+                return jsonify({
+                    'error': 'reassign_to liegt im Teilbaum von tag — würde einen '
+                             'Zyklus erzeugen; erst via set_tag_parent entwirren.'
+                }), 400
+            re_id, re_name = reassign_to.id, reassign_to.name
+            reassigned = _reassign_tag_refs(tag_id, re_id)
+            new_parent = re_id
+        else:
+            # --- no reassign_to ---
+            if has_objects and not force:
+                # GUARD-RAIL: löst Objekte NICHT ohne explizites force.
+                if dry_run:
+                    return jsonify({
+                        'dry_run': True, 'applied': False,
+                        'tag': {'id': tag_id, 'name': tag_name},
+                        'reassign_to': None, 'reassigned': None,
+                        'affected': affected, 'children_reparented': [],
+                        'requires_force': True, 'tag_deleted': False,
+                    }), 200
+                return jsonify({
+                    'error': (f'Tag hat {sum(affected.values())} angehängte Objekte und '
+                              'kein reassign_to — reassign_to setzen oder force=true.'),
+                    'affected': affected, 'requires_force': True, 'tag_deleted': False,
+                }), 409
+            # keine Objekte ODER force=true → von allen Objekten lösen.
+            for _key, junction, _obj_col in _TAG_JUNCTIONS:
+                db.session.execute(junction.delete().where(junction.c.tag_id == tag_id))
+            new_parent = None
+
+        # Kinder reparenten (→ reassign_to bzw. NULL) — vorher Namen/IDs greifen.
+        child_rows = db.session.execute(
+            select(Tag.id, Tag.name).where(Tag.parent_id == tag_id)
+        ).all()
+        children_reparented = [{'id': cid, 'name': cname} for cid, cname in child_rows]
+        db.session.execute(
+            Tag.__table__.update()
+            .where(Tag.parent_id == tag_id)
+            .values(parent_id=new_parent)
+        )
+
+        db.session.delete(tag)
+
+        if dry_run:
+            db.session.rollback()
+        else:
+            db.session.commit()
+
+        return jsonify({
+            'dry_run': dry_run, 'applied': not dry_run,
+            'tag': {'id': tag_id, 'name': tag_name},
+            'reassign_to': ({'id': re_id, 'name': re_name} if reassign_to is not None else None),
+            'reassigned': reassigned,
+            'affected': affected,
+            'children_reparented': children_reparented,
+            'requires_force': False,
+            'tag_deleted': not dry_run,
         }), 200
 
     @app.route('/api/highlights/<int:highlight_id>/tags', methods=['POST'])
@@ -358,3 +497,4 @@ def register(app):
     # THIS view only (the session reads/writes stay under the global CSRFProtect).
     app.extensions['csrf'].exempt(api_set_tag_parent)
     app.extensions['csrf'].exempt(api_merge_tags)
+    app.extensions['csrf'].exempt(api_delete_tag_token)

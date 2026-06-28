@@ -282,6 +282,39 @@ def test_merge_owner_scoped(app, client, test_user, monkeypatch):
         assert Tag.query.filter_by(user_id=other_id, name='src').first() is not None
 
 
+# --- input-robustness hardenings (P2 retrofit) -------------------------------
+
+def test_merge_non_string_name_400_not_500(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    # truthy non-string would .replace on an int → 500 without the isinstance guard.
+    assert client.post(MERGE_URL, headers=_card_auth(),
+                       json={'source': 123, 'target': 'tgt'}).status_code == 400
+    assert client.post(MERGE_URL, headers=_card_auth(),
+                       json={'source': 'src', 'target': ['x']}).status_code == 400
+
+
+def test_merge_strict_dry_run_falsy_nonbool_stays_dry(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    with app.app_context():
+        _mk_tag(uid, 'src')
+        _mk_tag(uid, 'tgt')
+        db.session.commit()
+    # dry_run=0 (falsy non-bool) must NOT apply destructively — only real False does.
+    resp = client.post(MERGE_URL, headers=_card_auth(),
+                       json={'source': 'src', 'target': 'tgt', 'dry_run': 0})
+    assert resp.status_code == 200
+    assert resp.get_json()['applied'] is False
+    with app.app_context():
+        assert Tag.query.filter_by(user_id=uid, name='src').first() is not None
+    # the "false" string likewise stays a safe dry-run.
+    resp2 = client.post(MERGE_URL, headers=_card_auth(),
+                        json={'source': 'src', 'target': 'tgt', 'dry_run': 'false'})
+    assert resp2.get_json()['applied'] is False
+    with app.app_context():
+        assert Tag.query.filter_by(user_id=uid, name='src').first() is not None
+
+
 def test_merge_csrf_exempt_under_enforced_csrf(app, client, test_user, monkeypatch):
     monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
     monkeypatch.setitem(app.config, 'WTF_CSRF_ENABLED', True)
