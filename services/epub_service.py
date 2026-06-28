@@ -12,6 +12,8 @@ import tempfile
 
 from ebooklib import epub
 
+from services.epub_math import latex_spans_to_mathml
+
 
 def _slug(text: str) -> str:
     """ASCII slug for the EPUB identifier; falls back to ``document``."""
@@ -41,6 +43,22 @@ def build_epub(
     book.add_author(author)
 
     chapter = epub.EpubHtml(title=safe_title, file_name='chapter.xhtml', lang=language)
+
+    # Sprint KINDLE-MATH: server-side LaTeX→MathML so math survives on JS-less
+    # e-readers (KaTeX runs only in the in-app reader/preview/PDF surfaces).
+    # EPUB_MATH_MODE='mathml' (default) transforms the math spans; 'off' is the
+    # kill-switch (today's passthrough), 'image' is the documented-but-unbuilt
+    # escape-hatch (also passthrough until the device smoke says MathML is bad).
+    math_mode = os.environ.get('EPUB_MATH_MODE', 'mathml')
+    has_math = False
+    if math_mode == 'mathml':
+        html_body, has_math = latex_spans_to_mathml(html_body)
+    if has_math:
+        # OPF manifest item must carry properties="mathml" for EPUB3 MathML.
+        # Attribute-append form only — EpubHtml(..., properties=[...]) raises
+        # TypeError. math-free EPUBs leave properties untouched → byte-stable.
+        chapter.properties.append('mathml')
+
     # render_markdown_to_html emits HTML5 (e.g. <br> not <br/>). ebooklib and
     # Amazon's converter are generally tolerant; if Kindle rendering misbehaves
     # in smoke, serialize html_body through an XHTML void-tag fixup here.
