@@ -24,6 +24,49 @@ Conversion.content (Markdown)
 screen. The existing PDF flow (`app_pkg/markdown.py`, via Playwright) is
 fixed-layout and reads poorly on a Kindle, so it is *not* reused here.
 
+## Math — server-side LaTeX→MathML (KINDLE-MATH)
+
+The shared renderer leaves math as class-tagged spans (`math-inline` /
+`math-display`) holding raw LaTeX, which **KaTeX renders client-side** in the
+in-app reader, the preview iframe, and the Playwright PDF. E-readers run no
+reliable JS, so in the EPUB those spans would stay as bare LaTeX text. The fix:
+a **server-side LaTeX→MathML pass at build time**, embedded as **EPUB3 MathML**.
+
+```
+render_markdown_to_html()             # math-inline / math-display spans, raw LaTeX
+  → epub_math.latex_spans_to_mathml() # one pass: spans → <math>, BEFORE the chapter
+  → epub_service.build_epub()         # OPF item gets properties="mathml"
+```
+
+- **MathML-first via pure-Python `latex2mathml`** (no Node, no TeX, no Playwright
+  in the request). MathML is correct, reflowable, font-scalable and
+  screen-reader-accessible on modern readers / Apple Books — and on Kindle never
+  *worse* than today's raw-LaTeX status quo.
+- **`EPUB_MATH_MODE`** (env, default `mathml`) gates and kill-switches the pass:
+  - `mathml` — transform spans to MathML (default).
+  - `off` — **kill-switch**: today's behavior, raw LaTeX spans pass through, no
+    code change needed.
+  - `image` — documented-but-**unbuilt** escape-hatch (a future Playwright→PNG
+    `<img>` path). Currently passthrough, same as `off`.
+- **Per-equation fallback is mandatory.** `latex2mathml.convert` *raises* on
+  broken/partial LaTeX (unlike KaTeX's `throwOnError:false`). A single bad
+  formula without try/except would crash the whole EPUB build → `502` on send.
+  On any exception the original span (visible raw LaTeX) is left in place — the
+  worst case is ugly math, never a failed send.
+- **`alttext`=LaTeX** on every `<math>` (accessibility / recovery floor).
+- Math-free bodies are returned **byte-identical** and get **no** `properties="mathml"`
+  on the OPF item → no regression vs. pre-KINDLE-MATH EPUBs.
+
+**Rejected:** in-file MathML + `altimg` / `epub:switch` (readers incl. Kindle
+ignore `altimg`; `epub:switch` is deprecated since EPUB 3.1).
+
+**Device smoke (the real done-gate):** pytest cannot render a device. After
+deploy, send a real math document to the Kindle (device **and** Kindle app) and
+check the MathML renders acceptably. If it renders badly, that triggers a
+separate **L follow-on** to build the `EPUB_MATH_MODE=image` path
+(Playwright + vendored KaTeX → PNG data-URI `<img>`, `alt`=LaTeX) — not part of
+KINDLE-MATH.
+
 ## One-time setup (Oli's steps)
 
 1. **Amazon — approve the sender.** Go to *Manage Your Content and Devices →
@@ -79,6 +122,12 @@ SMTP failures are logged (traceback only — never the password) and mapped to
 - `services/epub_service.py` — `build_epub(title, html_body, …) -> bytes`. Pure,
   network-free. An empty/None body still yields a valid EPUB (a placeholder
   paragraph avoids an `ebooklib`/lxml empty-document crash in the EPUB3 nav scan).
+  Runs the math pass under `EPUB_MATH_MODE` and sets `chapter.properties.append('mathml')`
+  when math was emitted (attribute form — `EpubHtml(..., properties=[...])` raises
+  `TypeError`).
+- `services/epub_math.py` — `latex_spans_to_mathml(html_body) -> (body, has_math)`.
+  Pure `str→(str, bool)` transform via `latex2mathml`; per-equation try/except keeps
+  a broken formula's visible raw-LaTeX span. No Flask/SMTP/EPUB.
 - `services/kindle_service.py` — `is_configured()` + `send_to_kindle(...)` (stdlib
   `smtplib` + `EmailMessage`, 20 s connection timeout).
 - `app_pkg/kindle.py` — the route (`register(app)`), wired in `app.py`.
