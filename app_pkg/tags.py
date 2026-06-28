@@ -9,7 +9,7 @@ highlight POST, conversion POST, the CSV migration helper — collapse
 """
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from models import Highlight, Tag, card_tags, conversion_tags, db, highlight_tags
 
@@ -30,6 +30,59 @@ def _tag_name_error():
     return jsonify({
         'error': f'Tag-Name fehlt oder ist zu lang (max {Tag.MAX_NAME_LEN} Zeichen).'
     }), 400
+
+
+# TAG-CLEANUP: die drei Junctions teilen alle die Tag-Rows. Jeder Reassign
+# (merge_tags ODER delete_tag mit reassign_to) muss alle drei umhängen.
+_TAG_JUNCTIONS = (
+    ('cards', card_tags, card_tags.c.card_id),
+    ('highlights', highlight_tags, highlight_tags.c.highlight_id),
+    ('conversions', conversion_tags, conversion_tags.c.conversion_id),
+)
+
+
+def _reassign_tag_refs(source_id, target_id):
+    """Dedup-then-repoint a source tag's junction rows onto a target tag,
+    across all three junctions (TAG-CLEANUP). Shared by merge_tags and
+    delete_tag(reassign_to=...).
+
+    Per junction: first DELETE the source rows whose object ALSO carries the
+    target tag — otherwise the repoint UPDATE would mint a duplicate / hit the
+    composite-PK constraint. Then UPDATE the surviving source rows onto the
+    target. SQLite runs without ``PRAGMA foreign_keys`` so the junctions are
+    handled explicitly (Memory reference_sqlite_no_fk_pragma_orm_delete).
+
+    Returns ``{'cards': {'moved': N, 'deduped': M}, 'highlights': {…},
+    'conversions': {…}}`` from the live statement ``rowcount`` — accurate even
+    in a dry-run that rolls back afterwards (counts are read before rollback)."""
+    out = {}
+    for key, junction, obj_col in _TAG_JUNCTIONS:
+        deduped = db.session.execute(
+            junction.delete()
+            .where(junction.c.tag_id == source_id)
+            .where(obj_col.in_(
+                select(obj_col).where(junction.c.tag_id == target_id)
+            ))
+        )
+        moved = db.session.execute(
+            junction.update()
+            .where(junction.c.tag_id == source_id)
+            .values(tag_id=target_id)
+        )
+        out[key] = {'moved': moved.rowcount, 'deduped': deduped.rowcount}
+    return out
+
+
+def _tag_object_counts(tag_id):
+    """The (cards, highlights, conversions) attach-count of a tag across the
+    three junctions. Used by delete_tag to drive the force-guard-rail."""
+    out = {}
+    for key, junction, _obj_col in _TAG_JUNCTIONS:
+        out[key] = db.session.execute(
+            select(func.count()).select_from(junction)
+            .where(junction.c.tag_id == tag_id)
+        ).scalar() or 0
+    return out
 
 
 def register(app):
@@ -147,6 +200,89 @@ def register(app):
         db.session.commit()
         return jsonify(tag.to_dict())
 
+    @app.route('/api/tags/merge', methods=['POST'])
+    def api_merge_tags():
+        # TAG-CLEANUP: destruktiver Merge — alle Refs von source auf target
+        # umhängen, source-Kinder → target reparenten, source löschen. Token-Gate
+        # (CARD_TOKEN), by-name Lookup-only (KEIN get_or_create — ein Merge
+        # konsolidiert auf ein BEKANNTES Kanon-Tag, kein Phantom-Ziel aus einem
+        # Tippfehler; Lookup-only hält den dry-run garantiert schreibfrei).
+        # Body {source, target, dry_run=true}. dry_run=true = DEFAULT (same-path-
+        # rollback → apply-treue Vorschau).
+        target_user, err = _authorize_agent_write()
+        if err:
+            return err
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        source_norm = Tag.normalize_name(data.get('source') or '')
+        target_norm = Tag.normalize_name(data.get('target') or '')
+        if not source_norm or not target_norm:
+            return _tag_name_error()
+        dry_run = data.get('dry_run', True)
+
+        # source == target nach Normalisierung → No-op (nichts zu mergen).
+        if source_norm == target_norm:
+            return jsonify({
+                'dry_run': bool(dry_run), 'applied': False,
+                'source': {'id': None, 'name': source_norm},
+                'target': {'id': None, 'name': target_norm},
+                'reassigned': {k: {'moved': 0, 'deduped': 0}
+                               for k in ('cards', 'highlights', 'conversions')},
+                'children_reparented': [], 'source_deleted': False,
+            }), 200
+
+        source = Tag.query.filter_by(user_id=target_user.id, name=source_norm).first()
+        if source is None:
+            return jsonify({'error': 'Quell-Tag nicht gefunden.'}), 404
+        target = Tag.query.filter_by(user_id=target_user.id, name=target_norm).first()
+        if target is None:
+            return jsonify({'error': 'Ziel-Tag nicht gefunden.'}), 404
+
+        # Zyklus-Guard: Ziel darf nicht echter Nachfahre der Quelle sein — sonst
+        # baute das Reparenten der Kinder (parent_id=target) eine Schleife.
+        if target.id in Tag.subtree_ids(source.id, target_user.id) and target.id != source.id:
+            return jsonify({
+                'error': 'Merge würde einen Zyklus erzeugen (Ziel liegt im '
+                         'Teilbaum der Quelle) — erst via set_tag_parent entwirren.'
+            }), 400
+
+        # IDs/Namen JETZT in Python-Werte ziehen — nach einem dry-run-Rollback
+        # sind die ORM-Objekte expired (Memory: vor Rollback kopieren).
+        source_id, source_name = source.id, source.name
+        target_id, target_name = target.id, target.name
+
+        counts = _reassign_tag_refs(source_id, target_id)
+
+        # Kinder → target reparenten (Guard garantiert target ∉ source-Teilbaum).
+        child_rows = db.session.execute(
+            select(Tag.id, Tag.name).where(Tag.parent_id == source_id)
+        ).all()
+        children_reparented = [{'id': cid, 'name': cname} for cid, cname in child_rows]
+        db.session.execute(
+            Tag.__table__.update()
+            .where(Tag.parent_id == source_id)
+            .values(parent_id=target_id)
+        )
+
+        db.session.delete(source)
+
+        if dry_run:
+            db.session.rollback()
+        else:
+            db.session.commit()
+
+        return jsonify({
+            'dry_run': bool(dry_run), 'applied': not dry_run,
+            'source': {'id': source_id, 'name': source_name},
+            'target': {'id': target_id, 'name': target_name},
+            'reassigned': counts,
+            'children_reparented': children_reparented,
+            'source_deleted': not dry_run,
+        }), 200
+
     @app.route('/api/highlights/<int:highlight_id>/tags', methods=['POST'])
     @login_required
     def api_attach_tag(highlight_id):
@@ -221,3 +357,4 @@ def register(app):
     # Token-authed, session-less write carries no CSRF cookie → waive CSRF for
     # THIS view only (the session reads/writes stay under the global CSRFProtect).
     app.extensions['csrf'].exempt(api_set_tag_parent)
+    app.extensions['csrf'].exempt(api_merge_tags)
