@@ -30,7 +30,8 @@ App runs on `localhost:5656`. Requires `.env` with `GEMINI_API_KEY`, `DEEPGRAM_A
 
 ## Gemini Models Used
 - **Script generation**: `gemini-2.5-flash`
-- **TTS**: `gemini-2.5-flash-preview-tts` / `gemini-2.5-pro-preview-tts`
+- **TTS — genai-Pfad (Alt-Podcast-Flow)**: `gemini-2.5-flash-preview-tts` / `gemini-2.5-pro-preview-tts`
+- **TTS — Cloud-TTS-Pfad (Treue-Narration, NARR-1B)**: `gemini-2.5-flash-tts` — **ohne** `-preview-`-Infix; der Cloud-`texttospeech`-Modellname **unterscheidet sich** vom genai-Namen. Default in `services/narration_render.py::DEFAULT_NARRATION_MODEL`, env-overridable via `NARRATION_TTS_MODEL`. ⚠️ **Live-Verify offen (Smoke-Gate)**: `gemini-2.5-flash-tts` vs `gemini-2.5-flash-preview-tts` ist am echten Endpoint final zu bestätigen; das setzt voraus, dass die **Cloud-Text-to-Speech-API im GCP-Projekt `podcasts-476919` aktiviert** ist (aktuell disabled → 403). Renderer ist defensiv (header-agnostisch, Modell konfigurierbar) → korrekt unabhängig von der Auflösung.
 
 ## Architecture Notes
 - Podcast generation is async: web enqueues job via Redis, worker processes it, result shared via `podcast_data` Docker volume.
