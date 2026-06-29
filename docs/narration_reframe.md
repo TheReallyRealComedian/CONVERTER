@@ -17,6 +17,8 @@ Der „brutale Hack" ist **nicht** Gemini, sondern CONVERTERs eigener Code:
 
 Gemini-TTS **rezitiert wörtlich** (Default) und kann **nativ ≤2 Speaker** — `MultiSpeakerVoiceConfig` ist in `services/gemini/synthesis.py`/`tts.py` **schon verdrahtet**. Der Fix ist primär **Löschen**, kein Plattform-Wechsel.
 
+> **Sequenz-Hinweis (wichtig)**: Der alte chatty-Flow **nutzt** `calculate_tag_guidance`/`format_dialogue_with_llm` bis zu seiner Stilllegung. Darum **baut NARR-1 den Treue-Pfad neu, ohne diese Funktionen aufzurufen** — **gelöscht** werden sie erst mit der Alt-Flow-Abschaltung in **NARR-5**. So bleibt jeder Sprint grün und der alte Flow läuft bis zur bewussten Abschaltung weiter.
+
 ## Gelockte Entscheidungen (Oli, 2026-06-28)
 
 - **Treue-Grad**: „treu, fürs Hören geglättet" — die **Glättung passiert beim Authoring** (Claude), Gemini **rezitiert das Skript verbatim**. Zwei Schichten, kein Widerspruch.
@@ -58,11 +60,11 @@ Speaker-Zuordnung ist **Daten** (kein `:`-Parsing); Performance-Tags sind **opti
 
 | Sprint | Größe | Inhalt |
 |---|---|---|
-| **NARR-1** | M | **Treue-Synth-Kern**: Turn-Liste → Audio über die schon-verdrahtete Multi-Speaker-Config; `calculate_tag_guidance` + `format_dialogue_with_llm` **gelöscht**; Größen-Chunking; pure-function-Tests. Kein Endpoint, keine Persistenz. |
+| **NARR-1** | M | **Treue-Synth-Kern**: **neuer** Treue-Render-Entry (Turn-Liste → Audio über die schon-verdrahtete Multi-Speaker-Config), der `calculate_tag_guidance`/`format_dialogue_with_llm` **nicht** aufruft; Größen-Chunking; pure-function-Tests. Alt-Funktionen + alter Flow **unberührt** (Löschung in NARR-5). Kein Endpoint, keine Persistenz. |
 | **NARR-2** | M | **Library-Persistenz**: `audio_narration`-Conversion + `metadata_json`-Kontrakt + Turn-Liste→Markdown; persistenter Audio-Pfad + Serve-Endpoint (owner-404, Traversal-Guard, **nicht** löschen-beim-Serve) + Delete-Cleanup-Hook. |
 | **NARR-3** | M | **Token-Endpoint + async**: `POST /api/narrations` (NARRATION_TOKEN, mirror `_authorize_card_write`, CSRF-exempt), Validierung, `pending`-Row sofort, `tasks.generate_narration_task` enqueue, Worker flippt ready/failed; `GET /api/narrations/<id>` Status. Auth-Matrix-Tests. |
 | **NARR-4** | S/M | **Claude-Skill + Agent-Docs**: `erklaerbaer-narration`-Skill (Turn-Kontrakt, Voice-Katalog aus `_GEMINI_VOICES`, Treue-Regel: near-verbatim + Glue, keine Paraphrase, spärliche Tags, 1–2 Speaker, POST+Poll). converter-mcp-Brief/Agent-Guide. |
-| **NARR-5** | S | **Library-UI-Player + alten Pfad stilllegen**: `<audio>`-Player für `audio_narration`, pending/failed/ready, Retry-aus-`metadata_json`; alter `/generate-gemini-podcast`-Paraphrase-Flow raus/abgeklemmt. Live-Smoke. |
+| **NARR-5** | S | **Library-UI-Player + alten Pfad stilllegen**: `<audio>`-Player für `audio_narration`, pending/failed/ready, Retry-aus-`metadata_json`; alter `/generate-gemini-podcast`-Paraphrase-Flow raus/abgeklemmt **+ die dann toten `calculate_tag_guidance`/`format_dialogue_with_llm` löschen**. Live-Smoke. |
 
 Abhängigkeit: 1 → 2 → 3 → (4, 5). NARR-1 ist der Einstieg.
 
