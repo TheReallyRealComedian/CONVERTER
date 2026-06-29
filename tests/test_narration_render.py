@@ -316,6 +316,51 @@ def test_render_multi_chunk_same_prompt_and_configs_each_chunk(cleanup_wavs):
         assert [(c.speaker_alias, c.speaker_id) for c in cfgs] == [('Speaker1', 'Kore'), ('Speaker2', 'Puck')]
 
 
+def test_render_single_speaker_chunk_in_two_speaker_piece_uses_text_path(cleanup_wavs):
+    """Per-chunk routing: a monolog chunk inside a 2-speaker piece goes text=.
+
+    A long single-speaker stretch fills a whole chunk; that chunk must render via
+    ``text=`` (no ``multi_speaker_markup`` with an unused alias). A later chunk
+    that mixes both speakers still uses the markup path. Voice identity is the
+    same ``voice_id`` across both paths.
+    """
+    client = _make_client()
+    anna = 'Wort ' * 400   # 2000 bytes
+    ben = 'Hallo ' * 166   # 996 bytes
+    turns = [
+        {'speaker': 'Anna', 'text': anna},  # chunk1 fills on Anna alone (2000)
+        {'speaker': 'Anna', 'text': anna},  # chunk2 starts on Anna (2000)...
+        {'speaker': 'Ben', 'text': ben},    # ...then adds Ben (2996 ≤ 3500)
+    ]
+    cleanup_wavs.append(render_turns(
+        client, turns, {'Anna': 'Kore', 'Ben': 'Puck'},
+        mode='two_speaker', style_prompt='ernst', pydub_available=False,
+    ))
+
+    assert client.synthesize_speech.call_count == 2
+
+    # Chunk 1: Anna-only → text= path, explicit voice name, no markup, no unused alias.
+    si0, voice0, _ = _call(client, 0)
+    assert si0.text.startswith('Wort ')
+    assert len(si0.multi_speaker_markup.turns) == 0
+    assert voice0.name == 'Kore'
+    assert len(voice0.multi_speaker_voice_config.speaker_voice_configs) == 0
+    assert si0.prompt == 'ernst'
+
+    # Chunk 2: Anna + Ben → markup path, both aliases declared *and used*.
+    si1, voice1, _ = _call(client, 1)
+    used_aliases = {t.speaker for t in si1.multi_speaker_markup.turns}
+    declared = {c.speaker_alias for c in voice1.multi_speaker_voice_config.speaker_voice_configs}
+    assert used_aliases == declared == {'Speaker1', 'Speaker2'}  # no unused alias
+    assert voice1.name == ''
+    assert si1.prompt == 'ernst'
+
+    # Voice identity preserved: Anna's text= voice == Anna's speaker_id in markup.
+    anna_id = {c.speaker_alias: c.speaker_id
+               for c in voice1.multi_speaker_voice_config.speaker_voice_configs}['Speaker1']
+    assert voice0.name == anna_id == 'Kore'
+
+
 # --- render_turns: WAV header-agnostic end-to-end (both fake shapes) ---
 
 def test_render_returns_valid_wav_from_raw_pcm(cleanup_wavs):
@@ -380,3 +425,27 @@ def test_render_empty_audio_leaves_no_temp_file(cleanup_wavs):
     # No new .wav temp files leaked by the failed render.
     leaked = [f for f in (after - before) if f.endswith('.wav')]
     assert leaked == []
+
+
+# --- GoogleTTSService.synthesize_narration entry (delegation) ---
+
+def test_synthesize_narration_entry_delegates_to_render_turns(cleanup_wavs):
+    from services.google_tts_service import GoogleTTSService
+
+    svc = GoogleTTSService.__new__(GoogleTTSService)  # skip real TextToSpeechClient construction
+    svc.client = _make_client()
+    svc.pydub_available = True
+
+    turns = [
+        {'speaker': 'Anna', 'text': 'Hallo.'},
+        {'speaker': 'Ben', 'text': 'Hi.'},
+    ]
+    cleanup_wavs.append(svc.synthesize_narration(
+        turns, {'Anna': 'Kore', 'Ben': 'Puck'}, style_prompt='warm'
+    ))
+
+    si, voice, _ = _call(svc.client)
+    cfgs = voice.multi_speaker_voice_config.speaker_voice_configs
+    assert [(c.speaker_alias, c.speaker_id) for c in cfgs] == [('Speaker1', 'Kore'), ('Speaker2', 'Puck')]
+    assert si.prompt == 'warm'
+    assert voice.model_name == narration_render.DEFAULT_NARRATION_MODEL  # default model wired

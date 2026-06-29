@@ -226,6 +226,52 @@ def _synthesize_with_retry(client, synthesis_input, voice, audio_config,
     raise last_error
 
 
+def _build_chunk_request(chunk, alias_for, voices, speaker_configs, *,
+                         style_prompt, language_code, model_name):
+    """Build ``(SynthesisInput, VoiceSelectionParams)`` for one chunk.
+
+    Routing is decided **per chunk** by the chunk's own distinct-speaker count,
+    not the piece's global count: a chunk that uses a single speaker renders via
+    the ``text=`` path (with an explicit ``name=`` voice), a chunk that uses two
+    renders via ``multi_speaker_markup``. This keeps a single-speaker chunk
+    inside a two-speaker piece — e.g. a long monolog that fills a whole chunk —
+    from declaring an alias in its ``MultiSpeakerVoiceConfig`` that the chunk's
+    markup never uses. Voice identity is preserved across both paths (the same
+    ``voice_id`` per speaker), and the style ``prompt`` rides on every chunk.
+    """
+    chunk_speakers = list(dict.fromkeys(t['speaker'] for t in chunk))
+
+    if len(chunk_speakers) == 1:
+        single_label = chunk_speakers[0]
+        # One speaker → join the chunk's turn texts into a single blob and
+        # render via text= with an explicit voice name (the NARR-1 fix).
+        text = "\n".join(t['text'] for t in chunk)
+        synthesis_input = texttospeech.SynthesisInput(text=text, prompt=style_prompt or None)
+        voice = texttospeech.VoiceSelectionParams(
+            language_code=language_code,
+            name=voices[single_label],
+            model_name=model_name,
+        )
+        return synthesis_input, voice
+
+    markup = texttospeech.MultiSpeakerMarkup(turns=[
+        texttospeech.MultiSpeakerMarkup.Turn(speaker=alias_for[t['speaker']], text=t['text'])
+        for t in chunk
+    ])
+    synthesis_input = texttospeech.SynthesisInput(
+        multi_speaker_markup=markup, prompt=style_prompt or None
+    )
+    # No name= here — name + multi_speaker_voice_config are mutually exclusive.
+    voice = texttospeech.VoiceSelectionParams(
+        language_code=language_code,
+        model_name=model_name,
+        multi_speaker_voice_config=texttospeech.MultiSpeakerVoiceConfig(
+            speaker_voice_configs=speaker_configs
+        ),
+    )
+    return synthesis_input, voice
+
+
 def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker',
                  language_code='de-DE', model_name=DEFAULT_NARRATION_MODEL,
                  pydub_available=True):
@@ -240,10 +286,13 @@ def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker'
             is the Gemini ``speaker_id`` (e.g. ``'Kore'``).
         style_prompt: Optional director's note → ``SynthesisInput.prompt`` (its
             own field; never concatenated into the transcript). Falsy → unset.
-        mode: ``'single_speaker'`` (exactly 1 label) or ``'two_speaker'`` (1–2).
-            Routing is by the actual distinct-speaker count: **exactly 1 distinct
-            speaker always renders via the single-speaker ``text=`` path**, even
-            in ``two_speaker`` mode (avoids a 1-voice multi-speaker config).
+        mode: ``'single_speaker'`` (exactly 1 label) or ``'two_speaker'`` (1–2);
+            validation only. **Synthesis routing is decided per chunk** by the
+            chunk's own distinct-speaker count (see ``_build_chunk_request``): a
+            chunk using one speaker renders via ``text=``, a chunk using two via
+            ``multi_speaker_markup``. So a single-speaker chunk inside a
+            two-speaker piece (e.g. a long monolog) never declares an unused
+            alias, and the NARR-1 single-speaker voice gap stays fixed.
         language_code: BCP-47 code (default ``'de-DE'``).
         model_name: Gemini-TTS model. **Required** to activate Gemini TTS; set on
             ``VoiceSelectionParams`` for both paths.
@@ -267,8 +316,6 @@ def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker'
     # an alias; it is only a join-key into ``alias_for`` / ``voices``.
     alias_for = {label: f"Speaker{i + 1}" for i, label in enumerate(distinct_speakers)}
 
-    is_single = len(distinct_speakers) == 1
-
     chunks = chunk_turns(norm_turns)
 
     audio_config = texttospeech.AudioConfig(
@@ -276,49 +323,24 @@ def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker'
         sample_rate_hertz=_SAMPLE_RATE_HZ,
     )
 
-    # The same speaker configs ride on every chunk (voice stability).
-    speaker_configs = None
-    if not is_single:
-        speaker_configs = [
-            texttospeech.MultispeakerPrebuiltVoice(
-                speaker_alias=alias_for[label], speaker_id=voices[label]
-            )
-            for label in distinct_speakers
-        ]
+    # Multi-speaker configs — declared once and identical on every multi-speaker
+    # chunk (voice stability). A two-speaker piece has exactly these two distinct
+    # speakers, so any chunk routed to the markup path uses both aliases; a chunk
+    # that uses only one routes to text= instead (no unused-alias declaration).
+    speaker_configs = [
+        texttospeech.MultispeakerPrebuiltVoice(
+            speaker_alias=alias_for[label], speaker_id=voices[label]
+        )
+        for label in distinct_speakers
+    ]
 
     chunk_files = []
     try:
         for chunk in chunks:
-            if is_single:
-                single_label = distinct_speakers[0]
-                # One speaker → join the chunk's turn texts into a single blob;
-                # render via text= with an explicit voice name (the NARR-1 fix).
-                text = "\n".join(t['text'] for t in chunk)
-                synthesis_input = texttospeech.SynthesisInput(text=text, prompt=style_prompt or None)
-                voice = texttospeech.VoiceSelectionParams(
-                    language_code=language_code,
-                    name=voices[single_label],
-                    model_name=model_name,
-                )
-            else:
-                markup = texttospeech.MultiSpeakerMarkup(turns=[
-                    texttospeech.MultiSpeakerMarkup.Turn(
-                        speaker=alias_for[t['speaker']], text=t['text']
-                    )
-                    for t in chunk
-                ])
-                synthesis_input = texttospeech.SynthesisInput(
-                    multi_speaker_markup=markup, prompt=style_prompt or None
-                )
-                # No name= here — name + multi_speaker_voice_config are mutually exclusive.
-                voice = texttospeech.VoiceSelectionParams(
-                    language_code=language_code,
-                    model_name=model_name,
-                    multi_speaker_voice_config=texttospeech.MultiSpeakerVoiceConfig(
-                        speaker_voice_configs=speaker_configs
-                    ),
-                )
-
+            synthesis_input, voice = _build_chunk_request(
+                chunk, alias_for, voices, speaker_configs,
+                style_prompt=style_prompt, language_code=language_code, model_name=model_name,
+            )
             audio_content = _synthesize_with_retry(client, synthesis_input, voice, audio_config)
             wav_bytes = pcm_to_wav_bytes(audio_content)
 
