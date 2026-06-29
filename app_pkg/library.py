@@ -19,6 +19,10 @@ ALLOWED_CONVERSION_TYPES = {
     'dialogue_formatting',
     'markdown_input',
     'ai_newsletter',
+    # NARR-2: generated faithful-narration audio is a first-class library
+    # element. content = the speaker-labelled transcript Markdown; the audio
+    # lives in metadata_json + OUTPUT_DIR/narration_<id>.wav (no schema touch).
+    'audio_narration',
 }
 
 # R2-C: lifecycle triage locations. Internal keys; DE labels (Inbox/Später/
