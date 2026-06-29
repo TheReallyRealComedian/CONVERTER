@@ -11,7 +11,7 @@ unstructured[all-docs]==0.18.32
 pdfminer.six==20251230
 PyMuPDF==1.24.1
 deepgram-sdk==7.1.0
-google-cloud-texttospeech==2.21.0
+google-cloud-texttospeech>=2.31.0  # NARR-1B: Gemini-TTS multi-speaker (MultiSpeakerMarkup ≥2.20, SynthesisInput.prompt ≥2.29, Gemini speaker types ≥2.30/2.31) — additiv über 2.21; Standard-Neural-Pfad unberührt
 google-genai>=1.0.0
 requests==2.33.0
 pydub==0.25.1
