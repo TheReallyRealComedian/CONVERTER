@@ -36,6 +36,7 @@ from app_pkg import kindle as kindle_module
 from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
+from app_pkg import narration as narration_module
 from app_pkg import podcasts as podcasts_module
 from app_pkg import tags as tags_module
 from app_pkg.integrations import notion as notion_module
@@ -78,6 +79,7 @@ ingest_module.register(app)
 tags_module.register(app)
 notion_module.register(app)
 podcasts_module.register(app)
+narration_module.register(app)
 
 
 asgi_app = WsgiToAsgi(app)

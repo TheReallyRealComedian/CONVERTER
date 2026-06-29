@@ -9,6 +9,7 @@ from flask_login import current_user, login_required
 
 from models import Conversion, Tag, conversion_tags, db
 from services.markdown_sections import derive_title, _is_degenerate_title
+from services.narration_library import delete_narration_audio
 
 from .markdown_render import render_markdown_to_html
 
@@ -548,8 +549,15 @@ def register(app):
     @login_required
     def api_delete_conversion(conversion_id):
         conversion = get_owned_conversion(conversion_id)
+        # NARR-2: an audio_narration has a persistent WAV alongside the row.
+        # Note the type *before* the delete; unlink the file *after* a
+        # successful commit (best-effort, traversal-guarded) — never mid-flush,
+        # so a failed delete can't orphan-then-rollback an already-removed file.
+        is_narration = conversion.conversion_type == 'audio_narration'
         db.session.delete(conversion)
         db.session.commit()
+        if is_narration:
+            delete_narration_audio(conversion_id)
         return jsonify({'success': True})
 
     @app.route('/api/conversions/<int:conversion_id>/progress', methods=['PATCH'])

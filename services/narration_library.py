@@ -19,6 +19,7 @@ This sprint builds only the persistence shell — nothing here generates audio.
 """
 import json
 import os
+from pathlib import Path
 
 from app_pkg.config import OUTPUT_DIR
 
@@ -174,3 +175,28 @@ def narration_status(conversion):
 def narration_audio_filename(conversion):
     """The stored ``audio_filename`` from a Conversion's metadata, ``''`` if absent."""
     return narration_metadata(conversion).get('audio_filename') or ''
+
+
+def delete_narration_audio(conversion_id):
+    """Best-effort, traversal-guarded unlink of a narration's audio file.
+
+    Resolves the path from the id (``narration_audio_path``, never user input),
+    confirms it stays within ``OUTPUT_DIR``, and unlinks it if present. Returns
+    ``True`` iff a file was actually removed.
+
+    Intended to be called **post-commit** by the delete route: the Conversion
+    row is already gone, so a missing / locked / out-of-tree file must never
+    raise — a leftover audio file is harmless, a thrown delete is not.
+    """
+    file_path = narration_audio_path(conversion_id)
+    try:
+        real_path = os.path.realpath(file_path)
+        output_real = os.path.realpath(OUTPUT_DIR)
+        if not Path(real_path).is_relative_to(Path(output_real)):
+            return False
+        if os.path.exists(real_path):
+            os.unlink(real_path)
+            return True
+    except Exception:
+        pass
+    return False
