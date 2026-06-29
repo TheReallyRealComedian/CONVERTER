@@ -17,6 +17,7 @@ from services.gemini.tts import (
     DEFAULT_TTS_MODEL,
     TTS_MODELS,
     generate_podcast as _generate_podcast,
+    synthesize_turns as _synthesize_turns,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,15 @@ class GeminiService:
     def generate_podcast(self, dialogue, language='en', tts_model=None):
         return _generate_podcast(
             self.client, dialogue,
+            language=language,
+            tts_model=tts_model,
+            pydub_available=self.pydub_available,
+        )
+
+    def synthesize_turns(self, turns, voices, *, mode='two_speaker', language='de', tts_model=None):
+        return _synthesize_turns(
+            self.client, turns, voices,
+            mode=mode,
             language=language,
             tts_model=tts_model,
             pydub_available=self.pydub_available,

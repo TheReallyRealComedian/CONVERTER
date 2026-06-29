@@ -57,7 +57,8 @@ INTER_CHUNK_DELAY = 1.0
 RATE_LIMIT_DELAY = 0.4
 
 
-def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_available=True):
+def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_available=True,
+                     voices=None, filter_metadata=True):
     """
     Generate multi-speaker podcast audio using Gemini TTS with automatic chunking for long podcasts.
 
@@ -67,6 +68,13 @@ def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_avai
         language: Language code
         tts_model: TTS model to use (default: gemini-2.5-flash-preview-tts)
         pydub_available: Whether to use PyDub for audio concat (False → wave fallback)
+        voices: Optional ``{label: voice_name}`` map decoupling the transcript
+            speaker label from the Gemini voice. ``None`` (default) keeps the
+            historical behaviour where the label *is* the voice name
+            (byte-identical for the old podcast flow).
+        filter_metadata: When ``True`` (default) drop URL/caption/short-line
+            metadata via ``filter_metadata_lines``. The faithful narration path
+            passes ``False`` so legitimate turns are never dropped (fidelity).
 
     Returns:
         str: Path to temporary WAV file (concatenated if chunked)
@@ -93,12 +101,13 @@ def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_avai
             continue
 
         if speaker not in seen_speakers:
+            voice_name = voices.get(speaker, speaker) if voices else speaker
             speaker_voice_configs.append(
                 types.SpeakerVoiceConfig(
                     speaker=speaker,
                     voice_config=types.VoiceConfig(
                         prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=speaker
+                            voice_name=voice_name
                         )
                     )
                 )
@@ -117,7 +126,8 @@ def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_avai
 
     # Filter and process with statistics
     raw_count = len(dialogue_lines)
-    dialogue_lines = filter_metadata_lines(dialogue_lines)
+    if filter_metadata:
+        dialogue_lines = filter_metadata_lines(dialogue_lines)
     filtered_count = raw_count - len(dialogue_lines)
     if filtered_count > 0:
         logger.info(f"Filtered out {filtered_count} metadata lines")
@@ -146,6 +156,87 @@ def generate_podcast(client, dialogue, language='en', tts_model=None, pydub_avai
         logger.info(f"  -> Multi-chunk erforderlich!")
         _set_stage('chunking')
         return _generate_with_chunking(client, dialogue_lines, speaker_voice_configs, tts_model, pydub_available)
+
+
+def synthesize_turns(client, turns, voices, *, mode='two_speaker', language='de',
+                     tts_model=None, pydub_available=True):
+    """Faithful narration entry: render a structured turn list to audio verbatim.
+
+    Unlike ``generate_podcast``'s historical callers, this path bypasses the
+    script-generation/tag machinery entirely — the agent (NARR-4) supplies the
+    turns directly. It validates the contract, maps turns onto the existing
+    synth shape, then delegates to ``generate_podcast`` with label→voice
+    decoupling on and the metadata filter **off** (fidelity: no turn dropped).
+
+    Args:
+        client: A configured ``google.genai.Client`` instance.
+        turns: Non-empty list of ``{'speaker': str, 'text': str}``. Performance
+            tags stay **inline** in ``text`` (e.g. ``"[ruhig] …"``) and are
+            passed through verbatim; there is no separate style field in v1.
+        voices: ``{label: voice_name}`` map; must cover every distinct speaker.
+        mode: ``'single_speaker'`` (exactly 1 distinct speaker) or
+            ``'two_speaker'`` (1–2 distinct speakers). Validation only — the
+            synth already branches on ``len(unique_speakers)``.
+        language: Language code (default ``'de'``).
+        tts_model: TTS model (``generate_podcast`` defaults it when falsy).
+        pydub_available: Whether PyDub is available for chunk concat.
+
+    Returns:
+        str: Path to temporary WAV file (concatenated if chunked).
+
+    Raises:
+        ValueError: on any contract violation (empty turns, blank
+            speaker/text, mode/speaker-count mismatch, ``voices`` not a dict
+            or not covering all speakers).
+    """
+    if mode not in ('single_speaker', 'two_speaker'):
+        raise ValueError(f"Unknown mode: {mode!r} (expected 'single_speaker' or 'two_speaker')")
+
+    if not isinstance(turns, list) or not turns:
+        raise ValueError("turns must be a non-empty list")
+
+    speakers = []
+    for i, turn in enumerate(turns):
+        if not isinstance(turn, dict):
+            raise ValueError(f"Turn {i} must be a dict with 'speaker' and 'text'")
+        speaker = turn.get('speaker')
+        text = turn.get('text')
+        if not isinstance(speaker, str) or not speaker.strip():
+            raise ValueError(f"Turn {i} has a missing or blank 'speaker'")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(f"Turn {i} has a missing or blank 'text'")
+        speakers.append(speaker)
+
+    # Distinct speakers, order-preserving.
+    distinct_speakers = list(dict.fromkeys(speakers))
+
+    if mode == 'single_speaker' and len(distinct_speakers) != 1:
+        raise ValueError(
+            f"single_speaker mode requires exactly 1 distinct speaker, got {len(distinct_speakers)}"
+        )
+    if mode == 'two_speaker' and not (1 <= len(distinct_speakers) <= 2):
+        raise ValueError(
+            f"two_speaker mode requires 1–2 distinct speakers, got {len(distinct_speakers)}"
+        )
+
+    if not isinstance(voices, dict):
+        raise ValueError("voices must be a dict mapping speaker label -> voice name")
+    missing = [s for s in distinct_speakers if s not in voices]
+    if missing:
+        raise ValueError(f"voices is missing an entry for speaker(s): {missing}")
+
+    # Map onto the synth shape. Tags stay inline in text; style stays empty so
+    # the transcript line is "{speaker}: {text}" with no extra bracketing.
+    dialogue = [{'speaker': t['speaker'], 'style': '', 'text': t['text']} for t in turns]
+
+    return generate_podcast(
+        client, dialogue,
+        language=language,
+        tts_model=tts_model,
+        pydub_available=pydub_available,
+        voices=voices,
+        filter_metadata=False,
+    )
 
 
 def _generate_with_chunking(client, dialogue_lines: List[Dict], speaker_voice_configs: List,
