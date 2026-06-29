@@ -68,8 +68,20 @@ Speaker-Zuordnung ist **Daten** (kein `:`-Parsing); Performance-Tags sind **opti
 
 Abhängigkeit: 1 → 2 → 3 → (4, 5). NARR-1 ist der Einstieg.
 
+## Plattform-Pfad: Gemini-API vs Cloud TTS (aus der Tag-Recherche 2026-06-28)
+
+Die Cowork-Tag-Recherche ([docs/narration_tag_doctrine.md](narration_tag_doctrine.md)) deckte einen Fork auf, der vorher nicht explizit war:
+
+- **CONVERTER nutzt heute den Gemini-API-Pfad** (`client.models.generate_content(model='gemini-2.5-flash-preview-tts', contents=…)`). Darauf gibt es **keine offiziellen Inline-Tags**; Stil-Steuerung läuft nur über einen Natural-Language-Prompt **im selben `contents`-String** → Prompt-Leakage-Risiko, wenn man Director's Notes voranstellt.
+- Der **Cloud-TTS/Vertex-Pfad** (`texttospeech`) trennt `prompt` strukturell vom `text`/`multiSpeakerMarkup`, hat dokumentierte Markup-Tags (Preview) und mappt sauber auf `[{speaker,text}]` (`MultiSpeakerMarkup.Turn`) — für eine Turn-Liste der *bessere* Pfad, aber eine **neue Integration**.
+
+**Korroboriert den Reframe**: die alten `[excited]`/`[pause]`-Inline-Tags des chatty-Flows lagen auf dem API-Pfad, der sie **nicht offiziell unterstützt** → mitgesprochen/ignoriert. Das war — neben der Tag-Arithmetik — ein **zweiter** Grund für „unkontrolliert".
+
+**Empfehlung (Master, Oli zu bestätigen) — v1 bleibt API-Pfad**: Für *treue* Vertonung ist der Styling-Bedarf laut Doktrin minimal — **Stimmwahl + sauberer verbatim Text + variable Turn-Längen + feste Voice-Map** tragen den Großteil (alles pfad-unabhängig/engine-allgemein). Inline-Tags + Director's-Notes-Prompts (die der API-Pfad schlecht trägt) sind **nicht v1**; der Cloud-Pfad ist die dokumentierte Eskalation, wenn der schlichte Treue-Output mehr Ausdruck braucht (parallel zum ElevenLabs-/Geräte-Smoke-Muster). **NARR-1 ist davon unberührt** (setzt `style=''`, reicht Text verbatim = exakt „keine Tags") → läuft weiter.
+
 ## Bewusst später / nicht v1
 
+- **Cloud-TTS/Vertex-Pfad** (`prompt`/`text`-Trennung + dokumentierte Markup-Tags + Director's-Notes-Prompts) — Voraussetzung für *gesteuerte* Sprecher-Gestaltung (Pausen-Tags, pro-Sprecher-Direktiven). Neue Integration → nur, wenn der schlichte v1-Treue-Output zu flach klingt. Doktrin steht bereits: [narration_tag_doctrine.md](narration_tag_doctrine.md).
 - **ElevenLabs** (Text-to-Dialogue) — Render-Schicht-Swap, falls Stimmqualität der bindende Frust wird. Strukturierte Turns nativ; Kosten ~$22/mo + Verbatim-Guardrail (kann ad-libben). Die Turn-Liste macht den Swap billig.
 - **Azure Batch + SSML `<voice>`** — die **einzige** Option, die Chunk-Nähte ganz killt (ein Job pro Doc). Neuer Stack + SSML-Authoring → nur, falls die Concat-Nähte real stören.
 - **Pro-TTS als Default**, **harter Verbatim-Gate** — bewusst nicht v1.
