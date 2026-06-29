@@ -3,6 +3,8 @@
 > **Status**: vorbereitet 2026-06-28 (Workshop Oli + Master, recherche-gestützt). Kohärenter Entwurf, **phasiert** in 5 Sprints (NARR-1…5) geliefert. Dieses Doc ist die **Referenz**, die die Sprint-Prompts zitieren — nicht jeder Sprint leitet die Architektur neu her.
 >
 > **Recherche-Grundlage**: Workflow `podcast-tts-platform-research` (7 Agenten, Gemini/ElevenLabs/OpenAI/Azure/Deepgram). Kern-Code-Anker unten sind **Master-verifiziert** (existieren real); jedes Sprint-Prompt macht zusätzlich file-level-Grounding beim Schreiben.
+>
+> **Pivot 2026-06-29**: v1-Render-Engine = **Gemini-TTS über den Cloud-TTS-Pfad** (`google-cloud-texttospeech` ≥2.31.0), **nicht** der Gemini-API-Pfad — s. §Plattform-Pfad + Grounding-Workflow `cloud-gemini-tts-api-grounding`. NARR-1 P1 (Kontrakt/Validierung/Facade) bleibt gültig; der Renderer kommt in **NARR-1B**.
 
 ## Worum es geht
 
@@ -15,7 +17,7 @@ Der „brutale Hack" ist **nicht** Gemini, sondern CONVERTERs eigener Code:
 - **`services/gemini/prompts.py`**-Prompts „Transform the source … do NOT just summarize or rephrase" + **`services/gemini/script.py::format_dialogue_with_llm`** (ruft `gemini-2.5-flash` zum *Paraphrasieren*). **Stirbt** im Treue-Pfad.
 - **`services/gemini/dialogue.py::parse_dialogue`** (`line.split(':', 1)`) — fragiler „Name:"-Parser. **Ersetzt** durch strukturierte Daten.
 
-Gemini-TTS **rezitiert wörtlich** (Default) und kann **nativ ≤2 Speaker** — `MultiSpeakerVoiceConfig` ist in `services/gemini/synthesis.py`/`tts.py` **schon verdrahtet**. Der Fix ist primär **Löschen**, kein Plattform-Wechsel.
+Gemini-TTS **rezitiert wörtlich** (Default) und kann **nativ ≤2 Speaker**. Der Kern-Fix ist **Löschen** der Skript-Gen/Tag-Arithmetik (oben) — *plus* (Pivot 2026-06-29) der Render-Engine-Wechsel vom Gemini-API-Pfad auf den **Cloud-TTS-Pfad**, der Turns/`prompt`/Voice strukturell sauber trennt (s. §Plattform-Pfad). Die alte `MultiSpeakerVoiceConfig`-Verdrahtung im API-Pfad bleibt für den Alt-Flow.
 
 > **Sequenz-Hinweis (wichtig)**: Der alte chatty-Flow **nutzt** `calculate_tag_guidance`/`format_dialogue_with_llm` bis zu seiner Stilllegung. Darum **baut NARR-1 den Treue-Pfad neu, ohne diese Funktionen aufzurufen** — **gelöscht** werden sie erst mit der Alt-Flow-Abschaltung in **NARR-5**. So bleibt jeder Sprint grün und der alte Flow läuft bis zur bewussten Abschaltung weiter.
 
@@ -24,14 +26,14 @@ Gemini-TTS **rezitiert wörtlich** (Default) und kann **nativ ≤2 Speaker** —
 - **Treue-Grad**: „treu, fürs Hören geglättet" — die **Glättung passiert beim Authoring** (Claude), Gemini **rezitiert das Skript verbatim**. Zwei Schichten, kein Widerspruch.
 - **Alter chatty-Modus**: **ersetzt** (raus). Ein klarer Modus.
 - **Scope**: kohärenter Entwurf, **phasierte** Lieferung (5 Sprints), jeder grün.
-- **Plattform v1**: **Gemini-reframed** (null Migration, verbatim-by-default, ≤2 Speaker schon verdrahtet, billigste Schiene). Die Turn-Listen-Architektur ist **plattform-neutral** → ElevenLabs ist ein späterer **Render-Schicht-Swap**, falls Stimmqualität (nicht Treue) der echte Frust wird.
+- **Plattform v1**: **Gemini-TTS über den Cloud-TTS-Pfad** (`google-cloud-texttospeech` ≥2.31.0 — Pivot 2026-06-29, s. §Plattform-Pfad). Native `multi_speaker_markup` + separates `prompt`-Feld + `MultispeakerPrebuiltVoice(speaker_alias, speaker_id)` → Label↔Voice nativ, Director's-Notes ohne Leakage, dokumentierte Tags. Turn-Listen-Architektur bleibt plattform-neutral → ElevenLabs späterer **Render-Schicht-Swap**, falls Stimmqualität (nicht Treue) der Frust wird.
 - **Defaults**: Flash als Default (Pro opt-in pro Vertonung); Chunk-Nähte für v1 akzeptiert; Treue = Skill-Kontrakt + leichter Server-Sanity-Check, **kein** harter Verbatim-Gate (würde die gewollte Glue verbieten).
 
 ## Architektur (vier Schichten)
 
 1. **Authoring (Claude-Skill, lebt in Claude, nicht CONVERTER)** — liest den Doc, schreibt die treue, geglättete **Turn-Liste**, mappt Speaker → Gemini-Voice, POSTet an CONVERTER. *Die Intelligenz lebt hier.*
 2. **Token-Endpoint (CONVERTER)** — `POST /api/narrations`, Bearer `NARRATION_TOKEN` (Spiegel von `CARD_TOKEN`), CSRF-exempt, fail-closed, async via bestehenden RQ-Worker.
-3. **Render (CONVERTER)** — empfängt die Turn-Liste, baut `MultiSpeakerVoiceConfig` (schon da), **Größen-Chunking** (nie Tag-Zahl), bestehende pydub-Concat. **Kein** server-seitiges Paraphrasieren, **keine** Tag-Arithmetik.
+3. **Render (CONVERTER)** — empfängt die Turn-Liste, rendert über den **Cloud-TTS-Pfad** (`google-cloud-texttospeech` ≥2.31.0: `SynthesisInput.multi_speaker_markup`-Turns + `prompt` + `MultispeakerPrebuiltVoice(speaker_alias=Label, speaker_id=Voice)`, Modell `gemini-2.5-flash-tts`), **Byte-Chunking** (≤4000 Bytes/Markup, nie Tag-Zahl) + Concat → WAV. **Kein** server-seitiges Paraphrasieren, **keine** Tag-Arithmetik.
 4. **Persistenz (CONVERTER)** — Audio wird erstklassiges Library-Element.
 
 ### Der Turn-Listen-Kontrakt (plattform-neutral)
@@ -40,7 +42,7 @@ Gemini-TTS **rezitiert wörtlich** (Default) und kann **nativ ≤2 Speaker** —
 {
   "title": "Wie funktioniert FSRS?",
   "language": "de",
-  "tts_model": "gemini-2.5-flash-preview-tts",
+  "tts_model": "gemini-2.5-flash-tts",
   "mode": "two_speaker",
   "voices": { "Anna": "Kore", "Ben": "Puck" },
   "turns": [
@@ -60,13 +62,14 @@ Speaker-Zuordnung ist **Daten** (kein `:`-Parsing); Performance-Tags sind **opti
 
 | Sprint | Größe | Inhalt |
 |---|---|---|
-| **NARR-1** | M | **Treue-Synth-Kern**: **neuer** Treue-Render-Entry (Turn-Liste → Audio über die schon-verdrahtete Multi-Speaker-Config), der `calculate_tag_guidance`/`format_dialogue_with_llm` **nicht** aufruft; Größen-Chunking; pure-function-Tests. Alt-Funktionen + alter Flow **unberührt** (Löschung in NARR-5). Kein Endpoint, keine Persistenz. |
+| **NARR-1** ✅ | M | **Treue-Synth-Kontrakt** (P1 done `d419271`): `synthesize_turns`-Entry + Validierung (mode/Speaker-Zahl/voices-Abdeckung) + `GeminiService`-Facade + 14 Tests; `voices`/`filter_metadata`-Params an `generate_podcast` (alter Flow byte-identisch). **Kontrakt/Validierung/Facade werden in NARR-1B wiederverwendet**; der API-Pfad-Renderer darunter wird durch den Cloud-Renderer ersetzt. (P2-Wrap entfällt — Master absorbiert wegen Pivot.) |
+| **NARR-1B** | M | **Cloud-Gemini-TTS-Renderer** (Pivot 2026-06-29): Dep-Bump `google-cloud-texttospeech` 2.21.0→≥2.31.0; neuer Renderer über `SynthesisInput.multi_speaker_markup` + `prompt` + `MultiSpeakerVoiceConfig`/`MultispeakerPrebuiltVoice(speaker_alias=Label, speaker_id=Voice)`, Modell `gemini-2.5-flash-tts`, Byte-Chunking + Concat → WAV; `synthesize_turns` daran verdrahten. **Backward-Compat des bestehenden Standard-Neural-`GoogleTTSService`** mit-verifizieren. Tests am SDK-Boundary. Exakte API: Grounding-Workflow `cloud-gemini-tts-api-grounding`. |
 | **NARR-2** | M | **Library-Persistenz**: `audio_narration`-Conversion + `metadata_json`-Kontrakt + Turn-Liste→Markdown; persistenter Audio-Pfad + Serve-Endpoint (owner-404, Traversal-Guard, **nicht** löschen-beim-Serve) + Delete-Cleanup-Hook. |
 | **NARR-3** | M | **Token-Endpoint + async**: `POST /api/narrations` (NARRATION_TOKEN, mirror `_authorize_card_write`, CSRF-exempt), Validierung, `pending`-Row sofort, `tasks.generate_narration_task` enqueue, Worker flippt ready/failed; `GET /api/narrations/<id>` Status. Auth-Matrix-Tests. |
 | **NARR-4** | S/M | **Claude-Skill + Agent-Docs**: `erklaerbaer-narration`-Skill (Turn-Kontrakt, Voice-Katalog aus `_GEMINI_VOICES`, Treue-Regel: near-verbatim + Glue, keine Paraphrase, spärliche Tags, 1–2 Speaker, POST+Poll). converter-mcp-Brief/Agent-Guide. |
 | **NARR-5** | S | **Library-UI-Player + alten Pfad stilllegen**: `<audio>`-Player für `audio_narration`, pending/failed/ready, Retry-aus-`metadata_json`; alter `/generate-gemini-podcast`-Paraphrase-Flow raus/abgeklemmt **+ die dann toten `calculate_tag_guidance`/`format_dialogue_with_llm` löschen**. Live-Smoke. |
 
-Abhängigkeit: 1 → 2 → 3 → (4, 5). NARR-1 ist der Einstieg.
+Abhängigkeit: 1 ✅ → **1B** → 2 → 3 → (4, 5). NARR-1B (Cloud-Renderer) ist der nächste Sprint.
 
 ## Plattform-Pfad: Gemini-API vs Cloud TTS (aus der Tag-Recherche 2026-06-28)
 
@@ -77,11 +80,10 @@ Die Cowork-Tag-Recherche ([docs/narration_tag_doctrine.md](narration_tag_doctrin
 
 **Korroboriert den Reframe**: die alten `[excited]`/`[pause]`-Inline-Tags des chatty-Flows lagen auf dem API-Pfad, der sie **nicht offiziell unterstützt** → mitgesprochen/ignoriert. Das war — neben der Tag-Arithmetik — ein **zweiter** Grund für „unkontrolliert".
 
-**Empfehlung (Master, Oli zu bestätigen) — v1 bleibt API-Pfad**: Für *treue* Vertonung ist der Styling-Bedarf laut Doktrin minimal — **Stimmwahl + sauberer verbatim Text + variable Turn-Längen + feste Voice-Map** tragen den Großteil (alles pfad-unabhängig/engine-allgemein). Inline-Tags + Director's-Notes-Prompts (die der API-Pfad schlecht trägt) sind **nicht v1**; der Cloud-Pfad ist die dokumentierte Eskalation, wenn der schlichte Treue-Output mehr Ausdruck braucht (parallel zum ElevenLabs-/Geräte-Smoke-Muster). **NARR-1 ist davon unberührt** (setzt `style=''`, reicht Text verbatim = exakt „keine Tags") → läuft weiter.
+**Entscheidung (Oli, 2026-06-29) — v1 = Cloud-TTS-Pfad (Pivot, „gleich richtig machen")**: Master-verifiziert, dass `google-cloud-texttospeech` **≥2.31.0** Gemini-TTS nativ kann — `SynthesisInput.multi_speaker_markup` (strukturierte Turns) + separates `prompt`-Feld + `MultispeakerPrebuiltVoice(speaker_alias=Label, speaker_id=Voice)` + Modelle `gemini-2.5-flash-tts`/`pro-tts`. Das löst **drei** Dinge auf einmal, die der API-Pfad nicht konnte: **native Label↔Voice-Trennung** (auch Single-Speaker korrekt — behebt den NARR-1-P1-Single-Speaker-Gap nativ), **Director's-Notes ohne Leakage** (`prompt` strukturell vom Transkript getrennt), **dokumentierte Tags**. Infra größtenteils da (Credentials, SDK installiert, `GoogleTTSService`-Pattern) → Kosten = **Dep-Bump 2.21.0→≥2.31.0** + ein neuer Cloud-Renderer. **NARR-1 P1 bleibt gültig** (Kontrakt/Validierung/Facade wiederverwendet); nur der Renderer darunter wechselt → **NARR-1B**. Exakte API: Grounding-Workflow `cloud-gemini-tts-api-grounding`.
 
 ## Bewusst später / nicht v1
 
-- **Cloud-TTS/Vertex-Pfad** (`prompt`/`text`-Trennung + dokumentierte Markup-Tags + Director's-Notes-Prompts) — Voraussetzung für *gesteuerte* Sprecher-Gestaltung (Pausen-Tags, pro-Sprecher-Direktiven). Neue Integration → nur, wenn der schlichte v1-Treue-Output zu flach klingt. Doktrin steht bereits: [narration_tag_doctrine.md](narration_tag_doctrine.md).
 - **ElevenLabs** (Text-to-Dialogue) — Render-Schicht-Swap, falls Stimmqualität der bindende Frust wird. Strukturierte Turns nativ; Kosten ~$22/mo + Verbatim-Guardrail (kann ad-libben). Die Turn-Liste macht den Swap billig.
 - **Azure Batch + SSML `<voice>`** — die **einzige** Option, die Chunk-Nähte ganz killt (ein Job pro Doc). Neuer Stack + SSML-Authoring → nur, falls die Concat-Nähte real stören.
 - **Pro-TTS als Default**, **harter Verbatim-Gate** — bewusst nicht v1.
