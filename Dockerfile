@@ -17,6 +17,16 @@ RUN apt-get update && apt-get install -y \
     ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
+# CPU-only PyTorch: the CUDA wheels pulled transitively by unstructured (torch +cu130
+# plus the nvidia-*-cu13 stack, ~3.9 GB) are dead weight — the container has no GPU
+# passthrough and the extraction path is ML-free (partition strategy="fast"; PDFs go via
+# Gemini). Pinning the +cpu build BEFORE the requirements install means unstructured finds
+# torch already satisfied and never pulls the CUDA variant. Use +cpu explicitly with
+# --extra-index-url (not --index-url, which would drop torch's runtime deps from PyPI).
+RUN pip install --no-cache-dir --timeout=600 --retries=5 \
+    torch==2.12.1+cpu torchvision==0.27.1+cpu \
+    --extra-index-url https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
 
 # Install Python dependencies
