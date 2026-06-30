@@ -244,7 +244,8 @@ def register(app):
 
         metadata = build_narration_metadata(
             conversion.id, status=NARRATION_STATUS_PENDING,
-            tts_model=tts_model, speakers=voices, transcript=turns)
+            tts_model=tts_model, speakers=voices, transcript=turns,
+            mode=mode, style_prompt=style_prompt, language_code=language_code)
         conversion.metadata_json = json.dumps(metadata)
         db.session.commit()
 
@@ -329,7 +330,66 @@ def register(app):
             download_name=f'narration_{conversion_id}.wav',
         )
 
+    @app.route('/api/narrations/<int:conversion_id>/retry', methods=['POST'])
+    @login_required
+    def api_narration_retry(conversion_id):
+        """Re-enqueue a failed narration's render from its stored inputs (NARR-5).
+
+        Session-authed and **CSRF-protected** (Oli clicks "Erneut versuchen" in
+        the library-detail UI — no token, no agent call), owner-404 + wrong-type
+        404 (no type leak). Only a ``failed`` narration is retryable (409
+        otherwise: ``pending`` is already in flight, ``ready`` needs no retry).
+        Re-enqueues ``generate_narration_task`` from the persisted render inputs
+        (transcript / speakers / mode / style_prompt / language_code / tts_model)
+        and flips metadata back to ``pending`` with the new job_id; the existing
+        reconcile-on-poll path then drives it to ``ready``/``failed`` as usual.
+        Pre-NARR-5 rows lack mode/style/language → fall back (mode from speaker
+        count, no style, default language).
+        """
+        conversion = get_owned_conversion(conversion_id)  # owner-404
+
+        if conversion.conversion_type != 'audio_narration':
+            return jsonify({'error': 'Vertonung nicht gefunden.'}), 404
+
+        # Gate on the stored status: the UI only exposes retry once a poll has
+        # reconciled the row to 'failed', so no reconcile is needed here.
+        if narration_status(conversion) != NARRATION_STATUS_FAILED:
+            return jsonify({
+                'error': 'Nur fehlgeschlagene Vertonungen können erneut versucht werden.'
+            }), 409
+
+        metadata = narration_metadata(conversion)
+        turns = metadata.get('transcript') or []
+        voices = metadata.get('speakers') or {}
+        style_prompt = metadata.get('style_prompt')
+        tts_model = metadata.get('tts_model') or DEFAULT_NARRATION_MODEL
+        language_code = metadata.get('language_code') or DEFAULT_LANGUAGE_CODE
+        # Pre-NARR-5 rows stored no mode → derive from the speaker count
+        # (validate_turns held mode↔count consistent at create time, and the
+        # renderer routes single/multi per-chunk by the chunk's own speakers).
+        mode = metadata.get('mode') or (
+            'two_speaker' if len(voices) >= 2 else 'single_speaker')
+
+        job = _app_module.task_queue.enqueue(
+            generate_narration_task,
+            conversion.id, turns, voices, style_prompt, mode, language_code, tts_model,
+            meta={'user_id': conversion.user_id, 'conversion_id': conversion.id},
+            job_timeout=TIMEOUT_RQ_JOB_SECONDS,
+        )
+
+        # Back to pending: clear the prior error + stale duration, point reconcile
+        # at the new job. Same two-field reset the create path writes.
+        metadata['narration_status'] = NARRATION_STATUS_PENDING
+        metadata['error'] = None
+        metadata['duration_seconds'] = None
+        metadata['job_id'] = job.id
+        conversion.metadata_json = json.dumps(metadata)
+        db.session.commit()
+
+        app.logger.info(f"Narration retry job {job.id} queued for conversion {conversion.id}")
+        return jsonify({'status': NARRATION_STATUS_PENDING, 'job_id': job.id}), 202
+
     # Session-less, token-authed write has no CSRF cookie → waive CSRF for THIS
     # view only (same posture as Ingest / the Card writes). The session-authed
-    # serve route stays under CSRF.
+    # serve + retry routes stay under CSRF.
     app.extensions['csrf'].exempt(api_create_narration)

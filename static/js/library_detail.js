@@ -1622,6 +1622,144 @@ function renderMath() {
     });
 }
 
+// --- NARR-5: Audio-Player für die Vertonung (audio_narration) ---
+// Nur auf audio_narration-Detailseiten aktiv. Pollt /api/narrations/<id>
+// (NARR-3-Status, server-rekonziliert) und schaltet die drei Zustände um:
+// pending → Spinner, ready → <audio> + Meta, failed → Fehler + Retry. Der
+// Initial-State kommt aus PageData.narration (kein Spinner-Flash für schon
+// fertige Vertonungen); danach übernimmt der Poll bei pending.
+const NARRATION_POLL_MS = 3000;
+let narrationPollTimer = null;
+
+function narrationFormatDuration(seconds) {
+    const s = Number(seconds);
+    if (!Number.isFinite(s) || s <= 0) return '';
+    if (s < 60) return `${Math.round(s)} Sek.`;
+    const m = Math.floor(s / 60);
+    const rem = Math.round(s % 60);
+    return `${m}:${String(rem).padStart(2, '0')} min`;
+}
+
+function narrationSetBlock(which) {
+    // which ∈ {'pending','ready','failed'} — zeigt genau einen der drei Blöcke.
+    ['pending', 'ready', 'failed'].forEach(name => {
+        const el = document.getElementById(`narration-player-${name}`);
+        if (el) el.hidden = (name !== which);
+    });
+}
+
+function narrationStopPolling() {
+    if (narrationPollTimer !== null) {
+        clearTimeout(narrationPollTimer);
+        narrationPollTimer = null;
+    }
+}
+
+function narrationSchedulePoll() {
+    narrationStopPolling();
+    narrationPollTimer = setTimeout(narrationPoll, NARRATION_POLL_MS);
+}
+
+function narrationShowReady(meta) {
+    narrationStopPolling();
+    const audio = document.getElementById('narration-player-audio');
+    // src erst hier setzen (preload="none" lädt nichts bis Play) und nur einmal,
+    // damit ein wiederholtes Ready-Render den Ladevorgang nicht neu anstößt.
+    if (audio && !audio.src) {
+        audio.src = `/api/narrations/${CONVERSION_ID}/audio`;
+    }
+    const metaEl = document.getElementById('narration-player-meta');
+    if (metaEl) {
+        const parts = [];
+        const dur = narrationFormatDuration(meta && meta.duration_seconds);
+        if (dur) parts.push(`Dauer: ${dur}`);
+        const speakers = meta && meta.speakers;
+        if (speakers && typeof speakers === 'object') {
+            const names = Object.keys(speakers);
+            if (names.length) parts.push(`Stimmen: ${names.join(', ')}`);
+        }
+        metaEl.textContent = parts.join(' · ');
+    }
+    narrationSetBlock('ready');
+}
+
+function narrationShowFailed(meta) {
+    narrationStopPolling();
+    const errEl = document.getElementById('narration-player-error');
+    if (errEl) {
+        const msg = (meta && meta.error) ? String(meta.error) : 'Vertonung fehlgeschlagen.';
+        // Der Server-Fehler kann ein langes/mehrzeiliges exc_info sein —
+        // die erste Zeile (gekappt) reicht als UI-Text.
+        errEl.textContent = msg.split('\n')[0].slice(0, 300);
+    }
+    narrationSetBlock('failed');
+}
+
+function narrationRenderState(meta) {
+    const status = meta && meta.narration_status;
+    if (status === 'ready') {
+        narrationShowReady(meta);
+    } else if (status === 'failed') {
+        narrationShowFailed(meta);
+    } else {
+        narrationSetBlock('pending');
+        narrationSchedulePoll();
+    }
+}
+
+async function narrationPoll() {
+    let resp;
+    try {
+        resp = await fetch(`/api/narrations/${CONVERSION_ID}`);
+    } catch (_) {
+        narrationSchedulePoll();  // Netzwerk-Blip — weiter pollen (Reconcile fängt tote Jobs ab).
+        return;
+    }
+    if (!resp.ok) {
+        narrationSchedulePoll();
+        return;
+    }
+    let data;
+    try {
+        data = await resp.json();
+    } catch (_) {
+        narrationSchedulePoll();
+        return;
+    }
+    narrationRenderState(data.metadata || {});
+}
+
+async function narrationRetry() {
+    const btn = document.getElementById('narration-player-retry');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sende …'; }
+    const restore = () => { if (btn) { btn.disabled = false; btn.textContent = 'Erneut versuchen'; } };
+    let resp;
+    try {
+        resp = await fetch(`/api/narrations/${CONVERSION_ID}/retry`, { method: 'POST' });
+    } catch (_) {
+        showToast('Erneut versuchen fehlgeschlagen. Verbindung prüfen.', { level: 'danger' });
+        restore();
+        return;
+    }
+    if (resp.ok) {
+        narrationSetBlock('pending');
+        narrationSchedulePoll();
+        showToast('Vertonung wird erneut erstellt.');
+    } else {
+        showToast(withServerSuffix('Erneut versuchen fehlgeschlagen.', resp.status), { level: 'danger' });
+    }
+    restore();
+}
+
+function initNarrationPlayer() {
+    if (window.PageData.conversionType !== 'audio_narration') return;
+    if (!document.getElementById('narration-player')) return;
+    const retryBtn = document.getElementById('narration-player-retry');
+    if (retryBtn) retryBtn.addEventListener('click', narrationRetry);
+    // Initial-State aus dem Seed rendern; bei pending läuft der Poll an.
+    narrationRenderState(window.PageData.narration || {});
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     renderMath();
     setupAutoSaveTracking();
@@ -1632,6 +1770,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDetailSidebarToggle();
     initFinishBackLink();
     initLibraryReader();
+    initNarrationPlayer();
 });
 
 window.updateField = updateField;

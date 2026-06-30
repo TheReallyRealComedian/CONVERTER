@@ -19,6 +19,7 @@
                 <span class="type-badge type-{{ conversion.conversion_type }}">
                     {% if conversion.conversion_type == 'document_to_markdown' %}Dokument
                     {% elif conversion.conversion_type == 'audio_transcription' %}Audio
+                    {% elif conversion.conversion_type == 'audio_narration' %}Vertonung
                     {% elif conversion.conversion_type == 'dialogue_formatting' %}Dialog
                     {% elif conversion.conversion_type == 'markdown_input' %}Markdown
                     {% elif conversion.conversion_type == 'ai_newsletter' %}AI-Newsletter
@@ -56,6 +57,25 @@
                     <button type="button" id="kindle-send-btn" class="c-btn text-xs py-1.5 px-3" onclick="sendToKindle()">An Kindle</button>
                     <button type="button" id="delete-btn" class="c-btn c-btn--danger text-xs py-1.5 px-3" onclick="deleteConversion()">Löschen</button>
                 </div>
+                {% if conversion.conversion_type == 'audio_narration' %}
+                <!-- NARR-5: Audio-Player für die Vertonung. Sitzt über dem Transkript-
+                     Reader, hide im Reader-Mode (library-reader-hide). JS (initNarrationPlayer)
+                     pollt /api/narrations/<id> und schaltet zwischen pending/ready/failed. -->
+                <div class="c-surface narration-player library-reader-hide" id="narration-player" aria-label="Vertonung">
+                    <div class="narration-player__pending" id="narration-player-pending">
+                        <span class="narration-player__spinner" aria-hidden="true"></span>
+                        <span class="narration-player__pending-text">Wird vertont …</span>
+                    </div>
+                    <div class="narration-player__ready" id="narration-player-ready" hidden>
+                        <audio class="narration-player__audio" id="narration-player-audio" controls preload="none"></audio>
+                        <p class="narration-player__meta" id="narration-player-meta"></p>
+                    </div>
+                    <div class="narration-player__failed" id="narration-player-failed" hidden>
+                        <p class="narration-player__error" id="narration-player-error">Vertonung fehlgeschlagen.</p>
+                        <button type="button" class="c-btn c-btn--primary text-xs py-1.5 px-3" id="narration-player-retry">Erneut versuchen</button>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="c-surface relative" id="content-body">
                     <div class="reading-progress reading-progress--hidden" aria-hidden="true">
                         <div class="reading-progress__fill" id="reading-progress-fill"></div>
@@ -249,7 +269,11 @@
         downloadFilename: '{{ conversion.title|e }}.txt',
         defaultNotionTarget: '{{ "meetings" if conversion.conversion_type == "audio_transcription" else "notes" }}',
         conversionTags: {{ conversion_tag_refs | tojson }},
-        lastReadPercent: {{ conversion.last_read_percent | tojson }}
+        lastReadPercent: {{ conversion.last_read_percent | tojson }},
+        conversionType: '{{ conversion.conversion_type }}',
+        {# NARR-5: slim narration seed (no transcript — that's already in content_html)
+           so the player renders the right initial state before its first poll. #}
+        narration: {% if conversion.conversion_type == 'audio_narration' %}{{ {'narration_status': metadata.get('narration_status'), 'duration_seconds': metadata.get('duration_seconds'), 'speakers': metadata.get('speakers'), 'error': metadata.get('error')} | tojson }}{% else %}null{% endif %}
     };
 </script>
 <!-- MATH-RENDER: vendored KaTeX-JS vor library_detail.js (renderMath() braucht das katex-Global). -->

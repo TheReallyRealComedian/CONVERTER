@@ -1813,9 +1813,61 @@ body.reader-active .sidebar-toggle-floater--global {
 
 .type-document_to_markdown { background: var(--nm-tone-info);    color: var(--nm-tone-info-ink); }
 .type-audio_transcription  { background: var(--nm-tone-success); color: var(--nm-tone-success-ink); }
+.type-audio_narration      { background: var(--nm-tone-slate);   color: var(--nm-tone-slate-ink); }
 .type-dialogue_formatting  { background: var(--nm-tone-purple);  color: var(--nm-tone-purple-ink); }
 .type-markdown_input       { background: var(--nm-tone-warning); color: var(--nm-tone-warning-ink); }
 .type-ai_newsletter        { background: var(--nm-tone-teal);    color: var(--nm-tone-teal-ink); }
+
+/* ===== NARR-5: Audio-Player (audio_narration library detail) =====
+   Eine raised Karte über dem Transkript-Reader. JS (initNarrationPlayer)
+   zeigt genau einen der drei Blöcke: pending / ready / failed. */
+.narration-player {
+    margin-bottom: var(--nm-space-lg);
+    padding: var(--nm-space-lg);
+}
+
+.narration-player__pending {
+    display: flex;
+    align-items: center;
+    gap: var(--nm-space-sm);
+    color: var(--nm-text-muted);
+    font-size: 0.9rem;
+}
+
+.narration-player__spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(143, 160, 196, 0.25);
+    border-top-color: var(--nm-accent-hover);
+    border-radius: 50%;
+    animation: c-drop-zone-spin 0.8s linear infinite;  /* reuse drop-zone keyframes */
+    flex-shrink: 0;
+}
+
+.narration-player__audio {
+    width: 100%;
+    display: block;
+}
+
+.narration-player__meta {
+    margin: var(--nm-space-sm) 0 0;
+    font-size: 0.8rem;
+    color: var(--nm-text-muted);
+}
+
+.narration-player__failed {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nm-space-md);
+    flex-wrap: wrap;
+}
+
+.narration-player__error {
+    margin: 0;
+    color: var(--nm-alert-danger-ink);
+    font-size: 0.9rem;
+}
 
 /* Save to library button */
 .save-library-btn {

@@ -37,8 +37,17 @@ from app_pkg.config import OUTPUT_DIR
 #     "tts_model": "gemini-2.5-flash-tts",       # services.narration_render model
 #     "speakers": {"Anna": "Kore", "Ben": "Puck"},  # label -> Gemini voice id
 #     "transcript": [{"speaker": "...", "text": "..."}],
+#     "mode": "single_speaker" | "two_speaker",  # render input (NARR-5 retry)
+#     "style_prompt": null | "...",              # render input (NARR-5 retry)
+#     "language_code": "de-DE",                  # render input (NARR-5 retry)
 #     "error": null | "..."                      # set when status == 'failed'
 #   }
+#
+# ``mode`` / ``style_prompt`` / ``language_code`` are the render-only inputs the
+# audio doesn't otherwise capture; NARR-5 persists them so a failed narration can
+# be re-enqueued faithfully (POST /api/narrations/<id>/retry) without a new agent
+# call. (Pre-NARR-5 rows lack them → retry falls back: mode from speaker count,
+# no style, default language.)
 #
 # Only ``status == 'ready'`` means an audio file exists and is servable; the
 # serve endpoint gates on exactly that.
@@ -126,6 +135,7 @@ def narration_to_markdown(turns):
 def build_narration_metadata(conversion_id, *, status=NARRATION_STATUS_PENDING,
                              tts_model=None, speakers=None, transcript=None,
                              duration_seconds=None, error=None,
+                             mode=None, style_prompt=None, language_code=None,
                              audio_mimetype=DEFAULT_AUDIO_MIMETYPE):
     """Build the ``metadata_json`` dict for an audio_narration Conversion.
 
@@ -133,7 +143,8 @@ def build_narration_metadata(conversion_id, *, status=NARRATION_STATUS_PENDING,
     deterministically from the id so it always matches ``narration_audio_path``.
     The NARR-3 worker fills ``tts_model`` / ``speakers`` / ``transcript`` and
     flips ``status`` to ``ready`` (or ``failed`` + ``error``) once the render
-    completes.
+    completes. ``mode`` / ``style_prompt`` / ``language_code`` are the
+    render-only inputs stored so NARR-5's retry can re-enqueue faithfully.
     """
     return {
         'narration_status': status,
@@ -143,6 +154,9 @@ def build_narration_metadata(conversion_id, *, status=NARRATION_STATUS_PENDING,
         'tts_model': tts_model,
         'speakers': dict(speakers or {}),
         'transcript': list(transcript or []),
+        'mode': mode,
+        'style_prompt': style_prompt,
+        'language_code': language_code,
         'error': error,
     }
 
