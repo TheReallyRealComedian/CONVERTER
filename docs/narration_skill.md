@@ -34,7 +34,7 @@ Du produzierst genau diesen Kontrakt und schickst ihn an CONVERTER:
 ```
 - **`mode`**: `single_speaker` (eine Erzähler-Stimme) oder `two_speaker` (Dialog). **Max. 2 Sprecher.**
 - **`voices`**: Label → Gemini-Voice (s. Katalog unten). **Feste Zuordnung über die ganze Vertonung.**
-- **`turns`**: `{speaker, text}` — `speaker` muss ein Label aus `voices` sein. Der `text` wird **wörtlich** gesprochen.
+- **`turns`**: `{speaker, text}` — `speaker` muss ein Label aus `voices` sein. Der `text` wird **wörtlich** gesprochen. ⚠️ **Eine nicht-leere JSON-Liste** (echte `list[dict]`, **kein** String, **nie** leer — sonst 400 „turns must be a non-empty list").
 - `title`: kurz + aussagekräftig. `language`: i.d.R. `de`.
 
 ## Deine Schleife
@@ -75,9 +75,16 @@ Stimme passend zum Ton wählen — das ist der stärkste Stil-Hebel. **Live für
 
 **Empfohlenes Default-Paar (2 Sprecher):** eine **firme** + eine **helle** Stimme, z.B. `Kore` + `Zephyr` (oder das live-bestätigte `Kore` + `Puck`). Für 1 Sprecher: `Kore`/`Charon`/`Rasalgethi`.
 
-## Tags & Delivery → die Doktrin
+## Tags & Delivery (das Wesentliche — der Skill ist hier autark)
 
-Steuere die Sprechweise **primär über die Stimmwahl + sauberen Text**, **nicht** über Inline-Tags. **Default = keine Tags.** Die genauen Regeln (was geht, was verboten ist — z.B. ElevenLabs-Tags und Adjektiv-Tags **nie** auf Gemini, Pausen-Tags nur sehr sparsam) stehen in **[docs/narration_tag_doctrine.md](narration_tag_doctrine.md)** — **Pflichtlektüre**, geh die Pro-Turn-Checkliste durch.
+Steuere die Sprechweise **primär über die Stimmwahl + sauberen, gut gebauten Text**, **nicht** über Inline-Tags. Die Regeln, die du wirklich brauchst:
+- **Default = NULL Tags.** Stimme + Satzbau + Interpunktion tragen den Rhythmus. Ein Tag nur für einen *bewussten, lokalen* Effekt.
+- **Auf Gemini erlaubt** (sehr sparsam, höchstens einer pro Sinnabschnitt): Pausen — `[short pause]` / `[medium pause]` / `[long pause]` — für gezielte Dramatik vor einer Pointe/Zahl.
+- **NIE auf Gemini**: Adjektiv-Tags wie `[scared]`/`[curious]` (werden **mitgesprochen**!) und **ElevenLabs-Tags** (`[laughs]`/`[whispers]`/`[excited]` … — andere Engine, hier Folklore/ignoriert).
+- **Globaler Ton** über das optionale `style_prompt`-Feld (Director's Note, z.B. „ruhiger, klarer Wissens-Ton"), nicht satzweise.
+- Text und (etwaiger) Tag müssen **dasselbe** wollen; evokativer Text trägt Emotion zuverlässiger als ein Tag auf neutralem Satz.
+
+*(Vertiefend, falls dem Skill beigepackt: [docs/narration_tag_doctrine.md](narration_tag_doctrine.md) — volle Pro-Turn-Checkliste + Fehlermodi. **Dieser Skill funktioniert auch ohne sie** — die obigen Regeln reichen.)*
 
 ## Triggern & Pollen (Mechanik via MCP)
 
