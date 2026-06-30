@@ -32,7 +32,7 @@ Gemini-TTS **rezitiert wörtlich** (Default) und kann **nativ ≤2 Speaker**. De
 ## Architektur (vier Schichten)
 
 1. **Authoring (Claude-Skill, lebt in Claude, nicht CONVERTER)** — liest den Doc, schreibt die treue, geglättete **Turn-Liste**, mappt Speaker → Gemini-Voice, POSTet an CONVERTER. *Die Intelligenz lebt hier.*
-2. **Token-Endpoint (CONVERTER)** — `POST /api/narrations`, Bearer `NARRATION_TOKEN` (Spiegel von `CARD_TOKEN`), CSRF-exempt, fail-closed, async via bestehenden RQ-Worker.
+2. **Token-Endpoint + async (CONVERTER, NARR-3)** — `POST /api/narrations`, Bearer `NARRATION_TOKEN` (eigener Token, Spiegel von `CARD_TOKEN`; **billing-rationale** — Narration kostet GCP-Geld pro Call → unabhängig revozierbar), CSRF-exempt, fail-closed. Legt sofort eine `pending`-Conversion an + enqueued den RQ-Task. **⚠️ Der Worker-Container hat KEINEN DB-Zugriff** (mountet `podcast_data`, **nicht** `app_data` — verifiziert in docker-compose) → der **Worker bleibt DB-frei** (rendert → schreibt `narration_<id>.wav` → returnt), und die **Web-Seite rekonziliert beim Pollen** (`GET /api/narrations/<id>`: Datei existiert → `ready` + Dauer; Job failed/abgelaufen → `failed`). Spiegelt den DB-freien Alt-Podcast-Flow; **keine Infra-Änderung**.
 3. **Render (CONVERTER)** — empfängt die Turn-Liste, rendert über den **Cloud-TTS-Pfad** (`google-cloud-texttospeech` ≥2.31.0: `SynthesisInput.multi_speaker_markup`-Turns + `prompt` + `MultispeakerPrebuiltVoice(speaker_alias=Label, speaker_id=Voice)`, Modell `gemini-2.5-flash-tts`), **Byte-Chunking** (≤4000 Bytes/Markup, nie Tag-Zahl) + Concat → WAV. **Kein** server-seitiges Paraphrasieren, **keine** Tag-Arithmetik.
 4. **Persistenz (CONVERTER)** — Audio wird erstklassiges Library-Element.
 
