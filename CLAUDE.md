@@ -6,7 +6,7 @@ Flask web app for multimedia conversion: Markdown-to-PDF, document-to-Markdown, 
 ## Tech Stack
 - **Backend**: Flask (async), SQLAlchemy (SQLite), Flask-Login
 - **Job Queue**: Redis + RQ (worker container for narration rendering)
-- **APIs**: Deepgram (transcription), Google Cloud TTS (Gemini-TTS voices → faithful narration)
+- **APIs**: Deepgram (transcription), Google Cloud TTS (Gemini-TTS voices → faithful narration), Gemini API (`gemini-2.0-flash` in `pdf_extraction` — separates Feature; `GEMINI_API_KEY` weiterhin nötig)
 - **Frontend**: Bootstrap + vanilla JS (Jinja2 templates)
 
 ## Key Files
