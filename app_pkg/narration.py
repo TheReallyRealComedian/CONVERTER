@@ -269,6 +269,24 @@ def register(app):
             'status': NARRATION_STATUS_PENDING,
         }), 202
 
+    @app.route('/api/narrations/<int:conversion_id>', methods=['GET'])
+    @login_required
+    def api_narration_status(conversion_id):
+        """Poll a narration's state — the agent's / UI's poll endpoint (NARR-3).
+
+        Owner-404 (``get_owned_conversion``) + wrong-type-404 (no type leak),
+        then ``reconcile_narration`` flips a finished/failed pending render to
+        its terminal state before returning ``to_dict()`` (whose ``metadata``
+        carries ``narration_status`` / ``duration_seconds`` / ``error``).
+        """
+        conversion = get_owned_conversion(conversion_id)  # owner-404
+
+        if conversion.conversion_type != 'audio_narration':
+            return jsonify({'error': 'Vertonung nicht gefunden.'}), 404
+
+        reconcile_narration(conversion)  # pending → ready/failed if resolvable
+        return jsonify(conversion.to_dict())
+
     @app.route('/api/narrations/<int:conversion_id>/audio', methods=['GET'])
     @login_required
     def narration_audio(conversion_id):
@@ -283,6 +301,10 @@ def register(app):
 
         if conversion.conversion_type != 'audio_narration':
             return jsonify({'error': 'Vertonung nicht gefunden.'}), 404
+
+        # NARR-3: reconcile pending → ready/failed BEFORE the ready-gate, so a
+        # pending-but-file-already-present element serves immediately.
+        reconcile_narration(conversion)
 
         if narration_status(conversion) != 'ready':
             # pending/failed carry no audio file yet; NARR-5 surfaces the state.
