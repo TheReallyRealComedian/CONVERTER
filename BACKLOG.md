@@ -156,7 +156,7 @@ NL1 (CONVERTER-Seite: `ai_newsletter`-Typ + token-auth Ingestion-Endpoint) **und
 
 ### Mac-Dev
 
-- **MAC1-FOLLOWUP-B — Image-Slim / GPU-Nutzung ⏸️ GEDROPPT 2026-06-30** (Oli): kein Treiber für beides. **GPU-Nutzung** ergibt keinen sinnvollen Sprint, weil die schweren Pfade Cloud sind (PDF→Gemini, Audio→Deepgram) → die A2000 hätte nichts Lokales zu beschleunigen (der `partition(strategy="fast")`-Pfad ist Nicht-PDF + ML-frei). **Image-Slim** (CPU-only-Torch, ~2-3 GB) wäre verhaltensneutral, aber reines low-value-Housekeeping ohne Schmerz. **Reaktivieren nur**, falls Build-Zeit/Disk je weh tun (→ Slim) oder ein lokales-ML-Feature entsteht (z.B. Whisper-Transkription statt Deepgram), das die GPU rechtfertigt (→ dann Passthrough + CUDA-Torch). Hardware-Fakten festgehalten: Memory `reference_mintbox_gpu_unstructured_cpu_path`.
+- **MAC1-FOLLOWUP-B — Image-Slim (CPU-only-Torch) optional S/M** (von der GPU-Frage entkoppelt 2026-06-30): das ~4.8-GB-Image ist grob zur Hälfte NVIDIA-CUDA-Wheels (via `unstructured[all-docs]`-Torch), **bewiesen tote Bytes** (kein Passthrough + Code fährt `partition(strategy="fast")`/Gemini, kein Torch-ML — Memory `reference_mintbox_gpu_unstructured_cpu_path`). **Slim** = `torch==…+cpu` über den PyTorch-CPU-Index pinnen (vor `unstructured` installieren, sonst zieht pips Resolver die CUDA-Variante) → Image ~2.5 GB, schnellere Clean-Builds + Pulls + weniger Disk, **verhaltensneutral**. **Verifikation = Container-Build + echter Extraktions-Smoke** (docx/pptx durch `partition`), NICHT nur pytest (das mockt `partition` → fängt einen Torch-Import-Break nicht). Risiko niedrig. **GPU-*Nutzung* getrennt verworfen** (schwere Pfade sind Cloud; reaktivieren nur bei lokalem-ML-Feature wie Whisper-Transkription statt Deepgram).
 
 ---
 
