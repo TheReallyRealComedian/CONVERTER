@@ -60,12 +60,12 @@ render_markdown_to_html()             # math-inline / math-display spans, raw La
 **Rejected:** in-file MathML + `altimg` / `epub:switch` (readers incl. Kindle
 ignore `altimg`; `epub:switch` is deprecated since EPUB 3.1).
 
-**Device smoke (the real done-gate):** pytest cannot render a device. After
-deploy, send a real math document to the Kindle (device **and** Kindle app) and
-check the MathML renders acceptably. If it renders badly, that triggers a
-separate **L follow-on** to build the `EPUB_MATH_MODE=image` path
-(Playwright + vendored KaTeX → PNG data-URI `<img>`, `alt`=LaTeX) — not part of
-KINDLE-MATH.
+**Device smoke (the done-gate) — ✅ done (Oli):** a real math document was sent
+to the Kindle (device **and** app) and the MathML renders acceptably, so the
+`EPUB_MATH_MODE=image` path stays **unbuilt**. It would only become a separate
+**L follow-on** if some document ever renders badly (Playwright + vendored KaTeX
+→ PNG data-URI `<img>`, `alt`=LaTeX) — not part of KINDLE-MATH. `EPUB_MATH_MODE=off`
+remains the kill-switch.
 
 ## One-time setup (Oli's steps)
 
