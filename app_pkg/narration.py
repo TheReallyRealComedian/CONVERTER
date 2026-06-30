@@ -11,29 +11,43 @@ Session-authed (``@login_required``, owner-404) and **persistent**: unlike the
 alt-podcast ``podcast_download``, the file is **never deleted on serve**. NARR-3
 will add the token POST that creates narrations to this same module.
 """
+import hmac
 import json
 import logging
 import os
 import wave
 from pathlib import Path
 
-from flask import jsonify, send_file
+from flask import jsonify, request, send_file
 from flask_login import login_required
 from rq.exceptions import NoSuchJobError
 
-from app_pkg.config import OUTPUT_DIR
+from app_pkg.config import OUTPUT_DIR, TIMEOUT_RQ_JOB_SECONDS
+# Reuse the Ingest auth primitives (same Bearer parse + target-user resolver as
+# the Card write surface), so a session-less narration write resolves the SAME
+# target user. Only the secret differs — see _authorize_narration_write.
+from app_pkg.ingest import _bearer_token, _resolve_target_user
 from app_pkg.library import get_owned_conversion
-from models import db
+from models import Conversion, db
+from services.markdown_sections import _is_degenerate_title, derive_title
 from services.narration_library import (
     NARRATION_STATUS_FAILED,
     NARRATION_STATUS_PENDING,
     NARRATION_STATUS_READY,
+    build_narration_metadata,
     narration_audio_path,
     narration_metadata,
     narration_status,
+    narration_to_markdown,
 )
+from services.narration_render import DEFAULT_NARRATION_MODEL, validate_turns
+from tasks import generate_narration_task
 
 logger = logging.getLogger(__name__)
+
+# Default BCP-47 language for Cloud-TTS narration (the renderer default + the
+# app is German). The body's optional ``language`` field overrides it.
+DEFAULT_LANGUAGE_CODE = 'de-DE'
 
 
 # --- NARR-3 reconcile: web-side state machine for a DB-free worker -----------
@@ -127,7 +141,134 @@ def reconcile_narration(conversion):
     # queued / started / deferred → still rendering, stays pending.
 
 
+# --- NARR-3 write: token-auth gate (own secret) ------------------------------
+
+def _authorize_narration_write():
+    """Token-auth gate for ``POST /api/narrations`` (NARR-3).
+
+    Mirrors ``_authorize_card_write`` exactly, but reads a **separate**
+    ``NARRATION_TOKEN``: a narration render costs real GCP money per call (unlike
+    the free DB-write surfaces that share ``CARD_TOKEN``), so it gets an
+    independently revocable secret. Fail-closed (503) without the token,
+    constant-time Bearer compare (401 on missing/wrong), token never logged; the
+    target user is the shared Ingest resolver (``INGEST_USER`` / first()).
+
+    Returns ``(user, None)`` on success or ``(None, (response, status))``.
+    """
+    expected = os.environ.get('NARRATION_TOKEN')
+    if not expected:
+        logger.warning('Narration write rejected: NARRATION_TOKEN not configured')
+        return None, (jsonify({'error': 'Narration-API nicht konfiguriert.'}), 503)
+
+    provided = _bearer_token()
+    if provided is None or not hmac.compare_digest(provided.encode('utf-8'),
+                                                   expected.encode('utf-8')):
+        reason = 'missing bearer' if provided is None else 'token mismatch'
+        logger.warning('Narration write auth failed (%s) from %s', reason, request.remote_addr)
+        return None, (jsonify({'error': 'Nicht autorisiert.'}), 401)
+
+    target = _resolve_target_user()
+    if target is None:
+        logger.error('Narration write rejected: no target user (INGEST_USER=%r)',
+                     os.environ.get('INGEST_USER'))
+        return None, (jsonify({'error': 'Kein Ziel-Benutzer vorhanden.'}), 503)
+
+    return target, None
+
+
 def register(app):
+    # Late import: tests patch the RQ singletons (``task_queue``, ``Job``,
+    # ``redis_conn``) on the top-level app.py module, so look them up at call
+    # time rather than capturing imports here.
+    import app as _app_module
+
+    @app.route('/api/narrations', methods=['POST'])
+    def api_create_narration():
+        """Create a pending narration + enqueue the DB-free render (NARR-3).
+
+        Token-authed (``NARRATION_TOKEN``, CSRF-exempt — session-less write).
+        The web side owns the DB: it validates the turn contract, creates the
+        ``pending`` audio_narration Conversion (flush → id → metadata), enqueues
+        ``generate_narration_task`` onto the shared queue, and writes the job_id
+        back into metadata (reconcile needs it). The worker renders DB-free; the
+        status/serve reads reconcile ``pending`` → ``ready``/``failed`` later.
+        """
+        target, err = _authorize_narration_write()
+        if err:
+            return err
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        mode = data.get('mode')
+        voices = data.get('voices')
+        turns = data.get('turns')
+
+        # Contract validation reused verbatim from the renderer (single source
+        # of truth): shape of turns/voices + mode↔speaker-count consistency.
+        try:
+            validate_turns(turns, voices, mode)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+
+        style_prompt = data.get('style_prompt')
+        if not isinstance(style_prompt, str):
+            style_prompt = None
+
+        language_code = data.get('language')
+        if not isinstance(language_code, str) or not language_code.strip():
+            language_code = DEFAULT_LANGUAGE_CODE
+
+        tts_model = data.get('tts_model')
+        if not isinstance(tts_model, str) or not tts_model.strip():
+            tts_model = DEFAULT_NARRATION_MODEL
+
+        # content = speaker-labelled transcript Markdown (NOT NULL, Reader-able).
+        # TITLE-FIX: a degenerate posted title is re-derived from that content.
+        content = narration_to_markdown(turns)
+        posted = data.get('title')
+        title = (derive_title(content) if _is_degenerate_title(posted) else posted)[:255]
+
+        # pending Conversion — flush first so the id-derived audio_filename in
+        # metadata matches narration_audio_path.
+        conversion = Conversion(
+            user_id=target.id,
+            conversion_type='audio_narration',
+            title=title,
+            content=content,
+            lifecycle_status='inbox',
+        )
+        db.session.add(conversion)
+        db.session.flush()
+
+        metadata = build_narration_metadata(
+            conversion.id, status=NARRATION_STATUS_PENDING,
+            tts_model=tts_model, speakers=voices, transcript=turns)
+        conversion.metadata_json = json.dumps(metadata)
+        db.session.commit()
+
+        # Enqueue the DB-free render task (positional task args + RQ job opts).
+        job = _app_module.task_queue.enqueue(
+            generate_narration_task,
+            conversion.id, turns, voices, style_prompt, mode, language_code, tts_model,
+            meta={'user_id': target.id, 'conversion_id': conversion.id},
+            job_timeout=TIMEOUT_RQ_JOB_SECONDS,
+        )
+
+        # job_id back into metadata — reconcile keys "still rendering" vs "gone"
+        # on it. (Two commits: the row must exist before the agent can poll.)
+        metadata['job_id'] = job.id
+        conversion.metadata_json = json.dumps(metadata)
+        db.session.commit()
+
+        app.logger.info(f"Narration job {job.id} queued for conversion {conversion.id}")
+        return jsonify({
+            'narration_id': conversion.id,
+            'job_id': job.id,
+            'status': NARRATION_STATUS_PENDING,
+        }), 202
+
     @app.route('/api/narrations/<int:conversion_id>/audio', methods=['GET'])
     @login_required
     def narration_audio(conversion_id):
@@ -165,3 +306,8 @@ def register(app):
             mimetype='audio/wav',
             download_name=f'narration_{conversion_id}.wav',
         )
+
+    # Session-less, token-authed write has no CSRF cookie → waive CSRF for THIS
+    # view only (same posture as Ingest / the Card writes). The session-authed
+    # serve route stays under CSRF.
+    app.extensions['csrf'].exempt(api_create_narration)
