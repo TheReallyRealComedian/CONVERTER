@@ -5,7 +5,6 @@ from flask import jsonify, render_template, request
 from flask_login import login_required
 from werkzeug.utils import secure_filename
 
-from app_pkg.config import MAX_RAW_TEXT_CHARS
 from app_pkg.decorators import require_service
 
 
@@ -33,11 +32,9 @@ def register(app):
         return render_template(
             'audio_converter.html',
             deepgram_api_key_set=bool(_app_module.DEEPGRAM_API_KEY),
-            gemini_api_key_set=bool(_app_module.GEMINI_API_KEY),
             accepted_audio_extensions=ACCEPTED_AUDIO_EXTENSIONS,
             accepted_audio_extensions_accept=','.join('.' + ext for ext in ACCEPTED_AUDIO_EXTENSIONS),
             max_audio_file_size_mb=MAX_AUDIO_FILE_SIZE_MB,
-            max_raw_text_chars=MAX_RAW_TEXT_CHARS,
         )
 
     @app.route('/api/get-deepgram-token', methods=['GET'])

@@ -1,5 +1,5 @@
 """
-RQ Worker for background podcast generation tasks.
+RQ Worker for background generation tasks (faithful-narration rendering).
 Runs as a separate container/process and pulls jobs from Redis.
 """
 import os

@@ -109,10 +109,9 @@ def validate_turns(turns, voices, mode):
 def _split_oversized_turn(turn, max_bytes):
     """Split a single over-cap turn at sentence boundaries into same-speaker turns.
 
-    Byte-based sibling of ``split_long_dialogue_turns``: a turn whose text
-    exceeds ``max_bytes`` utf-8 is broken at sentence punctuation into several
-    turns carrying the same speaker. A single sentence over the cap is left
-    whole (best-effort, like the word-based splitter) rather than cut mid-word.
+    Byte-based: a turn whose text exceeds ``max_bytes`` utf-8 is broken at
+    sentence punctuation into several turns carrying the same speaker. A single
+    sentence over the cap is left whole (best-effort) rather than cut mid-word.
     """
     text = turn['text']
     if len(text.encode('utf-8')) <= max_bytes:

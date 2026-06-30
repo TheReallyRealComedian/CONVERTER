@@ -18,8 +18,3 @@ OUTPUT_DIR = '/app/output_podcasts'
 TIMEOUT_GEMINI_SECONDS = 300
 TIMEOUT_DEEPGRAM_SECONDS = 600
 TIMEOUT_RQ_JOB_SECONDS = 600
-
-# F-4.3 P9: cap raw-text input to /format-dialogue-with-llm so a runaway
-# paste cannot tie up a Gemini call worth a minute of LLM time. Single source
-# of truth — frontend mirrors this into the char-counter limit.
-MAX_RAW_TEXT_CHARS = 50000

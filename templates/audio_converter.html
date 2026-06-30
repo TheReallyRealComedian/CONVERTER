@@ -6,7 +6,7 @@
 <div class="flex-1 p-6 lg:p-8 overflow-auto">
     <div class="max-w-4xl mx-auto">
         <h2 class="text-lg font-semibold text-neo-text mb-1">Audio-Werkzeuge</h2>
-        <p class="text-sm text-neo-muted mb-6">Transkription, Datei-Verarbeitung und KI-Podcast-Generierung.</p>
+        <p class="text-sm text-neo-muted mb-6">Transkription und Datei-Verarbeitung.</p>
 
         <!-- TABS -->
         <div class="flex gap-1 mb-6" id="transcriptionTabs">
@@ -19,11 +19,6 @@
                 class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
                 {% if not deepgram_api_key_set %}aria-disabled="true" title="Service nicht konfiguriert"{% endif %}>
                 Datei umwandeln
-            </button>
-            <button type="button" data-tab="podcast"
-                class="tab-btn tab-inactive px-4 py-2.5 text-sm font-medium rounded-xl transition-all"
-                {% if not gemini_api_key_set %}aria-disabled="true" title="Service nicht konfiguriert"{% endif %}>
-                Text zu Podcast
             </button>
         </div>
 
@@ -116,151 +111,6 @@
             </div>
         </div>
 
-        <!-- PODCAST GENERATOR PANE -->
-        <div class="tab-pane hidden" id="podcast-pane">
-            <div id="podcast-alert-container"></div>
-            {% if not gemini_api_key_set %}
-            <div class="c-alert c-alert--warning">
-                Podcast-Generierung nicht verfügbar — Gemini-API-Key fehlt. Setze <code>GEMINI_API_KEY</code> in der <code>.env</code> und starte den Container neu.
-            </div>
-            {% endif %}
-            <p class="text-sm text-neo-muted mb-4">Wandle deinen Text in einen natürlich klingenden Podcast mit KI-Stimmen um.</p>
-
-            <!-- Step 1: Choose Format & Language -->
-            <div class="c-surface--flat p-5 mb-8">
-                <h5 class="text-sm font-semibold text-neo-text mb-4">Schritt 1: Setup</h5>
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-neo-muted mb-2">Format</label>
-                    <div class="flex gap-3">
-                        <div class="flex-1">
-                            <input type="radio" id="mode-monolog" name="podcast-mode" value="monolog" class="mode-radio-input" checked>
-                            <label for="mode-monolog" class="mode-radio-label block p-3 rounded-xl cursor-pointer text-center transition-all">
-                                <div class="font-semibold text-sm mb-0.5 text-neo-text">Monolog</div>
-                                <div class="text-xs text-neo-muted">Einzelne Stimme (Kate)</div>
-                            </label>
-                        </div>
-                        <div class="flex-1">
-                            <input type="radio" id="mode-dialogue" name="podcast-mode" value="dialogue" class="mode-radio-input">
-                            <label for="mode-dialogue" class="mode-radio-label block p-3 rounded-xl cursor-pointer text-center transition-all">
-                                <div class="font-semibold text-sm mb-0.5 text-neo-text">Dialog</div>
-                                <div class="text-xs text-neo-muted">Gespräch (Kate &amp; Max)</div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label for="podcast-language" class="block text-sm font-medium text-neo-muted mb-1.5">Sprache</label>
-                        <select class="c-input w-full" id="podcast-language">
-                            <option value="en">Englisch</option>
-                            <option value="de" selected>Deutsch</option>
-                            <option value="es">Spanisch</option>
-                            <option value="fr">Französisch</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="narration-style" class="block text-sm font-medium text-neo-muted mb-1.5">Sprech-Stil</label>
-                        <select class="c-input w-full" id="narration-style">
-                            <option value="documentary">Dokumentarisch</option>
-                            <option value="conversational" selected>Gesprächig</option>
-                            <option value="academic">Akademisch</option>
-                            <option value="satirical">Satirisch</option>
-                            <option value="dramatic">Dramatisch</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="tts-model" class="block text-sm font-medium text-neo-muted mb-1.5">TTS-Modell</label>
-                        <select class="c-input w-full" id="tts-model">
-                            <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
-                            <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 2: Script -->
-            <div class="c-surface--flat p-5 mb-8">
-                <h5 class="text-sm font-semibold text-neo-text mb-4">Schritt 2: Podcast erstellen</h5>
-
-                <div class="mb-4">
-                    <label for="podcast-raw-text" class="block text-sm font-medium text-neo-muted mb-1.5">Quelltext</label>
-                    <textarea id="podcast-raw-text" rows="6" placeholder="Quelltext hier einfügen — oder direkt unten ein Skript schreiben."
-                        class="c-input w-full" maxlength="{{ max_raw_text_chars }}"></textarea>
-                    <span id="podcast-raw-text-counter" class="char-counter" aria-live="polite">0/{{ max_raw_text_chars }} Zeichen</span>
-                    <p class="mt-1 text-xs text-neo-faint">Quelltext einfügen oder leer lassen, um direkt mit dem Skript darunter zu arbeiten.</p>
-                </div>
-
-                <button type="button" class="c-btn w-full mb-4 inline-flex items-center justify-center gap-2" id="generate-script-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
-                    <span class="is-loading-spinner" aria-hidden="true"></span>
-                    <span class="generate-script-btn__icon" aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
-                    </span>
-                    <span class="generate-script-btn__label">Skript aus Quelltext generieren</span>
-                </button>
-
-                <div class="mb-4">
-                    <label for="podcast-script" class="block text-sm font-medium text-neo-muted mb-1.5">Podcast-Skript</label>
-                    <textarea id="podcast-script" rows="12" placeholder="Skript hier bearbeiten oder aus dem Quelltext oben generieren.&#10;&#10;Format:&#10;Kate [warm]: Willkommen zur heutigen Folge!&#10;Max [sachlich]: Schön, dass du dabei bist."
-                        class="c-input w-full font-mono"></textarea>
-                    <p class="mt-1 text-xs text-neo-faint">Format: <code>Sprecher [stil]: Text</code> pro Zeile. Sprecher: Kate, Max oder eigener Name (Default-Stimme: Kore). Zeilen mit <code>#</code> oder <code>**</code> werden ignoriert.</p>
-                    <p id="podcast-script-status-hint" class="hidden mt-1 text-xs text-neo-faint italic">Generierung läuft — Skript-Edit erst nach Stop oder Abschluss.</p>
-                </div>
-
-                <!-- Advanced: Custom Prompt Editor -->
-                <div class="prompt-editor">
-                    <button type="button"
-                        class="prompt-editor-toggle w-full px-3 py-2.5 neo-separator-bottom flex justify-between items-center text-sm font-medium text-neo-muted hover:text-neo-text transition-colors"
-                        id="prompt-editor-toggle"
-                        aria-expanded="false"
-                        aria-controls="prompt-editor-content">
-                        <span>Erweitert: Eigener Prompt</span>
-                        <span id="prompt-toggle-icon" class="text-xs" aria-hidden="true">&#9660;</span>
-                    </button>
-                    <div class="prompt-editor-content p-3" id="prompt-editor-content">
-                        <p class="text-xs text-neo-faint mb-2">
-                            Passe die KI-Anweisung für die Skript-Generierung an. Leer lassen, um den Standard-Prompt zu verwenden.
-                        </p>
-                        <textarea id="custom-prompt-editor" placeholder="Eigenen Prompt mit Platzhaltern eingeben: {raw_text}, {speakers_info}, {language_name}, {tone} usw."
-                            class="c-input w-full min-h-[200px] text-xs font-mono"></textarea>
-                        <button type="button" class="c-btn mt-2 text-xs py-1.5 px-3" id="reset-prompt-btn">Auf Standard zurücksetzen</button>
-                    </div>
-                </div>
-
-                <button type="button" class="c-btn c-btn--primary w-full mt-4 text-center inline-flex items-center justify-center" id="generate-podcast-btn" {% if not gemini_api_key_set %}disabled{% endif %}>
-                    <span class="is-loading-spinner" aria-hidden="true"></span>
-                    <span>Podcast generieren</span>
-                </button>
-                <button type="button" class="c-btn c-btn--danger w-full mt-4 text-center hidden" id="cancel-podcast-btn">
-                    Abbrechen
-                </button>
-                <div id="podcast-stage-indicator" class="podcast-stage-indicator hidden" aria-live="polite">
-                    <span class="podcast-stage-indicator__text" id="podcast-stage-text"></span>
-                    <span class="podcast-stage-indicator__counter" id="podcast-stage-counter"></span>
-                    <div class="podcast-stage-indicator__bar hidden" id="podcast-stage-bar">
-                        <div class="podcast-stage-indicator__bar-fill" id="podcast-stage-bar-fill"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Result Container -->
-            <div id="podcast-result-container" class="hidden">
-                <h5 class="text-sm font-semibold text-neo-text mb-2">Dein Podcast:</h5>
-                <audio id="podcast-audio" controls class="w-full mb-3">
-                    <source id="podcast-audio-source" type="audio/wav">
-                    Dein Browser unterstützt das Audio-Element nicht.
-                </audio>
-                <div id="podcast-audio-error" class="hidden mb-3"></div>
-                <div class="c-btn-row">
-                    <a id="download-podcast-btn" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5 no-underline" download="podcast.wav">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Herunterladen
-                    </a>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 {% endblock %}
@@ -269,10 +119,8 @@
 <script>
     window.PageData = {
         deepgramApiKeySet: {{ 'true' if deepgram_api_key_set else 'false' }},
-        geminiApiKeySet: {{ 'true' if gemini_api_key_set else 'false' }},
         acceptedAudioExtensions: {{ accepted_audio_extensions|tojson }},
-        maxAudioFileSizeMb: {{ max_audio_file_size_mb }},
-        maxRawTextChars: {{ max_raw_text_chars }}
+        maxAudioFileSizeMb: {{ max_audio_file_size_mb }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/audio_converter.js') }}"></script>

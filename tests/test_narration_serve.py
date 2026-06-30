@@ -99,7 +99,7 @@ def test_serve_ready_narration_returns_audio_and_keeps_file(
     assert resp.status_code == 200
     assert resp.mimetype == 'audio/wav'
     assert resp.data == _DUMMY_WAV
-    # Persistent — the file is NOT deleted on serve (unlike podcast_download).
+    # Persistent — the file is NOT deleted on serve (it's a library element).
     assert os.path.exists(path)
 
 

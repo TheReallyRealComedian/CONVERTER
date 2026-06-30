@@ -7,9 +7,8 @@ path is resolved from the id — never from ``metadata.audio_filename`` — ther
 no filename-injection surface; a traversal guard against ``OUTPUT_DIR`` is kept
 as belt-and-suspenders.
 
-Session-authed (``@login_required``, owner-404) and **persistent**: unlike the
-alt-podcast ``podcast_download``, the file is **never deleted on serve**. NARR-3
-will add the token POST that creates narrations to this same module.
+Session-authed (``@login_required``, owner-404) and **persistent**: the file is
+**never deleted on serve** (a library element, not a one-shot download).
 """
 import hmac
 import json
@@ -316,14 +315,14 @@ def register(app):
         if not os.path.exists(file_path):
             return jsonify({'error': 'Audio nicht verfügbar.'}), 404
 
-        # Traversal guard like podcast_download — Path.is_relative_to avoids the
-        # str.startswith prefix-collision bug.
+        # Traversal guard — Path.is_relative_to avoids the str.startswith
+        # prefix-collision bug.
         real_path = os.path.realpath(file_path)
         if not Path(real_path).is_relative_to(Path(os.path.realpath(OUTPUT_DIR))):
             app.logger.warning(f"Narration path traversal blocked: {file_path}")
             return jsonify({'error': 'Datei außerhalb des Ausgabe-Verzeichnisses.'}), 403
 
-        # Persistent: NO os.unlink (unlike podcast_download).
+        # Persistent: NO os.unlink (a library element, served repeatedly).
         return send_file(
             real_path,
             mimetype='audio/wav',
