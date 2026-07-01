@@ -20,6 +20,7 @@ import pytest
 from google.api_core import exceptions as gax
 from google.cloud import texttospeech
 
+from app_pkg.config import TIMEOUT_TTS_SYNTH_SECONDS
 from services import narration_render
 from services.narration_render import (
     chunk_turns,
@@ -425,6 +426,58 @@ def test_render_empty_audio_leaves_no_temp_file(cleanup_wavs):
     # No new .wav temp files leaked by the failed render.
     leaked = [f for f in (after - before) if f.endswith('.wav')]
     assert leaked == []
+
+
+# --- render_turns: per-call gRPC deadline (NARR-TIMEOUT) ---
+
+def test_render_forwards_default_synth_timeout(cleanup_wavs):
+    """render_turns forwards the shared default deadline to synthesize_speech.
+
+    The absolute per-call gRPC deadline is what caps a wedged synth call (the #80
+    hang). Its default at the renderer boundary is the shared config constant, so
+    the enforced deadline and the RQ envelope stay derived from one source.
+    """
+    client = _make_client()
+    cleanup_wavs.append(render_turns(
+        client, [{'speaker': 'A', 'text': 'hi'}], {'A': 'Kore'}, mode='single_speaker'
+    ))
+    assert client.synthesize_speech.call_args.kwargs['timeout'] == TIMEOUT_TTS_SYNTH_SECONDS
+
+
+def test_render_forwards_explicit_synth_timeout(cleanup_wavs):
+    """An explicit synth_timeout overrides the default on the synth call."""
+    client = _make_client()
+    cleanup_wavs.append(render_turns(
+        client, [{'speaker': 'A', 'text': 'hi'}], {'A': 'Kore'},
+        mode='single_speaker', synth_timeout=99,
+    ))
+    assert client.synthesize_speech.call_args.kwargs['timeout'] == 99
+
+
+def test_render_deadline_exceeded_retries_then_reraises(monkeypatch):
+    """A persistently timing-out call retries the fixed 3 attempts, then re-raises.
+
+    DeadlineExceeded is in ``_RETRYABLE``, so an expired per-call deadline is
+    caught/retried like 429/503 — the fixed 3-attempt count is *no retry storm*.
+    """
+    monkeypatch.setattr(narration_render.time, 'sleep', lambda *a, **k: None)
+    client = _make_client(side_effect=gax.DeadlineExceeded('deadline'))
+    with pytest.raises(gax.DeadlineExceeded):
+        render_turns(client, [{'speaker': 'A', 'text': 'hi'}], {'A': 'Kore'}, mode='single_speaker')
+    assert client.synthesize_speech.call_count == 3  # 1 + 2 retries, fixed
+
+
+def test_render_deadline_exceeded_then_succeeds(cleanup_wavs, monkeypatch):
+    """One-off deadline on the first attempt, success on retry (resilience)."""
+    monkeypatch.setattr(narration_render.time, 'sleep', lambda *a, **k: None)
+    client = _make_client(side_effect=[
+        gax.DeadlineExceeded('deadline'),
+        SimpleNamespace(audio_content=_FAKE_PCM),
+    ])
+    path = render_turns(client, [{'speaker': 'A', 'text': 'hi'}], {'A': 'Kore'}, mode='single_speaker')
+    cleanup_wavs.append(path)
+    assert client.synthesize_speech.call_count == 2  # timed out once, then ok
+    _assert_valid_wav(path)
 
 
 # --- GoogleTTSService.synthesize_narration entry (delegation) ---

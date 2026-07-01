@@ -34,6 +34,7 @@ import wave
 from google.api_core import exceptions as gax
 from google.cloud import texttospeech
 
+from app_pkg.config import TIMEOUT_TTS_SYNTH_SECONDS
 from services.gemini.audio import concatenate_with_pydub, concatenate_with_wave
 
 logger = logging.getLogger(__name__)
@@ -197,13 +198,17 @@ def pcm_to_wav_bytes(audio_content, rate=_SAMPLE_RATE_HZ, ch=_CHANNELS, width=_S
 
 
 def _synthesize_with_retry(client, synthesis_input, voice, audio_config,
-                           max_retries=2, base_delay=1.0):
+                           max_retries=2, base_delay=1.0, *, timeout=None):
     """Call ``client.synthesize_speech`` with backoff on transient errors.
 
     Retries (progressive backoff) on 429/503/DeadlineExceeded only. 400
     (``InvalidArgument``) / 404 (``NotFound``) propagate immediately. Empty
     ``audio_content`` is a hard chunk failure (never silently concatenated as
     silence) and propagates as ``ValueError`` without retry.
+
+    ``timeout`` is the absolute per-call gRPC deadline (seconds) forwarded to the
+    SDK; on expiry the C-core timer raises ``DeadlineExceeded`` (already in
+    ``_RETRYABLE``), so a wedged call can no longer park the RQ work-horse.
     """
     last_error = None
     for attempt in range(max_retries + 1):
@@ -212,7 +217,7 @@ def _synthesize_with_retry(client, synthesis_input, voice, audio_config,
                 time.sleep(base_delay * attempt)
                 logger.warning(f"Retry {attempt}/{max_retries} for synthesize_speech")
             response = client.synthesize_speech(
-                input=synthesis_input, voice=voice, audio_config=audio_config
+                input=synthesis_input, voice=voice, audio_config=audio_config, timeout=timeout
             )
             audio_content = response.audio_content
             if not audio_content:
@@ -273,7 +278,7 @@ def _build_chunk_request(chunk, alias_for, voices, speaker_configs, *,
 
 def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker',
                  language_code='de-DE', model_name=DEFAULT_NARRATION_MODEL,
-                 pydub_available=True):
+                 pydub_available=True, synth_timeout=TIMEOUT_TTS_SYNTH_SECONDS):
     """Render a structured turn list to a WAV file via Cloud Gemini TTS.
 
     Args:
@@ -296,6 +301,11 @@ def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker'
         model_name: Gemini-TTS model. **Required** to activate Gemini TTS; set on
             ``VoiceSelectionParams`` for both paths.
         pydub_available: Use PyDub for multi-chunk concat (else ``wave`` fallback).
+        synth_timeout: Absolute per-call gRPC deadline (seconds) forwarded to
+            every ``synthesize_speech`` call; on expiry the SDK raises
+            ``DeadlineExceeded`` (already retryable). Defaults to the shared
+            ``TIMEOUT_TTS_SYNTH_SECONDS`` so the enforced deadline and the RQ
+            job envelope stay derived from a single source.
 
     Returns:
         str: Path to a temporary WAV file (concatenated when chunked).
@@ -340,7 +350,9 @@ def render_turns(client, turns, voices, *, style_prompt=None, mode='two_speaker'
                 chunk, alias_for, voices, speaker_configs,
                 style_prompt=style_prompt, language_code=language_code, model_name=model_name,
             )
-            audio_content = _synthesize_with_retry(client, synthesis_input, voice, audio_config)
+            audio_content = _synthesize_with_retry(
+                client, synthesis_input, voice, audio_config, timeout=synth_timeout
+            )
             wav_bytes = pcm_to_wav_bytes(audio_content)
 
             tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)

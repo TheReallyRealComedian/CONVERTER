@@ -21,7 +21,7 @@ from flask import jsonify, request, send_file
 from flask_login import login_required
 from rq.exceptions import NoSuchJobError
 
-from app_pkg.config import OUTPUT_DIR, TIMEOUT_RQ_JOB_SECONDS
+from app_pkg.config import OUTPUT_DIR, rq_job_timeout_for
 # Reuse the Ingest auth primitives (same Bearer parse + target-user resolver as
 # the Card write surface), so a session-less narration write resolves the SAME
 # target user. Only the secret differs — see _authorize_narration_write.
@@ -39,7 +39,7 @@ from services.narration_library import (
     narration_status,
     narration_to_markdown,
 )
-from services.narration_render import DEFAULT_NARRATION_MODEL, validate_turns
+from services.narration_render import DEFAULT_NARRATION_MODEL, chunk_turns, validate_turns
 from tasks import generate_narration_task
 
 logger = logging.getLogger(__name__)
@@ -175,6 +175,23 @@ def _authorize_narration_write():
     return target, None
 
 
+# --- NARR-TIMEOUT: per-render RQ job_timeout from the chunk count -------------
+
+def _job_timeout_for_turns(turns):
+    """RQ ``job_timeout`` for a render, scaled from its chunk count.
+
+    Defensive (adversarial #8): the retry path pulls ``turns`` straight from
+    stored metadata without re-validating, so a corrupt legacy transcript must
+    fail **inside the task**, not 500 the enqueue request. Any chunking error
+    falls back to ``rq_job_timeout_for(0)`` (harmless — the render fails fast on
+    empty/bad turns anyway).
+    """
+    try:
+        return rq_job_timeout_for(len(chunk_turns(turns)))
+    except Exception:
+        return rq_job_timeout_for(0)
+
+
 def register(app):
     # Late import: tests patch the RQ singletons (``task_queue``, ``Job``,
     # ``redis_conn``) on the top-level app.py module, so look them up at call
@@ -253,7 +270,7 @@ def register(app):
             generate_narration_task,
             conversion.id, turns, voices, style_prompt, mode, language_code, tts_model,
             meta={'user_id': target.id, 'conversion_id': conversion.id},
-            job_timeout=TIMEOUT_RQ_JOB_SECONDS,
+            job_timeout=_job_timeout_for_turns(turns),
         )
 
         # job_id back into metadata — reconcile keys "still rendering" vs "gone"
@@ -373,7 +390,7 @@ def register(app):
             generate_narration_task,
             conversion.id, turns, voices, style_prompt, mode, language_code, tts_model,
             meta={'user_id': conversion.user_id, 'conversion_id': conversion.id},
-            job_timeout=TIMEOUT_RQ_JOB_SECONDS,
+            job_timeout=_job_timeout_for_turns(turns),
         )
 
         # Back to pending: clear the prior error + stale duration, point reconcile
