@@ -15,6 +15,52 @@ from .audio_chunker import AudioChunker, TranscriptMerger, AudioChunk
 logger = logging.getLogger(__name__)
 
 
+def format_diarized_transcript(utterances, plain_transcript: str) -> str:
+    """Format Deepgram-Utterances zu Sprecher-gelabeltem Markdown — pur, seiteneffektfrei.
+
+    Konsolidiert aufeinanderfolgende Utterances desselben Sprechers zu einem Block
+    (`**Sprecher N:** text`, 1-basierte Anzeige aus 0-basiertem API-Index).
+
+    Regression-Guard: Genau 1 distinct Sprecher → `plain_transcript` unverändert
+    zurück (Olis Einzel-Diktate bleiben byte-gleich). Defensiv: `utterances`
+    fehlt/leer oder ein `speaker`-Feld ist None → ebenfalls `plain_transcript`
+    (Diarization-Ausfall darf die Transkription nie brechen).
+    """
+    if not utterances:
+        return plain_transcript
+
+    # Sprecher-Index fehlt irgendwo → nicht zuverlässig attribuierbar → Plain.
+    speakers = [getattr(u, "speaker", None) for u in utterances]
+    if any(s is None for s in speakers):
+        return plain_transcript
+
+    if len(set(speakers)) < 2:
+        return plain_transcript
+
+    blocks = []
+    current_speaker = None
+    current_texts = []
+    for utt in utterances:
+        speaker = utt.speaker
+        text = (getattr(utt, "transcript", None) or "").strip()
+        if speaker != current_speaker:
+            if current_texts:
+                blocks.append((current_speaker, " ".join(current_texts)))
+            current_speaker = speaker
+            current_texts = []
+        if text:
+            current_texts.append(text)
+    if current_texts:
+        blocks.append((current_speaker, " ".join(current_texts)))
+
+    if not blocks:
+        return plain_transcript
+
+    return "\n\n".join(
+        f"**Sprecher {speaker + 1}:** {text}" for speaker, text in blocks
+    )
+
+
 class DeepgramService:
     # Chunking-Konfiguration
     MAX_AUDIO_DURATION_SECONDS = 600   # 10 Minuten → triggers chunking
@@ -143,7 +189,8 @@ class DeepgramService:
 
             logger.info(f"Transcribing with Nova-3, language={language}, keyterms={len(keyterms)}")
 
-            # SDK 5.1.0: Direct API call with kwargs
+            # SDK 7.1.0: kein typisiertes `diarize_model` — v2 via additional_query_parameters
+            # (→ ?diarize_model=v2). NIEMALS zusätzlich diarize=True: beide Params → Request rejected.
             response = self.client.listen.v1.media.transcribe_file(
                 request=audio_data,
                 model="nova-3",
@@ -154,13 +201,18 @@ class DeepgramService:
                 numerals=True,
                 paragraphs=True,
                 keyterm=keyterms,
-                request_options={"timeout_in_seconds": TIMEOUT_DEEPGRAM_SECONDS},
+                request_options={
+                    "timeout_in_seconds": TIMEOUT_DEEPGRAM_SECONDS,
+                    "additional_query_parameters": {"diarize_model": "v2"},
+                },
             )
 
-            # Extract transcript
-            transcript = response.results.channels[0].alternatives[0].transcript
+            # Plain-Text wie bisher (Fallback + Single-Speaker-Guard-Basis)
+            plain_transcript = response.results.channels[0].alternatives[0].transcript
 
-            return transcript
+            # Diarization: ≥2 Sprecher → gelabelte Blocks, sonst byte-gleich Plain
+            utterances = getattr(response.results, "utterances", None)
+            return format_diarized_transcript(utterances, plain_transcript)
 
         except Exception as e:
             logger.error(f"Deepgram transcription failed: {e}", exc_info=True)
