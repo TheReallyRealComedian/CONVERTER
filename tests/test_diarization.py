@@ -12,7 +12,11 @@ Deckt ab:
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from services.deepgram_service import DeepgramService, format_diarized_transcript
+from services.deepgram_service import (
+    DeepgramService,
+    MULTI_CHUNK_DIARIZATION_NOTICE,
+    format_diarized_transcript,
+)
 
 
 def _utt(speaker, transcript):
@@ -130,3 +134,41 @@ def test_transcribe_single_no_utterances_returns_plain():
     service = _make_service_with_mock_client("Kein Diarization-Output.", None)
     out = service._transcribe_single(b"audio", "de")
     assert out == "Kein Diarization-Output."
+
+
+def test_transcribe_single_chunk_path_disables_diarization():
+    """apply_diarization=False → Plain, selbst bei ≥2 erkannten Sprechern."""
+    utterances = [_utt(0, "A"), _utt(1, "B")]
+    service = _make_service_with_mock_client("A B plain.", utterances)
+    out = service._transcribe_single(b"audio", "de", apply_diarization=False)
+    assert out == "A B plain."
+    assert "**Sprecher" not in out
+
+
+# --------------------------------------------------------------------------
+# transcribe_file — Schwellen-Routing (needs_splitting gemockt)
+# --------------------------------------------------------------------------
+
+def test_single_request_below_threshold_gets_diarization():
+    """≤90 min (needs_splitting=False) → 1 Request mit Sprecher-Labels."""
+    utterances = [_utt(0, "Frage?"), _utt(1, "Antwort.")]
+    service = _make_service_with_mock_client("Frage? Antwort.", utterances)
+    service.chunker.needs_splitting = MagicMock(return_value=(False, {"duration": 5000}))
+
+    out = service.transcribe_file(b"audio", "de")
+    assert out == "**Sprecher 1:** Frage?\n\n**Sprecher 2:** Antwort."
+
+
+def test_over_threshold_chunks_plain_with_degradation_notice():
+    """>90 min (needs_splitting=True) → Plain (keine Labels) + Degradations-Hinweis."""
+    utterances = [_utt(0, "A"), _utt(1, "B")]
+    service = _make_service_with_mock_client("Chunk plain text.", utterances)
+    service.chunker.needs_splitting = MagicMock(return_value=(True, {"duration": 6000}))
+    service.chunker.split_audio = MagicMock(return_value=[
+        SimpleNamespace(index=0, audio_data=b"chunk0", is_last=True),
+    ])
+
+    out = service.transcribe_file(b"audio", "de")
+    assert out.startswith(MULTI_CHUNK_DIARIZATION_NOTICE)
+    assert "Chunk plain text." in out
+    assert "**Sprecher" not in out

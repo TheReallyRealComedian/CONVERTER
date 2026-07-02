@@ -14,6 +14,14 @@ from .audio_chunker import AudioChunker, TranscriptMerger, AudioChunk
 
 logger = logging.getLogger(__name__)
 
+# Vorangestellt, wenn eine Aufnahme > MAX_AUDIO_DURATION_SECONDS gechunkt wird:
+# per-Chunk-Sprecher-Indizes sind inkonsistent + die **Sprecher N:**-Präfixe
+# würden den Overlap-Dedup des Mergers stören → Diarization für diese Länge aus,
+# Chunks laufen als Plain-Text wie vor DIARIZE (graziöse Degradation).
+MULTI_CHUNK_DIARIZATION_NOTICE = (
+    "> Hinweis: Aufnahme über 90 Minuten — Sprecher-Erkennung für diese Länge deaktiviert."
+)
+
 
 def format_diarized_transcript(utterances, plain_transcript: str) -> str:
     """Format Deepgram-Utterances zu Sprecher-gelabeltem Markdown — pur, seiteneffektfrei.
@@ -63,7 +71,9 @@ def format_diarized_transcript(utterances, plain_transcript: str) -> str:
 
 class DeepgramService:
     # Chunking-Konfiguration
-    MAX_AUDIO_DURATION_SECONDS = 600   # 10 Minuten → triggers chunking
+    MAX_AUDIO_DURATION_SECONDS = 5400  # 90 Minuten → triggers chunking. Ein Meeting ≤90 min
+                                       # läuft als 1 Request = Chunk-übergreifend konsistente
+                                       # Sprecher-Erkennung (DIARIZE). Deepgram-Limit 2 GB/Request.
     CHUNK_DURATION_SECONDS = 1800      # 30 Minuten pro Chunk (Deepgram handles long audio well)
     OVERLAP_SECONDS = 5                # 5 Sekunden Überlappung
     MAX_FILE_SIZE_MB = 500             # 500 MB
@@ -173,16 +183,24 @@ class DeepgramService:
         logger.info(f"Total time: {total_elapsed:.1f}s")
         logger.info(f"Chunks with content: {len(transcripts)}/{total_chunks}")
 
-        # Merge Transkripte
+        # Merge Transkripte (Plain — Diarization im Chunk-Pfad bewusst aus)
         merged_transcript = self.merger.merge_transcripts(transcripts)
+
+        # Graziöse Degradation: der eine Degradations-Hinweis vorangestellt.
+        merged_transcript = f"{MULTI_CHUNK_DIARIZATION_NOTICE}\n\n{merged_transcript}"
 
         logger.info(f"Final transcript: {len(merged_transcript)} chars")
         logger.info("=" * 50)
 
         return merged_transcript
 
-    def _transcribe_single(self, audio_data: bytes, language: str) -> str:
-        """Transkribiert eine einzelne Audio-Datei (Original-Methode)."""
+    def _transcribe_single(self, audio_data: bytes, language: str, apply_diarization: bool = True) -> str:
+        """Transkribiert eine einzelne Audio-Datei (Original-Methode).
+
+        ``apply_diarization=True`` (Single-Request-Pfad) → Sprecher-gelabeltes
+        Markdown bei ≥2 Sprechern, sonst Plain. ``False`` (Chunk-Pfad) → immer
+        Plain wie vor DIARIZE, damit die Präfixe den Overlap-Merger nicht stören.
+        """
         try:
             # Load keyterms for the selected language
             keyterms = self.load_keyterms(language)
@@ -210,7 +228,11 @@ class DeepgramService:
             # Plain-Text wie bisher (Fallback + Single-Speaker-Guard-Basis)
             plain_transcript = response.results.channels[0].alternatives[0].transcript
 
-            # Diarization: ≥2 Sprecher → gelabelte Blocks, sonst byte-gleich Plain
+            # Chunk-Pfad: Diarization aus → Plain wie vor DIARIZE.
+            if not apply_diarization:
+                return plain_transcript
+
+            # Single-Request: ≥2 Sprecher → gelabelte Blocks, sonst byte-gleich Plain
             utterances = getattr(response.results, "utterances", None)
             return format_diarized_transcript(utterances, plain_transcript)
 
@@ -239,7 +261,11 @@ class DeepgramService:
                     time.sleep(delay)
 
                 start_time = time.time()
-                transcript = self._transcribe_single(chunk.audio_data, language)
+                # Chunk-Pfad: Diarization aus (per-Chunk-Sprecher inkonsistent,
+                # Präfixe würden den Overlap-Dedup stören).
+                transcript = self._transcribe_single(
+                    chunk.audio_data, language, apply_diarization=False
+                )
                 elapsed = time.time() - start_time
 
                 logger.info(

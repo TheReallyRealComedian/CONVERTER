@@ -20,8 +20,17 @@ OUTPUT_DIR = '/app/output_podcasts'
 #       deadline can never mid-flight-kill a genuinely-progressing render.
 # TIMEOUT_GEMINI_SECONDS and TIMEOUT_DEEPGRAM_SECONDS are independent
 # single-call SDK timeouts and stand on their own.
+#
+# TIMEOUT_DEEPGRAM_SECONDS is the per-request SDK deadline for one
+# transcribe_file call. Since DIARIZE it must cover a *single* request of up to
+# 90 min audio (MAX_AUDIO_DURATION_SECONDS=5400, up to MAX_FILE_SIZE_MB=500) so
+# meetings run as one request with consistent speakers — not the old ≤10-min
+# chunk. Deepgram's server-side processing stays fast (<2 min for ~90 min), but
+# the deadline must also span the upload of a large file + response. 1200s (20
+# min) gives ample headroom and stays well under gunicorn's 1800s CMD timeout,
+# so an overrun surfaces as a clean SDK error rather than a gunicorn kill.
 TIMEOUT_GEMINI_SECONDS = 300
-TIMEOUT_DEEPGRAM_SECONDS = 600
+TIMEOUT_DEEPGRAM_SECONDS = 1200
 
 
 def _env_positive_float(name, default):
