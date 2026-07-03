@@ -1352,7 +1352,12 @@ body.reader-active .sidebar-toggle-floater--global {
 .reader-view table {
     border-collapse: collapse;
     margin: 1em 0;
-    width: 100%;
+    /* READER-TABLE: breite Tabellen scrollen im eigenen Käfig statt unter die
+       Sidebar zu laufen; schmale bleiben inhaltsbreit (max-content statt 100%). */
+    display: block;
+    overflow-x: auto;
+    width: max-content;
+    max-width: 100%;
     font-size: 0.9375rem;
 }
 .reader-view th,
