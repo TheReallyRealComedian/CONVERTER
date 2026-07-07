@@ -1,8 +1,8 @@
-# Sprint NARR-FAIL — Narration-Render schlägt seit ~07-07 durchgängig fehl (S/M, 3 Phasen)
+# Sprint NARR-FAIL — Narration-Render schlägt fehl: ungültiger Sprach-Code (S, 2 Phasen)
 
-> **Executor-Doc.** Nach jeder Phase **Stop + Bericht**, auf Sign-off warten. **Phase 1 ist ein hartes Diagnose-Gate** — der eigentliche Fehler ist im gespeicherten `metadata.error` **abgeschnitten** (`[:500]`), die Fix-Richtung hängt an der echten Exception-Klasse; NICHT vorher raten/fixen. Pre-Flight: `pytest tests/` grün (Baseline aus STATUS). Arbeitsverzeichnis Mac `/Users/olivergluth/CODE/CONVERTER` = Source-of-Truth. **P1 braucht Mintbox-Shell** (Worker-Logs/Container-`pip freeze`) — läuft entweder als Mintbox-dispatchter Lauf oder Oli führt die P1-Kommandos aus und liefert den Output. Code-Edits (P2) passieren auf dem Mac, Deploy dann Mintbox `git pull` + `up -d --build`.
+> **Executor-Doc.** Nach jeder Phase **Stop + Bericht**, auf Sign-off warten. **P1 (Diagnose) ist ✅ erledigt** (Mintbox-Agent 2026-07-07, s.u.) — dieser Sprint startet direkt in **Phase 2 (Fix)**. Pre-Flight: `pytest tests/` grün (Baseline aus STATUS). Arbeitsverzeichnis Mac `/Users/olivergluth/CODE/CONVERTER` = Source-of-Truth. Code-Edits auf dem Mac, Deploy Mintbox `git pull` + `up -d --build`. Kein Schema/Dep/Token.
 >
-> **Symptom (2026-07-07)**: Narrationen 99–102 (`audio_narration`, `two_speaker`, `voices {"Nora":"Kore","Timo":"Puck"}`, `tts_model=gemini-2.5-flash-tts`) gehen alle auf `failed`. Auch ein 6-Turn-Minimalfall (102) scheitert → **nicht** input-größen-abhängig. Der gespeicherte Fehler ist bei allen identisch und **bei ~500 Zeichen abgeschnitten**, endet im Frame `google/api_core/grpc_helpers.py:55 error_remapped_callable` → die echte Exception-Klasse + gRPC-Status liegen **hinter** dem Abschnitt.
+> **Root Cause (P1 ✅)**: `InvalidArgument: 400 Requested language code 'de' is not supported for Gemini voices.` Gemini-TTS-Voices auf Cloud TTS akzeptieren **kein nacktes `de`** — sie verlangen den **regionierten BCP-47-Code `de-DE`**. Der POST übernimmt `data.get('language')` **ungeprüft** ([app_pkg/narration.py:235-237](app_pkg/narration.py)); der MCP-`create_narration`-Call hat `'de'` übergeben → 1:1 an die API → 400. **Keine Regression im Code — der Input hat sich geändert**: der funktionierende Render 77 hatte **kein** `language_code`-Feld → lief mit dem Code-Default `de-DE` ([narration_render.py:280](services/narration_render.py), `DEFAULT_LANGUAGE_CODE='de-DE'` [narration.py:49](app_pkg/narration.py)). 99–102 haben `language_code:'de'` gespeichert. **SDK-Verdacht tot**: Stack ist gebumpt (texttospeech 2.37.0 / grpcio 1.81.1 / protobuf 7.35.1) aber unbeteiligt — der 400er ist eine saubere serverseitige Request-Ablehnung, **kein Pin nötig**. `mode`/`tts_model` sind korrekt.
 
 ## Master-gegroundete Fakten (nicht neu erheben — darauf aufsetzen)
 
@@ -13,65 +13,49 @@
 - **Der echte Fehler ist bereits da (ohne Code-Change):** [tasks.py:88](tasks.py) loggt auf dem Fehlerpfad `logger.error(f"Error: {type(e).__name__}: {str(e)}")` → **Worker-Container-Logs enthalten Typ + Message** für 99–102. Zusätzlich steckt der **volle** Traceback in `job.exc_info` in Redis (FailedJobRegistry).
 - **Truncation-Stelle (bestätigt):** [app_pkg/narration.py:138](app_pkg/narration.py) `reconcile_narration` → `error = (job.exc_info or '')[:500]`. Das ist die einzige Kappung; sie hat diese Diagnose blind gemacht.
 - **`updated_at` ≠ „Dauer bis Fehler".** Es ist der Poll-Zeitpunkt, an dem `reconcile_narration` `pending`→`failed` geflippt hat, nicht der Render-Fehler-Zeitpunkt. Die Timing-Tabelle im Ur-Dossier (99/100/102 ≈ 5 s, 101 ≈ 134 s) ist damit **kein** verlässliches Signal — nicht darauf theoretisieren.
-- **SDK-Pinning-Risiko (starker Regressions-Verdacht):** [requirements.txt](requirements.txt) hat `google-cloud-texttospeech>=2.31.0` und `google-genai>=1.0.0` **nur mit Floor**; `grpcio`/`protobuf`/`google-api-core` sind **transitiv, ungepinnt**. Ein `up -d --build` nach 06-29 kann eine **neuere** Version gezogen haben → klassisches „lief letzte Woche, heute kaputt". Das ist der **Lead-Verdacht**, aber die echte Exception aus P1 entscheidet.
+- **SDK-Pinning-Verdacht — WIDERLEGT (P1):** der google-Stack ist zwar gebumpt (texttospeech 2.37.0 / grpcio 1.81.1 / protobuf 7.35.1, alles Floor-gepinnt), aber **unbeteiligt** — der Fehler ist ein sauberer serverseitiger 400 auf einen ungültigen `language`-Wert, kein Shape/ABI-Break. **Kein Pin nötig.** (Der ursprüngliche Master-Lead-Verdacht lag hier daneben — die „Regression" war ein Input-Wechsel, kein Dependency-Drift.)
 
-## Phase 1 — Diagnose (HART-Gate, kein Code-Change)
+## Phase 1 — Diagnose ✅ ERLEDIGT (Mintbox-Agent 2026-07-07)
 
-**Ziel: die echte Exception-Klasse + gRPC-Status + die live-laufenden google/grpc-Versionen.** Auf der Mintbox (Container laufen dort):
+Root Cause = `InvalidArgument: 400 Requested language code 'de' is not supported for Gemini voices.` (Worker-Log, alle vier Jobs identisch). Beweiskette: DB-Metadaten 99–102 haben `language_code:'de'`; Render 77 (funktionierte) hatte gar kein Feld → Code-Default `de-DE`. Eintrittspforte [narration.py:235-237](app_pkg/narration.py) (`data.get('language')` ungeprüft). Google-Stack gebumpt aber unbeteiligt (sauberer 400). **Kein Diagnose-Rest offen — direkt Phase 2.**
 
-1. **Worker-Log-Fehler** (Typ + Message, schon geloggt):
-   ```bash
-   docker logs markdown-converter-worker 2>&1 | grep -A3 "NARRATION TASK FAILED" | tail -40
-   ```
-2. **Voller Traceback aus Redis** (die abgeschnittene Hälfte), für einen der Job-IDs (99=`bc71bf2d-…`, 101=`4320089c-…`, 102=`8f02100d-…`):
-   ```bash
-   docker exec markdown-converter-worker python -c "import os,redis;from rq.job import Job;c=redis.from_url(os.environ['REDIS_URL']);j=Job.fetch('8f02100d-704c-4c61-8a68-84d1588d6e81',connection=c);print(j.exc_info)"
-   ```
-   (falls der Job aus Redis evicted ist → Log-Weg aus 1. reicht.)
-3. **Live-Versionen des google/grpc-Stacks** (gegen den 06-29-Zustand — Bump = Regressions-Beweis):
-   ```bash
-   docker exec markdown-converter-worker pip freeze | grep -iE "google|grpc|proto"
-   ```
-4. **Optional, falls Log+Redis nichts hergeben:** ein Minimal-Repro **im Worker-Container** (umgeht MCP), 6 Turns wie Job 102, `render_turns(...)` direkt, volle Exception ungekürzt printen. Kosten ~1 Cent.
+## Phase 2 — Fix (Language-Normalisierung + Truncation-Tail)
 
-**Verzweigung (im Bericht die Ursache benennen + Go-Richtung):**
-- **A — `ResourceExhausted` (429 Quota):** Gemini-TTS-Preview-Quota erschöpft (Burst 99→102 in 10 min). Fix = Backoff/Quota-Handling + Oli prüft GCP-Quota/Billing; ggf. **kein** Code-Change nötig außer robusterem Retry.
-- **B — `InvalidArgument`/`FailedPrecondition` (400) mit „Unknown field"/Schema-Meldung:** ein **gebumptes `google-cloud-texttospeech`** hat die Request-Shape (`MultiSpeakerMarkup`/`SynthesisInput.prompt`/Speaker-Typen) geändert. Fix = **Stack pinnen** auf die 06-29-Versionen (aus P1.3 / letzte funktionierende).
-- **C — `ImportError`/`TypeError`/`AttributeError` im Stack:** ein gebumptes `grpcio`/`protobuf`/`google-api-core` ist inkompatibel. Fix = **pinnen**.
-- **D — `PermissionDenied`(403)/`Unauthenticated`(401):** Creds/SA-Rolle/Projekt-Drift (Vertex-AI-API/`roles/aiplatform.user`, s. CLAUDE.md GCP-Setup). Fix = Oli-seitig GCP, kein App-Code.
-- **E — `DeadlineExceeded`(504) durchgängig:** server-seitige Langsamkeit/Hang → NARR-TIMEOUT tut, was es soll (Hang→Fehler). Dann Ursache tiefer (Region/Modell-Routing) — Optionen skizzieren, Master entscheidet.
-
-**Stop + Bericht mit: echter Exception-Klasse, voller Message, gRPC-Status, google/grpc-Versionen, Go-Richtung. Warten auf Sign-off.**
-
-## Phase 2 — Fix (nach Go)
-
-1. **MUST, ursachen-unabhängig — Fehler nie wieder blind kappen:** in [app_pkg/narration.py](app_pkg/narration.py) `reconcile_narration` (Zeile ~138) den `[:500]`-Cut aufheben. Mindestens Exception-Typ + Message + großzügiger Traceback (z.B. `[:5000]`) speichern. Zusätzlich in [tasks.py](tasks.py) den Fehlerpfad so lassen/erweitern, dass `type(e).__name__` + `str(e)` sicher im Log stehen (tun sie schon). **+Test** (Mock: `job.exc_info` lang → gespeicherter `error` enthält Kopf **und** Schwanz, nicht bei 500 gekappt). Das ist der eine unstrittig-richtige Punkt aus dem Ur-Dossier.
-2. **Ursachen-Fix je nach P1-Befund:**
-   - Pfad **B/C** (Bump brach es): die betroffenen Pakete in [requirements.txt](requirements.txt) **auf die funktionierenden Versionen pinnen** (`==`), Kommentar mit Datum/Grund. **Nicht** nur den Floor anheben — exakt pinnen, damit der nächste Rebuild nicht wieder driftet. Memory `reference_cpu_torch_pin_past_resolver`-Geschwister: SDK-Pins am Resolver festnageln.
-   - Pfad **A** (Quota): Retry/Backoff prüfen (429 ist schon in `_RETRYABLE`); ggf. `max_retries`/`base_delay` moderat anheben; **kein** Overengineering — die Quota-Wurzel ist GCP-seitig (Oli).
-   - Pfad **D**: **kein App-Code** — Oli-GCP-Schritt dokumentieren.
-3. **Verifikation ist ein echter Render, nicht pytest** (Test-Suite mockt die SDK-Boundary → fängt einen Live-Break NICHT; CLAUDE.md Test-Suite-Limit). `pytest` muss trotzdem grün bleiben (Baseline + neuer Truncation-Test).
+1. **Language-Code am Boundary normalisieren (Kern-Fix).** Neuer pure Helper `_normalize_language_code(raw)` in [app_pkg/narration.py](app_pkg/narration.py):
+   - bereits regioniert (enthält `-`, z.B. `de-DE`) → **unverändert** durchreichen;
+   - nacktes 2-Letter-Kürzel → über eine **kleine Map** regionalisieren (mind. `de→de-DE`, `en→en-US`; erweiterbar, konservativ);
+   - leer/kein-String → `DEFAULT_LANGUAGE_CODE` (`de-DE`);
+   - **unmappbares** Kürzel → früh **400 mit klarer Message** („Sprach-Code `xx` nicht unterstützt — regionierten BCP-47-Code wie `de-DE` senden.") statt es blind an die API zu geben. Max 2 Sätze, deutsch, keine Emojis (CLAUDE.md-Microcopy).
+   - **An BEIDEN Aufrufstellen anwenden** — sonst bleibt eine Lücke:
+     - **POST** [narration.py:235-237](app_pkg/narration.py): den rohen `data.get('language')` durch den Helper schicken, bevor er in Metadaten/Enqueue geht.
+     - **Retry** [narration.py:382](app_pkg/narration.py): `metadata.get('language_code')` durch **denselben** Helper schicken. ⚠️ **Ohne das failt ein Retry von 99–102 erneut identisch** — `'de'` ist truthy, das bestehende `or DEFAULT` greift nie. Mit der Normalisierung am Retry-Read heilen die vier Altlasten **ohne** DB-Handedit.
+2. **Truncation-Fix — den Tail persistieren, nicht den Head.** [narration.py:138](app_pkg/narration.py) `reconcile_narration`: `error = (job.exc_info or '')[:500]` kappt den **Kopf** des Tracebacks — die Exception-Zeile steht am **Ende**, also bliebe der bisherige Cut wirkungslos. Fix: die **letzten** ~2000 Zeichen persistieren (Tail) **oder** die finale Exception-Zeile extrahieren + voranstellen. So steht die `InvalidArgument: …`-Zeile künftig sichtbar im gespeicherten `error`. (`tasks.py:88` loggt Typ+Message schon — dort nichts nötig.)
+3. **Tests** (Mock, keine echte SDK-Boundary):
+   - POST mit `language:'de'` → gespeicherter/enqueuter `language_code == 'de-DE'`; mit `de-DE` → unverändert; mit `xx` → 400.
+   - **Retry** einer Row mit gespeichertem `language_code:'de'` → enqueut `de-DE` (Regressionsschutz gegen die Retry-Falle).
+   - Truncation: langer `job.exc_info` mit der Exception-Zeile am Ende → gespeicherter `error` **enthält** diese Zeile.
+4. `pytest` grün (Baseline aus STATUS + neue Tests).
 
 **Stop + Bericht.**
 
-## Phase 3 — Live-Verify + Wrap
+## Phase 3 — Live-Verify + Retry-Heilung + Wrap
 
-1. **Live-Smoke**: der 6-Turn-Minimalfall (wie Job 102) rendert **`ready`** mit gültiger Dauer; danach ein voller (78-Turn) Job wie 99. Über `create_narration`/`get_narration_status` (MCP) oder direkt. Audio spielt ab.
-2. **Retry der Altlasten**: 99–102 via `POST /api/narrations/<id>/retry` (failed-only, re-enqueued aus gespeicherten Inputs) neu rendern → `ready`. Beweist den Fix an genau den Fehl-Jobs.
-3. **Wrap**: BACKLOG (NARR-FAIL ☑ + Ursache/Fix) · STATUS (pytest-Zahl) · CLAUDE.md **nur falls** ein Pin/Verhalten dokumentierbar ist (z.B. „google-cloud-texttospeech auf `==x.y.z` gepinnt weil Bump `z+1` die MultiSpeaker-Shape brach"; Truncation-Fix im Narration-Bullet) · **Memory** bei übertragbarer Lehre (Kandidat: „ungepinnte externe SDKs + `up -d --build` = stille Regression; Live-Break wird von SDK-mockenden Tests nicht gefangen → Verifikation = echter Render + Container-`pip freeze`-Diff"). **Bullet-Guard** `grep -nE '(- \*\*.*){2,}' BACKLOG.md` vor jedem Wrap-Commit.
-4. **Deploy-Notiz**: Mac committen/pushen → Mintbox `git pull` + `docker compose up -d --build` (Pin/Code ins Image gebacken).
+1. **Frischer Render** (POST-Pfad): 6-Turn-Minimalfall mit `language:'de'` → jetzt `ready` (beweist die POST-Normalisierung). Über `create_narration`/`get_narration_status` (MCP) oder direkt.
+2. **Altlasten heilen** (Retry-Pfad): 99–102 via `POST /api/narrations/<id>/retry` → `ready`. Beweist die Retry-Normalisierung **und** räumt die vier Fehl-Jobs auf, ohne die DB anzufassen.
+3. **Wrap**: BACKLOG (NARR-FAIL ☑ + Root Cause/Fix) · STATUS (pytest-Zahl) · CLAUDE.md (Narration-Bullet: `language` muss regionierter BCP-47 sein; Server normalisiert nackt `de→de-DE`, unmappbar → 400; `metadata.error` persistiert jetzt den Traceback-**Tail**) · **Memory** — die bestehende Master-Memory `reference_gemini_tts_language_code_bcp47` (schreibt der Master beim Sign-off; Sub-Thread verweist nur) bzw. Wrap-Lehre. **Bullet-Guard** `grep -nE '(- \*\*.*){2,}' BACKLOG.md` vor jedem Commit.
+4. **Optionaler Caller-Hinweis** (nicht dieser Sprint, nur notieren): der `create_narration`-MCP-Wrapper / die `erklaerbaer-narration`-Skill sollten idealerweise `de-DE` senden; die Server-Normalisierung ist die belastbare Verteidigung, der Caller-Fix nur Kosmetik.
+5. **Deploy-Notiz**: Mac committen/pushen → Mintbox `git pull` + `docker compose up -d --build`.
 
 **Stop + Schluss-Bericht.**
 
 ## Bewusst NICHT
 
+- **Kein** SDK-Pin (der google-Stack ist unbeteiligt — sauberer 400; das Ur-Dossier UND der erste Master-Verdacht lagen hier falsch).
 - **Kein** Wechsel auf den genai/Vertex-Pfad, **kein** Ändern der Modell-ID auf `-preview-tts` (bräche die verifizierte Cloud-Config — der zentrale Fehlgriff des Ur-Dossiers).
 - **Kein** WAV-Header-„Fix" (schon header-agnostisch gelöst).
-- **Kein** spekulatives Streaming/Chunk-Redesign (Chunking + per-Call-Deadline existieren bereits; NARR-TIMEOUT ist absichtlich).
-- **Kein** Blind-Fix vor der echten Exception aus P1.
+- **Kein** DB-Handedit der 99–102 — die Retry-Normalisierung heilt sie sauber.
 
 ## Akzeptanz
 
-- [ ] **P1**: echte Exception-Klasse + gRPC-Status + google/grpc-Versionen berichtet; Ursache (A–E) benannt; Sign-off vor P2.
-- [ ] **P2**: Truncation-Fix (Fehler ungekürzt gespeichert) **+** ursachen-spezifischer Fix (Pin/Quota/GCP); `pytest` grün inkl. neuem Truncation-Test.
-- [ ] **P3**: echter Render `ready` (6-Turn + voller Job); 99–102 per Retry grün; Docs/Memory/Wrap + Bullet-Guard; Deploy-Notiz.
+- [ ] **P2**: `_normalize_language_code` an POST **und** Retry; Truncation persistiert den Exception-Tail; `pytest` grün inkl. der drei neuen Tests (POST-Map, Retry-Map, Truncation-Tail).
+- [ ] **P3**: frischer Render mit `language:'de'` → `ready`; 99–102 per Retry → `ready` (ohne DB-Handedit); Docs/Memory/Wrap + Bullet-Guard; Deploy-Notiz.
