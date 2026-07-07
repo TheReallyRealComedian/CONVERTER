@@ -48,6 +48,36 @@ logger = logging.getLogger(__name__)
 # app is German). The body's optional ``language`` field overrides it.
 DEFAULT_LANGUAGE_CODE = 'de-DE'
 
+# Gemini-TTS voices on Cloud TTS reject bare ISO-639-1 codes ('de' → 400
+# InvalidArgument); they require the regionalized BCP-47 form. Conservative
+# map for the bare codes callers actually send — extend as needed (NARR-FAIL).
+_LANGUAGE_REGION_MAP = {
+    'de': 'de-DE',
+    'en': 'en-US',
+}
+
+
+def _normalize_language_code(raw):
+    """Normalize a caller-supplied language code to regionalized BCP-47.
+
+    Already-regionalized codes (contain ``-``) pass through unchanged; a bare
+    two-letter code is regionalized via ``_LANGUAGE_REGION_MAP``; empty /
+    non-string falls back to ``DEFAULT_LANGUAGE_CODE``. An unmappable code
+    raises ``ValueError`` (→ 400) instead of being handed to the API, where
+    Gemini voices would reject it only inside the worker (NARR-FAIL).
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        return DEFAULT_LANGUAGE_CODE
+    code = raw.strip()
+    if '-' in code:
+        return code
+    mapped = _LANGUAGE_REGION_MAP.get(code.lower())
+    if mapped is None:
+        raise ValueError(
+            f"Sprach-Code '{code}' nicht unterstützt. "
+            f"Regionierten BCP-47-Code wie 'de-DE' senden.")
+    return mapped
+
 
 # --- NARR-3 reconcile: web-side state machine for a DB-free worker -----------
 #
@@ -135,7 +165,10 @@ def reconcile_narration(conversion):
         logger.warning('reconcile_narration: RQ fetch failed for job %s', job_id, exc_info=True)
         return
     if job.is_failed:
-        error = (job.exc_info or '')[:500] or 'Vertonung fehlgeschlagen.'
+        # Keep the TAIL of the traceback — the exception line lives at the
+        # end; a head-cut hid the actual error from the stored metadata
+        # (NARR-FAIL made that diagnosis blind).
+        error = (job.exc_info or '')[-2000:] or 'Vertonung fehlgeschlagen.'
         _fail_narration(conversion, metadata, error)
     # queued / started / deferred → still rendering, stays pending.
 
@@ -232,9 +265,12 @@ def register(app):
         if not isinstance(style_prompt, str):
             style_prompt = None
 
-        language_code = data.get('language')
-        if not isinstance(language_code, str) or not language_code.strip():
-            language_code = DEFAULT_LANGUAGE_CODE
+        # NARR-FAIL: normalize at the boundary — a bare 'de' passed through
+        # verbatim reaches Cloud TTS as-is and 400s inside the worker.
+        try:
+            language_code = _normalize_language_code(data.get('language'))
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
 
         tts_model = data.get('tts_model')
         if not isinstance(tts_model, str) or not tts_model.strip():
@@ -379,7 +415,13 @@ def register(app):
         voices = metadata.get('speakers') or {}
         style_prompt = metadata.get('style_prompt')
         tts_model = metadata.get('tts_model') or DEFAULT_NARRATION_MODEL
-        language_code = metadata.get('language_code') or DEFAULT_LANGUAGE_CODE
+        # NARR-FAIL: normalize the STORED code too — rows created before the
+        # POST normalization carry a bare 'de', which is truthy, so a plain
+        # ``or DEFAULT`` would re-enqueue the identical failure forever.
+        try:
+            language_code = _normalize_language_code(metadata.get('language_code'))
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
         # Pre-NARR-5 rows stored no mode → derive from the speaker count
         # (validate_turns held mode↔count consistent at create time, and the
         # renderer routes single/multi per-chunk by the chunk's own speakers).

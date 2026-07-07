@@ -168,6 +168,18 @@ def test_retry_derives_mode_when_absent(
     assert call.args[7] == DEFAULT_NARRATION_MODEL  # tts_model present, untouched
 
 
+def test_retry_normalizes_bare_stored_language_code(
+        authenticated_client, app, test_user, mock_redis_queue):
+    # NARR-FAIL retry trap: a stored bare 'de' is truthy, so ``or DEFAULT``
+    # never kicks in — without normalization the retry re-fails identically.
+    cid = _make_narration(
+        app, test_user['id'], status='failed',
+        metadata_extra={'language_code': 'de'})
+
+    assert authenticated_client.post(RETRY_URL.format(cid)).status_code == 202
+    assert mock_redis_queue['queue'].enqueue.call_args.args[6] == 'de-DE'
+
+
 def test_retry_derives_single_speaker_mode(
         authenticated_client, app, test_user, mock_redis_queue):
     cid = _make_narration(

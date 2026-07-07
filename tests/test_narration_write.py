@@ -173,6 +173,37 @@ def test_create_enqueues_render_task_with_args(app, client, test_user, monkeypat
     assert call.kwargs['job_timeout'] == TIMEOUT_RQ_JOB_SECONDS
 
 
+# --- NARR-FAIL: language normalization at the POST boundary ------------------
+
+def test_create_normalizes_bare_language_code(app, client, test_user, monkeypatch, mock_redis_queue):
+    # Gemini voices reject a bare 'de' (400 InvalidArgument in the worker) —
+    # the boundary regionalizes it before metadata + enqueue.
+    monkeypatch.setenv('NARRATION_TOKEN', NARRATION_TOKEN)
+    resp = client.post(NARR_URL, headers=_auth(), json=_payload(language='de'))
+    assert resp.status_code == 202
+    nid = resp.get_json()['narration_id']
+    with app.app_context():
+        meta = json.loads(db.session.get(Conversion, nid).metadata_json)
+        assert meta['language_code'] == 'de-DE'
+    assert mock_redis_queue['queue'].enqueue.call_args.args[6] == 'de-DE'
+
+
+def test_create_keeps_regionalized_language_code(app, client, test_user, monkeypatch, mock_redis_queue):
+    monkeypatch.setenv('NARRATION_TOKEN', NARRATION_TOKEN)
+    resp = client.post(NARR_URL, headers=_auth(), json=_payload(language='en-GB'))
+    assert resp.status_code == 202
+    assert mock_redis_queue['queue'].enqueue.call_args.args[6] == 'en-GB'
+
+
+def test_create_400_on_unmappable_language_code(app, client, test_user, monkeypatch, mock_redis_queue):
+    monkeypatch.setenv('NARRATION_TOKEN', NARRATION_TOKEN)
+    resp = client.post(NARR_URL, headers=_auth(), json=_payload(language='xx'))
+    assert resp.status_code == 400
+    assert 'xx' in resp.get_json()['error']
+    assert _narration_count(app) == 0
+    mock_redis_queue['queue'].enqueue.assert_not_called()
+
+
 def test_create_derives_title_when_blank(app, client, test_user, monkeypatch, mock_redis_queue):
     monkeypatch.setenv('NARRATION_TOKEN', NARRATION_TOKEN)
     resp = client.post(NARR_URL, headers=_auth(), json=_payload(title=''))

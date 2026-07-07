@@ -156,6 +156,32 @@ def test_reconcile_job_failed_flips_failed(app, test_user, tmp_path, monkeypatch
     assert 'render exploded' in meta['error']
 
 
+def test_reconcile_persists_traceback_tail(app, test_user, tmp_path, monkeypatch, mock_redis_queue):
+    """A long exc_info is tail-truncated — the exception line sits at the END
+    of a traceback, so a head-cut would drop exactly the line that matters
+    (NARR-FAIL: the 400-InvalidArgument line was invisible in metadata)."""
+    monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(tmp_path))
+    cid = _make_pending(app, test_user['id'], job_id='job-long-fail')
+
+    exception_line = ("google.api_core.exceptions.InvalidArgument: 400 Requested "
+                      "language code 'de' is not supported for Gemini voices.")
+    failed_job = MagicMock()
+    failed_job.is_failed = True
+    failed_job.exc_info = ('Traceback (most recent call last):\n'
+                           + '  File "frame.py", line 1, in f\n' * 200
+                           + exception_line)
+    assert len(failed_job.exc_info) > 2000  # long enough to force truncation
+    mock_redis_queue['fetch'].return_value = failed_job
+
+    with app.app_context():
+        reconcile_narration(db.session.get(Conversion, cid))
+
+    meta = _meta(app, cid)
+    assert meta['narration_status'] == 'failed'
+    assert exception_line in meta['error']
+    assert len(meta['error']) <= 2000
+
+
 def test_reconcile_job_gone_flips_failed(app, test_user, tmp_path, monkeypatch, mock_redis_queue):
     monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(tmp_path))
     cid = _make_pending(app, test_user['id'], job_id='job-gone')
