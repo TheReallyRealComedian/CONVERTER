@@ -157,6 +157,52 @@ def test_last_used_at_bumped_on_use(app, client):
         assert ApiToken.query.first().last_used_at is not None
 
 
+# --- me / logout (P2) ------------------------------------------------------
+
+
+def test_me_with_token_returns_identity(app, client):
+    user_id = _make_user(app)
+    token = _login(client).get_json()['token']
+    resp = client.get('/api/auth/me', headers=_bearer(token))
+    assert resp.status_code == 200
+    assert resp.get_json() == {'id': user_id, 'username': 'alice'}
+
+
+def test_me_without_token_401(client):
+    resp = client.get('/api/auth/me')
+    assert resp.status_code == 401
+    assert resp.get_json() == {'error': 'Nicht autorisiert.'}
+
+
+def test_me_with_garbage_token_401(app, client):
+    _make_user(app)
+    assert client.get('/api/auth/me', headers=_bearer('garbage')).status_code == 401
+
+
+def test_logout_revokes_presented_token(app, client):
+    _make_user(app)
+    token = _login(client).get_json()['token']
+    resp = client.post('/api/auth/logout', headers=_bearer(token))
+    assert resp.status_code == 200
+    assert resp.get_json()['revoked'] is True
+    with app.app_context():
+        assert ApiToken.query.count() == 0
+    # The presented token is dead: the next call bounces at the door.
+    assert client.get('/api/auth/me', headers=_bearer(token)).status_code == 401
+    assert client.post('/api/auth/logout', headers=_bearer(token)).status_code == 401
+
+
+def test_logout_only_revokes_the_presented_token(app, client):
+    _make_user(app)
+    token_a = _login(client).get_json()['token']
+    token_b = _login(client).get_json()['token']
+    assert client.post('/api/auth/logout', headers=_bearer(token_a)).status_code == 200
+    # The sibling token keeps working — revocation is per-row, not per-user.
+    assert client.get('/api/auth/me', headers=_bearer(token_b)).status_code == 200
+    with app.app_context():
+        assert ApiToken.query.count() == 1
+
+
 # --- Web session path stays byte-identical --------------------------------
 
 

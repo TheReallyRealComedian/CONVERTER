@@ -52,7 +52,8 @@ def create_app(import_name='app'):
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    CSRFProtect(app)
+    csrf = CSRFProtect(app)
+    _register_csrf_inversion(app, csrf)
     db.init_app(app)
 
     login_manager = LoginManager()
@@ -113,6 +114,52 @@ def create_app(import_name='app'):
         _run_pending_migrations(app)
 
     return app
+
+
+def _register_csrf_inversion(app, csrf):
+    """MOBILE-AUTH P2 — CSRF inversion for bearer writes.
+
+    Flask-WTF's automatic per-request protection is turned off
+    (``WTF_CSRF_CHECK_DEFAULT = False``); the ``before_request`` below
+    re-applies it explicitly to every cookie-session mutation and skips it
+    for bearer requests, so the iOS app can write without the cookie/CSRF
+    dance while the web UI's CSRF posture stays byte-identical.
+
+    The handler replicates the guard chain of Flask-WTF==1.2.1's automatic
+    ``csrf_protect`` (flask_wtf/csrf.py::CSRFProtect.init_app: ENABLED →
+    CHECK_DEFAULT → method → endpoint → exempt-blueprints → exempt-views →
+    protect()), because ``csrf.protect()`` itself checks NONE of those
+    guards — only the method. ``_exempt_views`` / ``_exempt_blueprints``
+    are private Flask-WTF attributes: re-verify this replication against
+    upstream on any Flask-WTF version bump.
+    """
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = False
+
+    @app.before_request
+    def csrf_protect_session_writes():
+        if not app.config['WTF_CSRF_ENABLED']:
+            return
+        if request.method not in app.config['WTF_CSRF_METHODS']:
+            return
+        # A cross-site browser request cannot carry an Authorization header
+        # (custom headers need a CORS preflight, which fails without server
+        # opt-in), so header *presence* is a CSRF-safe skip signal — the
+        # same trust class as X-CSRFToken. Validity is deliberately NOT
+        # checked here: an invalid bearer skips CSRF but dies at auth (401),
+        # fail-closed. There is no cookie authority to ride on these
+        # requests from a cross-site context.
+        if request.headers.get('Authorization', '').startswith('Bearer '):
+            return
+        if not request.endpoint:
+            return
+        if app.blueprints.get(request.blueprint) in csrf._exempt_blueprints:
+            return
+        view = app.view_functions.get(request.endpoint)
+        if view is not None:
+            dest = f'{view.__module__}.{view.__name__}'
+            if dest in csrf._exempt_views:
+                return
+        csrf.protect()
 
 
 def _run_pending_migrations(app):

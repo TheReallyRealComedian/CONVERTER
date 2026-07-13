@@ -29,6 +29,7 @@ import secrets
 from datetime import datetime, timezone
 
 from flask import jsonify, request
+from flask_login import current_user, login_required
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import ApiToken, User, db
@@ -119,6 +120,37 @@ def register(app):
         return jsonify({'token': token,
                         'user': {'id': user.id, 'username': user.username}}), 200
 
+    @app.route('/api/auth/me', methods=['GET'])
+    @login_required
+    def api_auth_me():
+        # The app validates a stored token at launch. Identity comes from the
+        # request_loader (bearer) — or a session, which is harmless: the
+        # response only mirrors the caller's own identity.
+        return jsonify({'id': current_user.id, 'username': current_user.username})
+
+    @app.route('/api/auth/logout', methods=['POST'])
+    @login_required
+    def api_auth_logout():
+        # Revokes the PRESENTED token (row delete). Idempotent at row level:
+        # a double-tap whose second request still authenticated before the
+        # first one deleted the row simply deletes 0 rows and stays 200.
+        # (After the delete, the token no longer authenticates — a later
+        # call is a 401 at the door, which the P2 tests pin down.)
+        # A session caller presents no bearer: nothing to revoke, still 200.
+        header = request.headers.get('Authorization', '')
+        revoked = 0
+        if header.startswith('Bearer '):
+            token = header[len('Bearer '):].strip()
+            if token:
+                revoked = (ApiToken.query
+                           .filter_by(token_hash=_hash_token(token))
+                           .delete())
+                db.session.commit()
+        return jsonify({'ok': True, 'revoked': bool(revoked)}), 200
+
     # Session-less JSON caller has no CSRF cookie — exempt exactly this view,
-    # same mechanism as the other token endpoints (see ingest.py).
+    # same mechanism as the other token endpoints (see ingest.py). me is a
+    # GET (never CSRF-checked); logout stays unexempted — bearer callers pass
+    # via the P2 inversion skip, and a cookie-session POST to it remains a
+    # protected session mutation like any other.
     app.extensions['csrf'].exempt(api_auth_login)
