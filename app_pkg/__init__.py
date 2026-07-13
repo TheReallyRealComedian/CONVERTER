@@ -15,8 +15,8 @@ import re
 import sys
 
 import click
-from flask import Flask, jsonify, request, url_for
-from flask_login import LoginManager, login_required
+from flask import Flask, flash, jsonify, redirect, request, url_for
+from flask_login import LoginManager, login_required, login_url
 from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
 from sqlalchemy import inspect, text
@@ -66,6 +66,41 @@ def create_app(import_name='app'):
             return db.session.get(User, int(user_id))
         except (ValueError, TypeError):
             return None
+
+    @login_manager.request_loader
+    def load_user_from_bearer(req):
+        # MOBILE-AUTH: per-user bearer token for the iOS app. Flask-Login
+        # consults the request_loader only when neither session nor
+        # remember-cookie yields a user (login_manager.py:_load_user), so the
+        # cookie-based web path never reaches this code.
+        header = req.headers.get('Authorization', '')
+        if not header.startswith('Bearer '):
+            return None
+        token = header[len('Bearer '):].strip()
+        if not token:
+            return None
+        from app_pkg.mobile_auth import resolve_token
+        return resolve_token(token)
+
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        # MOBILE-AUTH: bearer clients need a real 401 — the stock behaviour
+        # (302 to /login) would hand the app a login page. But the web UI's
+        # session-expiry UX *depends* on that 302 (_utils.js safeJSON derives
+        # its "Session expired" message from response.redirected, and raw
+        # fetch call-sites check r.status themselves), so the 401 is scoped
+        # strictly to requests that cannot come from the cookie web UI: a
+        # Bearer header present, or the app-only /api/auth/* endpoints.
+        # Every cookie-web request keeps today's redirect byte-identically.
+        if (request.headers.get('Authorization', '').startswith('Bearer ')
+                or request.path.startswith('/api/auth/')):
+            return jsonify({'error': 'Nicht autorisiert.'}), 401
+        # Reproduce flask_login's default unauthorized() for everything else
+        # (flash + redirect-to-login with next=), see LoginManager.unauthorized.
+        if login_manager.login_message:
+            flash(login_manager.login_message,
+                  category=login_manager.login_message_category)
+        return redirect(login_url(login_manager.login_view, request.url))
 
     _register_error_handlers(app)
     _register_csrf_endpoint(app)

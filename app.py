@@ -36,6 +36,7 @@ from app_pkg import kindle as kindle_module
 from app_pkg import library as library_module
 from app_pkg import markdown as markdown_module
 from app_pkg import mermaid as mermaid_module
+from app_pkg import mobile_auth as mobile_auth_module
 from app_pkg import narration as narration_module
 from app_pkg import tags as tags_module
 from app_pkg.integrations import notion as notion_module
@@ -64,6 +65,7 @@ redis_conn = Redis.from_url(REDIS_URL)
 task_queue = Queue(connection=redis_conn)
 
 auth_module.register(app)
+mobile_auth_module.register(app)
 mermaid_module.register(app)
 markdown_module.register(app)
 documents_module.register(app)

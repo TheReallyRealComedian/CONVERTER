@@ -24,6 +24,37 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 
+class ApiToken(db.Model):
+    """Per-user bearer token for the native iOS app (Sprint MOBILE-AUTH).
+
+    First identity-carrying token in the project — rows bind to a ``user_id``,
+    unlike the three write-only single-user env tokens (INGEST/CARD/
+    NARRATION_TOKEN). Only the sha256 hex digest is stored; the plaintext
+    leaves the server exactly once, in the login response. Revocation is a
+    row delete, effective on the next request. ``expires_at`` NULL means the
+    token does not expire.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False)
+    label = db.Column(db.String(80))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship('User', backref=db.backref('api_tokens', lazy='dynamic'))
+
+    def to_dict(self):
+        # Deliberately no token_hash — the hash never leaves the DB layer.
+        return {
+            'id': self.id,
+            'label': self.label,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_used_at': self.last_used_at.isoformat() if self.last_used_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+        }
+
+
 conversion_tags = db.Table(
     'conversion_tags',
     db.Column('conversion_id', db.Integer, db.ForeignKey('conversion.id', ondelete='CASCADE'),
