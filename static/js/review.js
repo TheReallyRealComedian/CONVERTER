@@ -48,6 +48,9 @@
     const orderSelect = el('review-order-select');
     const scopeList = el('review-scope-list');
     const scopeAllBox = el('review-scope-all');
+    const limitNewInput = el('review-limit-new');
+    const limitReviewsInput = el('review-limit-reviews');
+    const capInfoEl = el('review-cap-info');
     const emptyTitle = el('review-empty-title');
     const emptyText = el('review-empty-text');
     const collectionToggle = el('review-collection-toggle');
@@ -297,6 +300,11 @@
             queue = data.due_cards || [];
             totalDue = (typeof data.due_count === 'number') ? data.due_count : queue.length;
             index = 0;
+            // Nach-Cap-Zähler (P3): was die heutige Session noch hergibt.
+            if (typeof data.review_count === 'number') {
+                capInfoEl.textContent =
+                    `${data.review_count} Reviews fällig · ${data.new_count} neu verfügbar`;
+            }
             hide(loadingEl);
             // Clear any stale "Karte N von M" — matters when a delete empties the
             // queue and re-loads into this branch (finishSession clears it too).
@@ -347,33 +355,49 @@
         }
     }
 
-    // --- Ordering mode (LEARN-UP): smart (R asc + interleave) / random -------
-    // Server-side ordering per fetch; the toggle persists via the settings
-    // blob and simply re-fetches the queue.
+    // --- Learn settings (LEARN-UP): ordering mode + daily limits -------------
+    // Server-side ordering/capping per fetch; the controls persist via the
+    // settings blob and simply re-fetch the queue.
     async function loadLearnSettings() {
         try {
             const resp = await fetch(LEARN_SETTINGS_URL);
-            if (!resp.ok) return;  // non-fatal: toggle shows the default
+            if (!resp.ok) return;  // non-fatal: controls show the defaults
             const data = await safeJSON(resp);
-            if (data && data.ordering_mode) orderSelect.value = data.ordering_mode;
+            if (!data) return;
+            if (data.ordering_mode) orderSelect.value = data.ordering_mode;
+            if (typeof data.daily_new_limit === 'number') limitNewInput.value = data.daily_new_limit;
+            if (typeof data.daily_review_limit === 'number') limitReviewsInput.value = data.daily_review_limit;
         } catch (e) { /* non-fatal */ }
     }
 
-    async function onOrderChange() {
+    async function putLearnSetting(patch, errorText) {
         try {
             // PUT rides the global fetch wrapper (X-CSRFToken).
             const resp = await fetch(LEARN_SETTINGS_URL, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ordering_mode: orderSelect.value }),
+                body: JSON.stringify(patch),
             });
             await safeJSON(resp);
             if (!resp.ok) throw new Error();
             load();
         } catch (e) {
-            showToast('Reihenfolge konnte nicht gespeichert werden.', { level: 'danger' });
-            loadLearnSettings();  // revert the toggle to server truth
+            showToast(errorText, { level: 'danger' });
+            loadLearnSettings();  // revert the controls to server truth
         }
+    }
+
+    function onOrderChange() {
+        putLearnSetting({ ordering_mode: orderSelect.value },
+            'Reihenfolge konnte nicht gespeichert werden.');
+    }
+
+    function onLimitChange(e) {
+        const key = e.target === limitNewInput ? 'daily_new_limit' : 'daily_review_limit';
+        const value = Number.parseInt(e.target.value, 10);
+        // NaN serialisiert zu null → Server-400 → Revert-Pfad greift.
+        putLearnSetting({ [key]: Number.isNaN(value) ? null : value },
+            'Limit konnte nicht gespeichert werden.');
     }
 
     function onScopeChange(e) {
@@ -468,6 +492,8 @@
 
     scopeList.addEventListener('change', onScopeChange);
     orderSelect.addEventListener('change', onOrderChange);
+    limitNewInput.addEventListener('change', onLimitChange);
+    limitReviewsInput.addEventListener('change', onLimitChange);
     collectionToggle.addEventListener('click', () => {
         const opening = collectionWrap.classList.contains('hidden');
         // Mutually exclusive with the note panel — only one footer drawer open.

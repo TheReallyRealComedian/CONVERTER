@@ -30,6 +30,18 @@
             </select>
         </div>
 
+        <!-- Tageslimits (LEARN-UP P3) + Nach-Cap-Zähler. Berlin-Lokaltag. -->
+        <div class="review-limits mb-5">
+            <label class="review-scope__label" for="review-limit-new">Tageslimits</label>
+            <input type="number" id="review-limit-new" class="c-input review-limits__input"
+                   min="0" max="10000" step="1" aria-label="Neue Karten pro Tag">
+            <span class="review-limits__unit">neu</span>
+            <input type="number" id="review-limit-reviews" class="c-input review-limits__input"
+                   min="0" max="10000" step="1" aria-label="Reviews pro Tag">
+            <span class="review-limits__unit">Reviews</span>
+            <span id="review-cap-info" class="review-limits__info" aria-live="polite"></span>
+        </div>
+
         <div id="review-alert-container"></div>
 
         <!-- Loading -->

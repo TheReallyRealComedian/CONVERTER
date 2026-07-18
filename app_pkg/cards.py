@@ -35,7 +35,7 @@ from sqlalchemy.orm import contains_eager, joinedload
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
 from services.scheduler import RATINGS, get_scheduler
 
-from app_pkg.learn import get_user_settings, order_due_cards
+from app_pkg.learn import count_done_today, get_user_settings, order_due_cards
 
 # Reuse the Ingest auth primitives so card writes resolve the SAME target user
 # and parse the Bearer header identically — a single source of truth for "who
@@ -457,8 +457,12 @@ def register(app):
         # Ordering (LEARN-UP) happens Python-side per fetch via
         # learn.order_due_cards — 'smart' (default): retrievability ascending
         # with a random tiebreak, new cards shuffled + evenly interleaved;
-        # 'random': full shuffle. Full cards so the UI renders without an
-        # extra fetch per card; contains_eager avoids the review N+1.
+        # 'random': full shuffle. The daily caps (P3) apply after ordering:
+        # budgets = limit minus what today (Berlin-local) already burned
+        # (count_done_today), globally — the caps are per DAY, not per scope.
+        # due_count/review_count/new_count describe the CAPPED queue. Full
+        # cards so the UI renders without an extra fetch per card;
+        # contains_eager avoids the review N+1.
         #
         # Scope filters (optional, combinable → AND):
         #   ?tag=<id>                cards whose tag is in the SUBTREE of <id>.
@@ -501,11 +505,17 @@ def register(app):
                      .options(contains_eager(Card.review))
                      .all())
         settings = get_user_settings(current_user)
-        due_cards = order_due_cards(due_cards, settings['ordering_mode'],
-                                    get_scheduler(), now=now)
+        reviews_done, new_done = count_done_today(current_user.id, now=now)
+        due_cards = order_due_cards(
+            due_cards, settings['ordering_mode'], get_scheduler(), now=now,
+            review_budget=max(0, settings['daily_review_limit'] - reviews_done),
+            new_budget=max(0, settings['daily_new_limit'] - new_done))
+        new_count = sum(1 for c in due_cards if c.review.stability is None)
         total_count = base.count()
         return jsonify({
             'due_count': len(due_cards),
+            'review_count': len(due_cards) - new_count,
+            'new_count': new_count,
             'total_count': total_count,
             'due_cards': [c.to_dict() for c in due_cards],
         })

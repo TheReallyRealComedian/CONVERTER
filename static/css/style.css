@@ -1982,6 +1982,24 @@ body.reader-active .sidebar-toggle-floater--global {
     color: var(--nm-tone-slate-ink);
 }
 
+/* Daily limits row (LEARN-UP P3): two number inputs + the after-cap counter */
+.review-limits {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nm-space-sm);
+}
+.review-limits__input { width: 84px; }
+.review-limits__unit {
+    font-size: var(--text-sm);
+    color: var(--nm-text-muted);
+}
+.review-limits__info {
+    font-size: var(--text-sm);
+    color: var(--nm-text-muted);
+    margin-left: var(--nm-space-md);
+}
+
 .review-card { padding: var(--nm-space-xl); }
 
 .review-card__meta {

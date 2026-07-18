@@ -28,6 +28,7 @@ nh3==0.2.18
 ebooklib==0.20  # EPUB builder for the Send-to-Kindle flow (pulls lxml + six)
 latex2mathml==3.79.0  # pure-Python LaTeX→MathML for the EPUB/Kindle math pass (KINDLE-MATH)
 fsrs==6.3.1  # py-fsrs: FSRS spaced-repetition engine (R4-LEARN scheduler)
+tzdata==2025.2  # zoneinfo fallback for Europe/Berlin (LEARN-UP local-day caps); unused if the image ships system tzdata
 # Test deps (run `pytest` locally)
 pytest>=8.0
 pytest-asyncio>=0.23

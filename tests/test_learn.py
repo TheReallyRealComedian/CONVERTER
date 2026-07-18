@@ -1,17 +1,22 @@
-"""LEARN-UP Phase 1 — learn settings (one JSON blob) + review-queue ordering.
+"""LEARN-UP — learn settings (one JSON blob), review-queue ordering (P1) and
+daily caps (P3).
 
 Pure-logic tests drive ``order_due_cards`` with fake cards and a seeded RNG
 (deterministic shuffles); HTTP tests cover the settings roundtrip and the
-review-state ordering through the public boundary. The date-order regression
-tests are the point of the phase: equal-R cards must NOT come back in
+review-state ordering/capping through the public boundary. The date-order
+regression tests are the point of P1: equal-R cards must NOT come back in
 creation order, and brand-new cards must be interleaved, not front-loaded.
+P3 locks: caps trim AFTER ordering (shakiest/random N), new cards respect the
+review cap, and the day is the BERLIN-local day counted against what was
+already studied today.
 """
 import json
 import random
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from app_pkg.learn import LEARN_SETTINGS_DEFAULTS, get_user_settings, order_due_cards
+from app_pkg.learn import (LEARN_SETTINGS_DEFAULTS, count_done_today,
+                           get_user_settings, local_day_bounds, order_due_cards)
 from models import Card, Review, User, db
 from services.scheduler import FSRSScheduler, SM2Scheduler
 
@@ -140,9 +145,10 @@ def test_get_user_settings_defaults_and_corrupt_blob():
     )['ordering_mode'] == 'random'
 
 
-def test_settings_get_default_smart(authenticated_client):
+def test_settings_get_defaults(authenticated_client):
     body = authenticated_client.get(SETTINGS_URL).get_json()
-    assert body == {'ordering_mode': 'smart'}
+    assert body == {'ordering_mode': 'smart',
+                    'daily_new_limit': 10, 'daily_review_limit': 200}
 
 
 def test_settings_put_roundtrip_persists(app, authenticated_client, test_user):
@@ -175,6 +181,208 @@ def test_settings_put_rejects_unknown_key_and_bad_body(authenticated_client):
 def test_settings_require_login(client):
     assert client.get(SETTINGS_URL).status_code in (302, 401)
     assert client.put(SETTINGS_URL, json={'ordering_mode': 'random'}).status_code in (302, 401)
+
+
+# --- P3: local_day_bounds (Berlin, DST-fest) ---------------------------------
+
+def test_local_day_bounds_berlin_summer_and_winter():
+    # Sommer (CEST +02:00): 21:30 UTC = 23:30 Berlin → Tag begann 22:00Z Vortag.
+    now = datetime(2026, 7, 18, 21, 30, tzinfo=timezone.utc)
+    start, end = local_day_bounds(now)
+    assert start == datetime(2026, 7, 17, 22, 0, tzinfo=timezone.utc)
+    assert end == datetime(2026, 7, 18, 22, 0, tzinfo=timezone.utc)
+    assert start <= now < end
+    # Winter (CET +01:00): 23:30 UTC = 00:30 Berlin am FOLGETAG — ein UTC-Tag
+    # würde hier mitten am Abend resetten (genau der verbotene Bug).
+    now = datetime(2026, 1, 15, 23, 30, tzinfo=timezone.utc)
+    start, end = local_day_bounds(now)
+    assert start == datetime(2026, 1, 15, 23, 0, tzinfo=timezone.utc)
+    assert end == datetime(2026, 1, 16, 23, 0, tzinfo=timezone.utc)
+    assert start <= now < end
+
+
+# --- P3: caps in order_due_cards (nach Ordering) -----------------------------
+
+def test_review_cap_keeps_shakiest_n_in_smart_mode():
+    now = datetime.now(timezone.utc)
+    cards = [_fake_card(i, stability=float(s), days_ago=10, now=now)
+             for i, s in enumerate((1, 2, 5, 20, 100), start=1)]
+    out = order_due_cards(cards, 'smart', FSRSScheduler(), rng=random.Random(1),
+                          now=now, review_budget=2, new_budget=10)
+    assert _ids(out) == [1, 2]  # die 2 wackligsten, nicht die 2 ältesten
+
+
+def test_new_cap_fills_review_headroom():
+    now = datetime.now(timezone.utc)
+    reviewed = [_fake_card(i, stability=10.0, days_ago=5, now=now) for i in (1, 2)]
+    fresh = [_fake_card(i, stability=None, now=now) for i in range(100, 108)]
+    out = order_due_cards(reviewed + fresh, 'smart', FSRSScheduler(),
+                          rng=random.Random(2), now=now,
+                          review_budget=6, new_budget=10)
+    fresh_shown = [c for c in out if c.id >= 100]
+    assert len(fresh_shown) == 4          # headroom = 6 − 2 Reviews
+    assert len(out) == 6                  # total = review_budget
+
+
+def test_new_respects_exhausted_review_cap():
+    now = datetime.now(timezone.utc)
+    reviewed = [_fake_card(i, stability=10.0, days_ago=5, now=now) for i in range(1, 6)]
+    fresh = [_fake_card(i, stability=None, now=now) for i in (100, 101, 102)]
+    out = order_due_cards(reviewed + fresh, 'smart', FSRSScheduler(),
+                          rng=random.Random(3), now=now,
+                          review_budget=3, new_budget=3)
+    assert len(out) == 3
+    assert all(c.review.stability is not None for c in out)  # 0 neue
+
+
+def test_cap_takes_random_subset_on_equal_r():
+    # 6 Karten identisches R, Budget 3: "erst shuffeln, dann cappen" =
+    # zufällige 3 — verschiedene Seeds ziehen verschiedene Teilmengen.
+    now = datetime.now(timezone.utc)
+    cards = [_fake_card(i, stability=10.0, days_ago=5, now=now) for i in range(1, 7)]
+    out_a = order_due_cards(cards, 'smart', FSRSScheduler(), rng=random.Random(1),
+                            now=now, review_budget=3, new_budget=0)
+    out_b = order_due_cards(cards, 'smart', FSRSScheduler(), rng=random.Random(2),
+                            now=now, review_budget=3, new_budget=0)
+    assert len(out_a) == len(out_b) == 3
+    assert set(_ids(out_a)) != set(_ids(out_b))
+
+
+def test_random_mode_caps_pools_too():
+    now = datetime.now(timezone.utc)
+    reviewed = [_fake_card(i, stability=10.0, days_ago=5, now=now) for i in range(1, 6)]
+    fresh = [_fake_card(i, stability=None, now=now) for i in (100, 101)]
+    out = order_due_cards(reviewed + fresh, 'random', FSRSScheduler(),
+                          rng=random.Random(4), now=now,
+                          review_budget=2, new_budget=5)
+    assert len(out) == 2
+    assert all(c.review.stability is not None for c in out)
+    # Null-Budgets → leere Session.
+    assert order_due_cards(reviewed + fresh, 'random', FSRSScheduler(),
+                           rng=random.Random(5), now=now,
+                           review_budget=0, new_budget=0) == []
+
+
+# --- P3: Tages-Zählung (count_done_today) ------------------------------------
+
+def _make_done_today_card(app, user_id, introduced_today, now=None):
+    """Karte, die heute (Berlin) schon bewertet wurde — due in der Zukunft."""
+    with app.app_context():
+        now = now or datetime.now(timezone.utc)
+        first_at = now if introduced_today else now - timedelta(days=30)
+        history = [{'rating': 'good', 'reviewed_at': first_at.isoformat()}]
+        if not introduced_today:
+            history.append({'rating': 'good', 'reviewed_at': now.isoformat()})
+        card = Card(user_id=user_id, type='atomic', front='Q', back='A')
+        card.review = Review(
+            due=now + timedelta(days=3), stability=5.0, difficulty=5.0,
+            last_reviewed=now.replace(tzinfo=None),
+            reps=1 if introduced_today else 5,
+            rating_history=json.dumps(history),
+        )
+        db.session.add(card)
+        db.session.commit()
+        return card.id
+
+
+def test_count_done_today_classifies_new_vs_review(app, test_user):
+    uid = test_user['id']
+    _make_done_today_card(app, uid, introduced_today=True)
+    _make_done_today_card(app, uid, introduced_today=False)
+    with app.app_context():
+        # Gestern bewertete Karte zählt nicht gegen heutige Budgets.
+        start, _ = local_day_bounds()
+        card = Card(user_id=uid, type='atomic', front='Q', back='A')
+        card.review = Review(
+            due=start + timedelta(days=2), stability=3.0,
+            last_reviewed=(start - timedelta(hours=2)).replace(tzinfo=None), reps=4,
+            rating_history=json.dumps([{'rating': 'good',
+                                        'reviewed_at': (start - timedelta(days=9)).isoformat()}]))
+        db.session.add(card)
+        db.session.commit()
+        assert count_done_today(uid) == (1, 1)  # (reviews_done, new_done)
+
+
+def test_count_done_today_fallback_without_history(app, test_user):
+    # Kaputte/fehlende History → reps==1 klassifiziert als heute-neu.
+    uid = test_user['id']
+    with app.app_context():
+        now = datetime.now(timezone.utc)
+        for reps, history in ((1, None), (7, '{broken')):
+            card = Card(user_id=uid, type='atomic', front='Q', back='A')
+            card.review = Review(due=now + timedelta(days=1), stability=2.0,
+                                 last_reviewed=now.replace(tzinfo=None),
+                                 reps=reps, rating_history=history)
+            db.session.add(card)
+        db.session.commit()
+        assert count_done_today(uid) == (1, 1)
+
+
+# --- P3: Caps + Tages-Zählung über die HTTP-Grenze ---------------------------
+
+def test_review_state_review_cap_http(app, authenticated_client, test_user):
+    uid = test_user['id']
+    for _ in range(5):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 2})
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['due_count'] == 2
+    assert body['review_count'] == 2
+    assert body['new_count'] == 0
+
+
+def test_review_state_new_cap_http(app, authenticated_client, test_user):
+    uid = test_user['id']
+    for _ in range(3):
+        _make_card_with_review(app, uid, stability=None)
+    authenticated_client.put(SETTINGS_URL, json={'daily_new_limit': 1})
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['due_count'] == 1
+    assert body['new_count'] == 1
+
+
+def test_review_state_new_respects_review_cap_http(app, authenticated_client, test_user):
+    uid = test_user['id']
+    for _ in range(2):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    for _ in range(3):
+        _make_card_with_review(app, uid, stability=None)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 2})
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['due_count'] == 2      # Review-Cap voll → 0 neue eingestreut
+    assert body['new_count'] == 0
+
+
+def test_review_state_daily_counting_new(app, authenticated_client, test_user):
+    # Heute schon 1 neue Karte gelernt → bei Limit 2 kommt nur noch 1 nach.
+    uid = test_user['id']
+    _make_done_today_card(app, uid, introduced_today=True)
+    for _ in range(5):
+        _make_card_with_review(app, uid, stability=None)
+    authenticated_client.put(SETTINGS_URL, json={'daily_new_limit': 2})
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['new_count'] == 1
+
+
+def test_review_state_daily_counting_reviews(app, authenticated_client, test_user):
+    # Heute schon 2 Reviews gemacht → bei Limit 3 bleibt Budget 1.
+    uid = test_user['id']
+    _make_done_today_card(app, uid, introduced_today=False)
+    _make_done_today_card(app, uid, introduced_today=False)
+    for _ in range(5):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 3})
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['due_count'] == 1
+    assert body['review_count'] == 1
+
+
+def test_settings_put_limit_validation(authenticated_client):
+    for bad in (-1, 'zehn', True, 3.5, 10001, None):
+        resp = authenticated_client.put(SETTINGS_URL, json={'daily_new_limit': bad})
+        assert resp.status_code == 400, f'accepted {bad!r}'
+    assert authenticated_client.put(
+        SETTINGS_URL, json={'daily_review_limit': 0}).status_code == 200  # 0 = heute nichts
 
 
 # --- review-state: ordering through the HTTP boundary ------------------------
