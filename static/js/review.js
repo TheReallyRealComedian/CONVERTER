@@ -9,7 +9,6 @@
     'use strict';
 
     const REVIEW_STATE_URL = window.PageData.reviewStateUrl;
-    const TAGS_URL = window.PageData.tagsUrl;
     const COLLECTIONS_URL = window.PageData.collectionsUrl;
     const LEARN_SETTINGS_URL = window.PageData.learnSettingsUrl;
 
@@ -18,9 +17,10 @@
     let totalDue = 0;
     let revealed = false;
     let busy = false;
-    // LERN-GROUP scope: which slice of the queue to walk. {mode, id, label}.
-    let scope = { mode: 'all', id: null, label: 'Alles fällig' };
-    let collections = [];  // cached /api/collections (scope picker + footer add)
+    // LEARN-UP scope: checked collection ids; empty = "Alles fällig".
+    // Several checked → the union is studied (?collection=1,2,3).
+    let scopeIds = [];
+    let collections = [];  // cached /api/collections (pills + footer add)
 
     const el = (id) => document.getElementById(id);
     const loadingEl = el('review-loading');
@@ -31,7 +31,6 @@
     const progressEl = el('review-progress');
     const typeBadge = el('review-type-badge');
     const stateBadge = el('review-state-badge');
-    const tagsEl = el('review-tags');
     const sourceEl = el('review-source');
     const questionEl = el('review-question');
     const genHintEl = el('review-generative-hint');
@@ -46,10 +45,9 @@
     const noteWrap = el('review-note-wrap');
     const noteInput = el('review-note-input');
     const noteSave = el('review-note-save');
-    const scopeSelect = el('review-scope-select');
     const orderSelect = el('review-order-select');
-    const scopeTagsGroup = el('review-scope-tags');
-    const scopeCollectionsGroup = el('review-scope-collections');
+    const scopeList = el('review-scope-list');
+    const scopeAllBox = el('review-scope-all');
     const emptyTitle = el('review-empty-title');
     const emptyText = el('review-empty-text');
     const collectionToggle = el('review-collection-toggle');
@@ -94,14 +92,6 @@
         typeBadge.textContent = card.type === 'generative' ? 'Generativ' : 'Atomar';
         typeBadge.className = 'type-badge ' + (card.type === 'generative' ? 'type-generative' : 'type-atomic');
         stateBadge.classList.toggle('hidden', card.state !== 'wackelt');
-
-        tagsEl.textContent = '';
-        (card.tags || []).forEach((t) => {
-            const chip = document.createElement('span');
-            chip.className = 'c-tag';
-            chip.textContent = t.name;
-            tagsEl.appendChild(chip);
-        });
 
         if (card.source_doc_title) {
             sourceEl.textContent = 'aus: ' + card.source_doc_title;
@@ -172,6 +162,7 @@
             `Alle ${totalDue} ${totalDue === 1 ? 'fällige Karte' : 'fälligen Karten'} wiederholt.`;
         progressEl.textContent = '';
         show(doneEl);
+        loadCollections();  // the session just drained due cards → refresh badges
     }
 
     function setRatingDisabled(disabled) {
@@ -273,21 +264,27 @@
     }
 
     function scopeUrl() {
-        if (scope.mode === 'tag') return `${REVIEW_STATE_URL}?tag=${scope.id}`;
-        if (scope.mode === 'collection') return `${REVIEW_STATE_URL}?collection=${scope.id}`;
-        return REVIEW_STATE_URL;
+        if (!scopeIds.length) return REVIEW_STATE_URL;
+        return `${REVIEW_STATE_URL}?collection=${scopeIds.join(',')}`;
+    }
+
+    function scopeLabel() {
+        return collections
+            .filter((c) => scopeIds.includes(c.id))
+            .map((c) => c.name)
+            .join(', ');
     }
 
     function applyEmptyScope() {
-        // Scope-aware empty state — "Nichts fällig in <Scope>" vs. the global text.
-        if (scope.mode === 'all') {
+        // Scope-aware empty state — "Nichts fällig in <Auswahl>" vs. the global text.
+        if (!scopeIds.length) {
             emptyTitle.textContent = 'Nichts fällig.';
             emptyText.textContent =
                 'Du bist mit dem Wiederholen durch. Neue Karten erscheinen, sobald sie wieder fällig sind.';
         } else {
-            emptyTitle.textContent = `Nichts fällig in „${scope.label}“.`;
+            emptyTitle.textContent = `Nichts fällig in „${scopeLabel()}“.`;
             emptyText.textContent =
-                'In diesem Bereich ist gerade nichts dran. Wähle oben einen anderen Bereich oder „Alles fällig“.';
+                'In dieser Auswahl ist gerade nichts dran. Wähle oben andere Sammlungen oder „Alles fällig“.';
         }
     }
 
@@ -312,52 +309,41 @@
         }
     }
 
-    // --- Scope selector population -------------------------------------------
-    // Build the indented tag forest (parent_id → children) as <option>s; a
-    // pre-order walk with NBSP indentation per depth. Siblings stay alphabetical
-    // (the API already sorts by name, we only group by parent).
-    function buildForestOptions(tags) {
-        const childrenOf = new Map();
-        tags.forEach((t) => {
-            const key = t.parent_id == null ? 'root' : t.parent_id;
-            if (!childrenOf.has(key)) childrenOf.set(key, []);
-            childrenOf.get(key).push(t);
+    // --- Study-set launcher (LEARN-UP) ---------------------------------------
+    // Collection checkbox pills with raw due badges (Review.due <= now, same
+    // definition as the queue). The old tag optgroup is gone by design — tags
+    // live on in the /tags manager, they are no longer a study axis.
+    function renderScopePills() {
+        // Rebuild the collection pills, preserving the current checks.
+        scopeList.querySelectorAll('.review-scope-pill[data-col]').forEach((p) => p.remove());
+        (collections || []).forEach((c) => {
+            const pill = document.createElement('label');
+            pill.className = 'review-scope-pill';
+            pill.dataset.col = String(c.id);
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.dataset.colId = String(c.id);
+            box.checked = scopeIds.includes(c.id);
+            const name = document.createElement('span');
+            name.textContent = c.name;
+            const badge = document.createElement('span');
+            badge.className = 'review-scope-pill__badge';
+            badge.textContent = String(c.due_count || 0);
+            badge.title = 'Fällige Karten';
+            pill.append(box, name, badge);
+            scopeList.appendChild(pill);
         });
-        const out = [];
-        const walk = (key, depth) => {
-            (childrenOf.get(key) || []).forEach((t) => {
-                out.push({ id: t.id, label: '  '.repeat(depth) + t.name });
-                walk(t.id, depth + 1);
-            });
-        };
-        walk('root', 0);
-        return out;
+        scopeAllBox.checked = scopeIds.length === 0;
     }
 
-    function fillOptgroup(group, items, valuePrefix) {
-        group.textContent = '';
-        items.forEach((it) => {
-            const opt = document.createElement('option');
-            opt.value = `${valuePrefix}:${it.id}`;
-            opt.textContent = it.label;
-            group.appendChild(opt);
-        });
-        group.hidden = items.length === 0;
-    }
-
-    async function loadScopeOptions() {
+    async function loadCollections() {
         try {
-            const [tagsResp, colResp] = await Promise.all([
-                fetch(TAGS_URL), fetch(COLLECTIONS_URL),
-            ]);
-            const tags = tagsResp.ok ? await safeJSON(tagsResp) : [];
-            collections = colResp.ok ? await safeJSON(colResp) : [];
-            fillOptgroup(scopeTagsGroup, buildForestOptions(tags || []), 'tag');
-            fillOptgroup(scopeCollectionsGroup,
-                (collections || []).map((c) => ({ id: c.id, label: c.name })), 'collection');
+            const resp = await fetch(COLLECTIONS_URL);
+            collections = resp.ok ? (await safeJSON(resp)) || [] : [];
+            renderScopePills();
             populateCollectionFooter();
         } catch (e) {
-            // Non-fatal: the queue still loads, only the scope picker stays bare.
+            // Non-fatal: the queue still loads, only the pills stay bare.
         }
     }
 
@@ -390,15 +376,21 @@
         }
     }
 
-    function onScopeChange() {
-        const val = scopeSelect.value;
-        if (val === 'all') {
-            scope = { mode: 'all', id: null, label: 'Alles fällig' };
+    function onScopeChange(e) {
+        // Delegated: "Alles fällig" clears the selection; a collection box
+        // toggles its id in/out. renderScopePills syncs the "Alles fällig"
+        // check (on iff nothing selected), then the queue re-fetches.
+        if (e.target === scopeAllBox) {
+            scopeIds = [];
+        } else if (e.target.dataset && e.target.dataset.colId) {
+            const id = Number(e.target.dataset.colId);
+            scopeIds = e.target.checked
+                ? scopeIds.concat(scopeIds.includes(id) ? [] : [id])
+                : scopeIds.filter((x) => x !== id);
         } else {
-            const [mode, id] = val.split(':');
-            const opt = scopeSelect.options[scopeSelect.selectedIndex];
-            scope = { mode, id: Number(id), label: (opt.textContent || '').trim() };
+            return;
         }
+        renderScopePills();
         load();
     }
 
@@ -448,7 +440,7 @@
                 }
                 if (!cResp.ok) throw new Error();
                 collectionId = cData.id;
-                collections.push({ id: cData.id, name: cData.name, card_count: 0 });
+                collections.push({ id: cData.id, name: cData.name, card_count: 0, due_count: 0 });
             } else {
                 collectionId = Number(sel);
             }
@@ -462,9 +454,9 @@
             const colName = (collections.find((c) => c.id === collectionId) || {}).name || 'Sammlung';
             showToast(`Zu „${colName}“ hinzugefügt`);
             resetCollectionPanel();
-            // Keep the scope picker + footer select in sync with a freshly created collection.
-            fillOptgroup(scopeCollectionsGroup,
-                collections.map((c) => ({ id: c.id, label: c.name })), 'collection');
+            // Keep the launcher pills + footer select in sync with a freshly
+            // created collection.
+            renderScopePills();
             populateCollectionFooter();
         } catch (e) {
             showToast('Konnte nicht hinzufügen. Erneut versuchen.', { level: 'danger' });
@@ -474,7 +466,7 @@
         }
     }
 
-    scopeSelect.addEventListener('change', onScopeChange);
+    scopeList.addEventListener('change', onScopeChange);
     orderSelect.addEventListener('change', onOrderChange);
     collectionToggle.addEventListener('click', () => {
         const opening = collectionWrap.classList.contains('hidden');
@@ -519,7 +511,7 @@
         }
     });
 
-    loadScopeOptions();
+    loadCollections();
     loadLearnSettings();
     load();
 })();

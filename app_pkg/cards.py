@@ -460,9 +460,14 @@ def register(app):
         # 'random': full shuffle. Full cards so the UI renders without an
         # extra fetch per card; contains_eager avoids the review N+1.
         #
-        # LERN-GROUP scope filters (optional, combinable → AND):
-        #   ?tag=<id>        cards whose tag is in the SUBTREE of <id> (Achse A)
-        #   ?collection=<id> cards in collection <id> (Achse B)
+        # Scope filters (optional, combinable → AND):
+        #   ?tag=<id>                cards whose tag is in the SUBTREE of <id>.
+        #                            Backend-only since LEARN-UP — the review UI
+        #                            dropped its tag picker, but the param is
+        #                            kept for API consumers (/tags lives on).
+        #   ?collection=<id>[,<id>…] cards in ANY of the collections (union;
+        #                            repeated params work too). Every id must
+        #                            be owned, else 404.
         # Both chain onto the SAME `base`, so combining them ANDs and the
         # scope-correct total_count falls out for free. When scoped, total_count
         # reflects the SCOPE (cards in the scope, not just due ones); unscoped it
@@ -478,12 +483,17 @@ def register(app):
             subtree = Tag.subtree_ids(tag.id, current_user.id)
             base = base.filter(Card.tags.any(Tag.id.in_(subtree)))
 
-        collection_arg = request.args.get('collection')
-        if collection_arg is not None:
-            collection = _parse_owned(collection_arg, Collection)
-            if collection is None:
+        collection_args = request.args.getlist('collection')
+        if collection_args:
+            # LEARN-UP union scope. `.any(... in_())` is an EXISTS — a card
+            # sitting in several chosen collections comes back exactly ONCE.
+            raw_ids = [part.strip() for chunk in collection_args
+                       for part in chunk.split(',') if part.strip()]
+            collections = [_parse_owned(raw, Collection) for raw in raw_ids]
+            if not collections or any(c is None for c in collections):
                 return jsonify({'error': 'Sammlung nicht gefunden.'}), 404
-            base = base.filter(Card.collections.any(Collection.id == collection.id))
+            base = base.filter(Card.collections.any(
+                Collection.id.in_({c.id for c in collections})))
 
         due_cards = (base
                      .join(Card.review)

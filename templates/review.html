@@ -11,14 +11,17 @@
             <p id="review-progress" class="review-progress" aria-live="polite"></p>
         </div>
 
-        <!-- Scope selector: alles fällig / Taxonomie-Ast / Sammlung -->
+        <!-- Study-Set-Launcher (LEARN-UP): Sammlungs-Checkboxen mit Fällig-Badges,
+             mehrere ankreuzen = Union lernen. Tags leben im /tags-Manager weiter. -->
         <div class="review-scope mb-5">
-            <label for="review-scope-select" class="review-scope__label">Üben</label>
-            <select id="review-scope-select" class="c-input review-scope__select">
-                <option value="all">Alles fällig</option>
-                <optgroup id="review-scope-tags" label="Taxonomie-Ast" hidden></optgroup>
-                <optgroup id="review-scope-collections" label="Sammlung" hidden></optgroup>
-            </select>
+            <span class="review-scope__label" id="review-scope-label">Üben</span>
+            <div id="review-scope-list" class="review-scope-list" role="group"
+                 aria-labelledby="review-scope-label">
+                <label class="review-scope-pill">
+                    <input type="checkbox" id="review-scope-all" checked>
+                    <span>Alles fällig</span>
+                </label>
+            </div>
             <label for="review-order-select" class="review-scope__label">Reihenfolge</label>
             <select id="review-order-select" class="c-input review-scope__select"
                     title="Smart: Wackligste zuerst, Neues eingestreut. Zufällig: alles gemischt.">
@@ -51,7 +54,6 @@
             <div class="review-card__meta">
                 <span id="review-type-badge" class="type-badge"></span>
                 <span id="review-state-badge" class="type-badge type-wackelt hidden">wackelt</span>
-                <span id="review-tags" class="review-tags"></span>
             </div>
             <p id="review-source" class="review-card__source hidden"></p>
 
@@ -113,7 +115,6 @@
 <script>
     window.PageData = {
         reviewStateUrl: '{{ url_for("api_review_state") }}',
-        tagsUrl: '{{ url_for("api_list_tags") }}',
         collectionsUrl: '{{ url_for("api_list_collections") }}',
         libraryUrl: '{{ url_for("library") }}',
         learnSettingsUrl: '{{ url_for("api_get_learn_settings") }}',

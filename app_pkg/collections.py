@@ -12,11 +12,13 @@ Collection sweeps the ``card_collections`` rows through the ORM (SQLite runs
 without ``PRAGMA foreign_keys=ON`` so the declared ``ON DELETE CASCADE`` is
 inert — verified empirically that the backref side drains too).
 """
+from datetime import datetime, timezone
+
 from flask import jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
-from models import Card, Collection, card_collections, db
+from models import Card, Collection, Review, card_collections, db
 
 
 def _get_owned_collection(collection_id):
@@ -37,13 +39,27 @@ def register(app):
         )
             .group_by(card_collections.c.collection_id)
             .subquery())
-        rows = (db.session.query(Collection, card_counts.c.cnt)
+        # LEARN-UP badges: due count per collection in ONE group-by (not N
+        # queries). Same rawness as the review queue — Review.due <= now,
+        # before any daily limits (those cap the session, not the badge).
+        now = datetime.now(timezone.utc)
+        due_counts = (db.session.query(
+            card_collections.c.collection_id,
+            func.count(card_collections.c.card_id).label('due_cnt'),
+        )
+            .join(Review, Review.card_id == card_collections.c.card_id)
+            .filter(Review.due <= now)
+            .group_by(card_collections.c.collection_id)
+            .subquery())
+        rows = (db.session.query(Collection, card_counts.c.cnt, due_counts.c.due_cnt)
                 .outerjoin(card_counts, Collection.id == card_counts.c.collection_id)
+                .outerjoin(due_counts, Collection.id == due_counts.c.collection_id)
                 .filter(Collection.user_id == current_user.id)
                 .order_by(Collection.name.asc())
                 .all())
         return jsonify([
-            col.to_dict(card_count=int(cnt or 0)) for col, cnt in rows
+            col.to_dict(card_count=int(cnt or 0), due_count=int(due or 0))
+            for col, cnt, due in rows
         ])
 
     @app.route('/api/collections', methods=['POST'])

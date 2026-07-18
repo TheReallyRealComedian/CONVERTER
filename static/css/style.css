@@ -1932,10 +1932,11 @@ body.reader-active .sidebar-toggle-floater--global {
     font-size: var(--text-sm);
 }
 
-/* Scope selector (LERN-GROUP): "Üben" label + grouped select (Alles fällig /
-   Taxonomie-Ast / Sammlung). Inline row, token-driven via select.c-input. */
+/* Study-set launcher (LEARN-UP): "Üben" label + collection checkbox pills
+   with raw due badges, plus the ordering-mode select. Wrapping inline row. */
 .review-scope {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--nm-space-md);
 }
@@ -1944,7 +1945,42 @@ body.reader-active .sidebar-toggle-floater--global {
     font-weight: var(--weight-medium);
     color: var(--nm-text-muted);
 }
-.review-scope__select { min-width: 220px; max-width: 100%; }
+.review-scope__select { max-width: 100%; }
+.review-scope-list {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nm-space-sm);
+}
+.review-scope-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--nm-tint-accent);
+    font-size: var(--text-sm);
+    color: var(--nm-text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+.review-scope-pill:has(input:checked) {
+    background: var(--nm-tone-info);
+    color: var(--nm-tone-info-ink);
+    font-weight: var(--weight-medium);
+}
+.review-scope-pill input {
+    margin: 0;
+    accent-color: var(--nm-accent-hover);
+}
+.review-scope-pill__badge {
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--nm-tone-slate);
+    color: var(--nm-tone-slate-ink);
+}
 
 .review-card { padding: var(--nm-space-xl); }
 
@@ -1960,8 +1996,6 @@ body.reader-active .sidebar-toggle-floater--global {
     color: var(--nm-text-muted);
     margin-bottom: var(--nm-space-md);
 }
-.review-tags { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-
 /* review badge tones (reuse the .type-badge base) */
 .type-atomic     { background: var(--nm-tone-info);    color: var(--nm-tone-info-ink); }
 .type-generative { background: var(--nm-tone-purple);  color: var(--nm-tone-purple-ink); }

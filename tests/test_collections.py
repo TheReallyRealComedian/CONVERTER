@@ -268,6 +268,80 @@ def test_review_state_tag_and_collection_and(app, authenticated_client, test_use
     assert body['total_count'] == 1  # AND-Scope
 
 
+def test_review_state_multi_collection_union_dedup(app, authenticated_client, test_user):
+    # LEARN-UP: mehrere ids → Union; eine Karte in BEIDEN Sammlungen kommt
+    # genau EINMAL zurück. total_count = Scope (Union, inkl. nicht-fälliger).
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    col1 = _make_collection(app, uid, 'A')
+    col2 = _make_collection(app, uid, 'B')
+    c_a = _make_card(app, uid, due=now - timedelta(days=1))       # nur col1
+    c_b = _make_card(app, uid, due=now - timedelta(days=1))       # nur col2
+    c_both = _make_card(app, uid, due=now - timedelta(days=1))    # in BEIDEN
+    c_future = _make_card(app, uid, due=now + timedelta(days=1))  # col1, nicht fällig
+    c_none = _make_card(app, uid, due=now - timedelta(days=1))    # keine Sammlung
+    for col, cid in ((col1, c_a), (col2, c_b), (col1, c_both), (col2, c_both),
+                     (col1, c_future)):
+        authenticated_client.post(f'/api/collections/{col}/cards', json={'card_id': cid})
+
+    body = authenticated_client.get(
+        f'/api/review-state?collection={col1},{col2}').get_json()
+    got = [c['id'] for c in body['due_cards']]
+    assert sorted(got) == sorted([c_a, c_b, c_both])  # Union, c_both einmal
+    assert len(got) == 3                              # dedupliziert
+    assert c_none not in got
+    assert body['due_count'] == 3
+    assert body['total_count'] == 4                   # Union-Scope inkl. c_future
+
+
+def test_review_state_multi_collection_repeated_param(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    col1 = _make_collection(app, uid, 'A')
+    col2 = _make_collection(app, uid, 'B')
+    c1 = _make_card(app, uid, due=now - timedelta(days=1))
+    c2 = _make_card(app, uid, due=now - timedelta(days=1))
+    authenticated_client.post(f'/api/collections/{col1}/cards', json={'card_id': c1})
+    authenticated_client.post(f'/api/collections/{col2}/cards', json={'card_id': c2})
+
+    body = authenticated_client.get(
+        f'/api/review-state?collection={col1}&collection={col2}').get_json()
+    assert sorted(c['id'] for c in body['due_cards']) == sorted([c1, c2])
+
+
+def test_review_state_multi_collection_bad_id_in_list_404(app, authenticated_client, test_user):
+    uid = test_user['id']
+    own = _make_collection(app, uid, 'Mine')
+    other_id = _make_other_user(app, 'trudy')
+    foreign = _make_collection(app, other_id, 'Foreign')
+    # Ein fauler Eintrag in der Liste killt den ganzen Request — nichts leakt.
+    assert authenticated_client.get(
+        f'/api/review-state?collection={own},{foreign}').status_code == 404
+    assert authenticated_client.get(
+        f'/api/review-state?collection={own},abc').status_code == 404
+    assert authenticated_client.get(
+        f'/api/review-state?collection={own},999999').status_code == 404
+
+
+def test_list_collections_due_count(app, authenticated_client, test_user):
+    # LEARN-UP Badges: roher Fällig-Zähler (Review.due <= now) je Sammlung.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    col1 = _make_collection(app, uid, 'Voll')
+    col2 = _make_collection(app, uid, 'Leer')
+    c_due1 = _make_card(app, uid, due=now - timedelta(days=1))
+    c_due2 = _make_card(app, uid, due=now - timedelta(minutes=5))
+    c_future = _make_card(app, uid, due=now + timedelta(days=1))
+    for cid in (c_due1, c_due2, c_future):
+        authenticated_client.post(f'/api/collections/{col1}/cards', json={'card_id': cid})
+
+    body = {c['name']: c for c in authenticated_client.get('/api/collections').get_json()}
+    assert body['Voll']['due_count'] == 2
+    assert body['Voll']['card_count'] == 3
+    assert body['Leer']['due_count'] == 0
+    assert body['Leer']['card_count'] == 0
+
+
 def test_review_state_foreign_collection_404(app, authenticated_client, test_user):
     other_id = _make_other_user(app)
     foreign = _make_collection(app, other_id, 'Foreign')

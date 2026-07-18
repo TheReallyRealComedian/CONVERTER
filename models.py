@@ -459,7 +459,7 @@ class Collection(db.Model):
             db.session.flush()
         return coll
 
-    def to_dict(self, card_count=None):
+    def to_dict(self, card_count=None, due_count=None):
         out = {
             'id': self.id,
             'name': self.name,
@@ -468,4 +468,6 @@ class Collection(db.Model):
         }
         if card_count is not None:
             out['card_count'] = card_count
+        if due_count is not None:
+            out['due_count'] = due_count
         return out
