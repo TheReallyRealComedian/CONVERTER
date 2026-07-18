@@ -11,6 +11,7 @@
     const REVIEW_STATE_URL = window.PageData.reviewStateUrl;
     const TAGS_URL = window.PageData.tagsUrl;
     const COLLECTIONS_URL = window.PageData.collectionsUrl;
+    const LEARN_SETTINGS_URL = window.PageData.learnSettingsUrl;
 
     let queue = [];
     let index = 0;
@@ -46,6 +47,7 @@
     const noteInput = el('review-note-input');
     const noteSave = el('review-note-save');
     const scopeSelect = el('review-scope-select');
+    const orderSelect = el('review-order-select');
     const scopeTagsGroup = el('review-scope-tags');
     const scopeCollectionsGroup = el('review-scope-collections');
     const emptyTitle = el('review-empty-title');
@@ -359,6 +361,35 @@
         }
     }
 
+    // --- Ordering mode (LEARN-UP): smart (R asc + interleave) / random -------
+    // Server-side ordering per fetch; the toggle persists via the settings
+    // blob and simply re-fetches the queue.
+    async function loadLearnSettings() {
+        try {
+            const resp = await fetch(LEARN_SETTINGS_URL);
+            if (!resp.ok) return;  // non-fatal: toggle shows the default
+            const data = await safeJSON(resp);
+            if (data && data.ordering_mode) orderSelect.value = data.ordering_mode;
+        } catch (e) { /* non-fatal */ }
+    }
+
+    async function onOrderChange() {
+        try {
+            // PUT rides the global fetch wrapper (X-CSRFToken).
+            const resp = await fetch(LEARN_SETTINGS_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ordering_mode: orderSelect.value }),
+            });
+            await safeJSON(resp);
+            if (!resp.ok) throw new Error();
+            load();
+        } catch (e) {
+            showToast('Reihenfolge konnte nicht gespeichert werden.', { level: 'danger' });
+            loadLearnSettings();  // revert the toggle to server truth
+        }
+    }
+
     function onScopeChange() {
         const val = scopeSelect.value;
         if (val === 'all') {
@@ -444,6 +475,7 @@
     }
 
     scopeSelect.addEventListener('change', onScopeChange);
+    orderSelect.addEventListener('change', onOrderChange);
     collectionToggle.addEventListener('click', () => {
         const opening = collectionWrap.classList.contains('hidden');
         // Mutually exclusive with the note panel — only one footer drawer open.
@@ -488,5 +520,6 @@
     });
 
     loadScopeOptions();
+    loadLearnSettings();
     load();
 })();

@@ -14,6 +14,10 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    # LEARN-UP: one JSON blob for the learn/review settings (ordering mode,
+    # daily limits, desired retention) — extensible without further ALTERs.
+    # NULL = all defaults; app_pkg/learn.py owns parsing + validation.
+    settings_json = db.Column(db.Text, nullable=True)
 
     conversions = db.relationship('Conversion', backref='user', lazy='dynamic')
 

@@ -19,6 +19,12 @@
                 <optgroup id="review-scope-tags" label="Taxonomie-Ast" hidden></optgroup>
                 <optgroup id="review-scope-collections" label="Sammlung" hidden></optgroup>
             </select>
+            <label for="review-order-select" class="review-scope__label">Reihenfolge</label>
+            <select id="review-order-select" class="c-input review-scope__select"
+                    title="Smart: Wackligste zuerst, Neues eingestreut. Zufällig: alles gemischt.">
+                <option value="smart">Wackligste zuerst</option>
+                <option value="random">Zufällig</option>
+            </select>
         </div>
 
         <div id="review-alert-container"></div>
@@ -110,6 +116,7 @@
         tagsUrl: '{{ url_for("api_list_tags") }}',
         collectionsUrl: '{{ url_for("api_list_collections") }}',
         libraryUrl: '{{ url_for("library") }}',
+        learnSettingsUrl: '{{ url_for("api_get_learn_settings") }}',
     };
 </script>
 <script src="{{ url_for('static', filename='js/review.js') }}"></script>

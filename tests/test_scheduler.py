@@ -5,7 +5,7 @@ same ``new_card_state`` / ``apply_rating`` contract, FSRS math moves ``due``
 forward and orders again<good<easy, ``again`` is a lapse, and the SM-2 fallback
 produces a plausible future ``due`` behind the identical interface.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -103,6 +103,53 @@ def test_sm2_interval_ordering():
         return _aware(sched.apply_rating(dict(new), rating)['due']) - now
 
     assert interval('again') < interval('good') <= interval('easy')
+
+
+# --- retrievability (LEARN-UP): FSRS exposes R, SM-2 stays None --------------
+
+def _reviewed_state(stability, days_ago, now):
+    return {
+        'due': now,
+        'stability': stability,
+        'difficulty': 5.0,
+        'last_reviewed': now - timedelta(days=days_ago),
+    }
+
+
+def test_fsrs_retrievability_at_stability_is_090():
+    # By construction of the FSRS curve, R(t=S) == 0.9 exactly.
+    now = datetime.now(timezone.utc)
+    r = FSRSScheduler().retrievability(_reviewed_state(10.0, 10, now), now)
+    assert r == pytest.approx(0.9)
+
+
+def test_fsrs_retrievability_decreases_with_elapsed():
+    now = datetime.now(timezone.utc)
+    sched = FSRSScheduler()
+    r_fresh = sched.retrievability(_reviewed_state(10.0, 2, now), now)
+    r_stale = sched.retrievability(_reviewed_state(10.0, 30, now), now)
+    assert 0.0 < r_stale < r_fresh <= 1.0
+
+
+def test_fsrs_retrievability_day_granular_same_day_is_one():
+    # py-fsrs truncates elapsed to whole days → reviewed-today reads 1.0.
+    # This tie behaviour is why the smart ordering needs a random tiebreak.
+    now = datetime.now(timezone.utc)
+    state = {'due': now, 'stability': 10.0, 'difficulty': 5.0,
+             'last_reviewed': now - timedelta(hours=3)}
+    assert FSRSScheduler().retrievability(state, now) == 1.0
+
+
+def test_fsrs_retrievability_none_for_new_card():
+    sched = FSRSScheduler()
+    assert sched.retrievability(sched.new_card_state()) is None
+
+
+def test_sm2_retrievability_is_always_none():
+    # SM-2 reuses `stability` as interval-days — no forgetting curve, so the
+    # base-class default (None) must win even for a "reviewed" state.
+    now = datetime.now(timezone.utc)
+    assert SM2Scheduler().retrievability(_reviewed_state(6.0, 3, now), now) is None
 
 
 # --- config / factory --------------------------------------------------------

@@ -193,6 +193,14 @@ def _run_pending_migrations(app):
             # starts with an empty list. Idempotent via the column guard above.
             db.session.commit()
             app.logger.info("R2-D: conversion.queue_position added via ALTER TABLE")
+    if 'user' in inspector.get_table_names():
+        cols = {c['name'] for c in inspector.get_columns('user')}
+        if 'settings_json' not in cols:
+            db.session.execute(text('ALTER TABLE "user" ADD COLUMN settings_json TEXT'))
+            # No backfill — NULL means "all defaults" (app_pkg/learn.py merges
+            # stored values over the defaults). Idempotent via the column guard.
+            db.session.commit()
+            app.logger.info("LEARN-UP: user.settings_json column added via ALTER TABLE")
     if 'tag' in inspector.get_table_names():
         cols = {c['name'] for c in inspector.get_columns('tag')}
         if 'parent_id' not in cols:

@@ -56,6 +56,20 @@ class FSRSScheduler(Scheduler):
             'lapses': lapses,
         }
 
+    def retrievability(self, review_state, now=None):
+        """Current recall probability from the FSRS forgetting curve (LEARN-UP).
+
+        ``None`` for a brand-new card (stability NULL — no curve yet).
+        py-fsrs truncates elapsed time to whole days, so R is day-granular:
+        cards reviewed today read 1.0, and equal (stability, elapsed-days)
+        pairs tie exactly — callers ordering by R need their own tiebreak.
+        """
+        if review_state.get('stability') is None:
+            return None
+        now = as_aware_utc(now) or datetime.now(timezone.utc)
+        return float(self._engine.get_card_retrievability(
+            self._reconstruct(review_state), now))
+
     def _reconstruct(self, review_state):
         """Rebuild an ``fsrs.Card`` from the persisted dict."""
         stability = review_state.get('stability')

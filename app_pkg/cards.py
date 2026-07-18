@@ -35,6 +35,8 @@ from sqlalchemy.orm import contains_eager, joinedload
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
 from services.scheduler import RATINGS, get_scheduler
 
+from app_pkg.learn import get_user_settings, order_due_cards
+
 # Reuse the Ingest auth primitives so card writes resolve the SAME target user
 # and parse the Bearer header identically — a single source of truth for "who
 # does a session-less write belong to" (Memory reference_token_auth_ingest_endpoint).
@@ -451,8 +453,11 @@ def register(app):
     @app.route('/api/review-state', methods=['GET'])
     @login_required
     def api_review_state():
-        # The due queue (due <= now) the Phase-4 review UI walks, newest-due
-        # first, plus the counters. Full cards so the UI renders without an
+        # The due queue (due <= now) the review UI walks, plus the counters.
+        # Ordering (LEARN-UP) happens Python-side per fetch via
+        # learn.order_due_cards — 'smart' (default): retrievability ascending
+        # with a random tiebreak, new cards shuffled + evenly interleaved;
+        # 'random': full shuffle. Full cards so the UI renders without an
         # extra fetch per card; contains_eager avoids the review N+1.
         #
         # LERN-GROUP scope filters (optional, combinable → AND):
@@ -483,9 +488,11 @@ def register(app):
         due_cards = (base
                      .join(Card.review)
                      .filter(Review.due <= now)
-                     .order_by(Review.due.asc())
                      .options(contains_eager(Card.review))
                      .all())
+        settings = get_user_settings(current_user)
+        due_cards = order_due_cards(due_cards, settings['ordering_mode'],
+                                    get_scheduler(), now=now)
         total_count = base.count()
         return jsonify({
             'due_count': len(due_cards),

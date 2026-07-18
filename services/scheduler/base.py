@@ -62,3 +62,14 @@ class Scheduler(ABC):
     @abstractmethod
     def apply_rating(self, review_state: dict, rating: str) -> dict:
         """Given the current review state + a rating, return the next state."""
+
+    def retrievability(self, review_state: dict, now=None):
+        """Predicted recall probability (0..1) for a previously-reviewed card,
+        or ``None`` when the engine has no retrievability concept (LEARN-UP).
+
+        Base default: ``None``. SM-2 reuses the ``stability`` column as
+        interval-in-days — feeding that into the FSRS R formula would be
+        nonsense, so only engines with a real forgetting-curve model override
+        this. Additive read; the ``apply_rating`` contract is untouched.
+        """
+        return None
