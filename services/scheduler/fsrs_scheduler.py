@@ -104,10 +104,10 @@ def simulate_workload(desired_retention, new_per_day, horizon_days=365,
       ``S' = r·S_good + (1-r)·S_again`` (branches merged, sub-day learning
       steps collapsed — mirrors the production simplification above).
     * Reviews happen exactly at due (R == r there by construction); the next
-      interval comes from the FSRS curve ``I(S) = S/FACTOR·(r^(1/DECAY) − 1)``.
-      ``_FACTOR``/``_DECAY`` are private engine attrs, stable in the pinned
-      ``fsrs==6.3.1`` (same reliance as ``get_card_retrievability``) —
-      re-verify on any bump.
+      interval comes from the FSRS curve ``I(S) = S/FACTOR·(r^(1/DECAY) − 1)``
+      with ``DECAY = −parameters[20]`` and ``FACTOR = 0.9^(1/DECAY) − 1`` —
+      derived from the PUBLIC ``parameters`` (how the engine builds its own
+      ``_FACTOR``/``_DECAY`` in 6.3.1; re-verify the derivation on a bump).
     * With one intro cohort per day, day ``d`` sees ``new_per_day`` reviews
       per trajectory offset ≤ ``d``; the result is the mean over the last
       ``tail_days`` of the horizon. An estimate, not a promise.
@@ -118,7 +118,8 @@ def simulate_workload(desired_retention, new_per_day, horizon_days=365,
     if new_per_day <= 0:
         return 0.0
     engine = FSRSEngine(desired_retention=desired_retention, enable_fuzzing=False)
-    factor, decay = engine._FACTOR, engine._DECAY
+    decay = -engine.parameters[20]
+    factor = 0.9 ** (1.0 / decay) - 1.0
     t0 = datetime(2000, 1, 1, tzinfo=timezone.utc)  # virtual clock
 
     def interval_days(stability):
