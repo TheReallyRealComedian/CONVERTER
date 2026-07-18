@@ -15,10 +15,13 @@ import random
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from app_pkg.learn import (LEARN_SETTINGS_DEFAULTS, count_done_today,
-                           get_user_settings, local_day_bounds, order_due_cards)
+from app_pkg.learn import (LEARN_SETTINGS_DEFAULTS, capped_session_counts,
+                           count_done_today, forecast_buckets,
+                           get_user_settings, local_day_bounds,
+                           maturity_counts, order_due_cards, true_retention)
 from models import Card, Review, User, db
 from services.scheduler import FSRSScheduler, SM2Scheduler
+from services.scheduler.fsrs_scheduler import simulate_workload
 
 SETTINGS_URL = '/api/learn/settings'
 
@@ -418,3 +421,162 @@ def test_review_state_random_mode_returns_same_set(app, authenticated_client, te
     body = authenticated_client.get('/api/review-state').get_json()
     assert sorted(c['id'] for c in body['due_cards']) == sorted(ids)
     assert body['due_count'] == 3
+
+
+# --- P4: Forecast-Bucketing (Berlin-Tage, Rückstand eigener Bucket) ----------
+
+def _make_review_row(app, user_id, due, stability=5.0, last_reviewed=None,
+                     rating_history=None, reps=1):
+    with app.app_context():
+        card = Card(user_id=user_id, type='atomic', front='Q', back='A')
+        card.review = Review(
+            due=due.replace(tzinfo=None), stability=stability,
+            difficulty=5.0 if stability is not None else None,
+            last_reviewed=(last_reviewed.replace(tzinfo=None)
+                           if last_reviewed else None),
+            reps=reps, rating_history=rating_history)
+        db.session.add(card)
+        db.session.commit()
+        return card.id
+
+
+def test_forecast_buckets_days_and_backlog(app, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    start, end = local_day_bounds(now)
+    _make_review_row(app, uid, due=now - timedelta(days=2))       # Rückstand
+    _make_review_row(app, uid, due=now - timedelta(minutes=1))    # Rückstand (due<=now)
+    _make_review_row(app, uid, due=end - timedelta(seconds=30))   # Rest heute → Tag 0
+    _make_review_row(app, uid, due=end + timedelta(hours=3))      # morgen → Tag 1
+    _make_review_row(app, uid, due=start + timedelta(days=5, hours=2))  # Tag 5
+    _make_review_row(app, uid, due=start + timedelta(days=60))    # außerhalb Fenster
+    with app.app_context():
+        fc = forecast_buckets(uid, now=now)
+    assert fc['overdue'] == 2
+    counts = [d['count'] for d in fc['days']]
+    assert counts[0] == 1 and counts[1] == 1 and counts[5] == 1
+    assert sum(counts) == 3                      # 60-Tage-Karte nicht im Fenster
+    assert len(fc['days']) == 28
+    assert fc['days'][0]['date'] == start.astimezone(
+        __import__('app_pkg.learn', fromlist=['LOCAL_TZ']).LOCAL_TZ).date().isoformat()
+
+
+# --- P4: Reifegrad-Klassifikation (21-Tage-Grenze) ---------------------------
+
+def test_maturity_counts_boundaries(app, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    _make_review_row(app, uid, due=now, stability=None, reps=0)   # neu
+    _make_review_row(app, uid, due=now + timedelta(days=20),      # jung (<21d)
+                     last_reviewed=now)
+    _make_review_row(app, uid, due=now + timedelta(days=21),      # reif (==21d)
+                     last_reviewed=now)
+    _make_review_row(app, uid, due=now + timedelta(days=100),     # reif
+                     last_reviewed=now)
+    _make_review_row(app, uid, due=now + timedelta(days=50),      # Fallback: stability
+                     stability=10.0, last_reviewed=None)          #  → 10d = jung
+    with app.app_context():
+        assert maturity_counts(uid) == {'neu': 1, 'jung': 2, 'reif': 2}
+
+
+# --- P4: True-Retention aus rating_history -----------------------------------
+
+def _hist(*entries):
+    return json.dumps([{'rating': r, 'reviewed_at': at.isoformat()}
+                       for r, at in entries])
+
+
+def test_true_retention_first_per_day_intro_excluded(app, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    # Karte A: Intro vor 10d (zählt NICHT), vor 5d gewusst, vor 3d erst
+    # vergessen + später am selben Tag gewusst (erste Bewertung zählt = fail).
+    _make_review_row(app, uid, due=now + timedelta(days=9), last_reviewed=now,
+                     reps=4, rating_history=_hist(
+                         ('good', now - timedelta(days=10)),
+                         ('good', now - timedelta(days=5)),
+                         ('again', now - timedelta(days=3)),
+                         ('good', now - timedelta(days=3, hours=-2))))
+    # Karte B: Review vor 40d liegt außerhalb des 30-Tage-Fensters.
+    _make_review_row(app, uid, due=now + timedelta(days=9), last_reviewed=now,
+                     reps=2, rating_history=_hist(
+                         ('good', now - timedelta(days=60)),
+                         ('good', now - timedelta(days=40))))
+    # Karte C: nur Intro → trägt nichts bei.
+    _make_review_row(app, uid, due=now + timedelta(days=2), last_reviewed=now,
+                     reps=1, rating_history=_hist(('good', now - timedelta(days=1))))
+    with app.app_context():
+        result = true_retention(uid, now=now)
+    assert result == {'pass': 1, 'fail': 1, 'rate': 0.5}
+
+
+def test_true_retention_empty(app, test_user):
+    with app.app_context():
+        assert true_retention(test_user['id']) == {'pass': 0, 'fail': 0, 'rate': None}
+
+
+# --- P4: Stats-Endpoint — "Heute" == Launcher (der Konsistenz-Wächter) -------
+
+def test_stats_today_equals_review_state_counts(app, authenticated_client, test_user):
+    uid = test_user['id']
+    # Gemischte Lage: 5 fällige Reviews, 4 fällige Neue, heute schon 1 Review
+    # + 1 Neue gelernt, enge Limits → die Cap-Arithmetik muss identisch greifen.
+    for _ in range(5):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    for _ in range(4):
+        _make_card_with_review(app, uid, stability=None)
+    _make_done_today_card(app, uid, introduced_today=True)
+    _make_done_today_card(app, uid, introduced_today=False)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 8,
+                                                 'daily_new_limit': 3})
+    stats = authenticated_client.get('/api/learn/stats').get_json()
+    state = authenticated_client.get('/api/review-state').get_json()
+    assert stats['today']['reviews_due'] == state['review_count']
+    assert stats['today']['new_available'] == state['new_count']
+    assert stats['today']['reviews_done'] == 1
+    assert stats['today']['new_done'] == 1
+    # Und die Zahlen selbst: Budget Reviews 8-1=7 → 5 gezeigt; Headroom 7-5=2
+    # → Neue min(4, min(3-1, 2)) = 2.
+    assert stats['today']['reviews_due'] == 5
+    assert stats['today']['new_available'] == 2
+
+
+def test_stats_shape(app, authenticated_client, test_user):
+    body = authenticated_client.get('/api/learn/stats').get_json()
+    assert set(body) == {'today', 'forecast', 'maturity', 'retention'}
+    assert body['retention']['desired'] == 0.9      # env-Default, read-only
+    assert body['retention']['window_days'] == 30
+
+
+def test_stats_and_simulate_require_login(client):
+    assert client.get('/api/learn/stats').status_code in (302, 401)
+    assert client.get('/api/learn/simulate?retention=0.9').status_code in (302, 401)
+
+
+# --- P4: Workload-Simulator --------------------------------------------------
+
+def test_simulate_workload_monotonic_and_deterministic():
+    lo = simulate_workload(0.85, 10)
+    mid = simulate_workload(0.90, 10)
+    hi = simulate_workload(0.95, 10)
+    assert 0 < lo < mid < hi          # höhere Retention → kürzere Intervalle → mehr Reviews
+    assert simulate_workload(0.90, 10) == mid   # deterministisch, kein RNG
+    assert simulate_workload(0.90, 0) == 0.0
+    assert simulate_workload(0.90, 20) == 2 * mid  # linear in new_per_day
+
+
+def test_simulate_endpoint_and_validation(app, authenticated_client, test_user):
+    body = authenticated_client.get(
+        '/api/learn/simulate?retention=0.90&new_per_day=10').get_json()
+    assert body['estimate'] is True
+    assert body['reviews_per_day'] > 0
+    # Default new_per_day = daily_new_limit aus den Settings.
+    authenticated_client.put(SETTINGS_URL, json={'daily_new_limit': 0})
+    assert authenticated_client.get(
+        '/api/learn/simulate?retention=0.90').get_json()['reviews_per_day'] == 0.0
+    for url in ('/api/learn/simulate',                          # retention fehlt
+                '/api/learn/simulate?retention=abc',
+                '/api/learn/simulate?retention=0.3',            # out of range
+                '/api/learn/simulate?retention=0.9&new_per_day=-1',
+                '/api/learn/simulate?retention=0.9&new_per_day=abc'):
+        assert authenticated_client.get(url).status_code == 400, url

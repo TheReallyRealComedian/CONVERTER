@@ -119,6 +119,38 @@
                 <button type="button" id="review-collection-add" class="c-btn text-xs py-1.5 px-3">Hinzufügen</button>
             </div>
         </article>
+
+        <!-- Statistik (LEARN-UP P4): lazy geladen beim ersten Aufklappen -->
+        <div class="review-stats-row">
+            <button type="button" id="review-stats-toggle" class="review-link-btn">Statistik anzeigen</button>
+        </div>
+        <section id="review-stats" class="review-stats c-surface--flat hidden">
+            <h2 class="review-stats__heading">Heute</h2>
+            <p id="stats-today" class="review-stats__line"></p>
+            <h2 class="review-stats__heading">Fällig in den nächsten 4 Wochen</h2>
+            <div id="stats-forecast" class="stats-forecast"
+                 role="img" aria-label="Fälligkeits-Forecast"></div>
+            <p id="stats-backlog" class="review-stats__line"></p>
+            <h2 class="review-stats__heading">Reifegrad</h2>
+            <p id="stats-maturity" class="review-stats__line"></p>
+            <h2 class="review-stats__heading">Retention</h2>
+            <p id="stats-retention" class="review-stats__line"></p>
+            <h2 class="review-stats__heading">Workload-Simulator</h2>
+            <div class="stats-sim">
+                <label class="review-scope__label" for="stats-sim-retention">Ziel-Retention</label>
+                <select id="stats-sim-retention" class="c-input stats-sim__select">
+                    <option value="0.80">80 %</option>
+                    <option value="0.85">85 %</option>
+                    <option value="0.90" selected>90 %</option>
+                    <option value="0.95">95 %</option>
+                </select>
+                <label class="review-scope__label" for="stats-sim-new">Neue/Tag</label>
+                <input type="number" id="stats-sim-new" class="c-input review-limits__input"
+                       min="0" max="1000" step="1">
+                <button type="button" id="stats-sim-run" class="c-btn text-xs py-1.5 px-3">Schätzen</button>
+                <span id="stats-sim-result" class="review-stats__line"></span>
+            </div>
+        </section>
     </div>
 </div>
 {% endblock %}
@@ -130,6 +162,8 @@
         collectionsUrl: '{{ url_for("api_list_collections") }}',
         libraryUrl: '{{ url_for("library") }}',
         learnSettingsUrl: '{{ url_for("api_get_learn_settings") }}',
+        learnStatsUrl: '{{ url_for("api_learn_stats") }}',
+        learnSimulateUrl: '{{ url_for("api_learn_simulate") }}',
     };
 </script>
 <script src="{{ url_for('static', filename='js/review.js') }}"></script>

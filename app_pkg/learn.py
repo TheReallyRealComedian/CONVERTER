@@ -15,6 +15,7 @@ the review stream. ``random`` is one full shuffle. Either way the old hidden
 creation-date order is structurally gone.
 """
 import json
+import os
 import random
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -23,6 +24,8 @@ from flask import jsonify, request
 from flask_login import current_user, login_required
 
 from models import Card, Review, User, db
+from services.scheduler import _parse_retention
+from services.scheduler.fsrs_scheduler import simulate_workload
 
 # The learn features count and bucket per USER-local day (single-user app,
 # Oliver sits in Berlin) — a UTC day would reset the daily limits mid-evening.
@@ -136,6 +139,27 @@ def count_done_today(user_id, now=None):
     return reviews_done, new_done
 
 
+def capped_session_counts(n_reviewed, n_fresh, review_budget=None, new_budget=None):
+    """Shared cap arithmetic (``None`` = uncapped): how many reviews and new
+    cards today's session shows. ``order_due_cards`` (P3) slices with these
+    numbers and the stats' "Heute" block (P4) reports them — ONE source, so
+    the stats can never drift from the launcher.
+    """
+    if review_budget is None:
+        shown_reviews = n_reviewed
+    else:
+        shown_reviews = min(n_reviewed, max(0, review_budget))
+    if new_budget is None:
+        shown_new = n_fresh
+    else:
+        cap = new_budget
+        if review_budget is not None:
+            # New cards only fill the headroom the review load leaves.
+            cap = min(cap, max(0, review_budget - shown_reviews))
+        shown_new = min(n_fresh, max(0, cap))
+    return shown_reviews, shown_new
+
+
 def order_due_cards(due_cards, mode, scheduler, rng=None, now=None,
                     review_budget=None, new_budget=None):
     """Order the due queue for one session fetch, then apply the daily caps.
@@ -165,13 +189,10 @@ def order_due_cards(due_cards, mode, scheduler, rng=None, now=None,
         reviewed.sort(key=lambda c: _review_sort_key(scheduler, c.review, now))
     rng.shuffle(fresh)
 
-    headroom = None
-    if review_budget is not None:
-        reviewed = reviewed[:max(0, review_budget)]
-        headroom = max(0, review_budget - len(reviewed))
-    if new_budget is not None:
-        cap = new_budget if headroom is None else min(new_budget, headroom)
-        fresh = fresh[:max(0, cap)]
+    n_reviews, n_new = capped_session_counts(len(reviewed), len(fresh),
+                                             review_budget, new_budget)
+    reviewed = reviewed[:n_reviews]
+    fresh = fresh[:n_new]
 
     if mode == 'random':
         merged = reviewed + fresh
@@ -210,6 +231,131 @@ def _interleave_evenly(reviewed, fresh):
     return [c for _, _, c in keyed]
 
 
+# --- P4: stats building blocks -----------------------------------------------
+
+MATURE_INTERVAL_DAYS = 21          # Anki-Konvention: reif ab 21-Tage-Intervall
+RETENTION_WINDOW_DAYS = 30
+FORECAST_DAYS = 28
+
+
+def forecast_buckets(user_id, days=FORECAST_DAYS, now=None):
+    """Future-due forecast: per-Berlin-day counts + the overdue backlog.
+
+    ``overdue`` = due <= now (exactly the raw queue definition). ``days[0]``
+    is the REST of today (due after now, before local midnight), then one
+    bucket per following Berlin day. Bucketing happens in Python via
+    ``local_day_bounds``/astimezone — DST-safe, and the fetched range is
+    small (only dues inside the window).
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+    start, _end = local_day_bounds(now)
+    window_end = (start + timedelta(days=days)).replace(tzinfo=None)
+    now_naive = now.astimezone(timezone.utc).replace(tzinfo=None)
+
+    overdue = (Review.query.join(Card, Review.card_id == Card.id)
+               .filter(Card.user_id == user_id, Review.due <= now_naive)
+               .count())
+    rows = (db.session.query(Review.due)
+            .join(Card, Review.card_id == Card.id)
+            .filter(Card.user_id == user_id,
+                    Review.due > now_naive, Review.due < window_end)
+            .all())
+    start_local_date = start.astimezone(LOCAL_TZ).date()
+    buckets = [0] * days
+    for (due,) in rows:
+        due_local = due.replace(tzinfo=timezone.utc).astimezone(LOCAL_TZ)
+        idx = (due_local.date() - start_local_date).days
+        if 0 <= idx < days:
+            buckets[idx] += 1
+    return {
+        'overdue': overdue,
+        'days': [{'date': (start_local_date + timedelta(days=i)).isoformat(),
+                  'count': buckets[i]} for i in range(days)],
+    }
+
+
+def maturity_counts(user_id):
+    """Reifegrad-Zähler. Classification (LEARN-UP P4):
+
+    * ``neu``  — stability NULL (never rated).
+    * ``jung`` — rated, interval ``due − last_reviewed`` < 21 days. The
+      schema persists no FSRS learning state (the step ramp is collapsed —
+      see fsrs_scheduler), so Anki's "lernend" bucket collapses into jung.
+    * ``reif`` — interval ≥ 21 days (Anki convention).
+
+    Fallback when ``due``/``last_reviewed`` is missing: ``stability`` as the
+    interval proxy (at R=0.9 the FSRS interval equals the stability).
+    """
+    rows = (db.session.query(Review.stability, Review.due, Review.last_reviewed)
+            .join(Card, Review.card_id == Card.id)
+            .filter(Card.user_id == user_id)
+            .all())
+    counts = {'neu': 0, 'jung': 0, 'reif': 0}
+    for stability, due, last_reviewed in rows:
+        if stability is None:
+            counts['neu'] += 1
+            continue
+        if due is not None and last_reviewed is not None:
+            interval_days = (due - last_reviewed).total_seconds() / 86400.0
+        else:
+            interval_days = stability
+        counts['reif' if interval_days >= MATURE_INTERVAL_DAYS else 'jung'] += 1
+    return counts
+
+
+def true_retention(user_id, window_days=RETENTION_WINDOW_DAYS, now=None):
+    """Ist-Retention aus ``rating_history`` über ein Fenster.
+
+    Counted: per card per Berlin day the chronologically FIRST rating
+    (later same-day ratings are relearn noise); ``again`` = fail, else pass.
+    The card's introduction day (its first-ever rating) is EXCLUDED — that
+    answer is the "new" slot, not a recall of something scheduled. Returns
+    ``{'pass': p, 'fail': f, 'rate': p/(p+f) | None}``.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+    window_start = now - timedelta(days=window_days)
+    rows = (db.session.query(Review.rating_history)
+            .join(Card, Review.card_id == Card.id)
+            .filter(Card.user_id == user_id,
+                    Review.rating_history.isnot(None))
+            .all())
+    passed = failed = 0
+    for (raw,) in rows:
+        try:
+            history = json.loads(raw)
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(history, list) or len(history) < 2:
+            continue  # nur die Intro-Bewertung → nichts zu zählen
+        per_day = {}
+        first_day = None
+        for i, entry in enumerate(history):
+            try:
+                at = datetime.fromisoformat(entry['reviewed_at'])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if at.tzinfo is None:
+                at = at.replace(tzinfo=timezone.utc)
+            day = at.astimezone(LOCAL_TZ).date()
+            if i == 0:
+                first_day = day
+            per_day.setdefault(day, (at, entry.get('rating')))
+            if at < per_day[day][0]:
+                per_day[day] = (at, entry.get('rating'))
+        for day, (at, rating) in per_day.items():
+            if day == first_day or at < window_start:
+                continue
+            if rating == 'again':
+                failed += 1
+            else:
+                passed += 1
+    total = passed + failed
+    return {'pass': passed, 'fail': failed,
+            'rate': (passed / total) if total else None}
+
+
 def register(app):
     @app.route('/api/learn/settings', methods=['GET'])
     @login_required
@@ -238,3 +384,71 @@ def register(app):
         user.settings_json = json.dumps(settings)
         db.session.commit()
         return jsonify(settings)
+
+    @app.route('/api/learn/stats', methods=['GET'])
+    @login_required
+    def api_learn_stats():
+        # The four LEARN-UP stats. "Heute" reuses the P3 building blocks
+        # (count_done_today + capped_session_counts + get_user_settings), so
+        # its numbers are BY CONSTRUCTION the launcher's numbers — never a
+        # second computation that could drift. desired_retention is the
+        # read-only env value the real scheduler runs with (surfacing it
+        # editable would require the scheduler to read per-user settings =
+        # the contract rework this sprint forbids).
+        now = datetime.now(timezone.utc)
+        now_naive = now.replace(tzinfo=None)
+        settings = get_user_settings(current_user)
+        reviews_done, new_done = count_done_today(current_user.id, now=now)
+        pools = (db.session.query(Review.stability)
+                 .join(Card, Review.card_id == Card.id)
+                 .filter(Card.user_id == current_user.id, Review.due <= now_naive)
+                 .all())
+        n_fresh = sum(1 for (s,) in pools if s is None)
+        reviews_due, new_available = capped_session_counts(
+            len(pools) - n_fresh, n_fresh,
+            review_budget=max(0, settings['daily_review_limit'] - reviews_done),
+            new_budget=max(0, settings['daily_new_limit'] - new_done))
+        return jsonify({
+            'today': {
+                'reviews_due': reviews_due,
+                'new_available': new_available,
+                'reviews_done': reviews_done,
+                'new_done': new_done,
+            },
+            'forecast': forecast_buckets(current_user.id, now=now),
+            'maturity': maturity_counts(current_user.id),
+            'retention': {
+                **true_retention(current_user.id, now=now),
+                'window_days': RETENTION_WINDOW_DAYS,
+                'desired': _parse_retention(os.environ.get('FSRS_DESIRED_RETENTION')),
+            },
+        })
+
+    @app.route('/api/learn/simulate', methods=['GET'])
+    @login_required
+    def api_learn_simulate():
+        # Workload-Simulator (P4): hypothetical retention as what-if INPUT —
+        # a projection only, the real scheduler never sees this value.
+        try:
+            retention = float(request.args.get('retention', ''))
+        except ValueError:
+            return jsonify({'error': "Parameter 'retention' muss eine Zahl sein."}), 400
+        if not 0.5 <= retention <= 0.99:
+            return jsonify({'error': "Parameter 'retention' muss zwischen 0.5 und 0.99 liegen."}), 400
+        raw_new = request.args.get('new_per_day')
+        if raw_new is None:
+            new_per_day = get_user_settings(current_user)['daily_new_limit']
+        else:
+            try:
+                new_per_day = int(raw_new)
+            except ValueError:
+                return jsonify({'error': "Parameter 'new_per_day' muss int sein."}), 400
+            if not 0 <= new_per_day <= 1000:
+                return jsonify({'error': "Parameter 'new_per_day' muss zwischen 0 und 1000 liegen."}), 400
+        reviews_per_day = simulate_workload(retention, new_per_day)
+        return jsonify({
+            'retention': retention,
+            'new_per_day': new_per_day,
+            'reviews_per_day': round(reviews_per_day, 1),
+            'estimate': True,  # Kohorten-Schätzung, keine Präzision
+        })

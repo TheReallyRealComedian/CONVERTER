@@ -11,6 +11,8 @@
     const REVIEW_STATE_URL = window.PageData.reviewStateUrl;
     const COLLECTIONS_URL = window.PageData.collectionsUrl;
     const LEARN_SETTINGS_URL = window.PageData.learnSettingsUrl;
+    const LEARN_STATS_URL = window.PageData.learnStatsUrl;
+    const LEARN_SIMULATE_URL = window.PageData.learnSimulateUrl;
 
     let queue = [];
     let index = 0;
@@ -51,6 +53,8 @@
     const limitNewInput = el('review-limit-new');
     const limitReviewsInput = el('review-limit-reviews');
     const capInfoEl = el('review-cap-info');
+    const statsToggle = el('review-stats-toggle');
+    const statsSection = el('review-stats');
     const emptyTitle = el('review-empty-title');
     const emptyText = el('review-empty-text');
     const collectionToggle = el('review-collection-toggle');
@@ -490,10 +494,99 @@
         }
     }
 
+    // --- Statistik (LEARN-UP P4) ---------------------------------------------
+    // Lazy: erst beim ersten Aufklappen gefetcht; danach bei jedem Aufklappen
+    // aktualisiert (billig, hält die Zahlen ehrlich).
+    async function loadStats() {
+        try {
+            const resp = await fetch(LEARN_STATS_URL);
+            const data = await safeJSON(resp);
+            if (!resp.ok) throw new Error();
+            renderStats(data);
+        } catch (e) {
+            showAlert(alertContainer(), 'danger',
+                'Statistik konnte nicht geladen werden. Erneut versuchen.');
+        }
+    }
+
+    function renderStats(data) {
+        const t = data.today;
+        el('stats-today').textContent =
+            `${t.reviews_due} Reviews fällig · ${t.new_available} neu verfügbar — ` +
+            `heute schon gelernt: ${t.reviews_done} Reviews, ${t.new_done} neu.`;
+
+        const fc = el('stats-forecast');
+        fc.textContent = '';
+        const maxCount = Math.max(1, data.forecast.overdue,
+            ...data.forecast.days.map((d) => d.count));
+        if (data.forecast.overdue > 0) {
+            const bar = document.createElement('div');
+            bar.className = 'stats-forecast__bar stats-forecast__bar--backlog';
+            bar.style.height = `${Math.max(4, Math.round(100 * data.forecast.overdue / maxCount))}%`;
+            bar.title = `Rückstand: ${data.forecast.overdue} überfällig`;
+            fc.appendChild(bar);
+        }
+        data.forecast.days.forEach((d) => {
+            const bar = document.createElement('div');
+            bar.className = 'stats-forecast__bar';
+            bar.style.height = `${Math.max(2, Math.round(100 * d.count / maxCount))}%`;
+            bar.title = `${d.date}: ${d.count}`;
+            fc.appendChild(bar);
+        });
+        el('stats-backlog').textContent = data.forecast.overdue > 0
+            ? `Rückstand: ${data.forecast.overdue} überfällig (roter Balken).`
+            : 'Kein Rückstand.';
+
+        const m = data.maturity;
+        el('stats-maturity').textContent =
+            `Neu ${m.neu} · Jung ${m.jung} · Reif ${m.reif} (reif = Intervall ab 21 Tagen)`;
+
+        const r = data.retention;
+        el('stats-retention').textContent = r.rate === null
+            ? `Noch zu wenige Reviews im ${r.window_days}-Tage-Fenster.`
+            : `Ist ${Math.round(100 * r.rate)} % (${r.pass} gewusst / ${r.fail} vergessen, ` +
+              `${r.window_days} Tage) · Ziel ${Math.round(100 * r.desired)} %`;
+    }
+
+    function onStatsToggle() {
+        const opening = statsSection.classList.contains('hidden');
+        statsSection.classList.toggle('hidden', !opening);
+        statsToggle.textContent = opening ? 'Statistik ausblenden' : 'Statistik anzeigen';
+        if (opening) {
+            if (!el('stats-sim-new').value) {
+                el('stats-sim-new').value = limitNewInput.value || '10';
+            }
+            loadStats();
+        }
+    }
+
+    async function runSimulation() {
+        const btn = el('stats-sim-run');
+        const resultEl = el('stats-sim-result');
+        btn.disabled = true;
+        try {
+            const retention = el('stats-sim-retention').value;
+            const perDay = Number.parseInt(el('stats-sim-new').value, 10);
+            let url = `${LEARN_SIMULATE_URL}?retention=${retention}`;
+            if (!Number.isNaN(perDay)) url += `&new_per_day=${perDay}`;
+            const resp = await fetch(url);
+            const data = await safeJSON(resp);
+            if (!resp.ok) throw new Error();
+            resultEl.textContent =
+                `≈ ${data.reviews_per_day} Reviews/Tag bei ${data.new_per_day} neuen (Schätzung)`;
+        } catch (e) {
+            showToast('Simulation fehlgeschlagen.', { level: 'danger' });
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     scopeList.addEventListener('change', onScopeChange);
     orderSelect.addEventListener('change', onOrderChange);
     limitNewInput.addEventListener('change', onLimitChange);
     limitReviewsInput.addEventListener('change', onLimitChange);
+    statsToggle.addEventListener('click', onStatsToggle);
+    el('stats-sim-run').addEventListener('click', runSimulation);
     collectionToggle.addEventListener('click', () => {
         const opening = collectionWrap.classList.contains('hidden');
         // Mutually exclusive with the note panel — only one footer drawer open.

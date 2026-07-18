@@ -1,4 +1,5 @@
-"""FSRS scheduler — the default engine, via py-fsrs (PyPI ``fsrs``).
+"""FSRS scheduler — the default engine, via py-fsrs (PyPI ``fsrs``), plus the
+LEARN-UP workload simulator (module function, engine-specific).
 
 Maps our persisted ``Review`` dict onto an ``fsrs.Card`` and back. py-fsrs owns
 the interval/stability/difficulty math; we own ``reps``/``lapses`` (FSRS-6's
@@ -11,7 +12,7 @@ interval math — the part that matters — is fully preserved; only the sub-day
 learning/relearning *step ramp* (the 1-min/10-min micro-schedule for brand-new
 cards) is collapsed. Fuzzing is disabled so scheduling is deterministic.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fsrs import Card as FSRSCard
 from fsrs import Rating, State
@@ -87,3 +88,66 @@ class FSRSScheduler(Scheduler):
             due=due,
             last_review=as_aware_utc(review_state.get('last_reviewed')),
         )
+
+
+def simulate_workload(desired_retention, new_per_day, horizon_days=365,
+                      tail_days=90):
+    """Steady-state workload ESTIMATE (LEARN-UP P4): expected reviews/day.
+
+    py-fsrs 6.3.1 ships no simulator (checked: ``Scheduler`` has none, the
+    Optimizer's ``_simulate_cost`` is private parameter-fitting cost), so this
+    is a simple expected-value cohort simulation — a what-if PROJECTION whose
+    ``desired_retention`` input never touches the real scheduler:
+
+    * Every introduced card follows ONE deterministic trajectory: pass/fail
+      at each review collapse into the expected stability
+      ``S' = r·S_good + (1-r)·S_again`` (branches merged, sub-day learning
+      steps collapsed — mirrors the production simplification above).
+    * Reviews happen exactly at due (R == r there by construction); the next
+      interval comes from the FSRS curve ``I(S) = S/FACTOR·(r^(1/DECAY) − 1)``.
+      ``_FACTOR``/``_DECAY`` are private engine attrs, stable in the pinned
+      ``fsrs==6.3.1`` (same reliance as ``get_card_retrievability``) —
+      re-verify on any bump.
+    * With one intro cohort per day, day ``d`` sees ``new_per_day`` reviews
+      per trajectory offset ≤ ``d``; the result is the mean over the last
+      ``tail_days`` of the horizon. An estimate, not a promise.
+
+    Returns expected reviews/day (float, intro ratings not counted — they are
+    the "new" slots, not reviews).
+    """
+    if new_per_day <= 0:
+        return 0.0
+    engine = FSRSEngine(desired_retention=desired_retention, enable_fuzzing=False)
+    factor, decay = engine._FACTOR, engine._DECAY
+    t0 = datetime(2000, 1, 1, tzinfo=timezone.utc)  # virtual clock
+
+    def interval_days(stability):
+        return max(1, round(stability / factor
+                            * (desired_retention ** (1.0 / decay) - 1.0)))
+
+    def expected_next_stability(stability):
+        due = t0 + timedelta(days=interval_days(stability))
+
+        def rate(rating):
+            card = FSRSCard(state=State.Review, step=None, stability=stability,
+                            difficulty=5.0, due=due, last_review=t0)
+            updated, _log = engine.review_card(card, rating, review_datetime=due)
+            return updated.stability
+
+        return (desired_retention * rate(Rating.Good)
+                + (1.0 - desired_retention) * rate(Rating.Again))
+
+    intro, _log = engine.review_card(FSRSCard(due=t0), Rating.Good,
+                                     review_datetime=t0)
+    stability = intro.stability
+    offsets, cum = [], 0
+    while True:
+        cum += interval_days(stability)
+        if cum > horizon_days:
+            break
+        offsets.append(cum)
+        stability = expected_next_stability(stability)
+
+    tail = range(max(0, horizon_days - tail_days), horizon_days)
+    total = sum(new_per_day * sum(1 for o in offsets if o <= day) for day in tail)
+    return total / max(1, len(tail))

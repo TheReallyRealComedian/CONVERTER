@@ -1982,6 +1982,50 @@ body.reader-active .sidebar-toggle-floater--global {
     color: var(--nm-tone-slate-ink);
 }
 
+/* Stats section (LEARN-UP P4): four stat blocks + workload simulator */
+.review-stats-row { margin-top: var(--nm-space-lg); }
+.review-stats {
+    padding: var(--nm-space-xl);
+    margin-top: var(--nm-space-md);
+}
+.review-stats__heading {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    color: var(--nm-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: var(--nm-space-lg) 0 var(--nm-space-sm);
+}
+.review-stats__heading:first-child { margin-top: 0; }
+.review-stats__line {
+    font-size: var(--text-sm);
+    color: var(--nm-text);
+}
+.stats-forecast {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 90px;
+    margin-bottom: var(--nm-space-sm);
+}
+.stats-forecast__bar {
+    flex: 1;
+    background: var(--nm-accent);
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+}
+.stats-forecast__bar--backlog {
+    background: var(--nm-danger);
+    margin-right: 6px;
+}
+.stats-sim {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nm-space-sm);
+}
+.stats-sim__select { max-width: 110px; }
+
 /* Daily limits row (LEARN-UP P3): two number inputs + the after-cap counter */
 .review-limits {
     display: flex;
