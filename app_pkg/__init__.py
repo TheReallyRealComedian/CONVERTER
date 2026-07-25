@@ -209,6 +209,18 @@ def _run_pending_migrations(app):
             # top of the forest. Idempotent via the column guard above.
             db.session.commit()
             app.logger.info("LERN-GROUP: tag.parent_id column added via ALTER TABLE")
+    if 'card' in inspector.get_table_names():
+        cols = {c['name'] for c in inspector.get_columns('card')}
+        if 'front_svg' not in cols:
+            db.session.execute(text('ALTER TABLE card ADD COLUMN front_svg TEXT'))
+            db.session.commit()
+            app.logger.info("CARD-SVG: card.front_svg column added via ALTER TABLE")
+        if 'back_svg' not in cols:
+            db.session.execute(text('ALTER TABLE card ADD COLUMN back_svg TEXT'))
+            # No backfill — NULL means "no figure". Idempotent via the column
+            # guards above.
+            db.session.commit()
+            app.logger.info("CARD-SVG: card.back_svg column added via ALTER TABLE")
     _migrate_conversion_tags_csv_to_junction(app)
 
 

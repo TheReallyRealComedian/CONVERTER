@@ -6,6 +6,8 @@ from flask_login import UserMixin
 from sqlalchemy import event
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from services.svg_sanitize import sanitize_card_svg
+
 db = SQLAlchemy()
 
 
@@ -313,6 +315,12 @@ class Card(db.Model):
     cloze_text = db.Column(db.Text, nullable=True)
     prompt = db.Column(db.Text, nullable=True)
     note = db.Column(db.Text, nullable=True)
+    # CARD-SVG: optional agent-authored figures (SVG markup as text — no asset
+    # store). House style: stored RAW, sanitized on every read (to_dict runs
+    # services.svg_sanitize); the write API additionally rejects inputs that
+    # would sanitize to '' so the agent gets a 400 instead of a blank figure.
+    front_svg = db.Column(db.Text, nullable=True)
+    back_svg = db.Column(db.Text, nullable=True)
     state = db.Column(db.String(20), default='ok', nullable=False)  # 'ok' | 'wackelt'
     created_by = db.Column(db.String(40), default='agent', nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
@@ -342,6 +350,11 @@ class Card(db.Model):
             'cloze_text': self.cloze_text,
             'prompt': self.prompt,
             'note': self.note,
+            # The ONE authoritative sanitize point: every consumer (web API,
+            # MCP, iOS) gets cleaned SVG — no surface can forget it. Columns
+            # hold the raw agent input; '' (nothing renderable) becomes None.
+            'front_svg': sanitize_card_svg(self.front_svg) or None,
+            'back_svg': sanitize_card_svg(self.back_svg) or None,
             'state': self.state,
             'created_by': self.created_by,
             'tags': [{'id': t.id, 'name': t.name} for t in self.tags],

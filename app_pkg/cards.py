@@ -34,6 +34,7 @@ from sqlalchemy.orm import contains_eager, joinedload
 
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
 from services.scheduler import RATINGS, get_scheduler
+from services.svg_sanitize import MAX_CARD_SVG_BYTES, sanitize_card_svg
 
 from app_pkg.learn import count_done_today, get_user_settings, order_due_cards
 
@@ -171,6 +172,28 @@ def _validate_card_type_payload(card_type, front, back, cloze_text, prompt):
     return None
 
 
+def _validate_card_svg_field(data, field):
+    """Validate + normalise an optional SVG figure field (CARD-SVG).
+
+    Returns ``(value, error)``: ``value`` is what to store — the RAW string
+    (house style: sanitize on read via to_dict), or None on clear-intent
+    (``null``/blank) — and ``error`` a string → 400. The write-time check only
+    rejects input that would sanitize to NOTHING, so the agent hears about a
+    dead figure now instead of shipping an invisibly blank one."""
+    value = data.get(field)
+    if value is None:
+        return None, None
+    if not isinstance(value, str):
+        return None, f"Feld '{field}' muss Text oder null sein."
+    if not value.strip():
+        return None, None  # empty string = clear intent → NULL column
+    if sanitize_card_svg(value) == '':
+        return None, (f"Feld '{field}' enthält kein renderbares SVG. "
+                      f"Wahrscheinlich: über {MAX_CARD_SVG_BYTES // 1000} kB, "
+                      "kein <svg>-Wurzelelement oder nur nicht-erlaubte Elemente.")
+    return value, None
+
+
 def _validate_highlight_ownership(highlight_id, user_id):
     """Validate an optional highlight_id reference. Returns an error string
     (→ 400) when set-but-invalid, else None. A bad number type, a missing
@@ -231,7 +254,9 @@ def _replace_highlight_tags(highlight, names, user_id):
 
 def _card_summary(card):
     """Slim per-row dict for the list endpoint — the question side + triage
-    fields, no answer/snapshot bulk. (Full card is GET /api/cards/<id>.)"""
+    fields, no answer/snapshot bulk. (Full card is GET /api/cards/<id>.)
+    Deliberately NO front_svg/back_svg (CARD-SVG): a 30-KB figure per row has
+    no place in a list response — figures ride only the full to_dict."""
     review = card.review
     return {
         'id': card.id,
@@ -309,6 +334,17 @@ def register(app):
         if hl_error:
             return jsonify({'error': hl_error}), 400
 
+        # CARD-SVG: optional figures. Validated (400 on nothing-renderable),
+        # stored RAW — to_dict sanitizes on read. A figure never replaces the
+        # per-type required text fields (checked above): an image-only card
+        # would not be quizzable.
+        front_svg, svg_error = _validate_card_svg_field(data, 'front_svg')
+        if svg_error:
+            return jsonify({'error': svg_error}), 400
+        back_svg, svg_error = _validate_card_svg_field(data, 'back_svg')
+        if svg_error:
+            return jsonify({'error': svg_error}), 400
+
         card = Card(
             user_id=target.id,
             highlight_id=highlight_id,
@@ -320,6 +356,8 @@ def register(app):
             note=data.get('note'),
             source_snapshot=data.get('source_snapshot'),
             source_doc_title=data.get('source_doc_title'),
+            front_svg=front_svg,
+            back_svg=back_svg,
         )
         # Add before touching the tags collection: get_or_create's lookup
         # autoflushes, and the Tag.cards backref warns if the card isn't yet in
@@ -366,6 +404,14 @@ def register(app):
                       'source_snapshot', 'source_doc_title'):
             if field in data:
                 setattr(card, field, data[field])
+        # CARD-SVG: not in the plain tuple above — the figures validate (400 on
+        # nothing-renderable) and normalise (null/"" → NULL = clearing works).
+        for field in ('front_svg', 'back_svg'):
+            if field in data:
+                value, svg_error = _validate_card_svg_field(data, field)
+                if svg_error:
+                    return jsonify({'error': svg_error}), 400
+                setattr(card, field, value)
         if 'tags' in data:
             if not isinstance(data['tags'], list):
                 return jsonify({'error': "Feld 'tags' muss eine Liste sein."}), 400

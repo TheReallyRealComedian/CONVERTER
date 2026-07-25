@@ -8,6 +8,11 @@ Without it, deleting a Highlight leaves a dangling highlight_id on the card.
 """
 from datetime import datetime, timedelta, timezone
 
+import pytest
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import OperationalError
+
+from app_pkg import _run_pending_migrations
 from models import Card, Conversion, Highlight, Review, Tag, User, card_tags, db
 
 
@@ -884,3 +889,172 @@ def test_highlight_annotate_csrf_exempt_under_enforced_csrf(app, client, test_us
     hl = _make_owned_highlight(app, test_user['id'])
     resp = client.patch(HL_ANNOTATE.format(hl), headers=_card_auth(), json={'tags': ['ki']})
     assert resp.status_code == 200   # NOT 400/403
+
+
+# --- CARD-SVG: front_svg/back_svg — write validation, raw storage, read sanitize
+
+
+VALID_SVG = (
+    '<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">'
+    '<rect x="0" y="0" width="120" height="40" rx="6" fill="#e8f0fe" stroke="#1a56b0"/>'
+    '<text x="60" y="25" text-anchor="middle" font-size="14">Protein A</text></svg>'
+)
+SCRIPT_SVG = (
+    '<svg viewBox="0 0 10 10"><script>alert(1)</script><rect x="1" width="5" height="5"/></svg>'
+)
+
+
+def test_card_create_with_valid_svg_201_and_fields_in_response(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(front_svg=VALID_SVG, back_svg=VALID_SVG))
+    assert resp.status_code == 201
+    data = resp.get_json()
+    assert 'viewBox="0 0 320 180"' in data['front_svg']
+    assert 'Protein A' in data['back_svg']
+
+
+def test_card_create_script_svg_stored_raw_but_sanitized_on_read(app, client, test_user, monkeypatch):
+    # A figure that still holds renderable content next to the attack vector
+    # passes write validation (stored RAW — house style), but every read path
+    # (to_dict → response + GET) delivers it cleaned.
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(front_svg=SCRIPT_SVG))
+    assert resp.status_code == 201
+    data = resp.get_json()
+    cid = data['id']
+    assert 'script' not in data['front_svg'].lower()
+    assert '<rect' in data['front_svg']
+
+    with app.app_context():
+        card = db.session.get(Card, cid)
+        assert '<script>' in card.front_svg      # column holds the raw input
+        assert 'script' not in card.to_dict()['front_svg'].lower()
+
+
+def test_card_create_garbage_svg_400_with_reason(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    # no <svg> root at all
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(front_svg='<p>hi</p>'))
+    assert resp.status_code == 400
+    assert 'front_svg' in resp.get_json()['error']
+    assert 'SVG' in resp.get_json()['error']
+    # only disallowed elements, nothing renderable left
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(back_svg='<script>alert(1)</script>'))
+    assert resp.status_code == 400
+    assert 'back_svg' in resp.get_json()['error']
+    # over the byte cap
+    from services.svg_sanitize import MAX_CARD_SVG_BYTES
+    huge = '<svg viewBox="0 0 9 9">' + '<rect x="1"/>' * (MAX_CARD_SVG_BYTES // 10) + '</svg>'
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(front_svg=huge))
+    assert resp.status_code == 400
+    # nothing got persisted along the way
+    with app.app_context():
+        assert Card.query.count() == 0
+
+
+def test_card_create_non_string_svg_400(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(front_svg=123))
+    assert resp.status_code == 400
+    assert 'front_svg' in resp.get_json()['error']
+
+
+def test_card_patch_sets_and_clears_svg_fields(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = _make_card(app, test_user['id'])
+
+    # set both
+    resp = client.patch(f'{CARDS_URL}/{cid}', headers=_card_auth(),
+                        json={'front_svg': VALID_SVG, 'back_svg': VALID_SVG})
+    assert resp.status_code == 200
+    assert resp.get_json()['front_svg'] is not None
+
+    # clear via null …
+    resp = client.patch(f'{CARDS_URL}/{cid}', headers=_card_auth(),
+                        json={'front_svg': None})
+    assert resp.status_code == 200
+    assert resp.get_json()['front_svg'] is None
+    # … and via empty string
+    resp = client.patch(f'{CARDS_URL}/{cid}', headers=_card_auth(),
+                        json={'back_svg': ''})
+    assert resp.status_code == 200
+    assert resp.get_json()['back_svg'] is None
+    with app.app_context():
+        card = db.session.get(Card, cid)
+        assert card.front_svg is None and card.back_svg is None
+
+
+def test_card_patch_garbage_svg_400_keeps_stored_value(app, client, test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    cid = _make_card(app, test_user['id'])
+    assert client.patch(f'{CARDS_URL}/{cid}', headers=_card_auth(),
+                        json={'front_svg': VALID_SVG}).status_code == 200
+    resp = client.patch(f'{CARDS_URL}/{cid}', headers=_card_auth(),
+                        json={'front_svg': '<p>hi</p>'})
+    assert resp.status_code == 400
+    with app.app_context():
+        assert db.session.get(Card, cid).front_svg == VALID_SVG  # untouched
+
+
+def test_card_summary_carries_no_svg_fields(app, authenticated_client, client,
+                                            test_user, monkeypatch):
+    # The list endpoint stays slim by design — figures ride only the full
+    # to_dict (GET /api/cards/<id>).
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    resp = client.post(CARDS_URL, headers=_card_auth(),
+                       json=_atomic_payload(front_svg=VALID_SVG))
+    assert resp.status_code == 201
+    cid = resp.get_json()['id']
+
+    rows = authenticated_client.get(CARDS_URL).get_json()
+    assert len(rows) == 1
+    assert 'front_svg' not in rows[0] and 'back_svg' not in rows[0]
+
+    # …while the detail read delivers them (sanitized).
+    detail = authenticated_client.get(f'{CARDS_URL}/{cid}').get_json()
+    assert 'viewBox' in detail['front_svg']
+    assert detail['back_svg'] is None
+
+
+def test_migration_adds_svg_columns_idempotently(app):
+    with app.app_context():
+        engine = db.engine
+        # Simulate a pre-CARD-SVG schema: drop both columns so the migration
+        # must re-add them. SQLite < 3.35 has no DROP COLUMN — skip there. The
+        # try/finally restores the columns so a mid-test failure can't poison
+        # the session-scoped engine for the rest of the suite.
+        try:
+            db.session.execute(text('ALTER TABLE card DROP COLUMN front_svg'))
+            db.session.execute(text('ALTER TABLE card DROP COLUMN back_svg'))
+            db.session.commit()
+        except OperationalError:
+            db.session.rollback()
+            pytest.skip('SQLite build without DROP COLUMN support')
+
+        try:
+            assert 'front_svg' not in {
+                c['name'] for c in inspect(engine).get_columns('card')
+            }
+
+            _run_pending_migrations(app)
+            cols = {c['name'] for c in inspect(engine).get_columns('card')}
+            assert 'front_svg' in cols and 'back_svg' in cols
+
+            # Second pass is a no-op — no error, each column present exactly once.
+            _run_pending_migrations(app)
+            cols = [c['name'] for c in inspect(engine).get_columns('card')]
+            assert cols.count('front_svg') == 1
+            assert cols.count('back_svg') == 1
+        finally:
+            cols = {c['name'] for c in inspect(engine).get_columns('card')}
+            for missing in ('front_svg', 'back_svg'):
+                if missing not in cols:
+                    db.session.execute(
+                        text(f'ALTER TABLE card ADD COLUMN {missing} TEXT'))
+            db.session.commit()
