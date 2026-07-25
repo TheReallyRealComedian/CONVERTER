@@ -69,7 +69,9 @@
             </div>
             <p id="review-source" class="review-card__source hidden"></p>
 
-            <!-- Question side -->
+            <!-- Question side. Die Figur ist Inhalt (Bild-als-Frage), kein Dekor —
+                 daher <figure>. SVG kommt server-seitig bereinigt (CARD-SVG). -->
+            <figure id="review-figure-front" class="review-figure hidden"></figure>
             <div id="review-question" class="review-question"></div>
             <p id="review-generative-hint" class="review-hint hidden">Erklär es laut oder auf Papier, bevor du aufdeckst.</p>
 
@@ -78,9 +80,11 @@
                 <button type="button" id="review-reveal-btn" class="c-btn c-btn--primary w-full">Aufdecken</button>
             </div>
 
-            <!-- Answer side (hidden until revealed) -->
+            <!-- Answer side (hidden until revealed). Back-Figur (Erklär-Figur zur
+                 Lösung) vor dem Text — gleiche Leserichtung wie die Front. -->
             <div id="review-answer-wrap" class="review-answer hidden">
                 <div id="review-answer-label" class="review-answer__label">Lösung</div>
+                <figure id="review-figure-back" class="review-figure hidden"></figure>
                 <div id="review-answer" class="review-answer__body"></div>
             </div>
 

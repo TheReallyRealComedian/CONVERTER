@@ -3,8 +3,11 @@
    "wackelt" (Vertiefen) or set a note via POST /api/cards/<id>/annotate, and
    delete the card via DELETE /api/cards/<id>. Every state-changing request goes
    through the global base.html fetch wrapper, which adds X-CSRFToken (DELETE is
-   covered too) — a raw fetch without it would 400. User content is rendered via
-   textContent / DOM nodes (XSS-safe). */
+   covered too) — a raw fetch without it would 400. Card TEXT is rendered
+   exclusively via textContent / DOM nodes (XSS-safe). The ONE exception
+   (CARD-SVG): the two figure containers get innerHTML — their SVG arrives
+   SERVER-sanitized (services/svg_sanitize.py, applied in Card.to_dict), never
+   raw agent input. Keep every other card field on textContent. */
 (function () {
     'use strict';
 
@@ -35,6 +38,8 @@
     const stateBadge = el('review-state-badge');
     const sourceEl = el('review-source');
     const questionEl = el('review-question');
+    const figureFrontEl = el('review-figure-front');
+    const figureBackEl = el('review-figure-back');
     const genHintEl = el('review-generative-hint');
     const revealBtn = el('review-reveal-btn');
     const answerWrap = el('review-answer-wrap');
@@ -93,6 +98,19 @@
 
     const isCloze = (card) => card.type === 'atomic' && !card.front && !!card.cloze_text;
 
+    // CARD-SVG: the ONLY innerHTML sink for card data — the SVG is sanitized
+    // server-side (Card.to_dict → services/svg_sanitize.py). Falsy (the API
+    // sends null, never '') → clear AND hide, so no stale figure survives.
+    function renderFigure(container, svg) {
+        if (!svg) {
+            container.innerHTML = '';
+            hide(container);
+        } else {
+            container.innerHTML = svg;
+            show(container);
+        }
+    }
+
     function renderCard(card) {
         revealed = false;
 
@@ -120,6 +138,10 @@
             hide(genHintEl);
             answerLabel.textContent = 'Lösung';
         }
+        // Front figure now, back figure explicitly RESET — without it, card
+        // N+1 would briefly flash card N's back figure on reveal (stale trap).
+        renderFigure(figureFrontEl, card.front_svg);
+        renderFigure(figureBackEl, null);
 
         show(revealBtn);
         hide(answerWrap);
@@ -144,6 +166,7 @@
         } else {
             answerEl.textContent = card.back || '';
         }
+        renderFigure(figureBackEl, card.back_svg);
         revealed = true;
         hide(revealBtn);
         show(answerWrap);
