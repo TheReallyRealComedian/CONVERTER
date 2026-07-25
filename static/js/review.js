@@ -20,6 +20,11 @@
     let queue = [];
     let index = 0;
     let totalDue = 0;
+    // LEARN-COUNT: cap-line numbers ("N Reviews fällig · M neu verfügbar") live
+    // in module state so each rating/delete can decrement them; null until the
+    // server sends them in load().
+    let reviewCount = null;
+    let newCount = null;
     let revealed = false;
     let busy = false;
     // LEARN-UP scope: checked collection ids; empty = "Alles fällig".
@@ -174,7 +179,39 @@
     }
 
     function updateProgress() {
-        progressEl.textContent = `Karte ${Math.min(index + 1, totalDue)} von ${totalDue} fällig`;
+        // Session progress bar, NOT a due counter — the denominator stays the
+        // session size (no "fällig", locked decision). The shrinking stack is
+        // shown by the pills + cap line, which run live via decrementPoolCounts.
+        progressEl.textContent = `Karte ${Math.min(index + 1, totalDue)} von ${totalDue}`;
+    }
+
+    // LEARN-COUNT: re-render the cap line from module state. Wording unchanged
+    // from the original load() text; untouched while the server never sent
+    // numbers (reviewCount stays null).
+    function renderCapInfo() {
+        if (reviewCount === null) return;
+        capInfoEl.textContent = `${reviewCount} Reviews fällig · ${newCount} neu verfügbar`;
+    }
+
+    // LEARN-COUNT: a due card left the pool — rated into the future or deleted.
+    // Sink the badge of EVERY collection the card is in (a card in two
+    // collections counts in each; one without collections touches none) and the
+    // matching cap-line number. The new-vs-review split MUST be read from the
+    // pre-rating queue object: new = stability === null (LEARN-UP convention);
+    // after rating, stability is set and the distinction is gone.
+    function decrementPoolCounts(card) {
+        const wasNew = !card.review || card.review.stability === null;
+        (card.collections || []).forEach((col) => {
+            const cached = collections.find((c) => c.id === col.id);
+            if (cached) cached.due_count = Math.max(0, (cached.due_count || 0) - 1);
+        });
+        renderScopePills();
+        if (wasNew) {
+            if (newCount !== null) newCount = Math.max(0, newCount - 1);
+        } else if (reviewCount !== null) {
+            reviewCount = Math.max(0, reviewCount - 1);
+        }
+        renderCapInfo();
     }
 
     function advance() {
@@ -192,7 +229,10 @@
             `Alle ${totalDue} ${totalDue === 1 ? 'fällige Karte' : 'fälligen Karten'} wiederholt.`;
         progressEl.textContent = '';
         show(doneEl);
-        loadCollections();  // the session just drained due cards → refresh badges
+        // Authoritative resync (LEARN-COUNT safeguard): server truth replaces
+        // the local decrementPoolCounts bookkeeping — should it ever drift
+        // during a session, it self-heals here. Do not remove.
+        loadCollections();
     }
 
     function setRatingDisabled(disabled) {
@@ -203,14 +243,27 @@
         if (busy || !revealed) return;
         busy = true;
         setRatingDisabled(true);
+        // Snapshot BEFORE rating: decrementPoolCounts needs the pre-rating
+        // stability (new-vs-review) and the card's collections.
+        const card = currentCard();
         try {
-            const resp = await fetch(`/api/cards/${currentCard().id}/review`, {
+            const resp = await fetch(`/api/cards/${card.id}/review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rating }),
             });
-            await safeJSON(resp);
+            const updated = await safeJSON(resp);
             if (!resp.ok) throw new Error('rate failed');
+            // Load-bearing (LEARN-COUNT): the response is the updated card,
+            // incl. the NEW review.due. A card leaves the due pool only when
+            // that due lies in the future — on "Nochmal" FSRS reschedules
+            // minutes ahead, the card is STILL due and nothing may be
+            // decremented. A blind -1 per rating would run the counters away
+            // from reality. Missing due in the response → treat as still due
+            // (no decrement; the finishSession resync heals any gap).
+            const stillDue = !updated || !updated.review || !updated.review.due
+                || new Date(updated.review.due) <= new Date();
+            if (!stillDue) decrementPoolCounts(card);
             advance();
         } catch (e) {
             showAlert(alertContainer(), 'danger',
@@ -275,6 +328,9 @@
             if (!resp.ok) throw new Error();
             // The card is GONE (not rated) — drop it from the queue and the due
             // counter, keeping `index` so the next card shifts into this slot.
+            // A deleted due card left the pool too → same pill/cap decrements
+            // as a future-due rating (card still holds collections + stability).
+            decrementPoolCounts(card);
             queue.splice(index, 1);
             totalDue = Math.max(0, totalDue - 1);
             showToast('Karte gelöscht');
@@ -327,10 +383,12 @@
             queue = data.due_cards || [];
             totalDue = (typeof data.due_count === 'number') ? data.due_count : queue.length;
             index = 0;
-            // Nach-Cap-Zähler (P3): was die heutige Session noch hergibt.
+            // Nach-Cap-Zähler (P3): was die heutige Session noch hergibt — ab
+            // LEARN-COUNT in den Modul-State, damit die Zeile pro Karte mitläuft.
             if (typeof data.review_count === 'number') {
-                capInfoEl.textContent =
-                    `${data.review_count} Reviews fällig · ${data.new_count} neu verfügbar`;
+                reviewCount = data.review_count;
+                newCount = data.new_count;
+                renderCapInfo();
             }
             hide(loadingEl);
             // Clear any stale "Karte N von M" — matters when a delete empties the
