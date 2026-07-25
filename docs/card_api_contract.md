@@ -17,13 +17,14 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 - `highlight_id` — int, optional (Provenienz; wird auf Ownership geprüft, fremd/ungültig → 400)
 - `front` / `back` / `cloze_text` / `prompt` — Strings, je nach Typ
 - `note`, `source_snapshot`, `source_doc_title` — Strings, optional
+- `front_svg` / `back_svg` — String **oder** `null`, optional (CARD-SVG): Abbildung zur Frage bzw. zur Lösung, als **SVG-Markup** (kein Asset-Store, kein Upload). **Roh gespeichert, beim Lesen sanitisiert** — die Response führt die bereinigte Fassung, exakt so, wie die Lern-Oberfläche sie zeigt. Ist ein Feld gesetzt und non-blank, bleibt nach der Bereinigung aber nichts Renderbares übrig → **400** („Feld 'front_svg' enthält kein renderbares SVG. Wahrscheinlich: über 100 kB, kein `<svg>`-Wurzelelement oder nur nicht-erlaubte Elemente."); non-String → **400**. Ein **teilweise** verbotenes SVG wird angenommen (verbotene Teile fallen weg, Rest rendert). Zeichen-Konvention + Allow-List: [docs/card_svg_authoring.md](card_svg_authoring.md). **Eine Abbildung ersetzt kein Pflichtfeld** — die Typ-Validierung unten gilt unverändert.
 - `tags` — Liste von Strings (werden normalisiert: **lowercased** + getrimmt, geteiltes Vokabular)
 - `collections` — Liste von Strings, optional (LERN-GROUP Achse B): **get_or_create by-name**, **Voll-Ersetzung**, owner-scoped. Normalisierung **case-erhaltend** (Eigennamen wie „Boehringer-Pipeline" — anders als `tags`, die lowercasen): nur Trim + interne Whitespace-Runs kollabiert. Frei anlegbar (max. Agent-Autonomie; Aufräumen = User-UI). `[]` leert die Zuordnung.
 - **Validierung (400)**: `atomic` braucht (`front` UND `back`) ODER `cloze_text`; `generative` braucht `prompt`.
 - Legt die zugehörige Review-Zeile gleich mit an (`due = jetzt`). → **201** + Karten-JSON (inkl. `tags` + `collections` als `[{id,name}]`).
 - Auth-Fehler: **503** (kein `CARD_TOKEN` konfiguriert), **401** (fehlend/falsch).
 
-**`PATCH /api/cards/<id>`** — Karte verfeinern/annotieren: dieselben Felder, plus `state` (`"ok"`|`"wackelt"`), `tags` **und** `collections` ersetzbar (jeweils Voll-Ersetzung; kein Listen-Typ → 400; Key weglassen = unberührt). Fremde Karte → 404.
+**`PATCH /api/cards/<id>`** — Karte verfeinern/annotieren: dieselben Felder, plus `state` (`"ok"`|`"wackelt"`), `tags` **und** `collections` ersetzbar (jeweils Voll-Ersetzung; kein Listen-Typ → 400; Key weglassen = unberührt). `front_svg`/`back_svg` ebenfalls setzbar, gleiche Validierung; **Leeren geht** (`null` **oder** `""` → Spalte NULL). Fremde Karte → 404.
 
 **`PATCH /api/highlights/<id>/annotate`** — Tags/Notiz auf einem **bestehenden** Highlight setzen/ersetzen/leeren (persistentes Bucket-Tagging; **kein** neues Highlight, **kein** Anker-Edit). Body (JSON):
 - `tags` — Liste von Strings, optional: **Voll-Ersetzung** des Tag-Sets (`[]` = alle Tags weg), normalisiert über das **geteilte Vokabular** (`Tag.get_or_create` — dieselben Tag-Rows wie Card-/UI-Tags, kein Parallelsystem). Kein Listen-Typ → 400.
@@ -83,9 +84,9 @@ Der converter-mcp loggt sich heute für die Reads **per Formular ein** (`CONVERT
 
 ### Reads (Session)
 - **`GET /api/highlights/recent?since=<ISO-8601>&limit=<n>`** — **globaler** Reader über alle Docs: jüngste Markierungen mit `note`, `tags` `[{id,name}]`, Eltern-`{conversion_id, title}`, `created_at`. (`since` optional, `limit` Default 100/Cap 500, Sort neueste zuerst.) *Das ist der „jüngste Markierungen"-Reader für den Recall-Loop.*
-- **`GET /api/cards?state=&highlight_id=&limit=&offset=`** — Karten-Summaries (schlank, ohne `back`/Snapshot).
-- **`GET /api/cards/<id>`** — volle Karte.
-- **`GET /api/review-state`** — fällige Karten (`due <= jetzt`) als volle Karten + `due_count`/`total_count`.
+- **`GET /api/cards?state=&highlight_id=&limit=&offset=`** — Karten-Summaries (schlank, ohne `back`/Snapshot). **Führt `front_svg`/`back_svg` bewusst NICHT** — ein 30-kB-SVG pro Zeile hat in einer Listen-Response nichts verloren.
+- **`GET /api/cards/<id>`** — volle Karte, **inkl.** der bereinigten `front_svg`/`back_svg` (die Abbildungs-Felder gibt es nur hier und in der vollen create/update-Response).
+- **`GET /api/review-state`** — fällige Karten (`due <= jetzt`) als volle Karten + `due_count`/`total_count`. Volle Karten heißt: **inkl.** der Abbildungs-Felder (die Lern-Oberfläche rendert ohne Extra-Fetch pro Karte).
 
 ## Document-Content-Writes (Bearer `CARD_TOKEN`)
 
