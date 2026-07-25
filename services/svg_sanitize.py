@@ -69,9 +69,14 @@ _ALLOWED_TAGS = {
 
 # Per-tag only — deliberately no ``'*'`` entry. ``id`` exists solely on the
 # three referenceable defs (marker/gradients) so ``url(#...)`` targets work;
-# shapes get none.
+# shapes get none. No ``class`` anywhere: the agent cannot ship CSS (``style``
+# tag and attribute are both banned) and no app stylesheet targets
+# agent-chosen classes — ``class`` grants zero capability at full collision
+# surface with the app utilities (``class="hidden"`` would meet the exact
+# class review.js hides the figure containers with → invisible figure with no
+# findable cause; Präzedenz feedback_css_class_collision_in_markdown_views).
 _ALLOWED_ATTRIBUTES = {
-    'svg': {'viewBox', 'width', 'height', 'xmlns', 'preserveAspectRatio', 'class'},
+    'svg': {'viewBox', 'width', 'height', 'xmlns', 'preserveAspectRatio'},
     'g': _PRESENTATION,
     'path': {'d'} | _PRESENTATION,
     'rect': {'x', 'y', 'width', 'height', 'rx', 'ry'} | _PRESENTATION,
@@ -95,14 +100,19 @@ _ALLOWED_ATTRIBUTES = {
 # resolve as resource references. Local fragments (``url(#id)``, optionally
 # quoted) are required for gradients/markers; anything else (external paint
 # servers, ``url(https://...)``) is a network load and gets dropped — same
-# doctrine as banning ``image``/``use``.
+# doctrine as banning ``image``/``use``. EVERY ``url(`` occurrence in the
+# value must be a local fragment, or the whole attribute falls — a mixed
+# ``url(#g) url(https://...)`` fallback list dies too, so the "no external
+# references" guarantee holds without asterisks.
 _URL_VALUED = {'fill', 'stroke', 'marker-start', 'marker-mid', 'marker-end'}
-_LOCAL_URL = re.compile(r"^url\(\s*['\"]?#")
+_URL_TOKEN = re.compile(r"url\(", re.IGNORECASE)
+_LOCAL_URL = re.compile(r"url\(\s*['\"]?#", re.IGNORECASE)
 
 
 def _filter_attribute(element: str, attribute: str, value: str):
-    if attribute in _URL_VALUED and 'url(' in value.lower():
-        if not _LOCAL_URL.match(value.strip()):
+    if attribute in _URL_VALUED:
+        n_urls = len(_URL_TOKEN.findall(value))
+        if n_urls and len(_LOCAL_URL.findall(value)) != n_urls:
             return None  # drop the attribute entirely
     return value
 

@@ -217,3 +217,31 @@ def test_external_url_paint_server_is_dropped():
     assert 'evil.example' not in out
     assert 'fill' not in out  # attribute dropped entirely
     assert '<rect' in out  # element itself stays
+
+
+def test_mixed_local_and_external_url_list_is_dropped():
+    # A paint fallback list smuggling an external ref behind a local one must
+    # fall as a whole — EVERY url( occurrence has to be a local fragment.
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10">'
+        '<rect x="1" fill="url(#g) url(https://evil.example/x)"/></svg>'
+    )
+    assert 'evil.example' not in out
+    assert 'fill' not in out
+    assert '<rect' in out
+
+
+# --- class is banned everywhere (collision with app utilities) --------------
+
+
+def test_class_attribute_is_stripped_from_svg_root():
+    # class grants the agent zero capability (no CSS path) but full collision
+    # surface: class="hidden" is the exact class review.js hides the figure
+    # containers with — an invisible figure with no findable cause.
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10" class="hidden"><rect x="1" width="5" height="5"/></svg>'
+    )
+    assert 'class' not in out
+    assert 'hidden' not in out
+    assert 'viewBox="0 0 10 10"' in out  # SVG otherwise intact
+    assert '<rect' in out
