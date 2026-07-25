@@ -80,6 +80,62 @@ def test_fsrs_good_after_graduation_is_multi_day():
     assert (_aware(out['due']) - now).days >= 1  # day-scale interval, not minutes
 
 
+# --- LEARN-STEP: one learning step — a correct answer ends the day -----------
+# Threshold semantics, not exact minutes: "< 12 h" == the card comes back
+# today, "> 12 h" == it is done for the day. The exact sub-day values come
+# from the library and may drift slightly on a bump.
+
+_SAME_DAY = timedelta(hours=12)
+
+
+def _first_rating_interval(sched, rating):
+    now = datetime.now(timezone.utc)
+    return _aware(sched.apply_rating(sched.new_card_state(), rating)['due']) - now
+
+
+@pytest.mark.parametrize('rating', ['good', 'easy'])
+def test_fsrs_new_card_correct_answer_is_done_for_today(rating):
+    # THE LEARN-STEP regression insurance: with py-fsrs' inherited 2-step
+    # default a new card answered "good" came back after 10 minutes — every
+    # new card was systematically shown twice on day one.
+    assert _first_rating_interval(FSRSScheduler(), rating) > _SAME_DAY
+
+
+@pytest.mark.parametrize('rating', ['again', 'hard'])
+def test_fsrs_new_card_missed_answer_returns_today(rating):
+    # A flubbed new card SHOULD come back within the same session.
+    assert _first_rating_interval(FSRSScheduler(), rating) < _SAME_DAY
+
+
+def test_fsrs_graduated_again_returns_today():
+    # Relearning unchanged: a lapsed graduated card comes back today.
+    sched = FSRSScheduler()
+    s = sched.apply_rating(sched.new_card_state(), 'good')
+    now = datetime.now(timezone.utc)
+    assert _aware(sched.apply_rating(s, 'again')['due']) - now < _SAME_DAY
+
+
+@pytest.mark.parametrize('rating', ['hard', 'good', 'easy'])
+def test_fsrs_graduated_non_again_stays_multi_day(rating):
+    # Graduated cards were already correct before LEARN-STEP — pin that they
+    # stay multi-day even for the youngest possible graduate (one 'good').
+    sched = FSRSScheduler()
+    s = sched.apply_rating(sched.new_card_state(), 'good')
+    now = datetime.now(timezone.utc)
+    assert _aware(sched.apply_rating(s, rating)['due']) - now > _SAME_DAY
+
+
+def test_fsrs_step_config_sentinel():
+    # Sentinel (cf. the nh3/Flask-WTF sentinels): exactly ONE 10-min learning
+    # step and ONE 10-min relearning step, configured explicitly. The original
+    # bug was silently inheriting py-fsrs' (1 min, 10 min) default — a bump
+    # that changes step handling must fail HERE, loudly, instead of silently
+    # shifting the learning behaviour.
+    engine = FSRSScheduler()._engine
+    assert engine.learning_steps == (timedelta(minutes=10),)
+    assert engine.relearning_steps == (timedelta(minutes=10),)
+
+
 # --- SM-2 fallback behind the same interface ---------------------------------
 
 def test_sm2_fallback_plausible_due_same_interface():

@@ -9,8 +9,10 @@ Card no longer tracks them).
 FSRS's internal ``state``/``step``, so a previously-reviewed card is
 reconstructed in the ``Review`` state (graduated). The stability/difficulty-driven
 interval math — the part that matters — is fully preserved; only the sub-day
-learning/relearning *step ramp* (the 1-min/10-min micro-schedule for brand-new
-cards) is collapsed. Fuzzing is disabled so scheduling is deterministic.
+learning/relearning *step ladder* is collapsed after the first rating. Since
+LEARN-STEP the ladder is deliberately a single 10-min step anyway (see
+``FSRSScheduler.__init__``), so nothing meaningful is lost. Fuzzing is disabled
+so scheduling is deterministic.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -30,10 +32,41 @@ _RATING_MAP = {
 
 class FSRSScheduler(Scheduler):
     def __init__(self, desired_retention=0.9, enable_fuzzing=False):
+        """ONE learning step, set explicitly (LEARN-STEP).
+
+        A correctly answered new card is done for the day; the step ladder only
+        exists so an again/hard card comes back within the same session. With
+        py-fsrs' inherited default of TWO steps (1 min, 10 min), every new card
+        was systematically shown twice on day one — even after a correct "Gut":
+        because ``_reconstruct`` rebuilds any card with a stability as
+        ``State.Review``/``step=None``, the ladder only fires on the very first
+        rating, so first show → 10 min → second show → multi-day interval.
+
+        Measured against ``fsrs==6.3.1``, first rating of a new card:
+
+        ==========  ===================  ==================
+        rating      default (1m, 10m)    one step (10 min)
+        ==========  ===================  ==================
+        Nochmal     1 min  ↩              10 min ↩  (wanted)
+        Schwer      5:30   ↩              15 min ↩  (wanted)
+        Gut         10 min ↩  ← the bug   2 d   ✅
+        Einfach     8 d    ✅             8 d   ✅
+        ==========  ===================  ==================
+
+        Graduated cards were already correct (again 10 min ↩, hard/good/easy
+        multi-day) and are unchanged. ``relearning_steps`` matches the current
+        library default but is pinned anyway: a verhaltensbestimmende setting
+        must never be inherited silently again — a py-fsrs bump that changes
+        the defaults has to fail the sentinel in ``tests/test_scheduler.py``,
+        not silently shift the learning behaviour. Deliberately no env knob:
+        this is Lern-Doktrin, not an operating parameter.
+        """
         # Fuzzing off → deterministic intervals (predictable for the user and
         # for the tests). desired_retention is the FSRS target recall (~0.9).
         self._engine = FSRSEngine(desired_retention=desired_retention,
-                                  enable_fuzzing=enable_fuzzing)
+                                  enable_fuzzing=enable_fuzzing,
+                                  learning_steps=(timedelta(minutes=10),),
+                                  relearning_steps=(timedelta(minutes=10),))
 
     def new_card_state(self):
         return initial_review_state()
