@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
+from sqlalchemy import func
 from sqlalchemy.orm import contains_eager, joinedload
 
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
@@ -590,19 +591,34 @@ def register(app):
         due_cards = order_due_cards(
             due_cards, settings['ordering_mode'], get_scheduler(), now=now,
             review_budget=review_budget, new_budget=new_budget)
-        # ahead_available: what the NEXT ahead step would additionally pull —
-        # cards due after the current horizon but within the following Berlin
-        # day. Without ?ahead that is exactly "after now, through tomorrow's
-        # end" (stage 2 of the done-panel offer). At the max step there is no
-        # next step, so advertise 0 rather than a step the API would 400.
-        if ahead >= MAX_AHEAD_DAYS:
-            ahead_available = 0
+        # next_ahead: the smallest ahead step past the current horizon whose
+        # Berlin day actually holds cards (empty days are skipped), plus how
+        # many cards that jump would pull in — {'days': n, 'count': k} or
+        # None when nothing lies within reach (<= end of day MAX_AHEAD_DAYS;
+        # at ahead=7 the min window is empty, so None falls out for free).
+        # Stage 2 of the done-panel offer shows iff this is non-null and
+        # clicks with ahead=days. Two slim queries: min(due) past the
+        # horizon, then a count up to that day's end. The step is derived
+        # with the SAME inclusive <= the queue query uses, so the button
+        # never promises a card the click would not load.
+        min_due = (base
+                   .join(Card.review)
+                   .filter(Review.due > due_horizon,
+                           Review.due <= local_day_end(now, MAX_AHEAD_DAYS))
+                   .with_entities(func.min(Review.due))
+                   .scalar())
+        if min_due is None:
+            next_ahead = None
         else:
-            ahead_available = (base
-                               .join(Card.review)
-                               .filter(Review.due > due_horizon,
-                                       Review.due <= local_day_end(now, ahead + 1))
-                               .count())
+            min_due = min_due.replace(tzinfo=timezone.utc)
+            next_days = next(n for n in range(1, MAX_AHEAD_DAYS + 1)
+                             if min_due <= local_day_end(now, n))
+            next_count = (base
+                          .join(Card.review)
+                          .filter(Review.due > due_horizon,
+                                  Review.due <= local_day_end(now, next_days))
+                          .count())
+            next_ahead = {'days': next_days, 'count': next_count}
         new_count = sum(1 for c in due_cards if c.review.stability is None)
         total_count = base.count()
         return jsonify({
@@ -613,7 +629,7 @@ def register(app):
             # How many now-due cards the cap held back (0 when uncapped — the
             # None budgets never trim, so the subtraction is 0 by construction).
             'remaining_today': pre_cap_count - len(due_cards),
-            'ahead_available': ahead_available,
+            'next_ahead': next_ahead,
             # Today's Berlin day-end, timezone-aware — the client compares
             # card dues against THIS instead of doing local-time arithmetic.
             'day_end': local_day_end(now).isoformat(),

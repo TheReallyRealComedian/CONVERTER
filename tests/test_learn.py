@@ -608,7 +608,7 @@ def test_review_state_capped_reports_remaining_today(app, authenticated_client, 
     body = authenticated_client.get('/api/review-state').get_json()
     assert body['due_count'] == 2
     assert body['remaining_today'] == 3
-    assert body['ahead_available'] == 0     # nichts Künftiges angelegt
+    assert body['next_ahead'] is None       # nichts Künftiges angelegt
 
 
 def test_review_state_uncapped_lifts_caps(app, authenticated_client, test_user):
@@ -654,7 +654,7 @@ def test_review_state_ahead_pulls_tomorrow(app, authenticated_client, test_user)
         last_reviewed=now - timedelta(days=5))
     base = authenticated_client.get('/api/review-state').get_json()
     assert tomorrow_id not in [c['id'] for c in base['due_cards']]
-    assert base['ahead_available'] == 1
+    assert base['next_ahead'] == {'days': 1, 'count': 1}
     body = authenticated_client.get('/api/review-state?ahead=1').get_json()
     ids = [c['id'] for c in body['due_cards']]
     assert today_id in ids and tomorrow_id in ids
@@ -673,10 +673,11 @@ def test_review_state_ahead_borrows_day_by_day(app, authenticated_client, test_u
     one = authenticated_client.get('/api/review-state?ahead=1').get_json()
     one_ids = [c['id'] for c in one['due_cards']]
     assert tomorrow_id in one_ids and day2_id not in one_ids
-    assert one['ahead_available'] == 1      # der NÄCHSTE Schritt hätte Tag 2
+    assert one['next_ahead'] == {'days': 2, 'count': 1}   # der nächste Schritt
     two = authenticated_client.get('/api/review-state?ahead=2').get_json()
     two_ids = [c['id'] for c in two['due_cards']]
     assert tomorrow_id in two_ids and day2_id in two_ids
+    assert two['next_ahead'] is None        # dahinter liegt nichts mehr
 
 
 def test_review_state_ahead_implies_uncapped(app, authenticated_client, test_user):
@@ -699,8 +700,8 @@ def test_review_state_ahead_validation(authenticated_client):
         assert 'ahead' in resp.get_json()['error']
 
 
-def test_review_state_ahead_available_window(app, authenticated_client, test_user):
-    # Nur (jetzt, Ende morgen] zählt — die Tag-3-Karte gehört nicht zu Stufe 2.
+def test_review_state_next_ahead_counts_only_through_target_day(app, authenticated_client, test_user):
+    # count reicht nur bis ans Ende des Zieltags — die Tag-3-Karte zählt nicht.
     uid = test_user['id']
     now = datetime.now(timezone.utc)
     _make_review_row(app, uid, due=local_day_end(now, 1) - timedelta(hours=1),
@@ -708,18 +709,50 @@ def test_review_state_ahead_available_window(app, authenticated_client, test_use
     _make_review_row(app, uid, due=local_day_end(now, 3) - timedelta(hours=1),
                      last_reviewed=now - timedelta(days=5))
     body = authenticated_client.get('/api/review-state').get_json()
-    assert body['ahead_available'] == 1
+    assert body['next_ahead'] == {'days': 1, 'count': 1}
 
 
-def test_review_state_ahead_max_step_advertises_nothing(app, authenticated_client, test_user):
-    # Bei ahead=7 gibt es keinen 8. Schritt (die API würde ihn 400en) —
-    # also auch nichts versprechen, selbst wenn Tag 8 Karten hätte.
+def test_review_state_next_ahead_skips_empty_days(app, authenticated_client, test_user):
+    # Lückentag: morgen leer, übermorgen voll → Stufe 2 springt direkt auf 2
+    # (mit der fixen Ein-Tag-Definition verschwände sie hier komplett).
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    _make_review_row(app, uid, due=local_day_end(now, 2) - timedelta(hours=1),
+                     last_reviewed=now - timedelta(days=5))
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['next_ahead'] == {'days': 2, 'count': 1}
+
+
+def test_review_state_next_ahead_null_beyond_reach(app, authenticated_client, test_user):
+    # Jenseits von Tag MAX (7) liegt etwas — aber außer Reichweite → null.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    _make_review_row(app, uid, due=local_day_end(now, 7) + timedelta(hours=5),
+                     last_reviewed=now - timedelta(days=5))
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['next_ahead'] is None
+
+
+def test_review_state_next_ahead_null_at_max_step(app, authenticated_client, test_user):
+    # Am Maximum gibt es keinen weiteren Schritt (die API würde ahead=8
+    # 400en) — selbst wenn Tag 8 Karten hätte: null.
     uid = test_user['id']
     now = datetime.now(timezone.utc)
     _make_review_row(app, uid, due=local_day_end(now, 7) + timedelta(hours=5),
                      last_reviewed=now - timedelta(days=5))
     body = authenticated_client.get('/api/review-state?ahead=7').get_json()
-    assert body['ahead_available'] == 0
+    assert body['next_ahead'] is None
+
+
+def test_review_state_next_ahead_rest_of_today_is_step_one(app, authenticated_client, test_user):
+    # Eine Karte, die HEUTE noch fällig wird (nach jetzt), holt der kleinste
+    # existierende Schritt (ahead=1) — days ist nie 0.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    _make_review_row(app, uid, due=now + timedelta(minutes=1),
+                     last_reviewed=now - timedelta(days=5))
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['next_ahead'] == {'days': 1, 'count': 1}
 
 
 def test_review_state_day_end_is_aware_and_ahead_of_now(app, authenticated_client, test_user):
