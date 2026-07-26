@@ -54,10 +54,16 @@
             <a href="{{ url_for('library') }}" class="c-btn">Zur Library</a>
         </div>
 
-        <!-- Done: finished this session's queue -->
+        <!-- Done: finished this session's queue. LEARN-MORE: darunter genau EIN
+             gestuftes Angebot — Stufe 1 (Tages-Überhang, uncapped) vor Stufe 2
+             (Vorziehen künftiger Tage); Texte setzt review.js. -->
         <div id="review-done" class="review-empty c-surface--flat hidden">
             <p class="review-empty__title">Geschafft.</p>
             <p id="review-done-text" class="review-empty__text"></p>
+            <div id="review-more" class="review-more hidden">
+                <p id="review-more-text" class="review-empty__text"></p>
+                <button type="button" id="review-more-btn" class="c-btn c-btn--primary">Mehr lernen</button>
+            </div>
             <button type="button" id="review-reload" class="c-btn">Neu laden</button>
         </div>
 

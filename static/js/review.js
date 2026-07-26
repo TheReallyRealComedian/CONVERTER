@@ -31,6 +31,15 @@
     // Several checked → the union is studied (?collection=1,2,3).
     let scopeIds = [];
     let collections = [];  // cached /api/collections (pills + footer add)
+    // LEARN-MORE session gesture (page-lifetime only, NEVER persisted — a page
+    // reload starts capped again, protecting the daily boundary): stage 1 lifts
+    // today's caps, stage 2 borrows future Berlin days via ?ahead=<n>.
+    let sessionUncapped = false;
+    let sessionAhead = 0;          // 0 = off; else the ahead step to fetch with
+    let remainingToday = 0;        // now-due cards the cap held back (server)
+    let nextAhead = null;          // {days, count} | null — next borrowable day
+    let dayEnd = null;             // today's Berlin day-end (aware, from server)
+    let moreMode = null;           // 'uncapped' | 'ahead' — what the button does
 
     const el = (id) => document.getElementById(id);
     const loadingEl = el('review-loading');
@@ -72,11 +81,20 @@
     const collectionSelect = el('review-collection-select');
     const collectionNew = el('review-collection-new');
     const collectionAdd = el('review-collection-add');
+    const moreWrap = el('review-more');
+    const moreTextEl = el('review-more-text');
+    const moreBtn = el('review-more-btn');
 
     const alertContainer = () => el('review-alert-container');
     const currentCard = () => queue[index];
     const show = (elm) => elm.classList.remove('hidden');
     const hide = (elm) => elm.classList.add('hidden');
+
+    // The API's card timestamps are NAIVE UTC isoformat — a bare new Date(s)
+    // would read them as local time (Berlin offset shift). Pin them to UTC
+    // unless the string already carries a zone (day_end does).
+    const parseUTC = (iso) =>
+        new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
 
     // --- cloze rendering: {{answer}} → a blank box (front) or the highlighted
     //     answer (back). Built as DOM nodes so the card text can't inject HTML. ---
@@ -227,12 +245,52 @@
         hide(cardEl);
         doneTextEl.textContent =
             `Alle ${totalDue} ${totalDue === 1 ? 'fällige Karte' : 'fälligen Karten'} wiederholt.`;
+        renderMoreOffer();
         progressEl.textContent = '';
         show(doneEl);
         // Authoritative resync (LEARN-COUNT safeguard): server truth replaces
         // the local decrementPoolCounts bookkeeping — should it ever drift
         // during a session, it self-heals here. Do not remove.
         loadCollections();
+    }
+
+    // LEARN-MORE: exactly ONE staged offer in the done panel. Stage 1 (today's
+    // capped overhang) always wins over stage 2 (borrowing future days), and
+    // stage 2 never happens without its own click — its copy names the price
+    // (pulled-forward cards repeat earlier than scheduled). The numbers are
+    // the session-start fetch; the click reloads and shows server truth.
+    function renderMoreOffer() {
+        if (remainingToday > 0) {
+            moreTextEl.textContent = remainingToday === 1
+                ? 'Über dem Tageslimit liegt noch 1 fällige Karte.'
+                : `Über dem Tageslimit liegen noch ${remainingToday} fällige Karten.`;
+            moreBtn.textContent = 'Mehr lernen';
+            moreMode = 'uncapped';
+            show(moreWrap);
+        } else if (nextAhead) {
+            const n = nextAhead.count;
+            const when = nextAhead.days === 1 ? 'Bis morgen' : `In ${nextAhead.days} Tagen`;
+            moreTextEl.textContent =
+                `${when} ${n === 1 ? 'wird 1 Karte' : `werden ${n} Karten`} fällig. ` +
+                'Vorziehen wiederholt sie früher als geplant.';
+            moreBtn.textContent = nextAhead.days === 1 ? 'Morgen vorziehen' : 'Vorziehen';
+            moreMode = 'ahead';
+            show(moreWrap);
+        } else {
+            moreMode = null;
+            hide(moreWrap);
+        }
+    }
+
+    function onMoreClick() {
+        if (moreMode === 'uncapped') {
+            sessionUncapped = true;
+        } else if (moreMode === 'ahead' && nextAhead) {
+            sessionAhead = nextAhead.days;   // next click gets the NEXT step
+        } else {
+            return;
+        }
+        load();
     }
 
     function setRatingDisabled(disabled) {
@@ -255,14 +313,17 @@
             const updated = await safeJSON(resp);
             if (!resp.ok) throw new Error('rate failed');
             // Load-bearing (LEARN-COUNT): the response is the updated card,
-            // incl. the NEW review.due. A card leaves the due pool only when
-            // that due lies in the future — on "Nochmal" FSRS reschedules
-            // minutes ahead, the card is STILL due and nothing may be
-            // decremented. A blind -1 per rating would run the counters away
-            // from reality. Missing due in the response → treat as still due
-            // (no decrement; the finishSession resync heals any gap).
-            const stillDue = !updated || !updated.review || !updated.review.due
-                || new Date(updated.review.due) <= new Date();
+            // incl. the NEW review.due. A card leaves the pool only when that
+            // due lies beyond TODAY'S day end — the counters mean "what's
+            // still on today", not "due this second": a 10-minute "Nochmal"
+            // step stays in the pool on purpose, a multi-day step leaves it.
+            // Deliberately NO timezone arithmetic here (LEARN-MORE): the
+            // Berlin boundary comes from the server (day_end), the naive-UTC
+            // due is pinned via parseUTC — we only compare instants. Missing
+            // due or day_end → treat as still due (no decrement; the
+            // finishSession resync heals any gap).
+            const newDue = updated && updated.review && updated.review.due;
+            const stillDue = !newDue || !dayEnd || parseUTC(newDue) <= dayEnd;
             if (!stillDue) decrementPoolCounts(card);
             advance();
         } catch (e) {
@@ -350,8 +411,20 @@
     }
 
     function scopeUrl() {
-        if (!scopeIds.length) return REVIEW_STATE_URL;
-        return `${REVIEW_STATE_URL}?collection=${scopeIds.join(',')}`;
+        const params = [];
+        if (scopeIds.length) params.push(`collection=${scopeIds.join(',')}`);
+        // LEARN-MORE gesture: ahead implies uncapped server-side, so send only
+        // one of the two. Without either the fetch is the plain capped state.
+        if (sessionAhead > 0) params.push(`ahead=${sessionAhead}`);
+        else if (sessionUncapped) params.push('uncapped=1');
+        return params.length ? `${REVIEW_STATE_URL}?${params.join('&')}` : REVIEW_STATE_URL;
+    }
+
+    // A scope or settings change redefines the session — the "mehr lernen"
+    // gesture belongs to the previous one and must not leak across.
+    function resetSessionMode() {
+        sessionUncapped = false;
+        sessionAhead = 0;
     }
 
     function scopeLabel() {
@@ -390,10 +463,29 @@
                 newCount = data.new_count;
                 renderCapInfo();
             }
+            // LEARN-MORE state (fresh per fetch, scope-filtered server-side).
+            remainingToday = (typeof data.remaining_today === 'number') ? data.remaining_today : 0;
+            nextAhead = data.next_ahead || null;
+            dayEnd = data.day_end ? new Date(data.day_end) : null;
             hide(loadingEl);
             // Clear any stale "Karte N von M" — matters when a delete empties the
             // queue and re-loads into this branch (finishSession clears it too).
-            if (!queue.length) { progressEl.textContent = ''; applyEmptyScope(); show(emptyEl); return; }
+            if (!queue.length) {
+                progressEl.textContent = '';
+                if (remainingToday > 0) {
+                    // Empty ONLY because of the cap (today's budget is spent,
+                    // due cards remain): show the done panel with the stage-1
+                    // offer. Without this, a page reload — which correctly
+                    // starts capped again — would bury the overhang for good.
+                    // The pure stage-2 case stays on the empty panel: nothing
+                    // was capped away, borrowing belongs to a finished session.
+                    doneTextEl.textContent = 'Tagespensum erreicht.';
+                    renderMoreOffer();
+                    show(doneEl);
+                    return;
+                }
+                applyEmptyScope(); show(emptyEl); return;
+            }
             renderCard(currentCard());
         } catch (e) {
             hide(loadingEl);
@@ -465,6 +557,7 @@
             });
             await safeJSON(resp);
             if (!resp.ok) throw new Error();
+            resetSessionMode();  // changed limits/ordering = a new session
             load();
         } catch (e) {
             showToast(errorText, { level: 'danger' });
@@ -500,6 +593,7 @@
             return;
         }
         renderScopePills();
+        resetSessionMode();  // a different scope = a new session, capped again
         load();
     }
 
@@ -698,6 +792,7 @@
     noteSave.addEventListener('click', saveNote);
     deleteBtn.addEventListener('click', deleteCard);
     el('review-reload').addEventListener('click', load);
+    moreBtn.addEventListener('click', onMoreClick);
 
     // Keyboard: Space/Enter reveals, 1–4 rate. Ignore while typing a note.
     document.addEventListener('keydown', (e) => {

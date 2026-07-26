@@ -2212,6 +2212,9 @@ body.reader-active .sidebar-toggle-floater--global {
     margin-left: auto;
     margin-right: auto;
 }
+/* LEARN-MORE: staged offer inside the done panel — primary CTA above the
+   neutral "Neu laden", separated so the two buttons never read as one row. */
+.review-more { margin-bottom: var(--nm-space-lg); }
 
 /* ===== PLACE CONTROL (R2-H) ===== */
 /* R2-H: the one flat four-place move-control — identical on each list card and
