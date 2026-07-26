@@ -36,7 +36,8 @@ from models import Card, Collection, Conversion, Highlight, Review, Tag, db
 from services.scheduler import RATINGS, get_scheduler
 from services.svg_sanitize import MAX_CARD_SVG_BYTES, sanitize_card_svg
 
-from app_pkg.learn import count_done_today, get_user_settings, order_due_cards
+from app_pkg.learn import (count_done_today, get_user_settings, local_day_end,
+                           order_due_cards)
 
 # Reuse the Ingest auth primitives so card writes resolve the SAME target user
 # and parse the Bearer header identically — a single source of truth for "who
@@ -54,6 +55,9 @@ CARDS_MAX_LIMIT = 500
 CARD_TYPES = ('atomic', 'generative')
 CARD_STATES = ('ok', 'wackelt')
 MAX_CARD_NOTE_LEN = 2000
+
+# LEARN-MORE: how far ?ahead= may borrow from the future, in Berlin days.
+MAX_AHEAD_DAYS = 7
 
 
 # --- shared parsing helpers --------------------------------------------------
@@ -522,7 +526,31 @@ def register(app):
         # scope-correct total_count falls out for free. When scoped, total_count
         # reflects the SCOPE (cards in the scope, not just due ones); unscoped it
         # stays "all of the user's cards".
+        #
+        # Session params (LEARN-MORE) — strict reads, only the explicit value
+        # switches; without them the response stays as before:
+        #   ?uncapped=1   skip today's caps for this fetch. Repeat-free by
+        #                 construction: the queue is due <= horizon, and
+        #                 anything studied today carries a future due.
+        #   ?ahead=<1..7> ALSO pull cards due through the END of the Berlin
+        #                 day today+n. Implies uncapped (borrowing from the
+        #                 future under a cap makes no sense); out-of-range
+        #                 or non-int → 400.
         now = datetime.now(timezone.utc)
+
+        uncapped = request.args.get('uncapped') == '1'
+        ahead = 0
+        ahead_arg = request.args.get('ahead')
+        if ahead_arg is not None:
+            try:
+                ahead = int(ahead_arg)
+            except ValueError:
+                ahead = -1
+            if not 1 <= ahead <= MAX_AHEAD_DAYS:
+                return jsonify({'error': "Parameter 'ahead' muss eine ganze Zahl "
+                                         f"zwischen 1 und {MAX_AHEAD_DAYS} sein."}), 400
+            uncapped = True
+
         base = Card.query.filter_by(user_id=current_user.id)
 
         tag_arg = request.args.get('tag')
@@ -545,17 +573,36 @@ def register(app):
             base = base.filter(Card.collections.any(
                 Collection.id.in_({c.id for c in collections})))
 
+        due_horizon = local_day_end(now, ahead) if ahead else now
         due_cards = (base
                      .join(Card.review)
-                     .filter(Review.due <= now)
+                     .filter(Review.due <= due_horizon)
                      .options(contains_eager(Card.review))
                      .all())
         settings = get_user_settings(current_user)
-        reviews_done, new_done = count_done_today(current_user.id, now=now)
+        if uncapped:
+            review_budget = new_budget = None
+        else:
+            reviews_done, new_done = count_done_today(current_user.id, now=now)
+            review_budget = max(0, settings['daily_review_limit'] - reviews_done)
+            new_budget = max(0, settings['daily_new_limit'] - new_done)
+        pre_cap_count = len(due_cards)
         due_cards = order_due_cards(
             due_cards, settings['ordering_mode'], get_scheduler(), now=now,
-            review_budget=max(0, settings['daily_review_limit'] - reviews_done),
-            new_budget=max(0, settings['daily_new_limit'] - new_done))
+            review_budget=review_budget, new_budget=new_budget)
+        # ahead_available: what the NEXT ahead step would additionally pull —
+        # cards due after the current horizon but within the following Berlin
+        # day. Without ?ahead that is exactly "after now, through tomorrow's
+        # end" (stage 2 of the done-panel offer). At the max step there is no
+        # next step, so advertise 0 rather than a step the API would 400.
+        if ahead >= MAX_AHEAD_DAYS:
+            ahead_available = 0
+        else:
+            ahead_available = (base
+                               .join(Card.review)
+                               .filter(Review.due > due_horizon,
+                                       Review.due <= local_day_end(now, ahead + 1))
+                               .count())
         new_count = sum(1 for c in due_cards if c.review.stability is None)
         total_count = base.count()
         return jsonify({
@@ -563,6 +610,13 @@ def register(app):
             'review_count': len(due_cards) - new_count,
             'new_count': new_count,
             'total_count': total_count,
+            # How many now-due cards the cap held back (0 when uncapped — the
+            # None budgets never trim, so the subtraction is 0 by construction).
+            'remaining_today': pre_cap_count - len(due_cards),
+            'ahead_available': ahead_available,
+            # Today's Berlin day-end, timezone-aware — the client compares
+            # card dues against THIS instead of doing local-time arithmetic.
+            'day_end': local_day_end(now).isoformat(),
             'due_cards': [c.to_dict() for c in due_cards],
         })
 

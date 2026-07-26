@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 from app_pkg.learn import (LEARN_SETTINGS_DEFAULTS, capped_session_counts,
                            count_done_today, forecast_buckets,
-                           get_user_settings, local_day_bounds,
+                           get_user_settings, local_day_bounds, local_day_end,
                            maturity_counts, order_due_cards, true_retention)
 from models import Card, Review, User, db
 from services.scheduler import FSRSScheduler, SM2Scheduler
@@ -580,3 +580,152 @@ def test_simulate_endpoint_and_validation(app, authenticated_client, test_user):
                 '/api/learn/simulate?retention=0.9&new_per_day=-1',
                 '/api/learn/simulate?retention=0.9&new_per_day=abc'):
         assert authenticated_client.get(url).status_code == 400, url
+
+
+# --- LEARN-MORE: local_day_end + uncapped/ahead + die drei neuen Felder ------
+
+def test_local_day_end_berlin_summer_winter_and_dst_edge():
+    # Sommer (CEST +02:00): Tagesende 22:00Z; days_ahead schiebt Berliner Tage.
+    now = datetime(2026, 7, 18, 21, 30, tzinfo=timezone.utc)
+    assert local_day_end(now) == datetime(2026, 7, 18, 22, 0, tzinfo=timezone.utc)
+    assert local_day_end(now, 1) == datetime(2026, 7, 19, 22, 0, tzinfo=timezone.utc)
+    assert local_day_end(now) == local_day_bounds(now)[1]   # 0 = heutiges Ende
+    # Winter (CET +01:00): 23:30Z liegt schon im Berliner FOLGETAG.
+    now = datetime(2026, 1, 15, 23, 30, tzinfo=timezone.utc)
+    assert local_day_end(now) == datetime(2026, 1, 16, 23, 0, tzinfo=timezone.utc)
+    # DST-Kante: Sommerzeit endet 2026-10-25 → das Ende des 25.10. liegt in
+    # CET; der Schritt über die Kante ist 25 Wanduhr-Stunden, nie naive +24h.
+    now = datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc)
+    assert local_day_end(now) == datetime(2026, 10, 24, 22, 0, tzinfo=timezone.utc)
+    assert local_day_end(now, 1) == datetime(2026, 10, 25, 23, 0, tzinfo=timezone.utc)
+
+
+def test_review_state_capped_reports_remaining_today(app, authenticated_client, test_user):
+    uid = test_user['id']
+    for _ in range(5):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 2})
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['due_count'] == 2
+    assert body['remaining_today'] == 3
+    assert body['ahead_available'] == 0     # nichts Künftiges angelegt
+
+
+def test_review_state_uncapped_lifts_caps(app, authenticated_client, test_user):
+    uid = test_user['id']
+    for _ in range(5):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 2})
+    body = authenticated_client.get('/api/review-state?uncapped=1').get_json()
+    assert body['due_count'] == 5
+    assert body['remaining_today'] == 0
+
+
+def test_review_state_uncapped_strict_read(app, authenticated_client, test_user):
+    # Nur der explizite Wert '1' schaltet — kein Truthiness-Zufall.
+    uid = test_user['id']
+    for _ in range(3):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 1})
+    for arg in ('0', 'true', 'yes', ''):
+        body = authenticated_client.get(f'/api/review-state?uncapped={arg}').get_json()
+        assert body['due_count'] == 1, arg
+
+
+def test_review_state_uncapped_never_resurfaces_done_today(app, authenticated_client, test_user):
+    # DIE Kern-Eigenschaft hinter "mehr lernen": heute Erledigtes trägt ein
+    # zukünftiges due und kommt auch ohne Cap nie zurück — Uncapping ist per
+    # Konstruktion wiederholungsfrei.
+    uid = test_user['id']
+    done = _make_done_today_card(app, uid, introduced_today=False)   # due now+3d
+    open_id = _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    body = authenticated_client.get('/api/review-state?uncapped=1').get_json()
+    ids = [c['id'] for c in body['due_cards']]
+    assert open_id in ids
+    assert done not in ids
+
+
+def test_review_state_ahead_pulls_tomorrow(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    today_id = _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    tomorrow_id = _make_review_row(
+        app, uid, due=local_day_end(now, 1) - timedelta(hours=1),
+        last_reviewed=now - timedelta(days=5))
+    base = authenticated_client.get('/api/review-state').get_json()
+    assert tomorrow_id not in [c['id'] for c in base['due_cards']]
+    assert base['ahead_available'] == 1
+    body = authenticated_client.get('/api/review-state?ahead=1').get_json()
+    ids = [c['id'] for c in body['due_cards']]
+    assert today_id in ids and tomorrow_id in ids
+
+
+def test_review_state_ahead_borrows_day_by_day(app, authenticated_client, test_user):
+    # Stufe 2 borgt tageweise: ahead=1 holt morgen, erst ahead=2 auch übermorgen.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    tomorrow_id = _make_review_row(
+        app, uid, due=local_day_end(now, 1) - timedelta(hours=1),
+        last_reviewed=now - timedelta(days=5))
+    day2_id = _make_review_row(
+        app, uid, due=local_day_end(now, 2) - timedelta(hours=1),
+        last_reviewed=now - timedelta(days=5))
+    one = authenticated_client.get('/api/review-state?ahead=1').get_json()
+    one_ids = [c['id'] for c in one['due_cards']]
+    assert tomorrow_id in one_ids and day2_id not in one_ids
+    assert one['ahead_available'] == 1      # der NÄCHSTE Schritt hätte Tag 2
+    two = authenticated_client.get('/api/review-state?ahead=2').get_json()
+    two_ids = [c['id'] for c in two['due_cards']]
+    assert tomorrow_id in two_ids and day2_id in two_ids
+
+
+def test_review_state_ahead_implies_uncapped(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    for _ in range(4):
+        _make_card_with_review(app, uid, stability=10.0, days_ago=5)
+    _make_review_row(app, uid, due=local_day_end(now, 1) - timedelta(hours=1),
+                     last_reviewed=now - timedelta(days=5))
+    authenticated_client.put(SETTINGS_URL, json={'daily_review_limit': 2})
+    body = authenticated_client.get('/api/review-state?ahead=1').get_json()
+    assert body['due_count'] == 5           # 4 heute + 1 morgen, Cap aufgehoben
+    assert body['remaining_today'] == 0
+
+
+def test_review_state_ahead_validation(authenticated_client):
+    for bad in ('0', '8', 'abc', '1.5', '-1'):
+        resp = authenticated_client.get(f'/api/review-state?ahead={bad}')
+        assert resp.status_code == 400, bad
+        assert 'ahead' in resp.get_json()['error']
+
+
+def test_review_state_ahead_available_window(app, authenticated_client, test_user):
+    # Nur (jetzt, Ende morgen] zählt — die Tag-3-Karte gehört nicht zu Stufe 2.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    _make_review_row(app, uid, due=local_day_end(now, 1) - timedelta(hours=1),
+                     last_reviewed=now - timedelta(days=5))
+    _make_review_row(app, uid, due=local_day_end(now, 3) - timedelta(hours=1),
+                     last_reviewed=now - timedelta(days=5))
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['ahead_available'] == 1
+
+
+def test_review_state_ahead_max_step_advertises_nothing(app, authenticated_client, test_user):
+    # Bei ahead=7 gibt es keinen 8. Schritt (die API würde ihn 400en) —
+    # also auch nichts versprechen, selbst wenn Tag 8 Karten hätte.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    _make_review_row(app, uid, due=local_day_end(now, 7) + timedelta(hours=5),
+                     last_reviewed=now - timedelta(days=5))
+    body = authenticated_client.get('/api/review-state?ahead=7').get_json()
+    assert body['ahead_available'] == 0
+
+
+def test_review_state_day_end_is_aware_and_ahead_of_now(app, authenticated_client, test_user):
+    body = authenticated_client.get('/api/review-state').get_json()
+    day_end = datetime.fromisoformat(body['day_end'])
+    assert day_end.tzinfo is not None
+    assert day_end > datetime.now(timezone.utc)
+    # Es IST das Berliner Tagesende, nicht bloß irgendein Zukunftswert.
+    assert day_end == local_day_bounds()[1]

@@ -72,6 +72,20 @@ def local_day_bounds(now=None):
             (start_local + timedelta(days=1)).astimezone(timezone.utc))
 
 
+def local_day_end(now=None, days_ahead=0):
+    """Aware-UTC end of the Berlin-local day ``days_ahead`` days after the one
+    containing ``now`` (0 = today's end, 1 = tomorrow's end, …).
+
+    LEARN-MORE anchors on this in two places: ``?ahead=<n>`` moves the
+    review-state due horizon here, and the response's ``day_end`` field hands
+    today's boundary to the client so the JS never does timezone arithmetic —
+    the wall-clock day math (DST-safe via ZoneInfo) lives server-side only.
+    """
+    start, _end = local_day_bounds(now)
+    start_local = start.astimezone(LOCAL_TZ)
+    return (start_local + timedelta(days=1 + days_ahead)).astimezone(timezone.utc)
+
+
 def get_user_settings(user):
     """Effective learn settings for ``user`` — defaults overlaid with the
     stored blob; unknown keys and invalid values are silently dropped."""
