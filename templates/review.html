@@ -94,12 +94,40 @@
                 <div id="review-answer" class="review-answer__body"></div>
             </div>
 
-            <!-- Rating (hidden until revealed) -->
-            <div id="review-rating" class="review-rating c-btn-row hidden">
-                <button type="button" class="c-btn review-rate-btn" data-rating="again">Wieder</button>
-                <button type="button" class="c-btn review-rate-btn" data-rating="hard">Schwer</button>
-                <button type="button" class="c-btn c-btn--primary review-rate-btn" data-rating="good">Gut</button>
-                <button type="button" class="c-btn review-rate-btn" data-rating="easy">Leicht</button>
+            <!-- Rating (hidden until revealed). LEARN-RATE: die Knöpfe sagen, was
+                 sie meinen. Das Kriterium steht als zweistufige Frage über der
+                 Reihe (erst OB, dann WIE MÜHSAM); Bedeutung und Tastenziffer
+                 sitzen IM Knopf, nicht daneben — der ganze Knopf bleibt
+                 Trefferfläche. Die Bedeutungen sind bewusst asymmetrisch: nur
+                 Knopf 1 beschreibt einen Ausgang, 2–4 beschreiben Aufwand. -->
+            <div id="review-rating" class="review-rating hidden">
+                <p class="review-rating__hint">Wusstest du die Antwort? Nur wenn ja: wie mühsam?</p>
+                <div class="c-btn-row">
+                    <button type="button" class="c-btn review-rate-btn" data-rating="again"
+                            aria-label="Nochmal: nicht gewusst. Taste 1">
+                        <span class="review-rate-btn__label">Nochmal</span>
+                        <span class="review-rate-btn__meaning">nicht gewusst</span>
+                        <span class="review-rate-btn__key" aria-hidden="true">1</span>
+                    </button>
+                    <button type="button" class="c-btn review-rate-btn" data-rating="hard"
+                            aria-label="Schwer: gewusst, mühsam. Taste 2">
+                        <span class="review-rate-btn__label">Schwer</span>
+                        <span class="review-rate-btn__meaning">gewusst, mühsam</span>
+                        <span class="review-rate-btn__key" aria-hidden="true">2</span>
+                    </button>
+                    <button type="button" class="c-btn c-btn--primary review-rate-btn" data-rating="good"
+                            aria-label="Gut: gewusst. Taste 3">
+                        <span class="review-rate-btn__label">Gut</span>
+                        <span class="review-rate-btn__meaning">gewusst</span>
+                        <span class="review-rate-btn__key" aria-hidden="true">3</span>
+                    </button>
+                    <button type="button" class="c-btn review-rate-btn" data-rating="easy"
+                            aria-label="Leicht: sofort da. Taste 4">
+                        <span class="review-rate-btn__label">Leicht</span>
+                        <span class="review-rate-btn__meaning">sofort da</span>
+                        <span class="review-rate-btn__key" aria-hidden="true">4</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Footer actions -->

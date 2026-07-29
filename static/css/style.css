@@ -2127,8 +2127,59 @@ body.reader-active .sidebar-toggle-floater--global {
     word-break: break-word;
 }
 
+/* LEARN-RATE — die Bewertungsreihe erklärt sich selbst. Der Wrapper trägt jetzt
+   die Frage-Zeile plus die .c-btn-row; das Show/Hide hängt weiter am Wrapper. */
 .review-rating { margin-top: var(--nm-space-lg); }
-.review-rate-btn { flex: 1; min-width: 0; }
+/* Die Frage führt, sie schreit nicht: kleiner als der Kartentext und gedämpft
+   — aber --nm-text-secondary statt --nm-text-muted. Gemessen: muted läge bei
+   2,4:1 (light) / 2,8:1 (dark); ausgerechnet der Satz, der die zweistufige
+   Entscheidung trägt, darf nicht der schlechtest lesbare der Karte sein. */
+.review-rating__hint {
+    font-size: var(--text-sm);
+    color: var(--nm-text-secondary);
+    margin-bottom: var(--nm-space-md);
+}
+/* Label / Bedeutung / Ziffer stapeln IM Knopf — als Geschwister daneben wäre
+   die Trefferfläche zerschnitten. Horizontales Padding gegenüber .c-btn
+   reduziert (1.25rem × 4 Knöpfe fräße die Textbreite), vertikal unverändert. */
+.review-rate-btn {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding-left: var(--nm-space-sm);
+    padding-right: var(--nm-space-sm);
+    line-height: var(--leading-tight);
+    text-align: center;
+}
+.review-rate-btn__label { font-weight: var(--weight-semibold); }
+/* Bedeutung gedämpft, aber bewusst NICHT --nm-text-muted: auf der dunklen
+   Clay-Fläche reißt der Kontrast dort zuerst (≈2,8:1). --nm-text-secondary
+   trägt in beiden Themes und bleibt trotzdem sichtbar unter dem Label. */
+.review-rate-btn__meaning {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-regular);
+    color: var(--nm-text-secondary);
+}
+/* Die Kürzel 1–4 gibt es seit LEARN-UP, sie waren nur nirgends sichtbar. */
+.review-rate-btn__key {
+    font-size: var(--text-xs);
+    color: var(--nm-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Schmale Viewports: vier nebeneinander tragen die Bedeutungszeile nicht.
+   Gemessen am iPhone-Layout blieben je Knopf 53px Textbreite — allein
+   „Nochmal“ braucht 57px, „gewusst, mühsam“ 49px. 2×2 statt vier in einer
+   Reihe: ~119px Trefferfläche je Knopf, alles einzeilig, und die Reihe kostet
+   deutlich weniger Höhe als vier gestapelte (die Knöpfe müssen über der Falz
+   bleiben, siehe CARD-SVG-Deckel). Grenze 560px: darüber bleiben je Knopf
+   ≥78px Textbreite, also Luft über dem 57px-Bedarf. */
+@media (max-width: 559.98px) {
+    .review-rate-btn { flex: 1 1 calc(50% - var(--nm-space-lg)); }
+}
 
 .review-cloze-blank {
     display: inline-block;
