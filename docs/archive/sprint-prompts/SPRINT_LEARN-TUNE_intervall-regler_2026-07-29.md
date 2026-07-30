@@ -17,7 +17,7 @@ Pünktlich macht FSRS aus dreimal „Schwer" genau die zwei Tage, die man erwart
 
 Deshalb baut dieser Sprint **keinen** Eingriff in die Mathematik (kein Deckeln von `elapsed_days`: py-fsrs bietet dafür keinen Hook, es würde dem Modell dauerhaft falsche Daten unterschieben, und die Prämisse „die App hat den Verzug verursacht" ist widerlegt — die Tages-Caps kamen mit LEARN-UP am 18.07., die Lücke war 01.07.→18.07.).
 
-Stattdessen zwei ehrliche Betriebsparameter, beide von Oli gewählt: **Retention 0,92** und **Intervall-Deckel 60 Tage**.
+Stattdessen zwei ehrliche Betriebsparameter, beide von Oli gewählt: **Retention 0,92** und **Intervall-Deckel 120 Tage** (revidiert von 60 — s. gesperrte Entscheidungen).
 
 ## Gegroundeter Ist-Zustand (Master — nicht neu herleiten)
 
@@ -32,7 +32,7 @@ Stattdessen zwei ehrliche Betriebsparameter, beide von Oli gewählt: **Retention
 ## Gesperrte Entscheidungen (Oli, 2026-07-29)
 
 1. **Retention 0,92** — nicht 0,95. Die Simulation rechnet bei Olis aktuellen 24 neuen Karten/Tag: 0,90 → 120 Reviews/Tag, 0,92 → 141, 0,95 → **210** und damit über sein eigenes Review-Limit von 200.
-2. **Deckel 60 Tage** — nicht die im Ursprungsbericht vorgeschlagenen 21. 21 Tage zwängen jede reife Karte für immer in einen Drei-Wochen-Takt und machen genau die Ersparnis kaputt, für die FSRS existiert. 60 fängt die Ausreißer.
+2. **Deckel 120 Tage** — **revidiert 2026-07-30 nach dem Phase-1-Befund** (ursprünglich 60). Der Sub-Thread hat in Phase 1 gezeigt, dass der Deckel die Last **hebt**, nicht senkt (kürzere Intervalle = mehr Reviews/Karte/Jahr); die Master-Empfehlung „60" war auf einer Rechnung **ohne** Deckel gefußt. Nachgerechnet bei Olis 24 neuen Karten/Tag, Retention 0,92: **aus → 141 · 120 → 144 · 90 → 158 · 60 → 188 · 21 → 400** Reviews/Tag. Drei Gründe für 120: (a) **60 hätte Olis Problem nicht verhindert** — seine TCE-Karten trugen Stabilität 11,7–56,6 Tage bei Fälligkeiten bis 46 Tage, ein 60-Deckel hätte keine einzige beschnitten; (b) bei 188 gegen sein Review-Limit 200 **fängt der Cap an zu greifen** — genau das Regime, in dem zurückgehaltene fällige Wiederholungen überfällig werden und Intervalle wieder aufblähen, also der Regelkreis, gegen den der Deckel gesetzt war; (c) 120 kostet **+3 Reviews/Tag** und garantiert trotzdem, dass keine Karte länger als vier Monate verschwindet — ein Deckel soll Ausreißer fangen, nicht den Plan umschreiben. Die 21 aus dem Ursprungsbericht wären 400/Tag = doppeltes Limit gewesen.
 
 ---
 
@@ -54,10 +54,10 @@ Stattdessen zwei ehrliche Betriebsparameter, beide von Oli gewählt: **Retention
 ## 1.3 Tests
 
 - Ohne Env-Variable: die Engine läuft mit **36500** → verhaltensneutral.
-- `FSRS_MAXIMUM_INTERVAL=60` → ein Intervall, das ungedeckelt über 60 Tage läge, kommt auf 60 heraus; die **Stabilität ist unverändert** (der Deckel verfälscht das Modell nicht — explizit festnageln).
+- Deckel gesetzt (Testwert, z.B. `FSRS_MAXIMUM_INTERVAL=60`) → ein Intervall, das ungedeckelt darüber läge, kommt auf den Deckelwert heraus; die **Stabilität ist unverändert** (der Deckel verfälscht das Modell nicht — explizit festnageln). Der **Testwert** ist frei wählbar und hat nichts mit dem **Deploy-Wert** (120, s. gesperrte Entscheidungen) zu tun.
 - Müll-Werte (`abc`, `0`, `-5`, leer) → Default, kein Wurf.
 - **Sentinel wie bei LEARN-STEP**: der py-fsrs-Default für `maximum_interval` ist **36500**. Ein Bump, der ihn ändert, muss laut werden statt still das Scheduling zu verschieben — genau die Falle, die LEARN-STEP schon einmal gestellt hat (Memory `reference_fsrs_learning_steps_default_trap`).
-- Simulator: mit Deckel sinkt die erwartete Last gegenüber ohne Deckel.
+- Simulator: mit Deckel **steigt** die erwartete Last gegenüber ohne Deckel. ⚠️ **Korrigiert 2026-07-30** — hier stand die Richtung verkehrt („sinkt"); der Deckel holt Karten früher zurück, das sind mehr Reviews, nicht weniger. Der Sub-Thread hat das in Phase 1 gemessen und die Assertion richtig geschrieben (`capped > uncapped`, `cap=21 > cap=60`).
 
 ## Stop
 `pytest tests/` grün, Testzahl vorher/nachher (Baseline **762**). **Commit + Push** `feat(LEARN-TUNE): FSRS_MAXIMUM_INTERVAL als Env-Regler (P1)`. Dann warten.
@@ -73,7 +73,7 @@ Stattdessen zwei ehrliche Betriebsparameter, beide von Oli gewählt: **Retention
 
 **Schlussbericht muss zwei Dinge unmissverständlich enthalten:**
 
-1. **Die exakten Env-Zeilen für die Mintbox** (`FSRS_DESIRED_RETENTION=0.92`, `FSRS_MAXIMUM_INTERVAL=60`) plus den Hinweis, dass die `.env` dort **nicht** aus dem Repo kommt und von Hand ergänzt werden muss.
+1. **Die exakten Env-Zeilen für die Mintbox** (`FSRS_DESIRED_RETENTION=0.92`, `FSRS_MAXIMUM_INTERVAL=120`) plus den Hinweis, dass die `.env` dort **nicht** aus dem Repo kommt und von Hand ergänzt werden muss.
 2. ⚠️ **Beide Regler wirken ausschließlich auf künftige Bewertungen.** Sie setzen **keine** bestehende Karte um. Olis 40 TCE-Karten bleiben nach dem Deploy exakt dort stehen, wo sie stehen (30.07.–13.09.) — die Regler ändern daran nichts, und LEARN-MOREs Vorziehen reicht nur 7 Tage weit. Wer nach dem Deploy sofortige Wirkung erwartet, wird sie wochenlang nicht sehen. Das ist kein Fehler dieses Sprints, aber es muss im Bericht stehen.
 
 ## Nicht-Ziele
