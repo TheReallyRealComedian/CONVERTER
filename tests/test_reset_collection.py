@@ -125,7 +125,12 @@ def test_apply_resets_row_to_canonical_new_state(app, poisoned):
                     continue  # compared below (a timestamp, not a constant)
                 assert getattr(review, field) == value, field
             assert review.rating_history is None
-            # due = "jetzt" (stored naive UTC, the column convention).
+            # due = "jetzt" in NAIVE UTC (the column convention). Doubles as the
+            # guard on the `_naive_utc` pass-through: the scheduler hands back
+            # an aware datetime and SQLite drops the tzinfo silently, so a zone
+            # other than UTC would land here as wall-clock — a Berlin-zoned
+            # `initial_review_state()` would show up as a 2 h drift.
+            assert review.due.tzinfo is None
             drift = abs((review.due - datetime.now(timezone.utc).replace(tzinfo=None))
                         .total_seconds())
             assert drift < 120

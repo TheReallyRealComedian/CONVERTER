@@ -419,7 +419,17 @@ def _register_cli_commands(app):
             click.echo('Nichts geschrieben (Dry-run). Mit --apply ausfuehren.')
             return
 
+        # `initial_review_state()` hands back AWARE UTC, the column convention
+        # is naive UTC. SQLite drops the tzinfo silently and stores the wall
+        # clock, which today happens to BE the naive UTC — right for the wrong
+        # reason. Route `due` through the same `_naive_utc` every other write
+        # path uses, so a future zone change in the scheduler cannot make this
+        # one path write Berlin wall-clock as UTC. (`last_reviewed` is None;
+        # `_naive_utc(None)` returns None, so the loop stays as it is. Local
+        # import: app_pkg.cards imports app_pkg.learn → top-level is circular.)
+        from app_pkg.cards import _naive_utc
         fresh = initial_review_state()
+        fresh['due'] = _naive_utc(fresh['due'])
         for card in cards:
             for field, value in fresh.items():
                 setattr(card.review, field, value)
