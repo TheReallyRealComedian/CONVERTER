@@ -5,6 +5,10 @@ Karte add/remove (idempotent, owner-404), die Lösch-Mechanik in BEIDE
 Richtungen (Card-Delete und Collection-Delete sweepen card_collections — ohne
 PRAGMA foreign_keys ORM-getrieben) und der ``?collection=``-Filter inkl.
 ``?tag=``+``?collection=``-AND auf ``/api/review-state``.
+
+LEARN-QUEUE ergänzt den Waisen-Scope: ``?uncollected=1`` (strikt gelesen)
+liefert Karten ohne Sammlung, **unioniert** mit ``?collection=`` statt es zu
+ersetzen, und ``uncollected_count`` reist als globaler Roh-Zähler mit.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -352,3 +356,122 @@ def test_review_state_foreign_collection_404(app, authenticated_client, test_use
 def test_review_state_garbage_collection_404(app, authenticated_client, test_user):
     assert authenticated_client.get('/api/review-state?collection=abc').status_code == 404
     assert authenticated_client.get('/api/review-state?collection=999999').status_code == 404
+
+
+# --- LEARN-QUEUE: ?uncollected=1 (Waisen) ------------------------------------
+
+def test_review_state_uncollected_filter(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    colid = _make_collection(app, uid)
+    c_orphan = _make_card(app, uid, due=now - timedelta(days=1))
+    c_orphan_future = _make_card(app, uid, due=now + timedelta(days=1))
+    c_in_col = _make_card(app, uid, due=now - timedelta(days=1))
+    authenticated_client.post(f'/api/collections/{colid}/cards', json={'card_id': c_in_col})
+
+    body = authenticated_client.get('/api/review-state?uncollected=1').get_json()
+    assert [c['id'] for c in body['due_cards']] == [c_orphan]
+    assert body['due_count'] == 1
+    assert body['total_count'] == 2  # Scope = beide Waisen, auch die künftige
+
+
+def test_review_state_uncollected_unions_with_collection(app, authenticated_client, test_user):
+    # Die Pillen sind Mehrfach-Auswahl: "Sammlung X ODER ohne Sammlung".
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    col1 = _make_collection(app, uid, 'A')
+    col2 = _make_collection(app, uid, 'B')
+    c_a = _make_card(app, uid, due=now - timedelta(days=1))
+    c_b = _make_card(app, uid, due=now - timedelta(days=1))
+    c_orphan = _make_card(app, uid, due=now - timedelta(days=1))
+    authenticated_client.post(f'/api/collections/{col1}/cards', json={'card_id': c_a})
+    authenticated_client.post(f'/api/collections/{col2}/cards', json={'card_id': c_b})
+
+    body = authenticated_client.get(
+        f'/api/review-state?collection={col1}&uncollected=1').get_json()
+    got = [c['id'] for c in body['due_cards']]
+    assert sorted(got) == sorted([c_a, c_orphan])
+    assert c_b not in got
+    assert body['due_count'] == 2
+
+
+def test_review_state_uncollected_union_has_no_duplicates(app, authenticated_client, test_user):
+    # Beide Zweige sind per Definition disjunkt (eine Karte ist in einer
+    # Sammlung ODER in keiner) — der OR darf trotzdem keine Zeile doppeln,
+    # auch nicht die Karte, die in BEIDEN gewählten Sammlungen sitzt.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    col1 = _make_collection(app, uid, 'A')
+    col2 = _make_collection(app, uid, 'B')
+    c_both = _make_card(app, uid, due=now - timedelta(days=1))
+    c_orphan = _make_card(app, uid, due=now - timedelta(days=1))
+    for col in (col1, col2):
+        authenticated_client.post(f'/api/collections/{col}/cards', json={'card_id': c_both})
+
+    body = authenticated_client.get(
+        f'/api/review-state?collection={col1},{col2}&uncollected=1').get_json()
+    got = [c['id'] for c in body['due_cards']]
+    assert sorted(got) == sorted([c_both, c_orphan])
+    assert len(got) == 2
+    assert body['due_count'] == 2
+    assert body['total_count'] == 2
+
+
+def test_review_state_uncollected_is_strict(app, authenticated_client, test_user):
+    # Hauspattern seit LEARN-MORE: nur der exakte Wert schaltet.
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    colid = _make_collection(app, uid)
+    c_in_col = _make_card(app, uid, due=now - timedelta(days=1))
+    c_orphan = _make_card(app, uid, due=now - timedelta(days=1))
+    authenticated_client.post(f'/api/collections/{colid}/cards', json={'card_id': c_in_col})
+
+    for arg in ('true', 'yes', '0', '', '1 ', 'on'):
+        body = authenticated_client.get(f'/api/review-state?uncollected={arg}').get_json()
+        # Nicht geschaltet → ungescopet, also BEIDE Karten.
+        assert sorted(c['id'] for c in body['due_cards']) == sorted([c_in_col, c_orphan]), arg
+
+
+def test_uncollected_count_is_global_and_raw(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    colid = _make_collection(app, uid)
+    _make_card(app, uid, due=now - timedelta(days=1))            # Waise, fällig
+    _make_card(app, uid, due=now - timedelta(minutes=5))         # Waise, fällig
+    _make_card(app, uid, due=now + timedelta(days=1))            # Waise, künftig
+    c_in_col = _make_card(app, uid, due=now - timedelta(days=1))
+    authenticated_client.post(f'/api/collections/{colid}/cards', json={'card_id': c_in_col})
+
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['uncollected_count'] == 2  # roh due <= now, künftige zählt nicht
+    # GLOBAL: eine gewählte Sammlung darf die Zahl nicht kleinrechnen, sonst
+    # verschwände die Pille genau dann, wenn man sie zum Umschalten braucht.
+    scoped = authenticated_client.get(f'/api/review-state?collection={colid}').get_json()
+    assert scoped['uncollected_count'] == 2
+
+
+def test_uncollected_count_zero_without_orphans(app, authenticated_client, test_user):
+    uid = test_user['id']
+    now = datetime.now(timezone.utc)
+    colid = _make_collection(app, uid)
+    cid = _make_card(app, uid, due=now - timedelta(days=1))
+    authenticated_client.post(f'/api/collections/{colid}/cards', json={'card_id': cid})
+
+    body = authenticated_client.get('/api/review-state').get_json()
+    assert body['uncollected_count'] == 0
+    # Ohne Waisen liefert der Filter eine leere Queue statt aller Karten.
+    empty = authenticated_client.get('/api/review-state?uncollected=1').get_json()
+    assert empty['due_cards'] == []
+    assert empty['due_count'] == 0
+
+
+def test_uncollected_ignores_other_users(app, authenticated_client, test_user):
+    other_id = _make_other_user(app, 'oscar')
+    now = datetime.now(timezone.utc)
+    foreign = _make_card(app, other_id, due=now - timedelta(days=1))  # fremde Waise
+    mine = _make_card(app, test_user['id'], due=now - timedelta(days=1))
+
+    body = authenticated_client.get('/api/review-state?uncollected=1').get_json()
+    assert [c['id'] for c in body['due_cards']] == [mine]
+    assert foreign not in [c['id'] for c in body['due_cards']]
+    assert body['uncollected_count'] == 1

@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import contains_eager, joinedload
 
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
@@ -523,10 +523,16 @@ def register(app):
         #   ?collection=<id>[,<id>…] cards in ANY of the collections (union;
         #                            repeated params work too). Every id must
         #                            be owned, else 404.
-        # Both chain onto the SAME `base`, so combining them ANDs and the
-        # scope-correct total_count falls out for free. When scoped, total_count
-        # reflects the SCOPE (cards in the scope, not just due ones); unscoped it
-        # stays "all of the user's cards".
+        #   ?uncollected=1           cards in NO collection (LEARN-QUEUE),
+        #                            strict read like the session params below.
+        #                            It UNIONS with ?collection= rather than
+        #                            replacing it — the pills are a multi-select
+        #                            and "collection X or no collection" is the
+        #                            only semantics that fits that model.
+        # tag and the collection/uncollected union chain onto the SAME `base`,
+        # so combining them ANDs and the scope-correct total_count falls out for
+        # free. When scoped, total_count reflects the SCOPE (cards in the scope,
+        # not just due ones); unscoped it stays "all of the user's cards".
         #
         # Session params (LEARN-MORE) — strict reads, only the explicit value
         # switches; without them the response stays as before:
@@ -562,6 +568,8 @@ def register(app):
             subtree = Tag.subtree_ids(tag.id, current_user.id)
             base = base.filter(Card.tags.any(Tag.id.in_(subtree)))
 
+        uncollected = request.args.get('uncollected') == '1'
+        scope_clauses = []
         collection_args = request.args.getlist('collection')
         if collection_args:
             # LEARN-UP union scope. `.any(... in_())` is an EXISTS — a card
@@ -571,8 +579,15 @@ def register(app):
             collections = [_parse_owned(raw, Collection) for raw in raw_ids]
             if not collections or any(c is None for c in collections):
                 return jsonify({'error': 'Sammlung nicht gefunden.'}), 404
-            base = base.filter(Card.collections.any(
+            scope_clauses.append(Card.collections.any(
                 Collection.id.in_({c.id for c in collections})))
+        if uncollected:
+            scope_clauses.append(~Card.collections.any())
+        if scope_clauses:
+            # One OR over both branches (a single clause passes through
+            # unchanged) — the two pill kinds are alternatives inside ONE
+            # multi-select, not two filters that would AND to nothing.
+            base = base.filter(or_(*scope_clauses))
 
         due_horizon = local_day_end(now, ahead) if ahead else now
         due_cards = (base
@@ -621,11 +636,26 @@ def register(app):
             next_ahead = {'days': next_days, 'count': next_count}
         new_count = sum(1 for c in due_cards if c.review.stability is None)
         total_count = base.count()
+        # LEARN-QUEUE: due cards in NO collection — badge AND visibility switch
+        # for the "Ohne Sammlung" pill. Deliberately GLOBAL (own query, not
+        # `base`) and raw `due <= now`, exactly like the per-collection badges
+        # in /api/collections: a scoped count would hide the pill the moment a
+        # collection is picked. It rides HERE and not on /api/collections
+        # because that endpoint returns a bare array which the iOS app decodes
+        # as [LearnCollection] — a wrapper or a synthetic id-less entry would
+        # break it. Additive fields on review-state are demonstrably safe.
+        uncollected_count = (Card.query
+                             .filter_by(user_id=current_user.id)
+                             .filter(~Card.collections.any())
+                             .join(Card.review)
+                             .filter(Review.due <= now)
+                             .count())
         return jsonify({
             'due_count': len(due_cards),
             'review_count': len(due_cards) - new_count,
             'new_count': new_count,
             'total_count': total_count,
+            'uncollected_count': uncollected_count,
             # How many now-due cards the cap held back (0 when uncapped — the
             # None budgets never trim, so the subtraction is 0 by construction).
             'remaining_today': pre_cap_count - len(due_cards),

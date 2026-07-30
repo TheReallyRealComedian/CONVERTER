@@ -31,6 +31,12 @@
     // Several checked → the union is studied (?collection=1,2,3).
     let scopeIds = [];
     let collections = [];  // cached /api/collections (pills + footer add)
+    // LEARN-QUEUE orphan scope: cards in NO collection. Its pill only exists
+    // while there are due orphans — the count rides on /api/review-state
+    // (uncollected_count), NOT on /api/collections, whose bare array the iOS
+    // app decodes as [LearnCollection].
+    let scopeUncollected = false;
+    let uncollectedCount = 0;
     // LEARN-MORE session gesture (page-lifetime only, NEVER persisted — a page
     // reload starts capped again, protecting the daily boundary): stage 1 lifts
     // today's caps, stage 2 borrows future Berlin days via ?ahead=<n>.
@@ -219,10 +225,14 @@
     // after rating, stability is set and the distinction is gone.
     function decrementPoolCounts(card) {
         const wasNew = !card.review || card.review.stability === null;
-        (card.collections || []).forEach((col) => {
+        const cols = card.collections || [];
+        cols.forEach((col) => {
             const cached = collections.find((c) => c.id === col.id);
             if (cached) cached.due_count = Math.max(0, (cached.due_count || 0) - 1);
         });
+        // LEARN-QUEUE: a card in NO collection sinks the orphan badge instead —
+        // same raw due bookkeeping, the pill just has no /api/collections row.
+        if (!cols.length) uncollectedCount = Math.max(0, uncollectedCount - 1);
         renderScopePills();
         if (wasNew) {
             if (newCount !== null) newCount = Math.max(0, newCount - 1);
@@ -413,6 +423,8 @@
     function scopeUrl() {
         const params = [];
         if (scopeIds.length) params.push(`collection=${scopeIds.join(',')}`);
+        // Unions with collection= server-side (not an alternative to it).
+        if (scopeUncollected) params.push('uncollected=1');
         // LEARN-MORE gesture: ahead implies uncapped server-side, so send only
         // one of the two. Without either the fetch is the plain capped state.
         if (sessionAhead > 0) params.push(`ahead=${sessionAhead}`);
@@ -428,15 +440,16 @@
     }
 
     function scopeLabel() {
-        return collections
+        const names = collections
             .filter((c) => scopeIds.includes(c.id))
-            .map((c) => c.name)
-            .join(', ');
+            .map((c) => c.name);
+        if (scopeUncollected) names.push('Ohne Sammlung');
+        return names.join(', ');
     }
 
     function applyEmptyScope() {
         // Scope-aware empty state — "Nichts fällig in <Auswahl>" vs. the global text.
-        if (!scopeIds.length) {
+        if (!scopeIds.length && !scopeUncollected) {
             emptyTitle.textContent = 'Nichts fällig.';
             emptyText.textContent =
                 'Du bist mit dem Wiederholen durch. Neue Karten erscheinen, sobald sie wieder fällig sind.';
@@ -463,6 +476,11 @@
                 newCount = data.new_count;
                 renderCapInfo();
             }
+            // LEARN-QUEUE: server truth for the orphan badge + pill visibility
+            // (global, unscoped — so picking a collection never hides it).
+            uncollectedCount = (typeof data.uncollected_count === 'number')
+                ? data.uncollected_count : 0;
+            renderScopePills();
             // LEARN-MORE state (fresh per fetch, scope-filtered server-side).
             remainingToday = (typeof data.remaining_today === 'number') ? data.remaining_today : 0;
             nextAhead = data.next_ahead || null;
@@ -498,27 +516,47 @@
     // Collection checkbox pills with raw due badges (Review.due <= now, same
     // definition as the queue). The old tag optgroup is gone by design — tags
     // live on in the /tags manager, they are no longer a study axis.
+    function makeScopePill(label, dueCount, checked) {
+        const pill = document.createElement('label');
+        pill.className = 'review-scope-pill';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = checked;
+        const name = document.createElement('span');
+        name.textContent = label;
+        const badge = document.createElement('span');
+        badge.className = 'review-scope-pill__badge';
+        badge.textContent = String(dueCount || 0);
+        badge.title = 'Fällige Karten';
+        pill.append(box, name, badge);
+        return { pill, box };
+    }
+
     function renderScopePills() {
-        // Rebuild the collection pills, preserving the current checks.
-        scopeList.querySelectorAll('.review-scope-pill[data-col]').forEach((p) => p.remove());
+        // LEARN-QUEUE invariant, enforced HERE because this is the one place
+        // that knows "pill exists iff count > 0": when the last orphan is gone
+        // the check falls away with the pill. Otherwise a checked orphan scope
+        // would survive as a filter nobody can untick.
+        if (uncollectedCount <= 0) scopeUncollected = false;
+        // Rebuild the generated pills, preserving the current checks.
+        scopeList
+            .querySelectorAll('.review-scope-pill[data-col], .review-scope-pill[data-uncollected]')
+            .forEach((p) => p.remove());
         (collections || []).forEach((c) => {
-            const pill = document.createElement('label');
-            pill.className = 'review-scope-pill';
+            const { pill, box } = makeScopePill(c.name, c.due_count, scopeIds.includes(c.id));
             pill.dataset.col = String(c.id);
-            const box = document.createElement('input');
-            box.type = 'checkbox';
             box.dataset.colId = String(c.id);
-            box.checked = scopeIds.includes(c.id);
-            const name = document.createElement('span');
-            name.textContent = c.name;
-            const badge = document.createElement('span');
-            badge.className = 'review-scope-pill__badge';
-            badge.textContent = String(c.due_count || 0);
-            badge.title = 'Fällige Karten';
-            pill.append(box, name, badge);
             scopeList.appendChild(pill);
         });
-        scopeAllBox.checked = scopeIds.length === 0;
+        if (uncollectedCount > 0) {
+            // Last in the row — it is the remainder, not a study set.
+            const { pill, box } = makeScopePill('Ohne Sammlung', uncollectedCount,
+                scopeUncollected);
+            pill.dataset.uncollected = '1';
+            box.dataset.uncollected = '1';
+            scopeList.appendChild(pill);
+        }
+        scopeAllBox.checked = scopeIds.length === 0 && !scopeUncollected;
     }
 
     async function loadCollections() {
@@ -584,6 +622,9 @@
         // check (on iff nothing selected), then the queue re-fetches.
         if (e.target === scopeAllBox) {
             scopeIds = [];
+            scopeUncollected = false;
+        } else if (e.target.dataset && e.target.dataset.uncollected) {
+            scopeUncollected = e.target.checked;
         } else if (e.target.dataset && e.target.dataset.colId) {
             const id = Number(e.target.dataset.colId);
             scopeIds = e.target.checked
@@ -654,7 +695,19 @@
             });
             await safeJSON(resp);
             if (!resp.ok) throw new Error();
-            const colName = (collections.find((c) => c.id === collectionId) || {}).name || 'Sammlung';
+            const cached = collections.find((c) => c.id === collectionId);
+            const colName = (cached || {}).name || 'Sammlung';
+            // LEARN-QUEUE: this card just stopped being an orphan — move its raw
+            // due count over instead of leaving it in both pools. Without the
+            // local `card.collections` update, rating it later would sink the
+            // orphan badge a second time (same bookkeeping as
+            // decrementPoolCounts, which reads exactly this field).
+            if (!(card.collections || []).length) {
+                uncollectedCount = Math.max(0, uncollectedCount - 1);
+                if (cached) cached.due_count = (cached.due_count || 0) + 1;
+            }
+            card.collections = (card.collections || [])
+                .concat([{ id: collectionId, name: colName }]);
             showToast(`Zu „${colName}“ hinzugefügt`);
             resetCollectionPanel();
             // Keep the launcher pills + footer select in sync with a freshly
