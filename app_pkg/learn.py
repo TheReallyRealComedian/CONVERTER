@@ -10,9 +10,11 @@ break the review flow — the read side is lenient, the PUT endpoint is strict.
 Ordering (``order_due_cards``) happens Python-side per fetch — the client
 pulls the queue once and walks it. ``smart`` (default) sorts previously
 reviewed cards by FSRS retrievability ascending (the shakiest first) with a
-random tiebreak, shuffles brand-new cards, and interleaves them evenly into
-the review stream. ``random`` is one full shuffle. Either way the old hidden
-creation-date order is structurally gone.
+random tiebreak, keeps brand-new cards in creation order (LEARN-QUEUE), and
+interleaves them evenly into the review stream. ``random`` is one full
+shuffle. For REVIEWS the old hidden creation-date order is structurally gone
+(that was LEARN-UP's point); for NEW cards the author's order IS the
+didactics, so it is deliberately preserved.
 """
 import json
 import os
@@ -179,15 +181,18 @@ def order_due_cards(due_cards, mode, scheduler, rng=None, now=None,
     """Order the due queue for one session fetch, then apply the daily caps.
 
     Ordering — ``smart``: reviewed cards (stability set) by retrievability
-    ascending with a random tiebreak; brand-new cards (stability NULL)
-    shuffled and evenly interleaved — never front-loaded. ``random``: both
-    pools shuffled, merged, shuffled again = one full shuffle.
+    ascending with a random tiebreak; brand-new cards (stability NULL) in
+    CREATION order and evenly interleaved — never front-loaded. ``random``:
+    both pools shuffled, merged, shuffled again = one full shuffle.
 
-    Caps (LEARN-UP P3, ``None`` = uncapped) apply AFTER ordering, so a cap
-    keeps the shakiest N (smart) or a random N (random) — never the oldest N.
-    ``new_budget`` additionally respects the review cap: new cards only fill
-    the headroom the review load leaves under ``review_budget``, so a day
-    drowning in due reviews introduces nothing new (sane default).
+    Caps (LEARN-UP P3, ``None`` = uncapped) apply AFTER ordering, so the
+    review cap keeps the shakiest N (smart) or a random N (random) — never
+    the oldest N. The new-card cap in ``smart`` mode DOES take the oldest N,
+    which is the point of the creation order: chapter 4 finishes before
+    chapter 5 starts. ``new_budget`` additionally respects the review cap:
+    new cards only fill the headroom the review load leaves under
+    ``review_budget``, so a day drowning in due reviews introduces nothing
+    new (sane default).
     """
     rng = rng or random.Random()
     now = now or datetime.now(timezone.utc)
@@ -199,9 +204,16 @@ def order_due_cards(due_cards, mode, scheduler, rng=None, now=None,
     # same-day/equal-stability ties are common — without the tiebreak the
     # queue would fall back to hidden insertion order.
     rng.shuffle(reviewed)
-    if mode != 'random':
+    if mode == 'random':
+        rng.shuffle(fresh)
+    else:
         reviewed.sort(key=lambda c: _review_sort_key(scheduler, c.review, now))
-    rng.shuffle(fresh)
+        # LEARN-QUEUE: new cards keep the order their author wrote them in — a
+        # shuffle here would re-roll the queue on every fetch and throw away
+        # the didactic sequence. `id` is the tiebreak because a batch write
+        # collides on `created_at`; without it the order would not be total,
+        # and a non-total order is not reproducible either.
+        fresh.sort(key=_fresh_sort_key)
 
     n_reviews, n_new = capped_session_counts(len(reviewed), len(fresh),
                                              review_budget, new_budget)
@@ -213,6 +225,17 @@ def order_due_cards(due_cards, mode, scheduler, rng=None, now=None,
         rng.shuffle(merged)
         return merged
     return _interleave_evenly(reviewed, fresh)
+
+
+def _fresh_sort_key(card):
+    """Creation order for brand-new cards: ``created_at`` asc, ``id`` asc.
+
+    ``created_at`` is nullable (defaulted, but a hand-written row could miss
+    it) — a NULL sorts last via the leading flag, and the flag also keeps the
+    tuple comparison from ever putting ``None`` next to a datetime.
+    """
+    created = getattr(card, 'created_at', None)
+    return (created is None, created, card.id)
 
 
 def _review_sort_key(scheduler, review, now):

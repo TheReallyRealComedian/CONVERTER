@@ -8,7 +8,9 @@ regression tests are the point of P1: equal-R cards must NOT come back in
 creation order, and brand-new cards must be interleaved, not front-loaded.
 P3 locks: caps trim AFTER ordering (shakiest/random N), new cards respect the
 review cap, and the day is the BERLIN-local day counted against what was
-already studied today.
+already studied today. LEARN-QUEUE narrows P1 for the ``fresh`` pool only:
+new cards come back in creation order (stable across fetches, oldest N under
+the cap) — the anti-creation-order assertions keep holding for REVIEWS.
 """
 import json
 import random
@@ -29,7 +31,8 @@ SETTINGS_URL = '/api/learn/settings'
 
 # --- helpers -----------------------------------------------------------------
 
-def _fake_card(cid, stability=None, days_ago=None, due=None, now=None):
+def _fake_card(cid, stability=None, days_ago=None, due=None, now=None,
+               created_at=None):
     now = now or datetime.now(timezone.utc)
     review = SimpleNamespace(
         due=due or now,
@@ -37,7 +40,7 @@ def _fake_card(cid, stability=None, days_ago=None, due=None, now=None):
         difficulty=5.0 if stability is not None else None,
         last_reviewed=(now - timedelta(days=days_ago)) if days_ago is not None else None,
     )
-    return SimpleNamespace(id=cid, review=review)
+    return SimpleNamespace(id=cid, review=review, created_at=created_at)
 
 
 def _ids(cards):
@@ -103,15 +106,6 @@ def test_smart_interleaves_new_cards_evenly_not_frontloaded():
     assert sorted(_ids(out)) == [1, 2, 3, 4, 5, 6, 7, 8, 100, 101]
 
 
-def test_smart_all_new_is_shuffled():
-    now = datetime.now(timezone.utc)
-    cards = [_fake_card(i, stability=None, now=now) for i in range(1, 8)]
-    out = order_due_cards(cards, 'smart', FSRSScheduler(),
-                          rng=random.Random(5), now=now)
-    assert sorted(_ids(out)) == list(range(1, 8))
-    assert _ids(out) != list(range(1, 8))
-
-
 def test_smart_sm2_engine_degrades_to_due_ascending():
     # SM-2 has no R (base-class None) → reviewed cards fall back to due-asc.
     now = datetime.now(timezone.utc)
@@ -123,7 +117,83 @@ def test_smart_sm2_engine_degrades_to_due_ascending():
     assert _ids(out) == [1, 2, 3]
 
 
+# --- LEARN-QUEUE: new cards in creation order (smart mode) -------------------
+
+def _fresh_batch(now, specs):
+    """``specs`` = (id, minutes_ago_created) pairs → brand-new fake cards."""
+    return [_fake_card(cid, stability=None, now=now,
+                       created_at=now - timedelta(minutes=mins))
+            for cid, mins in specs]
+
+
+def test_new_cards_are_stable_across_fetches():
+    # THE core property: two fetches on unchanged data hand back the same new
+    # cards in the same order — the queue must not re-roll every 15 minutes.
+    now = datetime.now(timezone.utc)
+    cards = _fresh_batch(now, [(1, 50), (2, 40), (3, 30), (4, 20), (5, 10)])
+    out_a = order_due_cards(cards, 'smart', FSRSScheduler(),
+                            rng=random.Random(1), now=now)
+    out_b = order_due_cards(cards, 'smart', FSRSScheduler(),
+                            rng=random.Random(999), now=now)
+    assert _ids(out_a) == _ids(out_b) == [1, 2, 3, 4, 5]
+
+
+def test_new_cards_follow_created_at_then_id():
+    now = datetime.now(timezone.utc)
+    # Input order is deliberately scrambled and the ids run counter to the
+    # timestamps, so only created_at can produce the expected sequence.
+    cards = _fresh_batch(now, [(60, 10), (10, 60), (40, 30),
+                               (20, 50), (50, 20), (30, 40)])
+    out = order_due_cards(cards, 'smart', FSRSScheduler(),
+                          rng=random.Random(2), now=now)
+    assert _ids(out) == [10, 20, 30, 40, 50, 60]
+    # Batch write → identical created_at; id is the tiebreak that makes the
+    # order total (and therefore reproducible).
+    same = now - timedelta(minutes=5)
+    tied = [_fake_card(cid, stability=None, now=now, created_at=same)
+            for cid in (13, 3, 8, 21, 5, 1)]
+    out = order_due_cards(tied, 'smart', FSRSScheduler(),
+                          rng=random.Random(3), now=now)
+    assert _ids(out) == [1, 3, 5, 8, 13, 21]
+
+
+def test_new_cap_takes_the_oldest_n():
+    # Explicitly wanted consequence: the daily cap cuts chapter 5, not a
+    # random slice of chapters 4 and 5.
+    now = datetime.now(timezone.utc)
+    cards = _fresh_batch(now, [(1, 50), (2, 40), (3, 30), (4, 20), (5, 10)])
+    out = order_due_cards(cards, 'smart', FSRSScheduler(), rng=random.Random(4),
+                          now=now, new_budget=2)
+    assert _ids(out) == [1, 2]
+
+
+def test_new_cards_stable_while_reviews_keep_random_tiebreak():
+    # The two pools are governed differently in the SAME call: equal-R reviews
+    # stay seed-dependent, the new cards do not move.
+    now = datetime.now(timezone.utc)
+    reviewed = [_fake_card(i, stability=10.0, days_ago=5, now=now) for i in range(1, 7)]
+    fresh = _fresh_batch(now, [(100, 30), (101, 20), (102, 10)])
+    out_a = order_due_cards(reviewed + fresh, 'smart', FSRSScheduler(),
+                            rng=random.Random(1), now=now)
+    out_b = order_due_cards(reviewed + fresh, 'smart', FSRSScheduler(),
+                            rng=random.Random(2), now=now)
+    assert [c.id for c in out_a if c.id >= 100] == [100, 101, 102]
+    assert [c.id for c in out_b if c.id >= 100] == [100, 101, 102]
+    assert [c.id for c in out_a if c.id < 100] != [c.id for c in out_b if c.id < 100]
+
+
 # --- order_due_cards: random mode --------------------------------------------
+
+def test_random_all_new_is_shuffled():
+    # Moved here from smart mode by LEARN-QUEUE: 'random' means random, so the
+    # assertion still holds — just not where new cards now keep their order.
+    now = datetime.now(timezone.utc)
+    cards = [_fake_card(i, stability=None, now=now) for i in range(1, 8)]
+    out = order_due_cards(cards, 'random', FSRSScheduler(),
+                          rng=random.Random(5), now=now)
+    assert sorted(_ids(out)) == list(range(1, 8))
+    assert _ids(out) != list(range(1, 8))
+
 
 def test_random_mode_is_a_full_shuffle():
     now = datetime.now(timezone.utc)
