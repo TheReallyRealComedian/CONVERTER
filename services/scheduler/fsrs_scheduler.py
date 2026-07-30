@@ -88,12 +88,26 @@ class FSRSScheduler(Scheduler):
 
         ``maximum_interval`` (LEARN-TUNE), in contrast, IS an operating
         parameter and comes from ``FSRS_MAXIMUM_INTERVAL`` via
-        ``get_scheduler()``. It caps the scheduled INTERVAL only — measured
-        against ``fsrs==6.3.1`` on good/good/good: 36500 → 58 d, 21 → 21 d,
-        with the stability identical (58.4) either way. The model stays
-        unfalsified; we just stop acting on the far end of its curve. **SM-2 has
-        no equivalent knob and deliberately stays untouched** — do not "restore
-        symmetry" that does not exist.
+        ``get_scheduler()``. It caps the scheduled INTERVAL only. Measured
+        against ``fsrs==6.3.1``, a card rated "good" punctually at every due
+        (interval / stability per review, cap 36500 vs 120):
+
+        ====  ==============  ==============
+        rev   36500 (off)     120
+        ====  ==============  ==============
+        3      46 d / 46.3     46 d / 46.3
+        4     163 d / 162.9   120 d / 162.9   ← the cap bites here
+        5     497 d / 497.4   120 d / 429.7
+        ====  ==============  ==============
+
+        At the review where the cap bites, stability is IDENTICAL — the cap
+        never touches the model (pinned in ``tests/test_scheduler.py``).
+        Afterwards the stability trajectory does differ, but only because the
+        card genuinely comes back sooner: FSRS still sees the true elapsed time,
+        just a shorter one. Nothing false is fed to the model — which is exactly
+        why this is the honest knob and clamping ``elapsed_days`` would not be.
+        **SM-2 has no equivalent knob and deliberately stays untouched** — do
+        not "restore symmetry" that does not exist.
         """
         # Fuzzing off → deterministic intervals (predictable for the user and
         # for the tests). desired_retention is the FSRS target recall (~0.9).
