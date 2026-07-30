@@ -21,7 +21,8 @@ from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
 from sqlalchemy import inspect, text
 
-from models import User, db
+from models import Card, Collection, Review, User, db
+from services.scheduler.base import initial_review_state
 
 
 def _configure_logging():
@@ -347,3 +348,103 @@ def _register_cli_commands(app):
         db.session.add(user)
         db.session.commit()
         click.echo(f'User "{username}" created successfully.')
+
+    @app.cli.command('reset-collection')
+    @click.argument('collection')
+    @click.option('--apply', 'apply_changes', is_flag=True,
+                  help='Schreibt wirklich. Ohne den Flag wird nur berichtet.')
+    def reset_collection_cmd(collection, apply_changes):
+        """Setzt die bewerteten Karten EINER Sammlung auf "neu" zurueck.
+
+        COLLECTION ist der Name ODER die id der Sammlung.
+
+        LEARN-BACK: einmalige Korrektur vergifteter Scheduling-Daten, KEIN
+        wiederkehrendes Werkzeug (deshalb CLI und kein Endpoint/kein Knopf).
+        Alle Bewertungen vor LEARN-RATE trugen eine andere Semantik — "Schwer"
+        hiess "kaum gewusst", der Scheduler bekam ``hard`` wo ``again``
+        gehoerte. Die daraus gewachsene Stabilitaet ist nicht bloss zu hoch,
+        sie ist erfunden; umdatieren wuerde das Phantom-Modell mitschleppen.
+
+        Zwei gesperrte Entscheidungen:
+
+        * Die Zeile wird feldweise auf ``initial_review_state()`` gesetzt —
+          die EINE Definition von "neu" (beide Engines geben sie aus
+          ``new_card_state`` zurueck). Eine nachgebaute Feldliste liefe bei
+          der naechsten Scheduler-Aenderung still auseinander.
+        * ``rating_history`` wird geleert: die Eintraege tragen die ungueltige
+          Semantik, ``count_done_today`` klassifiziert neu-vs-Review am ERSTEN
+          Eintrag (stehengelassen zaehlte die Karte gegen das Review- statt
+          das Neu-Budget), und ``true_retention`` wuerde sie noch ~30 Tage
+          weiterzaehlen. Preis ist der Audit-Trail; sein Wert ist durch die
+          Semantik ohnehin zerstoert.
+
+        Ausgewaehlt werden nur Karten mit ``stability IS NOT NULL`` (bereits
+        bewertet) — damit ist der Lauf per Konstruktion idempotent: der zweite
+        findet 0 Zeilen. Karteninhalte, Tags und Sammlungen bleiben unberuehrt.
+        """
+        target, error = _resolve_collection(collection)
+        if error:
+            raise click.ClickException(error)
+
+        cards = (target.cards
+                 .join(Card.review)
+                 .filter(Review.stability.isnot(None))
+                 .order_by(Card.id)
+                 .all())
+
+        mode = 'APPLY' if apply_changes else 'DRY-RUN'
+        click.echo(f'Sammlung "{target.name}" (id {target.id}, user {target.user_id}) '
+                   f'— {mode}')
+        click.echo(f'Bewertete Karten: {len(cards)} von {target.cards.count()} '
+                   f'in der Sammlung')
+
+        # A card can sit in several collections; it is reset when the TARGET is
+        # among them (the only sensible semantics), but name the overlap so a
+        # surprise shows up before the --apply.
+        overlaps = {}
+        for card in cards:
+            for other in card.collections:
+                if other.id != target.id:
+                    overlaps[other.name] = overlaps.get(other.name, 0) + 1
+        if overlaps:
+            detail = ', '.join(f'"{name}" ({count})'
+                               for name, count in sorted(overlaps.items()))
+            click.echo(f'Davon auch in anderen Sammlungen: {detail} '
+                       f'— sie werden mit zurueckgesetzt.')
+
+        if not cards:
+            click.echo('Nichts zu tun.')
+            return
+        if not apply_changes:
+            click.echo('Nichts geschrieben (Dry-run). Mit --apply ausfuehren.')
+            return
+
+        fresh = initial_review_state()
+        for card in cards:
+            for field, value in fresh.items():
+                setattr(card.review, field, value)
+            card.review.rating_history = None
+        db.session.commit()
+        click.echo(f'{len(cards)} Karten zurueckgesetzt — neu und sofort faellig.')
+
+
+def _resolve_collection(raw):
+    """Resolve a collection by id OR name → ``(collection, error_message)``.
+
+    The id is unambiguous, the name is what a human types at the prompt, so
+    both are accepted. Names are per-user unique but not globally, so a name
+    hitting several users is reported as ambiguous rather than guessed.
+    """
+    if raw.isdigit():
+        found = Collection.query.filter_by(id=int(raw)).first()
+        if found is not None:
+            return found, None
+    name = Collection.normalize_name(raw)
+    matches = Collection.query.filter_by(name=name).all() if name else []
+    if not matches:
+        return None, f'Sammlung "{raw}" nicht gefunden (weder als id noch als Name).'
+    if len(matches) > 1:
+        owners = ', '.join(f'id {c.id} (user {c.user_id})' for c in matches)
+        return None, (f'Sammlung "{name}" ist mehrdeutig: {owners}. '
+                      f'Bitte die id angeben.')
+    return matches[0], None
