@@ -14,6 +14,7 @@ LEARN-STEP the ladder is deliberately a single 10-min step anyway (see
 ``FSRSScheduler.__init__``), so nothing meaningful is lost. Fuzzing is disabled
 so scheduling is deterministic.
 """
+import os
 from datetime import datetime, timedelta, timezone
 
 from fsrs import Card as FSRSCard
@@ -29,9 +30,33 @@ _RATING_MAP = {
     'easy': Rating.Easy,
 }
 
+# py-fsrs 6.3.1's own ``Scheduler(maximum_interval=...)`` default — pinned here
+# so the un-set env case is provably behaviour-neutral (sentinel in
+# tests/test_scheduler.py). 36500 days ≈ 100 years == "no cap".
+DEFAULT_MAXIMUM_INTERVAL = 36500
+
+
+def _parse_max_interval(raw):
+    """Parse ``FSRS_MAXIMUM_INTERVAL`` — built like ``_parse_retention``.
+
+    Anything invalid (non-int, ``<= 0``) falls back to the library default
+    silently; this never raises. Lives here rather than next to
+    ``_parse_retention`` in ``__init__`` because ``simulate_workload`` below
+    needs the same parser and cannot import from the package ``__init__``
+    (circular) — and because the cap is FSRS-specific (SM-2 has no such knob).
+    """
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_MAXIMUM_INTERVAL
+    if value <= 0:
+        return DEFAULT_MAXIMUM_INTERVAL
+    return value
+
 
 class FSRSScheduler(Scheduler):
-    def __init__(self, desired_retention=0.9, enable_fuzzing=False):
+    def __init__(self, desired_retention=0.9, enable_fuzzing=False,
+                 maximum_interval=DEFAULT_MAXIMUM_INTERVAL):
         """ONE learning step, set explicitly (LEARN-STEP).
 
         A correctly answered new card is done for the day; the step ladder only
@@ -60,11 +85,21 @@ class FSRSScheduler(Scheduler):
         the defaults has to fail the sentinel in ``tests/test_scheduler.py``,
         not silently shift the learning behaviour. Deliberately no env knob:
         this is Lern-Doktrin, not an operating parameter.
+
+        ``maximum_interval`` (LEARN-TUNE), in contrast, IS an operating
+        parameter and comes from ``FSRS_MAXIMUM_INTERVAL`` via
+        ``get_scheduler()``. It caps the scheduled INTERVAL only — measured
+        against ``fsrs==6.3.1`` on good/good/good: 36500 → 58 d, 21 → 21 d,
+        with the stability identical (58.4) either way. The model stays
+        unfalsified; we just stop acting on the far end of its curve. **SM-2 has
+        no equivalent knob and deliberately stays untouched** — do not "restore
+        symmetry" that does not exist.
         """
         # Fuzzing off → deterministic intervals (predictable for the user and
         # for the tests). desired_retention is the FSRS target recall (~0.9).
         self._engine = FSRSEngine(desired_retention=desired_retention,
                                   enable_fuzzing=enable_fuzzing,
+                                  maximum_interval=maximum_interval,
                                   learning_steps=(timedelta(minutes=10),),
                                   relearning_steps=(timedelta(minutes=10),))
 
@@ -124,7 +159,7 @@ class FSRSScheduler(Scheduler):
 
 
 def simulate_workload(desired_retention, new_per_day, horizon_days=365,
-                      tail_days=90):
+                      tail_days=90, maximum_interval=None):
     """Steady-state workload ESTIMATE (LEARN-UP P4): expected reviews/day.
 
     py-fsrs 6.3.1 ships no simulator (checked: ``Scheduler`` has none, the
@@ -145,19 +180,33 @@ def simulate_workload(desired_retention, new_per_day, horizon_days=365,
       per trajectory offset ≤ ``d``; the result is the mean over the last
       ``tail_days`` of the horizon. An estimate, not a promise.
 
+    ``desired_retention`` stays a pure what-if INPUT, but the interval cap is an
+    OPERATING parameter (LEARN-TUNE): ``maximum_interval=None`` resolves it from
+    ``FSRS_MAXIMUM_INTERVAL`` — the same env key, through the same parser, that
+    ``get_scheduler()`` uses. The invariant is that simulation and the real
+    scheduler cap at the same value; otherwise the projection would promise
+    intervals the scheduler never hands out (the drift LEARN-UP ruled out for
+    the today-counts via ``capped_session_counts``). Note the direction: a cap
+    RAISES the projected load, because shorter intervals mean more reviews per
+    card per year. That is the price of the cap, not a bug.
+
     Returns expected reviews/day (float, intro ratings not counted — they are
     the "new" slots, not reviews).
     """
     if new_per_day <= 0:
         return 0.0
+    if maximum_interval is None:
+        maximum_interval = _parse_max_interval(
+            os.environ.get('FSRS_MAXIMUM_INTERVAL'))
     engine = FSRSEngine(desired_retention=desired_retention, enable_fuzzing=False)
     decay = -engine.parameters[20]
     factor = 0.9 ** (1.0 / decay) - 1.0
     t0 = datetime(2000, 1, 1, tzinfo=timezone.utc)  # virtual clock
 
     def interval_days(stability):
-        return max(1, round(stability / factor
-                            * (desired_retention ** (1.0 / decay) - 1.0)))
+        return max(1, min(maximum_interval,
+                          round(stability / factor
+                                * (desired_retention ** (1.0 / decay) - 1.0))))
 
     def expected_next_stability(stability):
         due = t0 + timedelta(days=interval_days(stability))

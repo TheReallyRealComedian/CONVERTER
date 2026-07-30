@@ -9,9 +9,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from services.scheduler import (DEFAULT_DESIRED_RETENTION, FSRSScheduler,
+from fsrs import Scheduler as _PyFSRSEngine
+
+from services.scheduler import (DEFAULT_DESIRED_RETENTION,
+                                DEFAULT_MAXIMUM_INTERVAL, FSRSScheduler,
                                 RATINGS, SM2Scheduler, get_scheduler,
-                                _parse_retention)
+                                _parse_max_interval, _parse_retention)
 
 _STATE_KEYS = {'due', 'stability', 'difficulty', 'last_reviewed', 'reps', 'lapses'}
 
@@ -134,6 +137,89 @@ def test_fsrs_step_config_sentinel():
     engine = FSRSScheduler()._engine
     assert engine.learning_steps == (timedelta(minutes=10),)
     assert engine.relearning_steps == (timedelta(minutes=10),)
+
+
+# --- LEARN-TUNE: the interval cap (FSRS_MAXIMUM_INTERVAL) --------------------
+# The cap bites the scheduled INTERVAL only, never the model: stability and
+# difficulty must come out identical to the uncapped run.
+
+
+def _mature_state(now, stability=200.0):
+    """A very stable card — uncapped its next interval is far beyond 60 days."""
+    return {'due': now, 'stability': stability, 'difficulty': 5.0,
+            'last_reviewed': now, 'reps': 3, 'lapses': 0}
+
+
+def test_fsrs_maximum_interval_default_is_the_library_default():
+    # Behaviour-neutrality, stated as an assertion: constructed without the
+    # knob, our engine carries exactly py-fsrs' own default.
+    assert FSRSScheduler()._engine.maximum_interval == DEFAULT_MAXIMUM_INTERVAL
+
+
+def test_fsrs_maximum_interval_library_default_sentinel():
+    # Sentinel (cf. LEARN-STEP's step sentinel, the nh3/Flask-WTF ones): 36500
+    # is py-fsrs 6.3.1's OWN default, which is the only reason "env unset ==
+    # unchanged behaviour" holds. A bump that moves it must fail HERE instead
+    # of silently shifting everyone's scheduling.
+    assert _PyFSRSEngine().maximum_interval == 36500
+    assert DEFAULT_MAXIMUM_INTERVAL == 36500
+
+
+def test_fsrs_maximum_interval_caps_interval_but_not_stability():
+    now = datetime.now(timezone.utc)
+    state = _mature_state(now)
+    uncapped = FSRSScheduler().apply_rating(dict(state), 'good')
+    capped = FSRSScheduler(maximum_interval=60).apply_rating(dict(state), 'good')
+    assert (_aware(uncapped['due']) - now).days > 60      # would run long
+    assert (_aware(capped['due']) - now).days == 60       # …and is cut to 60
+    # The model is NOT falsified — same stability, same difficulty.
+    assert capped['stability'] == uncapped['stability']
+    assert capped['difficulty'] == uncapped['difficulty']
+
+
+def test_fsrs_maximum_interval_leaves_short_intervals_alone():
+    # A young card is nowhere near the cap → untouched.
+    sched_a, sched_b = FSRSScheduler(), FSRSScheduler(maximum_interval=60)
+    state = dict(sched_a.new_card_state())
+    a = sched_a.apply_rating(dict(state), 'good')
+    b = sched_b.apply_rating(dict(state), 'good')
+    assert (_aware(a['due']) - _aware(a['last_reviewed'])
+            == _aware(b['due']) - _aware(b['last_reviewed']))
+
+
+def test_get_scheduler_reads_maximum_interval_from_env(monkeypatch):
+    monkeypatch.delenv('SCHEDULER_ENGINE', raising=False)
+    monkeypatch.delenv('FSRS_MAXIMUM_INTERVAL', raising=False)
+    # Unset → library default → this sprint is behaviour-neutral.
+    assert get_scheduler()._engine.maximum_interval == DEFAULT_MAXIMUM_INTERVAL
+    monkeypatch.setenv('FSRS_MAXIMUM_INTERVAL', '60')
+    assert get_scheduler()._engine.maximum_interval == 60
+
+
+def test_get_scheduler_sm2_ignores_the_cap(monkeypatch):
+    # SM-2 has no maximum_interval and must not grow one (see FSRSScheduler's
+    # docstring): its interval is identical with and without the env key.
+    monkeypatch.setenv('SCHEDULER_ENGINE', 'sm2')
+    monkeypatch.delenv('FSRS_MAXIMUM_INTERVAL', raising=False)
+    state = {'due': None, 'stability': 400.0, 'difficulty': 2.5,
+             'reps': 5, 'lapses': 0}
+    plain = get_scheduler().apply_rating(dict(state), 'good')
+    monkeypatch.setenv('FSRS_MAXIMUM_INTERVAL', '60')
+    sched = get_scheduler()
+    assert isinstance(sched, SM2Scheduler)
+    assert sched.apply_rating(dict(state), 'good')['stability'] == plain['stability']
+    assert plain['stability'] > 60      # …and it really is beyond the cap
+
+
+@pytest.mark.parametrize('raw', ['abc', '0', '-5', '', None, '1.5'])
+def test_parse_max_interval_defaults_on_garbage(raw):
+    assert _parse_max_interval(raw) == DEFAULT_MAXIMUM_INTERVAL
+
+
+def test_parse_max_interval_accepts_positive_ints():
+    assert _parse_max_interval('60') == 60
+    assert _parse_max_interval(' 21 ') == 21          # int() tolerates padding
+    assert _parse_max_interval(1) == 1
 
 
 # --- SM-2 fallback behind the same interface ---------------------------------

@@ -6,11 +6,14 @@ The rate endpoint calls it per request; constructing a scheduler is cheap.
 Config (env):
 * ``SCHEDULER_ENGINE`` — ``fsrs`` (default) | ``sm2``
 * ``FSRS_DESIRED_RETENTION`` — float in (0, 1), default 0.9
+* ``FSRS_MAXIMUM_INTERVAL`` — int days > 0, default 36500 (= the py-fsrs
+  default = effectively off); FSRS only, SM-2 has no such knob (LEARN-TUNE)
 """
 import os
 
 from .base import RATINGS, Scheduler
-from .fsrs_scheduler import FSRSScheduler
+from .fsrs_scheduler import (DEFAULT_MAXIMUM_INTERVAL, FSRSScheduler,
+                             _parse_max_interval)
 from .sm2_scheduler import SM2Scheduler
 
 DEFAULT_DESIRED_RETENTION = 0.9
@@ -32,7 +35,10 @@ def get_scheduler():
     if engine == 'sm2':
         return SM2Scheduler()
     retention = _parse_retention(os.environ.get('FSRS_DESIRED_RETENTION'))
-    return FSRSScheduler(desired_retention=retention)
+    max_interval = _parse_max_interval(os.environ.get('FSRS_MAXIMUM_INTERVAL'))
+    return FSRSScheduler(desired_retention=retention,
+                         maximum_interval=max_interval)
 
 
-__all__ = ['Scheduler', 'FSRSScheduler', 'SM2Scheduler', 'get_scheduler', 'RATINGS']
+__all__ = ['Scheduler', 'FSRSScheduler', 'SM2Scheduler', 'get_scheduler', 'RATINGS',
+           'DEFAULT_DESIRED_RETENTION', 'DEFAULT_MAXIMUM_INTERVAL']

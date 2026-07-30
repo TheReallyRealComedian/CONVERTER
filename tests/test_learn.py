@@ -20,7 +20,8 @@ from app_pkg.learn import (LEARN_SETTINGS_DEFAULTS, capped_session_counts,
                            get_user_settings, local_day_bounds, local_day_end,
                            maturity_counts, order_due_cards, true_retention)
 from models import Card, Review, User, db
-from services.scheduler import FSRSScheduler, SM2Scheduler
+from services.scheduler import (DEFAULT_MAXIMUM_INTERVAL, FSRSScheduler,
+                                SM2Scheduler, get_scheduler)
 from services.scheduler.fsrs_scheduler import simulate_workload
 
 SETTINGS_URL = '/api/learn/settings'
@@ -563,6 +564,31 @@ def test_simulate_workload_monotonic_and_deterministic():
     assert simulate_workload(0.90, 10) == mid   # deterministisch, kein RNG
     assert simulate_workload(0.90, 0) == 0.0
     assert simulate_workload(0.90, 20) == 2 * mid  # linear in new_per_day
+
+
+# --- LEARN-TUNE: die Projektion deckelt mit demselben Wert wie der Scheduler --
+
+def test_simulate_workload_honours_maximum_interval():
+    uncapped = simulate_workload(0.90, 10, maximum_interval=DEFAULT_MAXIMUM_INTERVAL)
+    capped = simulate_workload(0.90, 10, maximum_interval=60)
+    # Richtung: der Deckel HEBT die Last — kürzere Intervalle = mehr Reviews
+    # pro Karte und Jahr. Das ist der Preis des Deckels, kein Fehler.
+    assert capped > uncapped > 0
+    assert simulate_workload(0.90, 10, maximum_interval=21) > capped
+
+
+def test_simulate_workload_reads_the_same_env_key_as_the_scheduler(monkeypatch):
+    monkeypatch.delenv('FSRS_MAXIMUM_INTERVAL', raising=False)
+    assert (simulate_workload(0.90, 10)
+            == simulate_workload(0.90, 10, maximum_interval=DEFAULT_MAXIMUM_INTERVAL))
+    monkeypatch.setenv('FSRS_MAXIMUM_INTERVAL', '60')
+    # Invariante: Simulation und echter Scheduler deckeln bei demselben Wert.
+    assert get_scheduler()._engine.maximum_interval == 60
+    assert (simulate_workload(0.90, 10)
+            == simulate_workload(0.90, 10, maximum_interval=60))
+    monkeypatch.setenv('FSRS_MAXIMUM_INTERVAL', 'abc')          # Müll → Default
+    assert (simulate_workload(0.90, 10)
+            == simulate_workload(0.90, 10, maximum_interval=DEFAULT_MAXIMUM_INTERVAL))
 
 
 def test_simulate_endpoint_and_validation(app, authenticated_client, test_user):
