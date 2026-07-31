@@ -3,12 +3,15 @@
 
 import fitz
 import logging
+import os
 import re
 import time
 from typing import List, Dict, Optional
 
 from google import genai
 from google.genai import types
+
+from app_pkg.config import TIMEOUT_GEMINI_SECONDS
 
 from .detectors import (
     PyMuPDFDetector, PdfplumberDetector, CamelotDetector,
@@ -22,10 +25,28 @@ from .utils import table_to_markdown, parse_markdown_tables
 logger = logging.getLogger(__name__)
 
 
+# Gemini-Vision-Modell fuer den Scan-/Tabellen-Fallback. Env-overridable
+# (``PDF_VISION_MODEL``), Muster wie ``NARRATION_TTS_MODEL`` in
+# services/narration_render.py. Der hartkodierte Vorgaenger
+# ("gemini-2.0-flash") wurde abgeschaltet und riss den Fallback-Pfad zwei
+# Monate lang still mit — ein Modellname darf nie wieder nur per Deploy
+# korrigierbar sein. ``gemini-2.5-flash`` ist bewusst *nicht* der Nachfolger:
+# es stirbt am 16.10.2026 und landet bei demselben Modell.
+DEFAULT_VISION_MODEL = os.environ.get('PDF_VISION_MODEL') or 'gemini-3.6-flash'
+
+# Per-Call-Deadline in Millisekunden (``HttpOptions.timeout`` ist ms).
+# Der selbstgebaute genai-Client hatte keine — ein haengender Call parkte
+# den einzigen gunicorn-Worker bis zu dessen 1800s-Timeout. Per-Call statt
+# Client-Default, weil das SDK daraus *beide* Deckel baut: den httpx-Timeout
+# und den ``X-Server-Timeout``-Header (deckt also auch die Antwort, nicht nur
+# den Verbindungsaufbau). Vgl. NARR-TIMEOUT auf der Cloud-TTS-Seite.
+_GEMINI_TIMEOUT_MS = int(TIMEOUT_GEMINI_SECONDS * 1000)
+
+
 class PDFExtractionService:
     """PDF-to-Markdown conversion with ensemble table detection."""
 
-    VISION_MODEL = "gemini-2.0-flash"
+    VISION_MODEL = DEFAULT_VISION_MODEL
     RENDER_ZOOM = 3.0
     RENDER_ZOOM_SCANNED = 4.0
     MAX_RETRIES = 3
@@ -336,7 +357,8 @@ class PDFExtractionService:
         if self.gemini_client:
             try:
                 return self._extract_with_gemini_vision(
-                    page, page_num, analysis=None, zoom=self.RENDER_ZOOM_SCANNED
+                    page, page_num, analysis=None,
+                    zoom=self.RENDER_ZOOM_SCANNED, scanned=True,
                 )
             except Exception as e:
                 logger.warning(f"Gemini fuer gescannte Seite {page_num + 1} fehlgeschlagen: {e}")
@@ -415,9 +437,28 @@ class PDFExtractionService:
 
         return prompt
 
+    def _build_gemini_config(self, scanned: bool) -> types.GenerateContentConfig:
+        """Baut die ``GenerateContentConfig`` fuer einen Vision-Call.
+
+        ``scanned`` unterscheidet die beiden Aufrufer: gescannte Seiten tragen
+        *keine* Textebene, das Bild ist die einzige Quelle → volle
+        Bildaufloesung (SDK-Default). Seiten mit Textebene bekommen
+        ``MEDIA_RESOLUTION_LOW`` (halbiert die Bildtokens); der native
+        Textlayer geht ohnehin ungekuerzt und unberechnet mit.
+        """
+        config = types.GenerateContentConfig(
+            temperature=0.1,
+            max_output_tokens=16384,
+            http_options=types.HttpOptions(timeout=_GEMINI_TIMEOUT_MS),
+        )
+        if not scanned:
+            config.media_resolution = types.MediaResolution.MEDIA_RESOLUTION_LOW
+        return config
+
     def _extract_with_gemini_vision(self, page, page_num: int,
                                      analysis: Optional[Dict] = None,
-                                     zoom: Optional[float] = None) -> str:
+                                     zoom: Optional[float] = None,
+                                     scanned: bool = False) -> str:
         """Rendert Seite als Bild und sendet an Gemini Vision."""
         render_zoom = zoom or self.RENDER_ZOOM
         mat = fitz.Matrix(render_zoom, render_zoom)
@@ -425,6 +466,7 @@ class PDFExtractionService:
         img_bytes = pix.tobytes("png")
 
         prompt = self._build_gemini_prompt(analysis)
+        config = self._build_gemini_config(scanned)
 
         last_error = None
         for attempt in range(self.MAX_RETRIES):
@@ -435,10 +477,7 @@ class PDFExtractionService:
                         prompt,
                         types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
                     ],
-                    config=types.GenerateContentConfig(
-                        temperature=0.1,
-                        max_output_tokens=16384,
-                    ),
+                    config=config,
                 )
                 break
             except Exception as e:
