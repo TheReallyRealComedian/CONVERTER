@@ -38,7 +38,8 @@ class El:
 def test_table_with_html_becomes_pipe_table():
     html = ('<table><tr><td>Stoff</td><td>Menge</td></tr>'
             '<tr><td>Ethanol</td><td>12,5</td></tr></table>')
-    md, warnings = elements_to_markdown([El('Table', 'Stoff Menge Ethanol 12,5', text_as_html=html)])
+    md, warnings = elements_to_markdown(
+        [El('Table', 'Stoff Menge Ethanol 12,5', text_as_html=html)], source_ext=None)
     assert md == ('| Stoff | Menge |\n'
                   '| --- | --- |\n'
                   '| Ethanol | 12,5 |')
@@ -46,7 +47,7 @@ def test_table_with_html_becomes_pipe_table():
 
 
 def test_table_without_html_falls_back_to_text_with_warning():
-    md, warnings = elements_to_markdown([El('Table', 'Stoff Menge Ethanol')])
+    md, warnings = elements_to_markdown([El('Table', 'Stoff Menge Ethanol')], source_ext=None)
     assert md == 'Stoff Menge Ethanol'
     assert warnings == ['Tabelle ohne text_as_html — als Fliesstext ausgegeben']
 
@@ -57,27 +58,27 @@ def test_table_cell_pipes_are_escaped():
     Eine rohe Pipe in der Zelle zerrisse sonst die Spalte.
     """
     html = '<table><tr><td>a</td><td>Pipe | drin</td></tr></table>'
-    md, warnings = elements_to_markdown([El('Table', 'x', text_as_html=html)])
+    md, warnings = elements_to_markdown([El('Table', 'x', text_as_html=html)], source_ext=None)
     assert md == '| a | Pipe \\| drin |\n| --- | --- |'
     assert warnings == []
 
 
 def test_table_cell_entities_are_unescaped():
     html = '<table><tr><td>a &lt; b &amp; c</td></tr></table>'
-    md, _ = elements_to_markdown([El('Table', 'x', text_as_html=html)])
+    md, _ = elements_to_markdown([El('Table', 'x', text_as_html=html)], source_ext=None)
     assert md.splitlines()[0] == '| a < b & c |'
 
 
 def test_table_cell_linebreak_survives_as_br():
     html = '<table><tr><td>c<br/>d</td></tr></table>'
-    md, _ = elements_to_markdown([El('Table', 'x', text_as_html=html)])
+    md, _ = elements_to_markdown([El('Table', 'x', text_as_html=html)], source_ext=None)
     assert md.splitlines()[0] == '| c<br>d |'
 
 
 def test_table_with_spans_keeps_html():
     """Was Pipes nicht ausdruecken koennen, bleibt HTML — mit Warnung."""
     html = '<table><tr><td colspan="2">Breit</td></tr><tr><td>a</td><td>b</td></tr></table>'
-    md, warnings = elements_to_markdown([El('Table', 'x', text_as_html=html)])
+    md, warnings = elements_to_markdown([El('Table', 'x', text_as_html=html)], source_ext=None)
     assert md == html
     assert warnings == [
         'Tabelle mit verbundenen/ungleichen Zellen — HTML statt Pipe-Tabelle behalten'
@@ -86,13 +87,14 @@ def test_table_with_spans_keeps_html():
 
 def test_table_with_ragged_rows_keeps_html():
     html = '<table><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></table>'
-    md, warnings = elements_to_markdown([El('Table', 'x', text_as_html=html)])
+    md, warnings = elements_to_markdown([El('Table', 'x', text_as_html=html)], source_ext=None)
     assert md == html
     assert len(warnings) == 1
 
 
 def test_table_with_unparseable_html_falls_back_to_text():
-    md, warnings = elements_to_markdown([El('Table', 'Roher Text', text_as_html='<p>kaputt</p>')])
+    md, warnings = elements_to_markdown(
+        [El('Table', 'Roher Text', text_as_html='<p>kaputt</p>')], source_ext=None)
     assert md == 'Roher Text'
     assert warnings == ['Tabelle mit unlesbarem text_as_html — als Fliesstext ausgegeben']
 
@@ -104,13 +106,13 @@ def test_table_with_unparseable_html_falls_back_to_text():
 @pytest.mark.parametrize('depth,expected', [(0, '# T'), (1, '## T'), (2, '### T')])
 def test_title_depth_becomes_atx_level(depth, expected):
     """DOCX/HTML/MD: ``category_depth`` IST der Heading-Level (gemessen 0/1/2)."""
-    md, warnings = elements_to_markdown([El('Title', 'T', category_depth=depth)])
+    md, warnings = elements_to_markdown([El('Title', 'T', category_depth=depth)], source_ext=None)
     assert md == expected
     assert warnings == []
 
 
 def test_title_depth_is_capped_at_six():
-    md, _ = elements_to_markdown([El('Title', 'T', category_depth=42)])
+    md, _ = elements_to_markdown([El('Title', 'T', category_depth=42)], source_ext=None)
     assert md == '###### T'
 
 
@@ -122,7 +124,7 @@ def test_title_without_depth_is_a_paragraph():
     md, warnings = elements_to_markdown([
         El('Title', 'Eine Ueberschrift'),
         El('Title', 'Ein ganz normaler Absatz aus einer Textdatei.'),
-    ])
+    ], source_ext=None)
     assert md == 'Eine Ueberschrift\n\nEin ganz normaler Absatz aus einer Textdatei.'
     assert warnings == []
 
@@ -158,6 +160,18 @@ def test_source_ext_accepts_dot_and_case(ext):
     assert md == 'B'
 
 
+def test_source_ext_is_mandatory():
+    """Kein Default — ein vergessenes ``source_ext`` muss laut sein.
+
+    Mit ``source_ext=None`` als Default liefe ein PPTX-Aufrufer in den
+    Nicht-PPTX-Zweig und bekaeme ``## Body-Zeile`` fuer genau die Elemente,
+    wegen derer der Parameter existiert: eine still falsche Antwort. Als
+    Pflichtargument ist es ein ``TypeError`` an der Aufrufstelle.
+    """
+    with pytest.raises(TypeError):
+        elements_to_markdown([El('Title', 'B', category_depth=1)])
+
+
 # --------------------------------------------------------------------------
 # Listen
 # --------------------------------------------------------------------------
@@ -167,7 +181,7 @@ def test_list_items_become_one_bullet_block():
         El('ListItem', 'Erster', category_depth=0),
         El('ListItem', 'Zweiter', category_depth=0),
     ]
-    md, warnings = elements_to_markdown(elements)
+    md, warnings = elements_to_markdown(elements, source_ext=None)
     assert md == '- Erster\n- Zweiter'
     assert warnings == []
 
@@ -178,7 +192,7 @@ def test_list_nesting_uses_category_depth():
         El('ListItem', 'A1', category_depth=1),
         El('ListItem', 'A11', category_depth=2),
     ]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md == '- A\n  - A1\n    - A11'
 
 
@@ -191,13 +205,13 @@ def test_list_depth_is_normalised_per_run():
         El('ListItem', 'A', category_depth=1),
         El('ListItem', 'A1', category_depth=2),
     ]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md == '- A\n  - A1'
 
 
 def test_list_without_depth_is_flat():
     elements = [El('ListItem', 'A'), El('ListItem', 'B')]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md == '- A\n- B'
 
 
@@ -207,7 +221,7 @@ def test_paragraph_between_lists_splits_the_runs():
         El('NarrativeText', 'Dazwischen.'),
         El('ListItem', 'B', category_depth=1),
     ]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md == '- A\n\nDazwischen.\n\n- B'
 
 
@@ -221,7 +235,7 @@ def test_page_break_carries_the_page_number():
         El('PageBreak', '', page_number=1),
         El('NarrativeText', 'Nachher.'),
     ]
-    md, warnings = elements_to_markdown(elements)
+    md, warnings = elements_to_markdown(elements, source_ext=None)
     assert md == ('Vorher.\n\n'
                   '---\n\n'
                   '<!-- Seitenumbruch nach Seite 1 -->\n\n'
@@ -232,7 +246,7 @@ def test_page_break_carries_the_page_number():
 
 def test_page_break_without_number_is_a_bare_separator():
     elements = [El('NarrativeText', 'A'), El('PageBreak', ''), El('NarrativeText', 'B')]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md == 'A\n\n---\n\nB'
 
 
@@ -242,7 +256,7 @@ def test_page_break_closes_an_open_list():
         El('PageBreak', '', page_number=2),
         El('ListItem', 'B', category_depth=0),
     ]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md.startswith('- A\n\n---')
     assert md.endswith('- B')
 
@@ -254,13 +268,13 @@ def test_page_break_closes_an_open_list():
 @pytest.mark.parametrize('category', ['NarrativeText', 'Text', 'UncategorizedText',
                                       'Header', 'Footer', 'CodeSnippet', 'Formula'])
 def test_known_categories_become_paragraphs_without_warning(category):
-    md, warnings = elements_to_markdown([El(category, 'Inhalt')])
+    md, warnings = elements_to_markdown([El(category, 'Inhalt')], source_ext=None)
     assert md == 'Inhalt'
     assert warnings == []
 
 
 def test_unknown_category_becomes_paragraph_with_warning():
-    md, warnings = elements_to_markdown([El('Image', 'Ein Bild')])
+    md, warnings = elements_to_markdown([El('Image', 'Ein Bild')], source_ext=None)
     assert md == 'Ein Bild'
     assert warnings == ["Unbekannte Element-Kategorie 'Image' — als Absatz ausgegeben"]
 
@@ -268,21 +282,21 @@ def test_unknown_category_becomes_paragraph_with_warning():
 def test_warnings_are_aggregated_with_counts():
     """271 identische Warnungen waeren Log-Muell — sie werden gezaehlt."""
     elements = [El('Image', f'Bild {i}') for i in range(3)]
-    _, warnings = elements_to_markdown(elements)
+    _, warnings = elements_to_markdown(elements, source_ext=None)
     assert warnings == ["3× Unbekannte Element-Kategorie 'Image' — als Absatz ausgegeben"]
 
 
 def test_empty_element_list_returns_empty_string():
-    assert elements_to_markdown([]) == ('', [])
+    assert elements_to_markdown([], source_ext=None) == ('', [])
 
 
 def test_none_element_list_does_not_crash():
-    assert elements_to_markdown(None) == ('', [])
+    assert elements_to_markdown(None, source_ext=None) == ('', [])
 
 
 def test_blank_elements_are_skipped():
     elements = [El('NarrativeText', '   '), El('NarrativeText', 'Da.'), El('ListItem', '')]
-    md, _ = elements_to_markdown(elements)
+    md, _ = elements_to_markdown(elements, source_ext=None)
     assert md == 'Da.'
 
 
@@ -291,7 +305,7 @@ def test_element_without_metadata_does_not_crash():
         category = 'NarrativeText'
         text = 'Nackt'
 
-    md, warnings = elements_to_markdown([Bare()])
+    md, warnings = elements_to_markdown([Bare()], source_ext=None)
     assert md == 'Nackt'
     assert warnings == []
 
@@ -301,7 +315,7 @@ def test_category_falls_back_to_class_name():
         text = 'a b'
         metadata = _Meta(text_as_html='<table><tr><td>a</td><td>b</td></tr></table>')
 
-    md, _ = elements_to_markdown([Table()])
+    md, _ = elements_to_markdown([Table()], source_ext=None)
     assert md == '| a | b |\n| --- | --- |'
 
 

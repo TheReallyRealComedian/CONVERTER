@@ -84,7 +84,8 @@ _PARAGRAPH_CATEGORIES = frozenset({
 _W_TABLE_NO_HTML = "Tabelle ohne text_as_html — als Fliesstext ausgegeben"
 _W_TABLE_UNPARSED = "Tabelle mit unlesbarem text_as_html — als Fliesstext ausgegeben"
 _W_TABLE_SPANS = "Tabelle mit verbundenen/ungleichen Zellen — HTML statt Pipe-Tabelle behalten"
-_W_PPTX_TITLE = "PPTX: 'Title' unterhalb der Titelebene als Absatz ausgegeben (Laengen-Heuristik, keine Ueberschrift)"
+_W_PPTX_TITLE = ("PPTX: 'Title' unterhalb der Titelebene als Absatz ausgegeben "
+                 "(Laengen-Heuristik, keine Ueberschrift)")
 
 
 class _TableHTMLParser(HTMLParser):
@@ -220,12 +221,18 @@ def _aggregate(counter):
     ]
 
 
-def elements_to_markdown(elements, source_ext=None):
+def elements_to_markdown(elements, source_ext):
     """``unstructured``-Elemente → ``(markdown, warnings)``.
 
     ``source_ext`` ist die Endung der Quelldatei (mit oder ohne Punkt, Case
-    egal); sie steuert ausschliesslich die ``Title``-Behandlung fuer PPTX.
-    ``None`` heisst „unbekannt" und faehrt den Nicht-PPTX-Zweig.
+    egal) und **Pflicht, ohne Default**. Ein Default waere hier die gefaehrlichere
+    Signatur: ``source_ext=None`` faehrt den Nicht-PPTX-Zweig und liefert damit
+    fuer genau die 271 Elemente, wegen derer der Parameter existiert,
+    ``## Body-Zeile`` — eine still falsche Antwort statt einer lauten. Als
+    Pflichtargument wird daraus ein ``TypeError`` an der Aufrufstelle. Die
+    heutige Route gibt die Endung immer mit; der naechste Aufrufer ist der
+    Dokument-Dienst. ``None`` bleibt als *expliziter* Wert erlaubt und heisst
+    „Endung unbekannt".
 
     ``warnings`` ist die Degradations-Liste: was nicht sauber uebersetzt werden
     konnte, steht **im Rueckgabewert**, nicht nur im Log. Die Route entscheidet,
