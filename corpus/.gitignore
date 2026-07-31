@@ -1,0 +1,24 @@
+# Die Korpus-Quelldateien bleiben auf der Platte, nicht in der Git-History.
+#
+# Grund: der cloud-fähige Satz ist ~60 MB, davon allein 51 MB ein einziges PPTX.
+# Dieses Repo wird auf der Mintbox bei jedem Deploy gezogen, und Git vergisst
+# Binäres nie wieder — einmal committet ist die History dauerhaft schwer.
+# Versioniert wird deshalb, was die Dateien *beschreibt*: die READMEs, die
+# Übersicht, die Lückenliste, die OCR-Baseline und die Gold-Fassungen.
+#
+# Wer den Korpus neu aufsetzt, liest 00_KORPUS-UEBERSICHT.md — dort steht pro
+# Klasse, welche Datei gemeint ist und woher sie stammt.
+#
+# ⚠️ Der betriebliche Satz (`intern/`) liegt bewusst GAR NICHT in diesem Repo,
+# auch nicht ignoriert, sondern in der Nextcloud. Ein `git add -A` im falschen
+# Moment reicht sonst, und der Mintbox-Clone zeigt laut Memory
+# `reference_two_clone_coordination_mac_mintbox` ohnehin einen spurious dirty
+# tree. Die Zeile unten bleibt trotzdem stehen — doppelt hält.
+
+intern/
+
+# Alles ignorieren, außer Verzeichnissen und Markdown.
+*
+!*/
+!*.md
+!.gitignore
