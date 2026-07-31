@@ -440,20 +440,31 @@ class PDFExtractionService:
     def _build_gemini_config(self, scanned: bool) -> types.GenerateContentConfig:
         """Baut die ``GenerateContentConfig`` fuer einen Vision-Call.
 
-        ``scanned`` unterscheidet die beiden Aufrufer: gescannte Seiten tragen
-        *keine* Textebene, das Bild ist die einzige Quelle → volle
-        Bildaufloesung (SDK-Default). Seiten mit Textebene bekommen
-        ``MEDIA_RESOLUTION_LOW`` (halbiert die Bildtokens); der native
-        Textlayer geht ohnehin ungekuerzt und unberechnet mit.
+        ``media_resolution`` wird auf **beiden** Pfaden explizit gesetzt — auch
+        dort, wo der heutige API-Default schon das Richtige tut. Ein Default,
+        der das Verhalten bestimmt, gehoert nicht geerbt: kippt er einmal still
+        von HIGH auf MEDIUM, halbiert das die Aufloesung ausgerechnet auf dem
+        Scan-Pfad, wo das Bild die *einzige* Quelle ist, und der Verlust zeigt
+        sich als schlechtere OCR, nicht als Fehler. Dieselbe Lehre wie bei den
+        FSRS-``learning_steps``.
+
+        Gemessen an einer Testseite (2026-07-31, ``gemini-3.6-flash``,
+        Bildtokens): LOW = 266 · MEDIUM = 532 · HIGH = 1092 · ungesetzt = 1092.
+        Der API-Default lag also auf HIGH — das explizite HIGH ist heute
+        verhaltensneutral und deckelt nur, was morgen daraus wird. LOW gegen
+        HIGH ist Faktor ~4, nicht 2. Seiten mit Textebene fahren deshalb LOW:
+        der native Textlayer geht ohnehin ungekuerzt und unberechnet mit und
+        traegt den Inhalt; das Bild muss dort nur das Layout belegen.
         """
-        config = types.GenerateContentConfig(
+        return types.GenerateContentConfig(
             temperature=0.1,
             max_output_tokens=16384,
             http_options=types.HttpOptions(timeout=_GEMINI_TIMEOUT_MS),
+            media_resolution=(
+                types.MediaResolution.MEDIA_RESOLUTION_HIGH if scanned
+                else types.MediaResolution.MEDIA_RESOLUTION_LOW
+            ),
         )
-        if not scanned:
-            config.media_resolution = types.MediaResolution.MEDIA_RESOLUTION_LOW
-        return config
 
     def _extract_with_gemini_vision(self, page, page_num: int,
                                      analysis: Optional[Dict] = None,
