@@ -17,8 +17,9 @@
 
 intern/
 
-# Alles ignorieren, außer Verzeichnissen und Markdown.
+# Alles ignorieren, außer Verzeichnissen, Markdown und dem Statuscheck.
 *
 !*/
 !*.md
 !.gitignore
+!pruefen.py
