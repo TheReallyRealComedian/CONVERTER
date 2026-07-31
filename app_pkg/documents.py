@@ -8,6 +8,8 @@ from flask import jsonify, render_template, request, send_file
 from flask_login import login_required
 from werkzeug.utils import secure_filename
 
+from services.unstructured_markdown import elements_to_markdown
+
 
 # Single source of truth for what /transform-document accepts. The template
 # reads this via the route context and exposes it to JS as
@@ -63,7 +65,9 @@ def register(app):
                 # Andere Formate (DOCX, PPTX, HTML, EML, etc.): bestehende unstructured Pipeline
                 app.logger.info("Partitioning document with unstructured (strategy='fast')...")
                 elements = _app_module.partition(filename=temp_file_path, strategy="fast")
-                output_markdown = "\n\n".join([el.text for el in elements])
+                output_markdown, warnings = elements_to_markdown(elements, source_ext=ext)
+                for warning in warnings:
+                    app.logger.warning("Serializer (%s): %s", original_filename, warning)
 
             output_path_obj = Path(original_filename)
             output_filename = f"{output_path_obj.stem}.md"
