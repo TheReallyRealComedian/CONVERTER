@@ -43,6 +43,33 @@ DEFAULT_VISION_MODEL = os.environ.get('PDF_VISION_MODEL') or 'gemini-3.6-flash'
 _GEMINI_TIMEOUT_MS = int(TIMEOUT_GEMINI_SECONDS * 1000)
 
 
+def _strip_wrapper_fence(text: str) -> str:
+    """Entfernt eine Code-Fence, die die **ganze** Modell-Antwort einpackt.
+
+    Der Prompt verbietet Fences, manche Antworten tragen trotzdem eine. Frueher
+    hing dahinter zusaetzlich ein globaler Sweep im Post-Processing
+    (``re.sub(r'```\\w*\\n', '')`` plus ``.replace('```', '')`` ueber das ganze
+    Dokument), der jeden **echten** Codeblock des Dokuments mitentfernt hat.
+    Der Sweep ist weg; die zwei Luecken, die ihn scheinbar rechtfertigten,
+    werden hier an der Quelle geschlossen:
+
+    * Bei ``` ```md ``` liess die alte Variante die Sprachmarke als Text
+      stehen (sie strippte nur die drei Backticks). Jetzt faellt die ganze
+      Eroeffnungszeile.
+    * Die schliessende Fence wird **nur** entfernt, wenn genau eine uebrig ist,
+      also wirklich die Partnerin der geoeffneten. Eine Antwort, die auf einen
+      echten Codeblock endet, bleibt unangetastet — die alte Variante schnitt
+      deren Abschluss ab und zerriss den Block.
+    """
+    opening = re.match(r'```[^\n]*\n', text)
+    if not opening:
+        return text
+    body = text[opening.end():]
+    if body.count('```') == 1 and body.rstrip().endswith('```'):
+        body = body.rstrip()[:-3]
+    return body.strip()
+
+
 class PDFExtractionService:
     """PDF-to-Markdown conversion with ensemble table detection."""
 
@@ -73,7 +100,7 @@ class PDFExtractionService:
 
         # Phase 1: Tiered Detection + Seitenklassifizierung
         page_analyses = self._analyze_pages_tiered(doc, file_path)
-        link_map = self._extract_links(doc)
+        self._count_uri_links(doc)
 
         table_page_count = sum(1 for a in page_analyses if a['has_tables'])
         scanned_count = sum(1 for a in page_analyses if a.get('page_type') == 'scanned')
@@ -123,7 +150,6 @@ class PDFExtractionService:
         full_markdown = "\n\n---\n\n".join(
             md for md in page_markdowns if md.strip()
         )
-        full_markdown = self._embed_links(full_markdown, link_map)
         full_markdown = self._postprocess_markdown(full_markdown)
 
         return full_markdown
@@ -275,6 +301,7 @@ class PDFExtractionService:
         """Extract page using ensemble: best extractor per consensus table."""
         content_parts = []
         table_bboxes = []
+        failed_tables = 0
 
         for ct in analysis['consensus_tables']:
             # Try local extractors first
@@ -304,9 +331,23 @@ class PDFExtractionService:
                 except Exception as e:
                     logger.warning(f"Gemini fallback failed page {page_num + 1}: {e}")
 
-        # Add non-table text blocks
-        if table_bboxes:
-            self._add_non_table_text(page, table_bboxes, content_parts)
+            # Weder lokal noch via Gemini extrahierbar.
+            failed_tables += 1
+
+        if failed_tables:
+            logger.warning(
+                f"Seite {page_num + 1}: {failed_tables} von "
+                f"{len(analysis['consensus_tables'])} erkannte(n) Tabelle(n) nicht "
+                f"extrahierbar - Seite wird ohne sie ausgegeben"
+            )
+
+        # Fliesstext IMMER einsammeln. Hier stand ``if table_bboxes:`` — schlug
+        # auf einer Seite mit erkannter Tabelle *jede* Extraktion fehl, blieb
+        # die Liste leer und mit ihr verschwand der gesamte Fliesstext der
+        # Seite rueckstandslos. Die richtige Ausgabe ist die Seite **ohne** die
+        # Tabelle, nicht die leere Seite. Bei gefuellter Liste ist das
+        # Verhalten unveraendert — die Bboxen filtern wie bisher.
+        self._add_non_table_text(page, table_bboxes, content_parts)
 
         content_parts.sort(key=lambda x: x['y_pos'])
         return '\n\n'.join(part['content'] for part in content_parts)
@@ -505,15 +546,7 @@ class PDFExtractionService:
         if not response.text:
             raise ValueError(f"Gemini leere Antwort fuer Seite {page_num + 1}")
 
-        result = response.text.strip()
-
-        # Code-Fences entfernen
-        if result.startswith("```markdown"):
-            result = result[len("```markdown"):].strip()
-        if result.startswith("```"):
-            result = result[3:].strip()
-        if result.endswith("```"):
-            result = result[:-3].strip()
+        result = _strip_wrapper_fence(response.text.strip())
 
         logger.info(f"Seite {page_num + 1}: Gemini Vision ({len(result)} Zeichen)")
         return result
@@ -690,26 +723,52 @@ class PDFExtractionService:
     # Links & Post-Processing
     # -------------------------------------------------------------------------
 
-    def _extract_links(self, doc) -> Dict[str, str]:
-        """Extrahiert Hyperlinks aus dem PDF."""
-        link_map = {}
-        for page_num, page in enumerate(doc):
-            links = page.get_links()
-            for link in links:
-                if link.get('kind') == fitz.LINK_URI:
-                    clickable_area = link['from']
-                    link_text = page.get_textbox(clickable_area).strip().replace('\n', ' ')
-                    link_url = link.get('uri')
-                    if link_text and link_url:
-                        link_map[link_text] = link_url
-        if link_map:
-            logger.info(f"{len(link_map)} Links extrahiert")
-        return link_map
+    def _count_uri_links(self, doc) -> int:
+        """Zaehlt die Hyperlinks des PDFs — eingebettet werden sie nicht mehr.
+
+        Hier stand ``_extract_links`` + ``_embed_links``: eine ``{sichtbarer
+        Text: URL}``-Map ueber **alle** Seiten, die anschliessend per
+        ``markdown.replace(link_text, ...)`` ueber das **ganze** Dokument lief.
+        Das hatte drei Fehler auf einmal — jedes weitere Vorkommen desselben
+        Worts wurde zum Link (auch in Tabellenzellen), zwei URLs unter „hier"
+        ueberschrieben einander, und ein Linktext, der in einer bereits
+        eingebetteten URL vorkam, verschachtelte sich hinein.
+
+        Repariert wurde das durch **Abschalten**, nicht durch eine engere
+        Ersetzung, weil die noetige Information an dieser Stelle strukturell
+        nicht mehr existiert: ``_embed_links`` lief auf dem fertig
+        zusammengesetzten Markdown, in dem keine Position mehr auf ein
+        PDF-Rechteck zurueckzeigt. Auf dem Gemini-Pfad ist die Seite ausserdem
+        neu gesetzter Modell-Text, in dem der Ankertext gar nicht wortgleich
+        vorkommen muss. „Nur an seiner eigenen Fundstelle" waere dort keine
+        engere Ersetzung, sondern eine besser getarnte Vermutung. Eine korrekte
+        Einbettung muesste waehrend der Extraktion passieren, positionsbewusst,
+        pro Textblock — das ist ein eigener Sprint, kein Post-Processing-Fix.
+
+        Der Zaehler bleibt als Degradationssignal: er sagt im Log, dass die
+        Seite Links **hatte**, die nicht in der Ausgabe stehen.
+        """
+        count = 0
+        for page in doc:
+            for link in page.get_links():
+                if link.get('kind') == fitz.LINK_URI and link.get('uri'):
+                    count += 1
+        if count:
+            logger.warning(
+                f"{count} Hyperlink(s) im PDF werden nicht eingebettet - "
+                f"die URLs fehlen im Markdown"
+            )
+        return count
 
     def _postprocess_markdown(self, markdown: str) -> str:
-        """Bereinigt und normalisiert den finalen Markdown-Output."""
-        markdown = re.sub(r'```\w*\n', '', markdown)
-        markdown = markdown.replace('```', '')
+        """Bereinigt und normalisiert den finalen Markdown-Output.
+
+        Hier stand ein globaler Fence-Sweep ueber das ganze Dokument, der jeden
+        echten Codeblock entfernte. Sein berechtigter Zweck — Fence-Artefakte
+        der Modell-Antwort — ist an der Quelle erledigt, in
+        ``_strip_wrapper_fence``. Was eine Seite an Codeblock mitbringt, gehoert
+        ihr und bleibt.
+        """
         markdown = re.sub(r'\n{4,}', '\n\n\n', markdown)
         markdown = re.sub(r'^#+\s*Page\s+\d+\s*$', '', markdown, flags=re.MULTILINE)
 
@@ -725,12 +784,3 @@ class PDFExtractionService:
 
         return '\n'.join(cleaned_lines)
 
-    def _embed_links(self, markdown: str, link_map: Dict[str, str]) -> str:
-        """Bettet Hyperlinks als Markdown-Links ein."""
-        if not link_map:
-            return markdown
-        for link_text in sorted(link_map.keys(), key=len, reverse=True):
-            link_url = link_map[link_text]
-            markdown_link = f"[{link_text}]({link_url})"
-            markdown = markdown.replace(link_text, markdown_link)
-        return markdown
