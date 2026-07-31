@@ -54,7 +54,9 @@ Alle vier Teilaussagen haben einen wörtlichen Beleg, aber:
 - **(d) ist gehedged und teilweise selbst-widerlegt** — „typically saturates" für „standard documents", während derselbe Anbieter im Migrationsleitfaden für „dense document parsing" ausdrücklich `media_resolution_high` zu testen empfiehlt.
 - Stolperstein in der Quelle: die Seite trägt im Einleitungsabsatz weiter die veraltete 2.x-Zahl „258 tokens" neben der 3er-Tabelle mit 560 — wer überfliegt, rechnet um Faktor 2,2 daneben.
 
-**Der Hebel, den der Report nicht gezogen hat**: Für Textdokumente `media_resolution` **explizit auf `low`** setzen — halbiert die Bildtokens gegenüber dem Default, während der native Textlayer ungekürzt und unberechnet mitgeht.
+**Der Hebel, den der Report nicht gezogen hat**: Für Textdokumente `media_resolution` **explizit auf `low`** setzen — der native Textlayer geht ungekürzt und unberechnet mit.
+
+> **Nachtrag 2026-07-30, an einem echten Call gemessen (DOC-FIX P1)**: Der Gewinn ist **4×, nicht 2×** — `low` = **266** Bildtokens, Default = **1092** (Prompt-Kosten der Seite 483 statt 1309). Der gemessene Default liegt damit an der dokumentierten **HIGH**-Stufe (1120), nicht an MEDIUM (560). Für `gemini-3.6-flash` ist der Default also offenbar HIGH; die Doku-Angabe „Default 560" aus B-52 gilt dafür **nicht**. Zwei Folgen: der Spar-Hebel ist doppelt so groß wie angenommen, und die Kostenrechnung „1.000 Seiten = 560k Input-Tokens" ist im Default eher **1,1M** — mit `low` dagegen ~266k.
 
 ### R-05 · B-24 · Doclings Deutsch-OCR-Falle — **überholt, Schlussfolgerung kippt**
 
