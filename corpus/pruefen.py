@@ -15,6 +15,12 @@ import glob
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 
+# Der Korpus wurde ursprünglich in der Nextcloud gebaut und von dort ins Repo
+# kopiert. Beide Orte existieren weiter — und genau daran ist am 02.08. ein
+# Nachtrag verloren gegangen: die Datei lag in der Nextcloud, das Repo sah leer
+# aus. Deshalb prüft dieses Skript beide Seiten gegeneinander.
+NEXTCLOUD = os.path.expanduser('~/Nextcloud/00 Inbox/Benchmarkfiles')
+
 # Schwellen aus services/pdf_extraction/service.py
 SCANNED = lambda cov, dens: cov > 0.7 and dens < 0.5
 MIXED = lambda cov, dens: cov > 0.3 and dens < 2.0
@@ -106,6 +112,29 @@ def main():
         offen.append(f'gold/: {len(fehlend)} von {len(GOLD)} Soll-Fassungen fehlen')
     else:
         print(f'  ✅ gold/                      Soll-Fassungen               — alle {len(GOLD)} da')
+
+    # Drift gegen die Nextcloud-Kopie: was dort liegt und hier nicht, ist
+    # verlorene Arbeit — sie sieht für alles Nachgelagerte schlicht nicht aus.
+    if os.path.isdir(NEXTCLOUD):
+        # Vergleich über den Dateinamen, nicht den Pfad: Klassen werden
+        # umsortiert (05 → 14 beim Raster-Split), und eine verschobene Datei
+        # ist nicht verloren. Gemeldet wird nur, was im Repo NIRGENDWO liegt.
+        hier_namen = {d for _w, _o, ds in os.walk(HIER) for d in ds}
+        fehlt_hier = []
+        for wurzel, ordner, dateien in os.walk(NEXTCLOUD):
+            ordner[:] = [o for o in ordner if o != 'intern']
+            for d in dateien:
+                if d in ('.DS_Store', 'README.md') or d.startswith('.'):
+                    continue
+                if d not in hier_namen:
+                    fehlt_hier.append(os.path.relpath(os.path.join(wurzel, d), NEXTCLOUD))
+        if fehlt_hier:
+            print()
+            print('  ⚠️ Liegt in der Nextcloud, aber NICHT hier:')
+            for rel in sorted(fehlt_hier):
+                print(f'       {rel}')
+            print(f'     → kopieren:  cp "{NEXTCLOUD}/<datei>" "{HIER}/<ordner>/"')
+            offen.append(f'{len(fehlt_hier)} Datei(en) nur in der Nextcloud')
 
     print()
     if offen:
