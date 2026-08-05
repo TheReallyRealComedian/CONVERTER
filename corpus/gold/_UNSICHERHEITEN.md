@@ -16,7 +16,41 @@ Alle drei Urteile: *brauchbar mit Korrekturen*. Das heißt: der Wortlaut steht, 
 
 ---
 
-## Die eine Entscheidung, die du zuerst treffen musst
+## ✅ Entschieden (Oli, 2026-08-02) — erledigt
+
+| | Entscheidung | Folge |
+|---|---|---|
+| **Tabelle I und II** (`01.md`) | **beide perfekt getroffen** | Der Punkt mit dem höchsten Rate-Anteil ist zu. Keine Änderung. |
+| **Fettbalken** (`07.md`) | `##` **bleibt** — „vom Font her eine Überschrift, sitzt aber in einer vollständig gemergten ersten Tabellenzeile" | Datei unverändert, aber **Bewertungsregel 1** unten schützt die Messung. |
+| **Mathematik** (`01.md`) | **LaTeX zulassen** | Umgesetzt: 32 Ersetzungen, keine Plaintext-Indizes mehr. **Bewertungsregel 2**. |
+| **Bindestrich** (`08.md`) | **korrekt aufgelöst** — steht am Zellenende, und in Word wird das manuell gesetzt, um Trennungen in Tabellen zu erzwingen | Keine Änderung. |
+| **Fußnote am Bild** (`08.md`) | **Bildbezug explizit machen** | Umgesetzt: `![Bild 1]()[^1]`. **Bewertungsregel 3**. |
+
+---
+
+## Bewertungsregeln für den Bake-off
+
+Drei Stellen der Gold-Fassungen kodieren eine **Wahl**, keine Wahrheit. Wer dort auf Zeichengleichheit prüft, misst die Zustimmung zu Olis Konvention statt die Fähigkeit des Werkzeugs — und verliert damit den Wert der übrigen Seite gleich mit.
+
+**Regel 1 — `07.md`, die drei Fettbalken.** Die Gold-Fassung schreibt `##`. **Gleichwertig** ist eine verbundene Kopfzeile (`<th colspan="5">` als erste Zeile der jeweiligen Tabelle). Begründung: Oli hat beides bestätigt — es *ist* typografisch eine Überschrift und *ist* strukturell eine vollständig gemergte Zeile. Ein Werkzeug, das die zweite Lesart liefert, hat nicht schlechter gearbeitet.
+
+**Regel 2 — `01.md`, Tief- und Hochstellungen.** Die Gold-Fassung schreibt LaTeX (`$\ell_{rand}$`). **Gleichwertig** ist jede Notation, die die Unterscheidung **erhält** — Unicode-Tiefstellungen, wo sie existieren, oder andere explizite Auszeichnung. **Nicht** gleichwertig ist das Einebnen (`ellrand`, `Pout`): dabei geht die Information verloren. Begründung: im PDF steht keine Auszeichnung, sondern typografische Positionierung; eine bestimmte Markup-Form zu verlangen misst Darstellungsgeschmack. Gemessen gehört, **ob die Unterscheidung überlebt**.
+
+⚠️ Unicode allein reicht für diesen Korpus nachweislich nicht: es gibt keine Tiefstellung für b, c, d, f, g, q, w, y, z — `ℓ_rand`, `f_mech`, `Δ_Sub`, `Δ_Diss` und `Δ_G` sind damit nicht schreibbar. Das war der Grund für LaTeX.
+
+**Regel 3 — `08.md`, die Abbildung.** Die Gold-Fassung schreibt `![Bild 1]()`. **Gleichwertig** ist jede Bild-Syntax an dieser Stelle mit beliebigem Ziel. Entscheidend ist nur zweierlei: dass die Abbildung überhaupt markiert wird, und dass die Fußnote an ihr hängt. Begründung: die Quelle bettet das Bild ohne Alternativtext ein (`docPr/@name = "Bild 1"`, `descr` fehlt); ob ein Pfad entsteht, hängt davon ab, ob das Werkzeug Assets extrahiert.
+
+### Quell-Eigenheiten, die ein Werkzeug NICHT reparieren darf
+
+Wer das „korrigiert", hat einen Fehler gemacht:
+
+- `08.md`: **`Markteilnehmer`** (ein t) · **`19.Auflage`** und **`S.189.`** ohne Leerzeichen nach dem Punkt.
+- `01.md`: die Bildunterschrift von TABLE II schreibt **`lreal, lrand, lpow`** mit kleinem L, die Spaltenköpfe **derselben** Tabelle **`ℓreal ℓrand ℓpow`** mit Skript-Ell. *Am Original nachgemessen* — eine Satz-Inkonsistenz der Quelle, kein Transkriptionsfehler. In der Gold-Fassung entsprechend `$l_{real}$` gegen `$\ell_{real}$`.
+- `01.md`: die Kursivsetzung von *E. coli* ist im Original asymmetrisch (nur in TABLE I).
+
+---
+
+## Historisch — die Entscheidung, die zu Regel 1 geführt hat
 
 **`07.md`, die drei Fettbalken: Überschriften oder verbundene Tabellenköpfe?**
 
@@ -32,13 +66,13 @@ Entscheide das zuerst; alles andere an `07.md` hängt davon ab.
 
 ---
 
-## Arbeitsreihenfolge
+## Was noch offen ist
 
-1. **`07.md`, Fettbalken** (oben) — strukturbestimmend, alles andere folgt daraus.
-2. **`01.md`, Tabelle I und II, Spaltenzuordnung** — die Textebene liefert dort nur eine flache Zeilenliste, die Spalten sind über x-Koordinaten rekonstruiert. Das ist die Stelle mit dem höchsten Raten-Anteil im ganzen Satz. Sieh dir die gerenderte Seite 8 neben der Tabelle an, Zeile für Zeile.
-3. **`01.md`, mathematische Notation** — der Entwurf schreibt `P_out(k)`, `k^−γ_out`, `ℓ_rand`. Die Quelle hat dort **echte typografische Tief-/Hochstellungen**, kein LaTeX. Der Prüfer wertet das als Konventionsverstoß („kein LaTeX erfinden"). Deine Wahl: Unicode-Indizes (`P_out` → `Pₒᵤₜ` ist unvollständig darstellbar), LaTeX zulassen, oder flach schreiben. **Was du hier entscheidest, gilt für jeden Kandidaten** — ein Werkzeug, das `$P_{out}$` liefert, ist danach entweder richtig oder falsch.
-4. **`08.md`, ein Bindestrich** — Tabelle 1, Zeile 13: die Quelle hat `tatsächliche Unternehmens-ressourcen` mit einem echten `U+002D` **mitten im Text-Run**, nicht am Zeilenende. Konvention 5 (Trennstriche auflösen) greift dort **nicht**; der Entwurf hat sie trotzdem angewandt.
-5. Der Rest unten, nach Risiko sortiert.
+Alle fünf Punkte, die eine Entscheidung brauchten, sind entschieden (Tabelle oben). Was unten im ungekürzten Befund steht, ist **mittleres und niedriges Risiko** — Formalien, die keine Wahl mehr verlangen.
+
+Wer weitermacht, kann die Restliste durchgehen oder sie stehen lassen: sie dokumentiert, wo die Gold-Fassungen weniger scharf sind als anderswo, und das ist für die Auswertung des Bake-offs nützlich, auch ohne Korrektur.
+
+**Ein Folge-Item, das nicht hierher gehört, aber aus der LaTeX-Entscheidung folgt**: Lernkarten rendern **keine** Mathematik — KaTeX wird nur in `markdown_converter.html` und `library_detail.html` geladen, nicht in `review.html`. Wird konvertierter Dokumenttext zu Kartenmaterial, steht `$\ell_{rand}$` roh auf der Karte. Notiert im BACKLOG.
 
 ---
 
