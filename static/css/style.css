@@ -2138,11 +2138,16 @@ body.reader-active .sidebar-toggle-floater--global {
    so steht die gerenderte Karte zeilengleich zur geschriebenen.
    padding-left in em, nicht px: der Einzug skaliert mit der Schrift, und
    `outside` gibt den hängenden Einzug — bei 375 px umbrechende Punkte rücken
-   unter den Text statt unter den Aufzählungspunkt. */
+   unter den Text statt unter den Aufzählungspunkt.
+   ⚠️ `list-style` als KURZFORM (type + position), nicht nur die Position:
+   Bootstraps Reset setzt `menu, ol, ul { list-style: none }`, und der schlägt
+   eine Regel, die bloß `list-style-position` nachzieht — die Aufzählung stand
+   im Live-Smoke ohne Punkte da, obwohl sie auf einer nackten Testseite mit
+   nur style.css korrekt aussah. */
 .review-md-list {
     margin: 0;
     padding-left: 1.35em;
-    list-style-position: outside;
+    list-style: disc outside;
 }
 .review-md-list li {
     /* pre-wrap gilt auch hier; der <li>-Inhalt ist bewusst EINE Quellzeile. */
