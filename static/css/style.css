@@ -2127,6 +2127,28 @@ body.reader-active .sidebar-toggle-floater--global {
     word-break: break-word;
 }
 
+/* CARD-MD — die Aufzählung im Kartentext (static/js/card_markup.js).
+   ⚠️ Diese Liste lebt in einer `white-space: pre-wrap`-Fläche, deshalb ist
+   `margin: 0` load-bearing und keine Kosmetik: der Browser-Default (1em oben
+   UND unten) addierte sich zu den Zeilenumbrüchen, die pre-wrap ohnehin schon
+   aus dem Quelltext trägt. Gemessen an Karte 166 bei 640 px: roher Text
+   196 px · <ul> mit Default-Margins und stehengelassenen \n 241 px (+45 px,
+   die sichtbar doppelten Abstände) · gerendert 196 px. Die Luft VOR und NACH
+   einer Liste kommt aus den Leerzeilen der Quelle, nicht von dieser Regel —
+   so steht die gerenderte Karte zeilengleich zur geschriebenen.
+   padding-left in em, nicht px: der Einzug skaliert mit der Schrift, und
+   `outside` gibt den hängenden Einzug — bei 375 px umbrechende Punkte rücken
+   unter den Text statt unter den Aufzählungspunkt. */
+.review-md-list {
+    margin: 0;
+    padding-left: 1.35em;
+    list-style-position: outside;
+}
+.review-md-list li {
+    /* pre-wrap gilt auch hier; der <li>-Inhalt ist bewusst EINE Quellzeile. */
+    margin: 0;
+}
+
 /* LEARN-RATE — die Bewertungsreihe erklärt sich selbst. Der Wrapper trägt jetzt
    die Frage-Zeile plus die .c-btn-row; das Show/Hide hängt weiter am Wrapper. */
 .review-rating { margin-top: var(--nm-space-lg); }

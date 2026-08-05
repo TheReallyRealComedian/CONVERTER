@@ -7,7 +7,15 @@
    exclusively via textContent / DOM nodes (XSS-safe). The ONE exception
    (CARD-SVG): the two figure containers get innerHTML — their SVG arrives
    SERVER-sanitized (services/svg_sanitize.py, applied in Card.to_dict), never
-   raw agent input. Keep every other card field on textContent. */
+   raw agent input.
+
+   CARD-MD: die vier Kartenfelder (front, back, prompt, cloze_text) laufen seit
+   diesem Sprint durch renderCardMarkup (static/js/card_markup.js) statt über
+   textContent — der Renderer baut DOM-KNOTEN, keine innerHTML, die Doktrin
+   steht also unverändert. Er hat renderCloze abgelöst und aufgenommen: EIN
+   Durchlauf kennt Cloze und Auszeichnung. Jede ANDERE textContent-Stelle hier
+   bleibt, wie sie ist — Badges, Zähler, Fortschritt und Fehlermeldungen sind
+   keine Agenten-Eingabe und haben in einem Markdown-Renderer nichts zu suchen. */
 (function () {
     'use strict';
 
@@ -102,28 +110,15 @@
     const parseUTC = (iso) =>
         new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
 
-    // --- cloze rendering: {{answer}} → a blank box (front) or the highlighted
-    //     answer (back). Built as DOM nodes so the card text can't inject HTML. ---
-    const CLOZE_RE = /\{\{(.+?)\}\}/g;
-
-    function renderCloze(target, text, reveal) {
-        target.textContent = '';
-        let last = 0, m;
-        CLOZE_RE.lastIndex = 0;
-        while ((m = CLOZE_RE.exec(text)) !== null) {
-            if (m.index > last) {
-                target.appendChild(document.createTextNode(text.slice(last, m.index)));
-            }
-            const span = document.createElement('span');
-            span.className = reveal ? 'review-cloze-fill' : 'review-cloze-blank';
-            span.textContent = reveal ? m[1] : '…';
-            target.appendChild(span);
-            last = m.index + m[0].length;
-        }
-        if (last < text.length) {
-            target.appendChild(document.createTextNode(text.slice(last)));
-        }
-    }
+    // --- Kartentext (CARD-MD) ------------------------------------------------
+    // Ein Aufruf für alle vier Felder. renderCardMarkup baut DOM-Knoten und
+    // kennt **fett** · *kursiv* · Aufzählungen · {{cloze}}. Der clozeMode ist
+    // ausdrücklich nur für cloze_text 'hide'/'reveal' — in front/back/prompt
+    // bleibt {{…}} Literal, exakt wie vor diesem Sprint (im Korpus kommt es
+    // dort nirgends vor; der Renderer soll trotzdem nichts versprechen, wonach
+    // niemand gefragt hat).
+    const renderText = (target, text, clozeMode) =>
+        window.renderCardMarkup(target, text || '', clozeMode || 'off');
 
     const isCloze = (card) => card.type === 'atomic' && !card.front && !!card.cloze_text;
 
@@ -155,15 +150,15 @@
         }
 
         if (card.type === 'generative') {
-            questionEl.textContent = card.prompt || '';
+            renderText(questionEl, card.prompt);
             show(genHintEl);
             answerLabel.textContent = 'Musterantwort';
         } else if (isCloze(card)) {
-            renderCloze(questionEl, card.cloze_text, false);
+            renderText(questionEl, card.cloze_text, 'hide');
             hide(genHintEl);
             answerLabel.textContent = 'Lösung';
         } else {
-            questionEl.textContent = card.front || '';
+            renderText(questionEl, card.front);
             hide(genHintEl);
             answerLabel.textContent = 'Lösung';
         }
@@ -189,11 +184,13 @@
         if (revealed) return;
         const card = currentCard();
         if (card.type === 'generative') {
-            answerEl.textContent = card.back || '(keine Musterantwort hinterlegt)';
+            // Der Platzhalter ist UI-Text, keine Agenten-Eingabe → textContent.
+            if (card.back) renderText(answerEl, card.back);
+            else answerEl.textContent = '(keine Musterantwort hinterlegt)';
         } else if (isCloze(card)) {
-            renderCloze(answerEl, card.cloze_text, true);
+            renderText(answerEl, card.cloze_text, 'reveal');
         } else {
-            answerEl.textContent = card.back || '';
+            renderText(answerEl, card.back);
         }
         renderFigure(figureBackEl, card.back_svg);
         revealed = true;

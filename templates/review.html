@@ -206,5 +206,8 @@
         learnSimulateUrl: '{{ url_for("api_learn_simulate") }}',
     };
 </script>
+{# CARD-MD: der Kartentext-Renderer muss VOR review.js stehen — review.js ruft
+   window.renderCardMarkup beim ersten load() auf. #}
+<script src="{{ url_for('static', filename='js/card_markup.js') }}"></script>
 <script src="{{ url_for('static', filename='js/review.js') }}"></script>
 {% endblock %}
