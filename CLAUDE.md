@@ -106,7 +106,7 @@ Alles andere — Feature-Code, Templates, Tests, Services — gehört in einen S
 - Sprint-Prompt-Doc ist Ausführungs-Doku, nicht Diskussions-Doku. Review/Diskussion ist ein eigener Sprint.
 - Phase 0 (Workshop / Mechanik-Fragen) ist **Ausnahme**, nicht Default — nur wenn echt eine Mechanik-Wahl offen ist. Triviale Sprints starten direkt in Phase 1.
 - BACKLOG.md = Source-of-Truth offene Items. STATUS.md = aktueller Stand.
-- Parallele Sprints sind erlaubt, solange ihre Backlog-Items disjunkt sind.
+- Parallele Sprints sind erlaubt, solange ihre Backlog-Items disjunkt sind **und in verschiedenen Repos liegen**. ⚠️ **Nie zwei Sub-Threads gleichzeitig im selben Repo** — sie teilen den Arbeitsbaum, und disjunkte Items schützen nicht davor: am 2026-08-05 fand der CARD-MD-iOS-Thread 22 uncommittete Zeilen eines parallel dispatchten Threads mitten im String-Literal abgebrochen vor, Build rot, bevor er die erste Zeile schrieb. Erst Sign-off und sauberer Baum, dann der nächste Dispatch; muss es doch parallel sein, ist `git worktree` das Mittel. Memory `feedback_parallel_threads_share_working_tree`.
 
 **Sprint-Sizes**: S/M/L/XL — Daumenregel: S = ein File-Touch, M = ein Feature-Cluster, L = mehrere Features, XL = Schema/Migration. Größer als L → splitten.
 
