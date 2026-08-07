@@ -625,8 +625,10 @@ def run_mineru_vlm(input_path: str, ctx: Ctx) -> AdapterResult:
     with _VramSampler() as vram:
         md, meta = _docker_convert(
             "mineru:latest",
+            # mineru 3.4.4: Backend heisst `vlm-engine` (die 2.x-Doku sagte
+            # noch vlm-vllm-engine — live gegen --help verifiziert).
             ["mineru", "-p", f"/in/{src.name}", "-o", "/out",
-             "-b", "vlm-vllm-engine"],
+             "-b", "vlm-engine"],
             input_path)
     meta["vram_peak_mb"] = vram.peak_mb()
     if not md.strip():
