@@ -26,14 +26,34 @@ intern/
 
 # --- Bake-off (DOC-BAKE) -----------------------------------------------
 # Versioniert: Harness-Code + die Mess-Evidenz (metrics/struct/gold_scores/
-# LEDGER als JSON). Unversioniert bleibt Reproduzierbares und Schweres:
-# venvs, abgeleitete PDFs (derived/), Referenztexte, Roh-Outputs der
-# Kandidaten (output.md — Markdown zwar, aber pro Kandidat × 280-Seiten-
-# Dokument; die History-Begründung oben gilt auch für Textmasse).
+# LEDGER als JSON). Unversioniert bleibt Reproduzierbares:
+# venvs, abgeleitete PDFs (derived/), Referenztexte.
 !bakeoff/**/*.py
 !bakeoff/**/*.sh
 !bakeoff/**/*.json
 bakeoff/envs/*/
 bakeoff/derived/
 bakeoff/results/_references/
+
+# Roh-Outputs (output.md): die Grenze läuft nach REPRODUZIERBARKEIT, nicht
+# nach Größe. Ein Score ohne den Text dahinter ist nicht nachprüfbar —
+# deshalb werden versioniert:
+#   1. Outputs MODELL-gestützter Kandidaten (Gemini, lokale VLMs; auch der
+#      Eigenbau, dessen Scan-/Fallback-Pfad Gemini ruft): nicht
+#      deterministisch, ein Nachlauf kostet Geld — sie sind die einzige Spur.
+#      (Namenskonvention: modellgestützte Kandidaten heißen eigenbau,
+#      gemini*, mineru*, marker*, vlm-* — neue Modell-Kandidaten müssen auf
+#      eines dieser Muster matchen oder hier eine Zeile bekommen.)
+#   2. Outputs auf den drei Gold-Dokumenten, für ALLE Kandidaten — dort
+#      hängt der prüfbare Gold-Score dran (01.gold, 07.gold, 08).
+# Alles andere (deterministische Kandidaten auf den übrigen Klassen) bleibt
+# draußen, weil ein Nachlauf gratis und identisch ist.
 bakeoff/results/**/output.md
+!bakeoff/results/eigenbau/**/output.md
+!bakeoff/results/gemini*/**/output.md
+!bakeoff/results/mineru*/**/output.md
+!bakeoff/results/marker*/**/output.md
+!bakeoff/results/vlm-*/**/output.md
+!bakeoff/results/*/01.gold/output.md
+!bakeoff/results/*/07.gold/output.md
+!bakeoff/results/*/08/output.md
