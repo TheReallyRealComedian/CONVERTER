@@ -56,7 +56,23 @@ Alle vier Teilaussagen haben einen wörtlichen Beleg, aber:
 
 **Der Hebel, den der Report nicht gezogen hat**: Für Textdokumente `media_resolution` **explizit auf `low`** setzen — der native Textlayer geht ungekürzt und unberechnet mit.
 
-> **Nachtrag 2026-07-30, an einem echten Call gemessen (DOC-FIX P1)**: Der Gewinn ist **4×, nicht 2×** — `low` = **266** Bildtokens, Default = **1092** (Prompt-Kosten der Seite 483 statt 1309). Der gemessene Default liegt damit an der dokumentierten **HIGH**-Stufe (1120), nicht an MEDIUM (560). Für `gemini-3.6-flash` ist der Default also offenbar HIGH; die Doku-Angabe „Default 560" aus B-52 gilt dafür **nicht**. Zwei Folgen: der Spar-Hebel ist doppelt so groß wie angenommen, und die Kostenrechnung „1.000 Seiten = 560k Input-Tokens" ist im Default eher **1,1M** — mit `low` dagegen ~266k.
+> ### ⚠️ Widerrufen 2026-08-07 durch die Bake-off-Kalibrierung (DOC-BAKE P2)
+>
+> **`low` ist kein freier Spar-Hebel — er kostet messbar Qualität.** Drei Stufen gegen die Gold-Fassungen, nativer PDF-Input:
+>
+> | | `01.gold` Wort-F1 | `01.gold` CER | `07.gold` Wort-F1 | Bewertungsregel 1 |
+> |---|---:|---:|---:|---|
+> | LOW | 0,9662 | 0,0787 | 0,9429 | **0/3** |
+> | **MEDIUM** | **0,9809** | **0,0498** | **0,9792** | 3/3 |
+> | HIGH | 0,9682 | 0,0676 | 0,9502 | 3/3 |
+>
+> **MEDIUM gewinnt beide Regime**, LOW fällt bei Regel 1 vollständig durch und erfand auf dem Formular 67 statt 43 Ausfülllinien. HIGH ist gegenüber MEDIUM **nicht** besser — Googles „quality saturates at medium" hält der Messung stand, die Sparerwartung an LOW nicht.
+>
+> ⚠️ **Folge für Produktionscode, noch nicht geprüft**: [services/pdf_extraction/service.py](../services/pdf_extraction/service.py) setzt seit DOC-FIX `MEDIA_RESOLUTION_LOW` für Seiten **mit** Textebene. Die Kalibrierung lief auf **nativem PDF-Input**, die Produktion rendert dagegen PNGs und schickt die — **andere Eingangsmodalität, die Übertragbarkeit ist ungemessen.** Die Richtung ist besorgniserregend genug für ein eigenes Item (BACKLOG `DOC-MEDIARES`), nicht für einen Blind-Fix.
+>
+> Der ursprüngliche Nachtrag bleibt als Messung stehen, seine *Empfehlung* ist widerrufen:
+
+**Nachtrag 2026-07-30, an einem echten Call gemessen (DOC-FIX P1)**: Der Gewinn ist **4×, nicht 2×** — `low` = **266** Bildtokens, Default = **1092** (Prompt-Kosten der Seite 483 statt 1309). Der gemessene Default liegt damit an der dokumentierten **HIGH**-Stufe (1120), nicht an MEDIUM (560). Für `gemini-3.6-flash` ist der Default also offenbar HIGH; die Doku-Angabe „Default 560" aus B-52 gilt dafür **nicht**. Zwei Folgen: der Spar-Hebel ist doppelt so groß wie angenommen, und die Kostenrechnung „1.000 Seiten = 560k Input-Tokens" ist im Default eher **1,1M** — mit `low` dagegen ~266k.
 
 ### R-05 · B-24 · Doclings Deutsch-OCR-Falle — **überholt, Schlussfolgerung kippt**
 
