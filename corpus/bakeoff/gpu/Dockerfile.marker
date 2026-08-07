@@ -1,14 +1,17 @@
 # marker v2 (datalab) — GPU-Kandidat P3
-# Basis: offizielles PyTorch-CUDA-Runtime-Image; marker zieht surya/pdftext.
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+# Schlanke Python-Basis statt pytorch/conda-Image: pip loest torch/vision
+# konsistent aus marker-pdfs eigenem Baum (die conda-Basis endete in einem
+# ABI-Bruch: pip-Upgrade von torch liess libtorchaudio.so nicht mehr laden).
+# torch-cu12-Wheels buendeln die CUDA-Runtime; der Host stellt nur den Treiber.
+FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
-# Pin beim Build ueber --build-arg setzbar; Default = aktuelles v2.
 ARG MARKER_VERSION=">=2.0.0"
-RUN pip install --no-cache-dir "marker-pdf${MARKER_VERSION}"
+RUN pip install --no-cache-dir "marker-pdf${MARKER_VERSION}" \
+    && pip uninstall -y torchaudio 2>/dev/null; \
+    python -c "import torch, torchvision, marker; print('torch', torch.__version__, 'cuda', torch.version.cuda)"
 
-# Modelle laedt marker beim ersten Lauf in $HF_HOME (Volume mounten!).
 ENV HF_HOME=/models
 WORKDIR /work
