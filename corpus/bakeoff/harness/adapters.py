@@ -741,7 +741,10 @@ def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
                           extra_server_args=["--max-num-seqs", "8",
                                              "--enforce-eager",
                                              "--limit-mm-per-prompt",
-                                             '{"image":2,"video":0}'])
+                                             '{"image":2,"video":0}',
+                                             # Upstream-Parser fragt nach
+                                             # dem Literal-Namen `model`:
+                                             "--served-model-name", "model"])
     src = Path(input_path)
     with _VramSampler() as vram:
         md, meta = _docker_convert(
