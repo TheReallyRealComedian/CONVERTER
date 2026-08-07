@@ -654,6 +654,7 @@ SURYA_MODEL = "datalab-to/surya-ocr-2"
 
 def _ensure_openai_server(name: str, model: str, port: int,
                           gpu_util: str, max_len: str,
+                          extra_server_args: list = None,
                           timeout_s: int = 1800) -> None:
     """Startet einen vLLM-OpenAI-Server als Geschwister-Container, falls er
     nicht laeuft. Gemeinsame Mechanik fuer surya (marker v2 spawnt sonst
@@ -680,7 +681,7 @@ def _ensure_openai_server(name: str, model: str, port: int,
         "vllm/vllm-openai:latest",
         model, "--trust-remote-code",
         "--gpu-memory-utilization", gpu_util, "--max-model-len", max_len,
-    ], check=True, capture_output=True, text=True)
+    ] + (extra_server_args or []), check=True, capture_output=True, text=True)
     t0 = _time.monotonic()
     while _time.monotonic() - t0 < timeout_s:
         if alive():
@@ -695,10 +696,14 @@ def run_marker2(input_path: str, ctx: Ctx) -> AdapterResult:
     _require_gpu_host()
     # marker v2s surya-Backend wuerde selbst einen vllm-Container spawnen
     # (docker-in-docker, im Container unmoeglich). Stattdessen: Geschwister-
-    # Server mit dem erwarteten Checkpoint, GPU-Budget 0,5 — die andere
-    # Haelfte brauchen markers eigene Torch-Modelle (Layout etc.).
+    # Server mit dem erwarteten Checkpoint. Gewichte nur 1,3 GB — der erste
+    # Start starb NICHT an ihnen, sondern an vLLMs Default-Profiling
+    # (max_num_seqs 256 x 18k Kontext -> KV -5,18 GiB). Klein dimensioniert
+    # bleibt >6 GB fuer markers eigene Torch-Modelle.
     _ensure_openai_server(SURYA_SERVER_NAME, SURYA_MODEL, 8001,
-                          gpu_util="0.5", max_len="18000")
+                          gpu_util="0.45", max_len="8192",
+                          extra_server_args=["--max-num-seqs", "16",
+                                             "--enforce-eager"])
     src = Path(input_path)
     with _VramSampler() as vram:
         md, meta = _docker_convert(
@@ -720,47 +725,14 @@ DOTS_SERVER_NAME = "bakeoff-dots-vllm"
 DOTS_MODEL = "rednote-hilab/dots.ocr"
 
 
-def _ensure_dots_server(timeout_s: int = 1800) -> None:
-    """Startet den vLLM-Server fuer dots.ocr, falls er nicht laeuft.
-
-    Server bleibt zwischen Laeufen stehen (Modell-Load amortisiert —
-    Steady-State-Durchsatz ist eine der zwei P3-Messgroessen).
-    12-GB-Deckel: gpu_memory_utilization 0.90 + max_model_len begrenzt.
-    """
-    import subprocess
-    import time as _time
-    import urllib.request
-    def alive():
-        try:
-            with urllib.request.urlopen("http://127.0.0.1:8000/v1/models", timeout=3) as r:
-                return r.status == 200
-        except Exception:
-            return False
-    if alive():
-        return
-    subprocess.run(["docker", "rm", "-f", DOTS_SERVER_NAME],
-                   capture_output=True)
-    subprocess.run([
-        "docker", "run", "-d", "--name", DOTS_SERVER_NAME, "--gpus", "all",
-        "--shm-size", "16g", "-p", "8000:8000",
-        "-v", f"{MODELS_DIR}:/root/.cache/huggingface",
-        "vllm/vllm-openai:latest",
-        DOTS_MODEL, "--trust-remote-code",
-        "--gpu-memory-utilization", "0.90", "--max-model-len", "12288",
-    ], check=True, capture_output=True, text=True)
-    t0 = _time.monotonic()
-    while _time.monotonic() - t0 < timeout_s:
-        if alive():
-            return
-        _time.sleep(5)
-    logs = subprocess.run(["docker", "logs", "--tail", "30", DOTS_SERVER_NAME],
-                          capture_output=True, text=True).stderr[-800:]
-    raise RuntimeError(f"dots.ocr-vLLM-Server kam nicht hoch: {logs}")
-
-
 def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
     _require_gpu_host()
-    _ensure_dots_server()
+    # 3B-Gewichte ~6 GB; klein dimensionierte Batch/Kontext-Budgets, damit
+    # KV + Profiling in die 12 GB passen (Lehre aus dem surya-Start).
+    _ensure_openai_server(DOTS_SERVER_NAME, DOTS_MODEL, 8000,
+                          gpu_util="0.90", max_len="12288",
+                          extra_server_args=["--max-num-seqs", "8",
+                                             "--enforce-eager"])
     src = Path(input_path)
     with _VramSampler() as vram:
         md, meta = _docker_convert(
