@@ -1,0 +1,15 @@
+# dots.ocr-Client — spricht den vLLM-Server an und baut Markdown.
+# Der Parser des Upstream-Repos macht Layout-JSON -> Markdown; wir bauen ihn
+# nicht nach. Modell laeuft im vllm/vllm-openai-Container, hier nur Client.
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG DOTS_REF=master
+RUN git clone https://github.com/rednote-hilab/dots.ocr /opt/dots.ocr \
+    && cd /opt/dots.ocr && git checkout ${DOTS_REF} \
+    && pip install --no-cache-dir -e . \
+    && python -c "import dots_ocr; print('dots_ocr client ok')"
+
+WORKDIR /work

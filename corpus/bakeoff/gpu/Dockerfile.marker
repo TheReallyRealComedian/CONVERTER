@@ -1,0 +1,14 @@
+# marker v2 (datalab) — GPU-Kandidat P3
+# Basis: offizielles PyTorch-CUDA-Runtime-Image; marker zieht surya/pdftext.
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pin beim Build ueber --build-arg setzbar; Default = aktuelles v2.
+ARG MARKER_VERSION=">=2.0.0"
+RUN pip install --no-cache-dir "marker-pdf${MARKER_VERSION}"
+
+# Modelle laedt marker beim ersten Lauf in $HF_HOME (Volume mounten!).
+ENV HF_HOME=/models
+WORKDIR /work
