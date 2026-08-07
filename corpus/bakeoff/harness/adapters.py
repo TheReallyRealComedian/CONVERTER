@@ -700,10 +700,16 @@ def run_marker2(input_path: str, ctx: Ctx) -> AdapterResult:
     # Start starb NICHT an ihnen, sondern an vLLMs Default-Profiling
     # (max_num_seqs 256 x 18k Kontext -> KV -5,18 GiB). Klein dimensioniert
     # bleibt >6 GB fuer markers eigene Torch-Modelle.
+    # ⚠️ --limit-mm-per-prompt video:0 ist load-bearing: vLLM profiliert
+    # sonst den Multimodal-Encoder-Cache mit 114k-Token-VIDEO-Budget und
+    # der KV-Cache faellt auf -5 GiB, egal wie klein Batch/Kontext sind
+    # (live: mit dem Limit 16k-Budget, KV +4,22 GiB, Server in 300s oben).
     _ensure_openai_server(SURYA_SERVER_NAME, SURYA_MODEL, 8001,
-                          gpu_util="0.45", max_len="8192",
+                          gpu_util="0.6", max_len="8192",
                           extra_server_args=["--max-num-seqs", "16",
-                                             "--enforce-eager"])
+                                             "--enforce-eager",
+                                             "--limit-mm-per-prompt",
+                                             '{"image":4,"video":0}'])
     src = Path(input_path)
     with _VramSampler() as vram:
         md, meta = _docker_convert(
@@ -732,7 +738,9 @@ def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
     _ensure_openai_server(DOTS_SERVER_NAME, DOTS_MODEL, 8000,
                           gpu_util="0.90", max_len="12288",
                           extra_server_args=["--max-num-seqs", "8",
-                                             "--enforce-eager"])
+                                             "--enforce-eager",
+                                             "--limit-mm-per-prompt",
+                                             '{"image":2,"video":0}'])
     src = Path(input_path)
     with _VramSampler() as vram:
         md, meta = _docker_convert(
