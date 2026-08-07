@@ -735,7 +735,8 @@ def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
     _require_gpu_host()
     # 3B-Gewichte ~6 GB; klein dimensionierte Batch/Kontext-Budgets, damit
     # KV + Profiling in die 12 GB passen (Lehre aus dem surya-Start).
-    _ensure_openai_server(DOTS_SERVER_NAME, DOTS_MODEL, 8000,
+    # Host-Port 8003: 8000 ist auf der Mintbox anderweitig belegt.
+    _ensure_openai_server(DOTS_SERVER_NAME, DOTS_MODEL, 8003,
                           gpu_util="0.90", max_len="12288",
                           extra_server_args=["--max-num-seqs", "8",
                                              "--enforce-eager",
@@ -746,7 +747,7 @@ def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
         md, meta = _docker_convert(
             "bakeoff-dotsclient:latest",
             ["python3", "/opt/dots.ocr/dots_ocr/parser.py", f"/in/{src.name}",
-             "--output", "/out", "--ip", "127.0.0.1", "--port", "8000",
+             "--output", "/out", "--ip", "127.0.0.1", "--port", "8003",
              "--prompt", "prompt_layout_all_en"],
             input_path,
             extra_args=["--network", "host"])
