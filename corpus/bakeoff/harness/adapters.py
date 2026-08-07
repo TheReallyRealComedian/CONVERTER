@@ -612,8 +612,11 @@ def _docker_convert(image: str, inner_cmd: list, input_path: str,
                "-e", "MINERU_MODEL_SOURCE=huggingface",
                ] + (extra_args or []) + [image] + inner_cmd
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # chown (nicht chmod): a+rX liess das rmtree des TemporaryDirectory
+        # an root-eigenen Unterordnern sterben (EPERM beim Cleanup).
         subprocess.run(["docker", "run", "--rm", "-v", f"{out_dir}:/out",
-                        "busybox", "chmod", "-R", "a+rX", "/out"],
+                        "busybox", "chown", "-R",
+                        f"{os.getuid()}:{os.getgid()}", "/out"],
                        capture_output=True, timeout=120)
         if proc.returncode != 0:
             raise RuntimeError(
