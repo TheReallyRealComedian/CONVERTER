@@ -551,6 +551,166 @@ def run_tesseract(input_path: str, ctx: Ctx) -> AdapterResult:
 
 
 # ---------------------------------------------------------------------------
+# P3: GPU-Kandidaten — docker-run-Wrapper, laufen NUR auf der Mintbox
+# (A2000 12 GB). Eigene Container, CONVERTERs Stack unberuehrt. Jeder Lauf
+# wird mit einem nvidia-smi-Sampler umschlossen → vram_peak_mb in meta.
+# ---------------------------------------------------------------------------
+
+MODELS_DIR = os.path.expanduser("~/bakeoff-models")
+
+
+def _require_gpu_host():
+    import shutil
+    if shutil.which("nvidia-smi") is None:
+        raise RuntimeError("GPU-Kandidat: nvidia-smi fehlt — nur auf der Mintbox lauffaehig")
+
+
+class _VramSampler:
+    def __enter__(self):
+        import subprocess
+        import tempfile
+        self.log = tempfile.NamedTemporaryFile(mode="w+", suffix=".vram", delete=False)
+        self.proc = subprocess.Popen(
+            ["nvidia-smi", "--query-gpu=memory.used",
+             "--format=csv,noheader,nounits", "-l", "2"],
+            stdout=self.log, stderr=subprocess.DEVNULL)
+        return self
+
+    def __exit__(self, *exc):
+        self.proc.terminate()
+        try:
+            self.proc.wait(timeout=5)
+        except Exception:
+            self.proc.kill()
+        self.log.flush()
+
+    def peak_mb(self):
+        try:
+            vals = [int(x) for x in Path(self.log.name).read_text().split()
+                    if x.strip().isdigit()]
+            return max(vals) if vals else None
+        finally:
+            Path(self.log.name).unlink(missing_ok=True)
+
+
+def _docker_convert(image: str, inner_cmd: list, input_path: str,
+                    extra_args: list = None, timeout: int = 5400) -> tuple:
+    """docker run mit /in (ro) + /out (tmp) + Modell-Cache; liefert (md, meta)."""
+    import subprocess
+    import tempfile
+    src = Path(input_path)
+    with tempfile.TemporaryDirectory() as out_dir:
+        cmd = ["docker", "run", "--rm", "--gpus", "all", "--shm-size", "16g",
+               "-v", f"{src.parent}:/in:ro", "-v", f"{out_dir}:/out",
+               "-v", f"{MODELS_DIR}:/models",
+               "-e", "HF_HOME=/models", "-e", "MINERU_MODEL_SOURCE=huggingface",
+               ] + (extra_args or []) + [image] + inner_cmd
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"Container rc={proc.returncode}: {proc.stderr[-800:] or proc.stdout[-800:]}")
+        md_files = sorted(Path(out_dir).rglob("*.md"),
+                          key=lambda p: p.stat().st_size, reverse=True)
+        if not md_files:
+            raise RuntimeError(f"Kein .md im Container-Output (stdout: {proc.stdout[-300:]})")
+        md = md_files[0].read_text(encoding="utf-8", errors="replace")
+        return md, {"container_cmd": " ".join(inner_cmd),
+                    "md_file": md_files[0].name,
+                    "stderr_tail": proc.stderr[-300:]}
+
+
+def run_mineru_vlm(input_path: str, ctx: Ctx) -> AdapterResult:
+    _require_gpu_host()
+    src = Path(input_path)
+    with _VramSampler() as vram:
+        md, meta = _docker_convert(
+            "mineru:latest",
+            ["mineru", "-p", f"/in/{src.name}", "-o", "/out",
+             "-b", "vlm-vllm-engine"],
+            input_path)
+    meta["vram_peak_mb"] = vram.peak_mb()
+    if not md.strip():
+        raise RuntimeError("MinerU lieferte leeres Markdown")
+    return AdapterResult(markdown=md, meta=meta)
+
+
+def run_marker2(input_path: str, ctx: Ctx) -> AdapterResult:
+    _require_gpu_host()
+    src = Path(input_path)
+    with _VramSampler() as vram:
+        md, meta = _docker_convert(
+            "bakeoff-marker:latest",
+            ["marker_single", f"/in/{src.name}", "--output_dir", "/out",
+             "--output_format", "markdown"],
+            input_path)
+    meta["vram_peak_mb"] = vram.peak_mb()
+    if not md.strip():
+        raise RuntimeError("marker lieferte leeres Markdown")
+    return AdapterResult(markdown=md, meta=meta)
+
+
+DOTS_SERVER_NAME = "bakeoff-dots-vllm"
+DOTS_MODEL = "rednote-hilab/dots.ocr"
+
+
+def _ensure_dots_server(timeout_s: int = 1800) -> None:
+    """Startet den vLLM-Server fuer dots.ocr, falls er nicht laeuft.
+
+    Server bleibt zwischen Laeufen stehen (Modell-Load amortisiert —
+    Steady-State-Durchsatz ist eine der zwei P3-Messgroessen).
+    12-GB-Deckel: gpu_memory_utilization 0.90 + max_model_len begrenzt.
+    """
+    import subprocess
+    import time as _time
+    import urllib.request
+    def alive():
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:8000/v1/models", timeout=3) as r:
+                return r.status == 200
+        except Exception:
+            return False
+    if alive():
+        return
+    subprocess.run(["docker", "rm", "-f", DOTS_SERVER_NAME],
+                   capture_output=True)
+    subprocess.run([
+        "docker", "run", "-d", "--name", DOTS_SERVER_NAME, "--gpus", "all",
+        "--shm-size", "16g", "-p", "8000:8000",
+        "-v", f"{MODELS_DIR}:/root/.cache/huggingface",
+        "vllm/vllm-openai:latest",
+        DOTS_MODEL, "--trust-remote-code",
+        "--gpu-memory-utilization", "0.90", "--max-model-len", "12288",
+    ], check=True, capture_output=True, text=True)
+    t0 = _time.monotonic()
+    while _time.monotonic() - t0 < timeout_s:
+        if alive():
+            return
+        _time.sleep(5)
+    logs = subprocess.run(["docker", "logs", "--tail", "30", DOTS_SERVER_NAME],
+                          capture_output=True, text=True).stderr[-800:]
+    raise RuntimeError(f"dots.ocr-vLLM-Server kam nicht hoch: {logs}")
+
+
+def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
+    _require_gpu_host()
+    _ensure_dots_server()
+    src = Path(input_path)
+    with _VramSampler() as vram:
+        md, meta = _docker_convert(
+            "bakeoff-dotsclient:latest",
+            ["python3", "/opt/dots.ocr/dots_ocr/parser.py", f"/in/{src.name}",
+             "--output", "/out", "--ip", "127.0.0.1", "--port", "8000",
+             "--prompt", "prompt_layout_all_en"],
+            input_path,
+            extra_args=["--network", "host"])
+    meta["vram_peak_mb"] = vram.peak_mb()
+    meta["server_model"] = DOTS_MODEL
+    if not md.strip():
+        raise RuntimeError("dots.ocr lieferte leeres Markdown")
+    return AdapterResult(markdown=md, meta=meta)
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -634,5 +794,24 @@ ADAPTERS = {
         "formats": {"pdf", "pdf-scan", "pdf-mixed"},
         "env": "eigenbau",  # fitz zum Rendern + tesseract-Binary
         "beschreibung": "Tesseract 5 deu @300dpi — CPU-OCR-Referenz (immer OCR, nie Textebene)",
+    },
+    # --- P3: GPU-Feld (nur Mintbox) ---
+    "mineru-vlm": {
+        "run": run_mineru_vlm,
+        "formats": {"pdf", "pdf-scan", "pdf-mixed"},
+        "env": "mintbox-host",
+        "beschreibung": "MinerU 3.x, VLM-Backend via vllm-engine im offiziellen Container",
+    },
+    "marker2": {
+        "run": run_marker2,
+        "formats": {"pdf", "pdf-scan", "pdf-mixed"},
+        "env": "mintbox-host",
+        "beschreibung": "marker v2 (datalab) im CUDA-Container",
+    },
+    "vlm-dots": {
+        "run": run_vlm_dots,
+        "formats": {"pdf", "pdf-scan", "pdf-mixed"},
+        "env": "mintbox-host",
+        "beschreibung": "dots.ocr (3B) via vLLM-Server + Upstream-Parser-Client",
     },
 }
