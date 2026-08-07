@@ -600,18 +600,21 @@ def _docker_convert(image: str, inner_cmd: list, input_path: str,
     import tempfile
     src = Path(input_path)
     with tempfile.TemporaryDirectory() as out_dir:
-        # --user: Container schreiben sonst als root ins gemountete /out und
-        # der Host-Glob stirbt an EPERM (live auf der Mintbox getroffen).
-        # HOME=/models lenkt alle Config-/Cache-Schreiber der Tools auf den
-        # beschreibbaren Mount, den derselbe Host-User besitzt.
+        # Container laufen als root (--user scheitert an fehlenden
+        # passwd-Eintraegen: mineru wirft `getpwuid(): uid not found` —
+        # live getroffen). Der EPERM-Gegenpart (root-eigene /out-Dateien,
+        # die der Host-Glob nicht lesen darf — ebenfalls live getroffen)
+        # wird nach dem Lauf image-agnostisch per busybox-chmod geloest.
         cmd = ["docker", "run", "--rm", "--gpus", "all", "--shm-size", "16g",
-               "--user", f"{os.getuid()}:{os.getgid()}",
                "-v", f"{src.parent}:/in:ro", "-v", f"{out_dir}:/out",
                "-v", f"{MODELS_DIR}:/models",
-               "-e", "HOME=/models", "-e", "HF_HOME=/models",
+               "-e", "HF_HOME=/models",
                "-e", "MINERU_MODEL_SOURCE=huggingface",
                ] + (extra_args or []) + [image] + inner_cmd
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        subprocess.run(["docker", "run", "--rm", "-v", f"{out_dir}:/out",
+                        "busybox", "chmod", "-R", "a+rX", "/out"],
+                       capture_output=True, timeout=120)
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Container rc={proc.returncode}: {proc.stderr[-800:] or proc.stdout[-800:]}")
