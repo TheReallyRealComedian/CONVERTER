@@ -737,8 +737,8 @@ def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
     # KV + Profiling in die 12 GB passen (Lehre aus dem surya-Start).
     # Host-Port 8003: 8000 ist auf der Mintbox anderweitig belegt.
     _ensure_openai_server(DOTS_SERVER_NAME, DOTS_MODEL, 8003,
-                          gpu_util="0.90", max_len="12288",
-                          extra_server_args=["--max-num-seqs", "8",
+                          gpu_util="0.90", max_len="24576",
+                          extra_server_args=["--max-num-seqs", "4",
                                              "--enforce-eager",
                                              "--limit-mm-per-prompt",
                                              '{"image":2,"video":0}',
