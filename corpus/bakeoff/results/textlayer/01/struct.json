@@ -1,0 +1,37 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 0,
+ "html_tables": 0,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 2,
+  "h2": 0,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 2,
+ "checkbox_tokens": 0,
+ "chars_out": 241729,
+ "words_out": 43607,
+ "umlauts_out": 0,
+ "max_line_repeat": 4,
+ "max_ngram_repeat": 1,
+ "word_recall": 1.0,
+ "word_precision": 1.0,
+ "word_f1": 1.0,
+ "words_ref": 43607,
+ "top_missing": [],
+ "top_invented": [],
+ "length_ratio": 1.0,
+ "umlauts_ref": 0,
+ "umlaut_recall": null,
+ "order_lcs": null,
+ "notes": [
+  "order_lcs uebersprungen (>30000 Woerter)"
+ ],
+ "loop_flag": false,
+ "_ref": "01.txt"
+}

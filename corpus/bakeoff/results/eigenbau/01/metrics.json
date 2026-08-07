@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "01",
+ "role": "main",
+ "input": "01_paper-zweispaltig/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf",
+ "input_bytes": 992199,
+ "started": "2026-08-07T14:44:10",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 5.6,
+ "max_rss_mb": {
+  "self": 245.5,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 242663
+}

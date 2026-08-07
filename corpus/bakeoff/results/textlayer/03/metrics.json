@@ -1,0 +1,29 @@
+{
+ "candidate": "textlayer",
+ "class": "03",
+ "role": "main",
+ "input": "03_tabelle-seitengrenze/zuordnung_Angebot-Vermarkter_if2010_II.pdf",
+ "input_bytes": 56082,
+ "started": "2026-08-07T14:42:19",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 0.05,
+ "max_rss_mb": {
+  "self": 47.8,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.1,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "pages": 20,
+  "empty_pages": 0
+ },
+ "output_chars": 17894
+}

@@ -1,0 +1,103 @@
+{
+ "text": {
+  "word_recall": 0.9243,
+  "word_precision": 0.9057,
+  "word_f1": 0.9149,
+  "words_ref": 1559,
+  "words_out": 1591,
+  "top_missing": [
+   "gamma×15",
+   "out×10",
+   "in×10",
+   "Barabási×9",
+   "rand×7",
+   "P×6",
+   "Solé×6",
+   "ell×5",
+   "coefficient×4",
+   "C×3",
+   "⁵×3",
+   "l×3",
+   "Albert×2",
+   "five×2",
+   "first×2"
+  ],
+  "top_invented": [
+   "10×17",
+   "Barab×9",
+   "asi×9",
+   "γout×7",
+   "γin×7",
+   "4×6",
+   "Sol×6",
+   "e×6",
+   "2×5",
+   "Pout×4",
+   "k×4",
+   "Pin×4",
+   "coeﬃcient×4",
+   "0×3",
+   "Crand×3"
+  ],
+  "cer": 0.0645
+ },
+ "cells": {
+  "cell_recall": 0.0,
+  "cell_precision": 0.0,
+  "cells_gold": 357,
+  "cells_out": 0,
+  "top_missing_cells": [
+   "2.1×7",
+   "4×4",
+   "6×4",
+   "Barabási et al. 2001×4",
+   "Montoya, Solé 2000×4",
+   "14×4",
+   "2.4×4",
+   "2×3",
+   "Watts, Strogatz 1998×3",
+   "3×3"
+  ],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ],
+  "shapes_out": []
+ },
+ "notes": [],
+ "regel2_stellungen": {
+  "familien": {
+   "ell_rand": "eingeebnet",
+   "ell_real": "eingeebnet",
+   "ell_pow": "eingeebnet",
+   "P_out": "eingeebnet",
+   "P_in": "eingeebnet",
+   "gamma_in": "eingeebnet",
+   "gamma_out": "eingeebnet",
+   "C_rand": "eingeebnet",
+   "dom_sup": "eingeebnet",
+   "exp_minus_4": "eingeebnet",
+   "exp_minus_5": "eingeebnet"
+  },
+  "zusammenfassung": {
+   "erhalten": 0,
+   "eingeebnet": 11,
+   "fehlt": 0
+  }
+ },
+ "eigenheiten": {
+  "nr_14_doppelt_15_fehlt": "nicht nachweisbar (Tabellen fehlen/veraendert)",
+  "bereich_absteigend_636_618": "erhalten",
+  "punkt_460_902": "erhalten",
+  "komma_460_902": "erhalten"
+ }
+}

@@ -23,3 +23,17 @@ intern/
 !*.md
 !.gitignore
 !pruefen.py
+
+# --- Bake-off (DOC-BAKE) -----------------------------------------------
+# Versioniert: Harness-Code + die Mess-Evidenz (metrics/struct/gold_scores/
+# LEDGER als JSON). Unversioniert bleibt Reproduzierbares und Schweres:
+# venvs, abgeleitete PDFs (derived/), Referenztexte, Roh-Outputs der
+# Kandidaten (output.md — Markdown zwar, aber pro Kandidat × 280-Seiten-
+# Dokument; die History-Begründung oben gilt auch für Textmasse).
+!bakeoff/**/*.py
+!bakeoff/**/*.sh
+!bakeoff/**/*.json
+bakeoff/envs/*/
+bakeoff/derived/
+bakeoff/results/_references/
+bakeoff/results/**/output.md

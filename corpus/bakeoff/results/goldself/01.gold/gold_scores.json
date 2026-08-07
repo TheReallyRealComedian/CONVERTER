@@ -1,0 +1,71 @@
+{
+ "text": {
+  "word_recall": 1.0,
+  "word_precision": 1.0,
+  "word_f1": 1.0,
+  "words_ref": 1559,
+  "words_out": 1559,
+  "top_missing": [],
+  "top_invented": [],
+  "cer": 0.0
+ },
+ "cells": {
+  "cell_recall": 1.0,
+  "cell_precision": 1.0,
+  "cells_gold": 357,
+  "cells_out": 357,
+  "top_missing_cells": [],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ],
+  "shapes_out": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel2_stellungen": {
+  "familien": {
+   "ell_rand": "erhalten",
+   "ell_real": "erhalten",
+   "ell_pow": "erhalten",
+   "P_out": "erhalten",
+   "P_in": "erhalten",
+   "gamma_in": "erhalten",
+   "gamma_out": "erhalten",
+   "C_rand": "erhalten",
+   "dom_sup": "erhalten",
+   "exp_minus_4": "erhalten",
+   "exp_minus_5": "erhalten"
+  },
+  "zusammenfassung": {
+   "erhalten": 11,
+   "eingeebnet": 0,
+   "fehlt": 0
+  }
+ },
+ "eigenheiten": {
+  "nr_14_doppelt_15_fehlt": "erhalten",
+  "bereich_absteigend_636_618": "erhalten",
+  "punkt_460_902": "erhalten",
+  "komma_460_902": "erhalten"
+ }
+}

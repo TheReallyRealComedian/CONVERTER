@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "03",
+ "role": "main",
+ "input": "03_tabelle-seitengrenze/zuordnung_Angebot-Vermarkter_if2010_II.pdf",
+ "input_bytes": 56082,
+ "started": "2026-08-07T14:43:41",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 21.64,
+ "max_rss_mb": {
+  "self": 245.4,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 24906
+}

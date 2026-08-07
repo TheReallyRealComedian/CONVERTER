@@ -1,0 +1,62 @@
+{
+ "text": {
+  "word_recall": 1.0,
+  "word_precision": 1.0,
+  "word_f1": 1.0,
+  "words_ref": 394,
+  "words_out": 394,
+  "top_missing": [],
+  "top_invented": [],
+  "cer": 0.0
+ },
+ "cells": {
+  "cell_recall": 1.0,
+  "cell_precision": 1.0,
+  "cells_gold": 27,
+  "cells_out": 27,
+  "top_missing_cells": [],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    14,
+    4,
+    "html"
+   ],
+   [
+    4,
+    4,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    14,
+    4,
+    "html"
+   ],
+   [
+    4,
+    4,
+    "html"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel3_abbildung": {
+  "bild_markiert": true,
+  "fussnote_am_bild": true,
+  "fussnote_definiert": true,
+  "link_erhalten": true
+ },
+ "eigenheiten": {
+  "markteilnehmer_ein_t": "erhalten",
+  "auflage_ohne_leerzeichen": "erhalten",
+  "s189_ohne_leerzeichen": "erhalten"
+ },
+ "colspan_rowspan": {
+  "colspan_out": 5,
+  "rowspan_out": 2,
+  "colspan_gold": 5,
+  "rowspan_gold": 2
+ }
+}

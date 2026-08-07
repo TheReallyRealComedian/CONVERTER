@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "06",
+ "role": "main",
+ "input": "06_scan-degradiert/aok_kopie-3fach-schief.pdf",
+ "input_bytes": 8590303,
+ "started": "2026-08-07T14:42:26",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 62.74,
+ "max_rss_mb": {
+  "self": 273.1,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 2,
+ "tokens_in": 2618,
+ "tokens_out": 11103,
+ "cost_usd": 0.040431,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 8938
+}

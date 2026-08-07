@@ -1,0 +1,28 @@
+{
+ "cap_usd": 22.0,
+ "cap_eur": 20.0,
+ "entries": [
+  {
+   "ts": "2026-08-07T14:42:58",
+   "candidate": "eigenbau",
+   "class": "06",
+   "model": "gemini-3.6-flash",
+   "tokens_in": 1309,
+   "tokens_out": 5061,
+   "cost_usd": 0.018499,
+   "price_verified": false,
+   "note": ""
+  },
+  {
+   "ts": "2026-08-07T14:43:29",
+   "candidate": "eigenbau",
+   "class": "06",
+   "model": "gemini-3.6-flash",
+   "tokens_in": 1309,
+   "tokens_out": 6042,
+   "cost_usd": 0.021932,
+   "price_verified": false,
+   "note": ""
+  }
+ ]
+}

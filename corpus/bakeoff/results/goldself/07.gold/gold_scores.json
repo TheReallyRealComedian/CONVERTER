@@ -1,0 +1,79 @@
+{
+ "text": {
+  "word_recall": 1.0,
+  "word_precision": 1.0,
+  "word_f1": 1.0,
+  "words_ref": 418,
+  "words_out": 418,
+  "top_missing": [],
+  "top_invented": [],
+  "cer": 0.0
+ },
+ "cells": {
+  "cell_recall": 1.0,
+  "cell_precision": 1.0,
+  "cells_gold": 77,
+  "cells_out": 77,
+  "top_missing_cells": [],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "ueberschrift",
+   "Sonstige Angaben zu Familienangehörigen": "ueberschrift",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "ueberschrift"
+  },
+  "gleichwertig_erfuellt": "3/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 43,
+  "checkbox_gold": 16,
+  "checkbox_out": 16
+ }
+}
