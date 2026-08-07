@@ -1,0 +1,20 @@
+{
+  "klasse": "03",
+  "kandidat": "docling",
+  "treue": 2,
+  "vollstaendigkeit": 2,
+  "struktur": 2,
+  "lesereihenfolge": 2,
+  "halluzination": 3,
+  "befunde": [
+    "Kernfrage verfehlt: eine Tabelle pro Seite (~20 Fragmente, durch '<!-- image -->' getrennt), jedes Fragment mit eigenem wiederholtem Kopf; zusätzlich wechselt die Darstellung — Seiten 11/13 kommen gar nicht als Tabelle, sondern als '## OMS'-Überschrift plus lose Absatzzeilen.",
+    "Phantom-Zweispaltigkeit erfunden: Die einspaltige Original-Tabelle wird zweispaltig ausgegeben, Zeilen zufällig links/rechts verteilt ('123people.de' links, 'GelbeSeiten.de' rechts, p1) und Kopfzeilen in beide Spalten dupliziert ('| ad pepper media | ad pepper media |'; 12 überzählige 'Übersicht der Angebote…'-Vorkommen im Set-Diff).",
+    "Verifizierter Inhaltsverlust auf den Stichproben-Seiten: p2 fehlen 'ad-hoc-news.de', 'ahgz.de' UND der komplette Gruppenkopf 'Business Advertising' (dessen 13 Angebote hängen dadurch ohne Vermarkter unter BAUER MEDIA-Resten); p12 fehlt 'Mittelbayerische Zeitung'; p20 fehlt 'MTV' (VIACOM Brand Solutions). Set-Diff gesamt: ~89 distinkte Referenzzeilen ohne Entsprechung.",
+    "Namen zerrissen und neu zusammengesetzt — es entstehen Einträge, die es nicht gibt: p12 'Nürtinger Zeitung' + 'NW-News (Neue Westfälische Zeitung)' + 'NWZ-Online' werden zu '| Nürtinger Zeitung Westfälische |' und '| NW-News (Neue Zeitung) NWZ-Online |'; p2 'BAUER MEDIA' zerfällt in zwei Zeilen in FALSCHER Reihenfolge ('MEDIA' vor 'BAUER'); p1 'Baden Online' wird auf zwei Spalten gespalten ('| Baden | Online |').",
+    "Zellen verschmolzen: '| Feierabend.de heisse VIDEOS |' und '| Songtexte.com TrailerSeite.de |' (p2), '| Kochrezepte Codex Media |' und '| amicella CommonMedia |' (Angebot mit dem FALSCHEN, nämlich nächsten Gruppenkopf verschmolzen, p3), '| Klassik Radio Klassik Radio |'.",
+    "HTML-Entities in den Text durchgeschlagen: 'LZ &#124; NET TextilWirtschaft.de', 'Leben &amp; Erziehen', 'sevenload - Die Medienplattform für Bild &amp; Video'.",
+    "Positiv: Einleitungsabsätze und Titel als echte Absätze/Überschrift erhalten ('## Zuordnung Angebote zu Vermarktern'), Schlusszeile 'Quelle: AGOF e.V. / internet facts 2010-II' vorhanden, Umlaute korrekt; Seitenfüße entfernt.",
+    "Halluzinations-Einordnung: nichts aus dem Nichts erfunden, aber die rekombinierten Pseudo-Einträge ('Nürtinger Zeitung Westfälische') und in beide Spalten duplizierten Köpfe behaupten Inhalte, die das Original nicht enthält."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

@@ -1,0 +1,19 @@
+{
+  "klasse": "09A",
+  "kandidat": "docling",
+  "treue": 5,
+  "vollstaendigkeit": 2,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Speaker-Notes zu 100% verloren (alle 1.780 Zeichen) — top_missing ist exakt das Notes-Vokabular (»BV×8, ZV×7, steigendem×4«), 0 Treffer auf alle Notes-Anker (»fertige Bücher«, »Bildrechten«, »Kontokorrent«, »Zinsen fressen«). Alles andere ist da: word_recall 0,871, die fehlenden 13% sind genau die Notes.",
+    "Kopfblock und Fußzeile aller 25 Folien vorhanden (»Institut für Publizistik ...«, »Referenten: Katharina Brodt, ...« je 25×) — im Gegensatz zu unstructured.",
+    "Sauberste Tabellen im Feld: 9/9 Folien-Tabellen korrekt und spaltenaligned (p13-Werte exakt), beide EVA-Gitter (Folie 22) getrennt und vollständig (»| 7.000 | ... | -186 |« und »| 10.000 | ... | 4.967 |«), plus 12 Chart-Datentabellen mit ehrlichem Label »Bar chart«/»Line chart«.",
+    "Gliederung verfälscht (Original-Stichprobe p2: »I. Vergleich der Bilanzposten im Jahr 0 → 1) Aktiva 2) Passiva ... III.«): daraus wird eine flache nummerierte Liste mit Leer-Items — »1. Vergleich der Bilanzposten im Jahr 0 / 2. / 3. Aktiva / 4. Passiva ... 7. Vergleich der Kostenstrukturen« — die gerenderten Nummern widersprechen den sichtbaren Original-Nummern (»7.« statt »II.«). Kein erfundener Text, aber falsch behauptete Listenstruktur.",
+    "numCol-Körper werden Bullet-Listen mit vielen leeren »- «-Items (Folie 5: 8 Leer-Bullets zwischen 9 Inhaltszeilen; die Leer-Items entsprechen echten Leer-Absätzen der XML) — Spaltenreihenfolge korrekt (p14: »Niedrig (durch Periodika)« → »Vorkasse durch Abonnenten hoch« → »Buchverlag« → »wesentlich höher...«), aber deutliches Listen-Rauschen.",
+    "Kleinigkeiten: »&amp;« statt »&« im Fließtext (»Rechte &amp; Lizenzen«, »Thesaurierte Gewinne/Verluste &amp; EAT« — von CommonMark-Renderern korrekt aufgelöst, als Rohtext störend; in Tabellenzellen inkonsistent unescaped »Re & Li«); Folie-22-Titel bekommt einen Streu-Bullet »-  Struktur EVA Jahr 0«; Folientitel sonst unausgezeichnete Absätze (H1-H4: 0).",
+    "Nichts erfunden: alle Zahlen quellexakt inkl. Chart-Cache-Floats; Original-Tippfehler unrepariert (»Abonennten«, »erbacht«); keine Titel-Heuristik-Fehlgriffe."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

@@ -1,0 +1,4764 @@
+Quelle:
+AGOF internet facts 2010-I
+
+**TOP**
+
+Zeitraum für Medien: Durchschnittlicher Monat
+
+Vorfilter:
+Internetnutzung: Nutzung in den letzten 3 Monaten (Onliner-WNK)
+(101.652 ungew. Fälle, 104.314 gew. Fälle - 70,5% - 49,68 Mio)
+
+Zielgruppe:
+Basis
+(101.652 ungew. Fälle, 104.314 gew. Fälle - 100,0% - 49,68 Mio)
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User Mio</th>
+      <th>Nutzer-Anteil %</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte Mio</th>
+      <th>Kontakt-Anteil %</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Basis</strong></td>
+      <td>101.652</td>
+      <td>100,0</td>
+      <td>49,68</td>
+      <td>100</td>
+      <td>100</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>T-Online</td>
+      <td>76.945</td>
+      <td>54,5</td>
+      <td>27,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4.108,92</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>WEB.DE</td>
+      <td>52.853</td>
+      <td>34,8</td>
+      <td>17,27</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2.806,90</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Yahoo! Deutschland</td>
+      <td>51.365</td>
+      <td>30,6</td>
+      <td>15,22</td>
+      <td>100</td>
+      <td>100</td>
+      <td>998,56</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>MSN.de</td>
+      <td>44.103</td>
+      <td>27,3</td>
+      <td>13,55</td>
+      <td>100</td>
+      <td>100</td>
+      <td>572,07</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>GMX</td>
+      <td>40.903</td>
+      <td>25,8</td>
+      <td>12,81</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2.139,74</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>VZ Netzwerke</td>
+      <td>34.977</td>
+      <td>25,7</td>
+      <td>12,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>9.725,52</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>gutefrage.net</td>
+      <td>44.030</td>
+      <td>24,8</td>
+      <td>12,34</td>
+      <td>100</td>
+      <td>100</td>
+      <td>55,13</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>CHIP Online</td>
+      <td>41.861</td>
+      <td>24,5</td>
+      <td>12,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>291,71</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Windows Live</td>
+      <td>36.986</td>
+      <td>23,1</td>
+      <td>11,45</td>
+      <td>100</td>
+      <td>100</td>
+      <td>597,77</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BILD.de</td>
+      <td>38.110</td>
+      <td>22,2</td>
+      <td>11,01</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1.596,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SPIEGEL ONLINE</td>
+      <td>32.575</td>
+      <td>18,9</td>
+      <td>9,40</td>
+      <td>100</td>
+      <td>100</td>
+      <td>635,10</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>RTL.de</td>
+      <td>34.170</td>
+      <td>18,6</td>
+      <td>9,22</td>
+      <td>100</td>
+      <td>100</td>
+      <td>389,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>N24.de</td>
+      <td>33.864</td>
+      <td>17,9</td>
+      <td>8,90</td>
+      <td>100</td>
+      <td>100</td>
+      <td>55,14</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>MyVideo</td>
+      <td>31.633</td>
+      <td>17,4</td>
+      <td>8,62</td>
+      <td>100</td>
+      <td>100</td>
+      <td>224,70</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Ciao.de</td>
+      <td>33.878</td>
+      <td>17,2</td>
+      <td>8,57</td>
+      <td>100</td>
+      <td>100</td>
+      <td>35,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>wer-kennt-wen.de</td>
+      <td>27.239</td>
+      <td>16,7</td>
+      <td>8,28</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4.974,05</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ProSieben.de</td>
+      <td>28.001</td>
+      <td>16,6</td>
+      <td>8,25</td>
+      <td>100</td>
+      <td>100</td>
+      <td>283,57</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>StayFriends</td>
+      <td>31.054</td>
+      <td>16,2</td>
+      <td>8,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>302,14</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>DasTelefonbuch.de</td>
+      <td>31.137</td>
+      <td>15,9</td>
+      <td>7,90</td>
+      <td>100</td>
+      <td>100</td>
+      <td>87,54</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>wetter.com</td>
+      <td>28.133</td>
+      <td>15,6</td>
+      <td>7,73</td>
+      <td>100</td>
+      <td>100</td>
+      <td>163,52</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FOCUS Online</td>
+      <td>28.916</td>
+      <td>15,0</td>
+      <td>7,46</td>
+      <td>100</td>
+      <td>100</td>
+      <td>152,11</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>DasÖrtliche</td>
+      <td>30.219</td>
+      <td>15,0</td>
+      <td>7,46</td>
+      <td>100</td>
+      <td>100</td>
+      <td>72,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>MySpace.de</td>
+      <td>26.473</td>
+      <td>14,8</td>
+      <td>7,35</td>
+      <td>100</td>
+      <td>100</td>
+      <td>541,87</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>computerbild.de</td>
+      <td>28.516</td>
+      <td>14,2</td>
+      <td>7,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>162,15</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>mobile.de</td>
+      <td>25.576</td>
+      <td>14,0</td>
+      <td>6,96</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1.261,03</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>meinestadt.de</td>
+      <td>28.987</td>
+      <td>13,9</td>
+      <td>6,90</td>
+      <td>100</td>
+      <td>100</td>
+      <td>262,70</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>chefkoch.de</td>
+      <td>25.989</td>
+      <td>12,9</td>
+      <td>6,39</td>
+      <td>100</td>
+      <td>100</td>
+      <td>131,63</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Welt.de</td>
+      <td>24.791</td>
+      <td>12,6</td>
+      <td>6,25</td>
+      <td>100</td>
+      <td>100</td>
+      <td>140,89</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>AOL</td>
+      <td>22.961</td>
+      <td>12,6</td>
+      <td>6,24</td>
+      <td>100</td>
+      <td>100</td>
+      <td>419,79</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>123people.de</td>
+      <td>26.043</td>
+      <td>12,2</td>
+      <td>6,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>26,43</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>sueddeutsche.de</td>
+      <td>22.138</td>
+      <td>11,5</td>
+      <td>5,70</td>
+      <td>100</td>
+      <td>100</td>
+      <td>161,08</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Fantastic Zero</td>
+      <td>21.084</td>
+      <td>10,9</td>
+      <td>5,42</td>
+      <td>100</td>
+      <td>100</td>
+      <td>80,10</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>yasni.de</td>
+      <td>22.612</td>
+      <td>10,6</td>
+      <td>5,26</td>
+      <td>100</td>
+      <td>100</td>
+      <td>24,65</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>GelbeSeiten.de</td>
+      <td>22.619</td>
+      <td>10,0</td>
+      <td>4,94</td>
+      <td>100</td>
+      <td>100</td>
+      <td>48,31</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>softonic.de</td>
+      <td>18.489</td>
+      <td>9,5</td>
+      <td>4,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>38,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>klickTel.de/11880.com</td>
+      <td>20.948</td>
+      <td>9,5</td>
+      <td>4,73</td>
+      <td>100</td>
+      <td>100</td>
+      <td>34,16</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>goFeminin.de</td>
+      <td>19.320</td>
+      <td>9,3</td>
+      <td>4,62</td>
+      <td>100</td>
+      <td>100</td>
+      <td>62,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>WetterOnline</td>
+      <td>17.724</td>
+      <td>9,2</td>
+      <td>4,55</td>
+      <td>100</td>
+      <td>100</td>
+      <td>177,50</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>freenet.de</td>
+      <td>16.964</td>
+      <td>9,1</td>
+      <td>4,54</td>
+      <td>100</td>
+      <td>100</td>
+      <td>555,02</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>heise online</td>
+      <td>16.442</td>
+      <td>9,0</td>
+      <td>4,46</td>
+      <td>100</td>
+      <td>100</td>
+      <td>154,69</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>1&amp;1</td>
+      <td>17.005</td>
+      <td>8,5</td>
+      <td>4,21</td>
+      <td>100</td>
+      <td>100</td>
+      <td>155,43</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>stern.de</td>
+      <td>16.744</td>
+      <td>8,2</td>
+      <td>4,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>174,41</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User Mio</th>
+      <th>Nutzer-Anteil %</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte Mio</th>
+      <th>Kontakt-Anteil %</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>pcwelt.de</td>
+      <td>16.318</td>
+      <td>8,2</td>
+      <td>4,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>47,28</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>XING</td>
+      <td>13.979</td>
+      <td>7,8</td>
+      <td>3,89</td>
+      <td>100</td>
+      <td>100</td>
+      <td>213,61</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Map24</td>
+      <td>17.115</td>
+      <td>7,8</td>
+      <td>3,88</td>
+      <td>100</td>
+      <td>100</td>
+      <td>85,62</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Testberichte.de</td>
+      <td>16.058</td>
+      <td>7,8</td>
+      <td>3,87</td>
+      <td>100</td>
+      <td>100</td>
+      <td>25,97</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>vodafone.de</td>
+      <td>15.889</td>
+      <td>7,6</td>
+      <td>3,78</td>
+      <td>100</td>
+      <td>100</td>
+      <td>66,19</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Quoka.de</td>
+      <td>16.604</td>
+      <td>7,6</td>
+      <td>3,76</td>
+      <td>100</td>
+      <td>100</td>
+      <td>98,28</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>fem.</td>
+      <td>16.639</td>
+      <td>7,5</td>
+      <td>3,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>50,32</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Clipfish.de</td>
+      <td>15.573</td>
+      <td>7,3</td>
+      <td>3,62</td>
+      <td>100</td>
+      <td>100</td>
+      <td>68,00</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>billiger.de</td>
+      <td>16.753</td>
+      <td>7,3</td>
+      <td>3,61</td>
+      <td>100</td>
+      <td>100</td>
+      <td>22,15</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>qype.com</td>
+      <td>16.922</td>
+      <td>7,1</td>
+      <td>3,53</td>
+      <td>100</td>
+      <td>100</td>
+      <td>14,35</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>netzathleten.de</td>
+      <td>15.927</td>
+      <td>7,1</td>
+      <td>3,52</td>
+      <td>100</td>
+      <td>100</td>
+      <td>56,48</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>RP Online</td>
+      <td>14.910</td>
+      <td>7,0</td>
+      <td>3,49</td>
+      <td>100</td>
+      <td>100</td>
+      <td>75,13</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Deine Tierwelt / dhd24.com</td>
+      <td>15.384</td>
+      <td>6,9</td>
+      <td>3,43</td>
+      <td>100</td>
+      <td>100</td>
+      <td>104,25</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FAZ.NET</td>
+      <td>12.755</td>
+      <td>6,6</td>
+      <td>3,26</td>
+      <td>100</td>
+      <td>100</td>
+      <td>102,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ZEIT ONLINE</td>
+      <td>12.835</td>
+      <td>6,4</td>
+      <td>3,18</td>
+      <td>100</td>
+      <td>100</td>
+      <td>60,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Sat1.de</td>
+      <td>12.848</td>
+      <td>6,4</td>
+      <td>3,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>137,80</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>HolidayCheck</td>
+      <td>14.477</td>
+      <td>6,3</td>
+      <td>3,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>259,53</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>arcor.de -</td>
+      <td>11.680</td>
+      <td>6,3</td>
+      <td>3,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>285,45</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Kicker</td>
+      <td>9.817</td>
+      <td>5,9</td>
+      <td>2,91</td>
+      <td>100</td>
+      <td>100</td>
+      <td>199,53</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Netzwelt.de</td>
+      <td>11.741</td>
+      <td>5,8</td>
+      <td>2,87</td>
+      <td>100</td>
+      <td>100</td>
+      <td>17,28</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Lokalisten</td>
+      <td>10.452</td>
+      <td>5,7</td>
+      <td>2,85</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1.101,45</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>motor-talk.de</td>
+      <td>11.953</td>
+      <td>5,7</td>
+      <td>2,85</td>
+      <td>100</td>
+      <td>100</td>
+      <td>41,16</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>guenstiger.de</td>
+      <td>11.900</td>
+      <td>5,7</td>
+      <td>2,84</td>
+      <td>100</td>
+      <td>100</td>
+      <td>50,11</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Preisvergleich.de</td>
+      <td>14.261</td>
+      <td>5,6</td>
+      <td>2,79</td>
+      <td>100</td>
+      <td>100</td>
+      <td>8,91</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TV SPIELFILM Online</td>
+      <td>10.682</td>
+      <td>5,6</td>
+      <td>2,76</td>
+      <td>100</td>
+      <td>100</td>
+      <td>69,48</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Flickr Deutschland</td>
+      <td>11.461</td>
+      <td>5,5</td>
+      <td>2,71</td>
+      <td>100</td>
+      <td>100</td>
+      <td>98,61</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Glam Netzwerk</td>
+      <td>12.234</td>
+      <td>5,3</td>
+      <td>2,63</td>
+      <td>100</td>
+      <td>100</td>
+      <td>22,17</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>pointoo.de</td>
+      <td>12.712</td>
+      <td>5,2</td>
+      <td>2,58</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,37</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Sport1.de</td>
+      <td>8.770</td>
+      <td>5,1</td>
+      <td>2,51</td>
+      <td>100</td>
+      <td>100</td>
+      <td>171,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Berlin.de</td>
+      <td>10.869</td>
+      <td>5,0</td>
+      <td>2,51</td>
+      <td>100</td>
+      <td>100</td>
+      <td>31,50</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>markt.de</td>
+      <td>11.929</td>
+      <td>5,0</td>
+      <td>2,50</td>
+      <td>100</td>
+      <td>100</td>
+      <td>85,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Expedia</td>
+      <td>11.691</td>
+      <td>5,0</td>
+      <td>2,47</td>
+      <td>100</td>
+      <td>100</td>
+      <td>43,51</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Ab-in-den-Urlaub.de</td>
+      <td>12.418</td>
+      <td>4,9</td>
+      <td>2,46</td>
+      <td>100</td>
+      <td>100</td>
+      <td>56,78</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>netdoktor.de</td>
+      <td>11.283</td>
+      <td>4,9</td>
+      <td>2,42</td>
+      <td>100</td>
+      <td>100</td>
+      <td>15,28</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>KWICK!</td>
+      <td>8.927</td>
+      <td>4,7</td>
+      <td>2,35</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1.025,50</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>computerbase.de</td>
+      <td>8.515</td>
+      <td>4,5</td>
+      <td>2,24</td>
+      <td>100</td>
+      <td>100</td>
+      <td>36,89</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Abendblatt.de</td>
+      <td>9.804</td>
+      <td>4,5</td>
+      <td>2,23</td>
+      <td>100</td>
+      <td>100</td>
+      <td>32,35</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Lastfm.de</td>
+      <td>9.151</td>
+      <td>4,5</td>
+      <td>2,21</td>
+      <td>100</td>
+      <td>100</td>
+      <td>59,90</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Verivox</td>
+      <td>9.935</td>
+      <td>4,4</td>
+      <td>2,21</td>
+      <td>100</td>
+      <td>100</td>
+      <td>26,93</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TripAdvisor</td>
+      <td>11.244</td>
+      <td>4,4</td>
+      <td>2,19</td>
+      <td>100</td>
+      <td>100</td>
+      <td>15,12</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Spieletipps.de</td>
+      <td>8.436</td>
+      <td>4,4</td>
+      <td>2,18</td>
+      <td>100</td>
+      <td>100</td>
+      <td>56,43</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>kino.de</td>
+      <td>9.693</td>
+      <td>4,4</td>
+      <td>2,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>26,61</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Der Westen</td>
+      <td>9.242</td>
+      <td>4,4</td>
+      <td>2,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>70,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>n-tv.de</td>
+      <td>8.297</td>
+      <td>4,3</td>
+      <td>2,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>107,12</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>zylom.de</td>
+      <td>9.693</td>
+      <td>4,3</td>
+      <td>2,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>55,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>GoYellow</td>
+      <td>10.392</td>
+      <td>4,2</td>
+      <td>2,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,79</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FALK.de</td>
+      <td>9.243</td>
+      <td>4,1</td>
+      <td>2,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>57,53</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Preissuchmaschine.de</td>
+      <td>9.196</td>
+      <td>4,1</td>
+      <td>2,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>16,31</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>blog.de</td>
+      <td>9.607</td>
+      <td>4,1</td>
+      <td>2,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,52</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Onmeda Gesundheitsportal</td>
+      <td>9.809</td>
+      <td>4,1</td>
+      <td>2,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>20,08</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>sevenload - Die Medienplattform für Bild &amp; Video</td>
+      <td>9.013</td>
+      <td>4,0</td>
+      <td>1,97</td>
+      <td>100</td>
+      <td>100</td>
+      <td>31,91</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>News.de</td>
+      <td>10.381</td>
+      <td>3,9</td>
+      <td>1,95</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,41</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TV Movie Online</td>
+      <td>7.116</td>
+      <td>3,9</td>
+      <td>1,93</td>
+      <td>100</td>
+      <td>100</td>
+      <td>64,64</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SpielAffe.de</td>
+      <td>8.085</td>
+      <td>3,9</td>
+      <td>1,93</td>
+      <td>100</td>
+      <td>100</td>
+      <td>115,97</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Jetztspielen.de</td>
+      <td>7.972</td>
+      <td>3,7</td>
+      <td>1,85</td>
+      <td>100</td>
+      <td>100</td>
+      <td>70,54</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>autobild.de</td>
+      <td>7.816</td>
+      <td>3,7</td>
+      <td>1,84</td>
+      <td>100</td>
+      <td>100</td>
+      <td>75,61</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User Mio</th>
+      <th>Nutzer-Anteil %</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte Mio</th>
+      <th>Kontakt-Anteil %</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>hood.de</td>
+      <td>8.667</td>
+      <td>3,7</td>
+      <td>1,84</td>
+      <td>100</td>
+      <td>100</td>
+      <td>27,44</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>opodo.de</td>
+      <td>9.076</td>
+      <td>3,7</td>
+      <td>1,82</td>
+      <td>100</td>
+      <td>100</td>
+      <td>27,02</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Handelsblatt Online</td>
+      <td>7.639</td>
+      <td>3,6</td>
+      <td>1,81</td>
+      <td>100</td>
+      <td>100</td>
+      <td>34,28</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>bundesliga.de</td>
+      <td>6.910</td>
+      <td>3,6</td>
+      <td>1,80</td>
+      <td>100</td>
+      <td>100</td>
+      <td>122,25</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>4Players</td>
+      <td>6.750</td>
+      <td>3,6</td>
+      <td>1,78</td>
+      <td>100</td>
+      <td>100</td>
+      <td>41,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BRIGITTE.de</td>
+      <td>8.192</td>
+      <td>3,6</td>
+      <td>1,77</td>
+      <td>100</td>
+      <td>100</td>
+      <td>85,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Fluege.de</td>
+      <td>8.939</td>
+      <td>3,5</td>
+      <td>1,75</td>
+      <td>100</td>
+      <td>100</td>
+      <td>27,67</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Shareware</td>
+      <td>7.172</td>
+      <td>3,5</td>
+      <td>1,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Yopi.de</td>
+      <td>8.152</td>
+      <td>3,4</td>
+      <td>1,70</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,39</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BUNTE.de</td>
+      <td>6.427</td>
+      <td>3,4</td>
+      <td>1,69</td>
+      <td>100</td>
+      <td>100</td>
+      <td>75,32</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Maxdome</td>
+      <td>7.641</td>
+      <td>3,4</td>
+      <td>1,69</td>
+      <td>100</td>
+      <td>100</td>
+      <td>32,82</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ViaMichelin</td>
+      <td>7.433</td>
+      <td>3,3</td>
+      <td>1,62</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,95</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Transfermarkt.de</td>
+      <td>5.977</td>
+      <td>3,2</td>
+      <td>1,61</td>
+      <td>100</td>
+      <td>100</td>
+      <td>142,99</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Golem.de</td>
+      <td>6.107</td>
+      <td>3,2</td>
+      <td>1,60</td>
+      <td>100</td>
+      <td>100</td>
+      <td>24,65</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Alice</td>
+      <td>7.079</td>
+      <td>3,2</td>
+      <td>1,59</td>
+      <td>100</td>
+      <td>100</td>
+      <td>32,58</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>CineStar</td>
+      <td>6.778</td>
+      <td>3,1</td>
+      <td>1,56</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,28</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TVinfo - sehen was läuft</td>
+      <td>6.369</td>
+      <td>3,1</td>
+      <td>1,56</td>
+      <td>100</td>
+      <td>100</td>
+      <td>21,79</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>sozene</td>
+      <td>7.208</td>
+      <td>3,1</td>
+      <td>1,55</td>
+      <td>100</td>
+      <td>100</td>
+      <td>21,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Das Kochrezept.de</td>
+      <td>7.736</td>
+      <td>3,1</td>
+      <td>1,55</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,56</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Auvito.de</td>
+      <td>7.796</td>
+      <td>3,1</td>
+      <td>1,52</td>
+      <td>100</td>
+      <td>100</td>
+      <td>5,20</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TUIfly.com</td>
+      <td>6.371</td>
+      <td>3,0</td>
+      <td>1,51</td>
+      <td>100</td>
+      <td>100</td>
+      <td>15,15</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>wirliebenfilme</td>
+      <td>6.753</td>
+      <td>3,0</td>
+      <td>1,49</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>tagesspiegel.de</td>
+      <td>6.526</td>
+      <td>3,0</td>
+      <td>1,49</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,43</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>RTL2.de</td>
+      <td>6.637</td>
+      <td>3,0</td>
+      <td>1,48</td>
+      <td>100</td>
+      <td>100</td>
+      <td>50,91</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Kalaydo.de - Das regionale Findernet</td>
+      <td>6.903</td>
+      <td>3,0</td>
+      <td>1,48</td>
+      <td>100</td>
+      <td>100</td>
+      <td>61,45</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>QWERTZ</td>
+      <td>6.217</td>
+      <td>2,9</td>
+      <td>1,46</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,73</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PC GAMES</td>
+      <td>5.085</td>
+      <td>2,8</td>
+      <td>1,37</td>
+      <td>100</td>
+      <td>100</td>
+      <td>32,00</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>CinemaxX</td>
+      <td>5.997</td>
+      <td>2,7</td>
+      <td>1,36</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,99</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PC GAMES HARDWARE</td>
+      <td>5.189</td>
+      <td>2,7</td>
+      <td>1,36</td>
+      <td>100</td>
+      <td>100</td>
+      <td>30,90</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>paradisi.de</td>
+      <td>6.230</td>
+      <td>2,7</td>
+      <td>1,32</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,50</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FTD.de</td>
+      <td>5.030</td>
+      <td>2,6</td>
+      <td>1,31</td>
+      <td>100</td>
+      <td>100</td>
+      <td>30,66</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>MTV</td>
+      <td>5.452</td>
+      <td>2,6</td>
+      <td>1,30</td>
+      <td>100</td>
+      <td>100</td>
+      <td>24,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>suchen.de</td>
+      <td>6.592</td>
+      <td>2,6</td>
+      <td>1,27</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,40</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Brash</td>
+      <td>5.761</td>
+      <td>2,6</td>
+      <td>1,27</td>
+      <td>100</td>
+      <td>100</td>
+      <td>8,68</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>NetMoms</td>
+      <td>5.927</td>
+      <td>2,5</td>
+      <td>1,24</td>
+      <td>100</td>
+      <td>100</td>
+      <td>26,49</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Sky.de</td>
+      <td>5.395</td>
+      <td>2,5</td>
+      <td>1,23</td>
+      <td>100</td>
+      <td>100</td>
+      <td>14,36</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>GameStar.de</td>
+      <td>4.591</td>
+      <td>2,5</td>
+      <td>1,23</td>
+      <td>100</td>
+      <td>100</td>
+      <td>32,83</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>teltarif.de</td>
+      <td>5.248</td>
+      <td>2,5</td>
+      <td>1,23</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,62</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>finanzen.net</td>
+      <td>5.295</td>
+      <td>2,5</td>
+      <td>1,23</td>
+      <td>100</td>
+      <td>100</td>
+      <td>47,45</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FILMSTARTS.de</td>
+      <td>5.153</td>
+      <td>2,5</td>
+      <td>1,23</td>
+      <td>100</td>
+      <td>100</td>
+      <td>15,54</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Knuddels.de</td>
+      <td>4.380</td>
+      <td>2,4</td>
+      <td>1,20</td>
+      <td>100</td>
+      <td>100</td>
+      <td>84,77</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Urbia - We are family!</td>
+      <td>5.539</td>
+      <td>2,4</td>
+      <td>1,20</td>
+      <td>100</td>
+      <td>100</td>
+      <td>44,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BerlinOnline</td>
+      <td>5.452</td>
+      <td>2,4</td>
+      <td>1,20</td>
+      <td>100</td>
+      <td>100</td>
+      <td>18,47</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>firmenwissen</td>
+      <td>5.950</td>
+      <td>2,4</td>
+      <td>1,18</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,74</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>hamburg.de</td>
+      <td>5.729</td>
+      <td>2,4</td>
+      <td>1,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>33,13</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Reisen.de</td>
+      <td>6.423</td>
+      <td>2,3</td>
+      <td>1,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>15,12</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Netlog Deutschland</td>
+      <td>4.757</td>
+      <td>2,3</td>
+      <td>1,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>188,15</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>edelight</td>
+      <td>5.565</td>
+      <td>2,3</td>
+      <td>1,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,57</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Shopping.de</td>
+      <td>6.135</td>
+      <td>2,3</td>
+      <td>1,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>CINEPLEX Online</td>
+      <td>4.904</td>
+      <td>2,2</td>
+      <td>1,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Merkur-Online</td>
+      <td>5.321</td>
+      <td>2,2</td>
+      <td>1,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>17,48</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Songtexte.com</td>
+      <td>5.121</td>
+      <td>2,2</td>
+      <td>1,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,81</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>spox.com</td>
+      <td>4.406</td>
+      <td>2,2</td>
+      <td>1,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>61,67</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>apotheken-umschau.de</td>
+      <td>5.391</td>
+      <td>2,2</td>
+      <td>1,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>21,43</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>autoplenum.de</td>
+      <td>4.956</td>
+      <td>2,2</td>
+      <td>1,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,50</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BUFFED</td>
+      <td>3.588</td>
+      <td>2,1</td>
+      <td>1,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>70,52</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>wissen.de</td>
+      <td>5.209</td>
+      <td>2,1</td>
+      <td>1,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,69</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User Mio</th>
+      <th>Nutzer-Anteil %</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte Mio</th>
+      <th>Kontakt-Anteil %</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>erdbeerlounge.de</td>
+      <td>4.942</td>
+      <td>2,1</td>
+      <td>1,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>23,78</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Hausarbeiten.de</td>
+      <td>4.900</td>
+      <td>2,1</td>
+      <td>1,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,12</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>VOX</td>
+      <td>4.717</td>
+      <td>2,1</td>
+      <td>1,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>18,19</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>4trips</td>
+      <td>5.337</td>
+      <td>2,0</td>
+      <td>1,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>5,13</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>manager-magazin.de</td>
+      <td>4.271</td>
+      <td>2,0</td>
+      <td>1,01</td>
+      <td>100</td>
+      <td>100</td>
+      <td>16,63</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>mobilcom-debitel.de</td>
+      <td>4.159</td>
+      <td>2,0</td>
+      <td>1,00</td>
+      <td>100</td>
+      <td>100</td>
+      <td>18,71</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Schueler.CC</td>
+      <td>3.232</td>
+      <td>2,0</td>
+      <td>0,98</td>
+      <td>100</td>
+      <td>100</td>
+      <td>680,40</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Berliner Morgenpost</td>
+      <td>4.381</td>
+      <td>2,0</td>
+      <td>0,98</td>
+      <td>100</td>
+      <td>100</td>
+      <td>15,69</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>kochmeister.com</td>
+      <td>4.924</td>
+      <td>1,9</td>
+      <td>0,96</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,86</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Frankfurter Rundschau online</td>
+      <td>4.066</td>
+      <td>1,9</td>
+      <td>0,96</td>
+      <td>100</td>
+      <td>100</td>
+      <td>14,13</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>imedo.de</td>
+      <td>4.877</td>
+      <td>1,9</td>
+      <td>0,95</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,20</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>OnVista Finanzportal</td>
+      <td>3.465</td>
+      <td>1,9</td>
+      <td>0,93</td>
+      <td>100</td>
+      <td>100</td>
+      <td>82,47</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>administrator.de</td>
+      <td>3.774</td>
+      <td>1,9</td>
+      <td>0,93</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,03</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>taz.de</td>
+      <td>3.999</td>
+      <td>1,9</td>
+      <td>0,92</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,63</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Eltern.de</td>
+      <td>4.265</td>
+      <td>1,9</td>
+      <td>0,92</td>
+      <td>100</td>
+      <td>100</td>
+      <td>49,14</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PromiFlash.de</td>
+      <td>3.783</td>
+      <td>1,9</td>
+      <td>0,92</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,64</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>My-Hammer</td>
+      <td>4.479</td>
+      <td>1,8</td>
+      <td>0,91</td>
+      <td>100</td>
+      <td>100</td>
+      <td>17,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>auto-motor-und-sport.de</td>
+      <td>3.942</td>
+      <td>1,8</td>
+      <td>0,91</td>
+      <td>100</td>
+      <td>100</td>
+      <td>24,67</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>top.de</td>
+      <td>3.978</td>
+      <td>1,8</td>
+      <td>0,89</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,14</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>gamona.de</td>
+      <td>3.433</td>
+      <td>1,8</td>
+      <td>0,88</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,26</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Auto.de</td>
+      <td>4.357</td>
+      <td>1,8</td>
+      <td>0,88</td>
+      <td>100</td>
+      <td>100</td>
+      <td>13,62</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FeWo-direkt.de</td>
+      <td>4.585</td>
+      <td>1,8</td>
+      <td>0,87</td>
+      <td>100</td>
+      <td>100</td>
+      <td>27,18</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>magnus.de</td>
+      <td>3.753</td>
+      <td>1,7</td>
+      <td>0,86</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,64</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Gameswelt.de</td>
+      <td>3.632</td>
+      <td>1,7</td>
+      <td>0,86</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,04</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>CINEMA Online</td>
+      <td>4.037</td>
+      <td>1,7</td>
+      <td>0,86</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>moebel.de</td>
+      <td>4.673</td>
+      <td>1,7</td>
+      <td>0,85</td>
+      <td>100</td>
+      <td>100</td>
+      <td>14,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>VIVA.tv</td>
+      <td>3.697</td>
+      <td>1,7</td>
+      <td>0,84</td>
+      <td>100</td>
+      <td>100</td>
+      <td>14,99</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>OnlineWelten</td>
+      <td>3.278</td>
+      <td>1,7</td>
+      <td>0,84</td>
+      <td>100</td>
+      <td>100</td>
+      <td>84,94</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Kölner Stadt-Anzeiger Online</td>
+      <td>3.672</td>
+      <td>1,7</td>
+      <td>0,83</td>
+      <td>100</td>
+      <td>100</td>
+      <td>21,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PRINZ.de</td>
+      <td>3.950</td>
+      <td>1,7</td>
+      <td>0,82</td>
+      <td>100</td>
+      <td>100</td>
+      <td>8,14</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Abacho.de</td>
+      <td>3.837</td>
+      <td>1,7</td>
+      <td>0,82</td>
+      <td>100</td>
+      <td>100</td>
+      <td>9,37</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>GALA.de</td>
+      <td>3.586</td>
+      <td>1,6</td>
+      <td>0,82</td>
+      <td>100</td>
+      <td>100</td>
+      <td>62,66</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Spielen.com</td>
+      <td>3.833</td>
+      <td>1,6</td>
+      <td>0,81</td>
+      <td>100</td>
+      <td>100</td>
+      <td>28,66</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>kochbar.de</td>
+      <td>4.144</td>
+      <td>1,6</td>
+      <td>0,79</td>
+      <td>100</td>
+      <td>100</td>
+      <td>11,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>King.com</td>
+      <td>3.611</td>
+      <td>1,6</td>
+      <td>0,79</td>
+      <td>100</td>
+      <td>100</td>
+      <td>108,17</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Express Online</td>
+      <td>3.239</td>
+      <td>1,6</td>
+      <td>0,79</td>
+      <td>100</td>
+      <td>100</td>
+      <td>36,86</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>AreaMobile</td>
+      <td>3.267</td>
+      <td>1,6</td>
+      <td>0,77</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>UCI-Kinowelt Online</td>
+      <td>3.350</td>
+      <td>1,6</td>
+      <td>0,77</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,82</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>wallstreet-online.de</td>
+      <td>3.491</td>
+      <td>1,5</td>
+      <td>0,77</td>
+      <td>100</td>
+      <td>100</td>
+      <td>29,86</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>weg.de</td>
+      <td>4.185</td>
+      <td>1,5</td>
+      <td>0,75</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,30</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Augsburger Allgemeine Online</td>
+      <td>3.324</td>
+      <td>1,5</td>
+      <td>0,75</td>
+      <td>100</td>
+      <td>100</td>
+      <td>20,51</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>kabeleins.de</td>
+      <td>3.614</td>
+      <td>1,5</td>
+      <td>0,75</td>
+      <td>100</td>
+      <td>100</td>
+      <td>19,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>QualiMedic</td>
+      <td>3.648</td>
+      <td>1,5</td>
+      <td>0,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,08</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Stuttgarter Zeitung online &amp; Stuttgarter Nachrichten online</td>
+      <td>3.353</td>
+      <td>1,5</td>
+      <td>0,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>22,31</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Cinefacts</td>
+      <td>3.310</td>
+      <td>1,5</td>
+      <td>0,74</td>
+      <td>100</td>
+      <td>100</td>
+      <td>5,96</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BZ-Berlin</td>
+      <td>3.357</td>
+      <td>1,4</td>
+      <td>0,72</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,93</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>wg-gesucht.de</td>
+      <td>3.272</td>
+      <td>1,4</td>
+      <td>0,72</td>
+      <td>100</td>
+      <td>100</td>
+      <td>25,03</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ZOOVER</td>
+      <td>3.560</td>
+      <td>1,4</td>
+      <td>0,71</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,17</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>sportal.de</td>
+      <td>2.539</td>
+      <td>1,4</td>
+      <td>0,71</td>
+      <td>100</td>
+      <td>100</td>
+      <td>54,39</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>mediengestalter.info</td>
+      <td>3.054</td>
+      <td>1,4</td>
+      <td>0,71</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,66</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>mitfahrgelegenheit.de</td>
+      <td>2.970</td>
+      <td>1,4</td>
+      <td>0,70</td>
+      <td>100</td>
+      <td>100</td>
+      <td>25,70</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Koeln.de</td>
+      <td>3.171</td>
+      <td>1,4</td>
+      <td>0,69</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,46</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>real.com</td>
+      <td>3.110</td>
+      <td>1,4</td>
+      <td>0,68</td>
+      <td>100</td>
+      <td>100</td>
+      <td>5,15</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Frauenzimmer.de</td>
+      <td>3.410</td>
+      <td>1,4</td>
+      <td>0,68</td>
+      <td>100</td>
+      <td>100</td>
+      <td>38,53</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Nordbayern.de</td>
+      <td>2.937</td>
+      <td>1,3</td>
+      <td>0,67</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>3min</td>
+      <td>3.427</td>
+      <td>1,3</td>
+      <td>0,67</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,23</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+| | | Netto-RW (Unique User) | | | | Brutto-Reichweite (Kontakte) | |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| | Fälle (ungew.) | % | Unique User Mio | Nutzer-Anteil % | Aff.-Index | Kontakte Mio | Kontakt-Anteil % |
+| Strato.de | 2.868 | 1,3 | 0,66 | 100 | 100 | 13,24 | 100 |
+| ANTENNE BAYERN Online | 2.788 | 1,3 | 0,66 | 100 | 100 | 17,03 | 100 |
+| Jolie.de | 3.063 | 1,3 | 0,65 | 100 | 100 | 28,74 | 100 |
+| amicella | 3.403 | 1,3 | 0,64 | 100 | 100 | 7,52 | 100 |
+| just2guide | 3.341 | 1,3 | 0,64 | 100 | 100 | 4,19 | 100 |
+| GEO.de | 3.288 | 1,3 | 0,63 | 100 | 100 | 9,30 | 100 |
+| Badische Zeitung Online | 2.868 | 1,3 | 0,63 | 100 | 100 | 11,92 | 100 |
+| laut.de | 2.817 | 1,3 | 0,63 | 100 | 100 | 6,99 | 100 |
+| openPR.de | 3.117 | 1,2 | 0,62 | 100 | 100 | 1,31 | 100 |
+| wiwo.de | 2.874 | 1,2 | 0,61 | 100 | 100 | 5,87 | 100 |
+| macwelt.de | 2.454 | 1,2 | 0,61 | 100 | 100 | 5,67 | 100 |
+| FinanzNachrichten.de | 2.711 | 1,2 | 0,61 | 100 | 100 | 12,14 | 100 |
+| menshealth.de | 2.794 | 1,2 | 0,61 | 100 | 100 | 14,39 | 100 |
+| Lifeline.de | 3.080 | 1,2 | 0,60 | 100 | 100 | 4,03 | 100 |
+| gesundheit.de | 2.968 | 1,2 | 0,59 | 100 | 100 | 2,32 | 100 |
+| Hotelreservierung.de | 3.332 | 1,2 | 0,59 | 100 | 100 | 8,22 | 100 |
+| radio.de | 2.640 | 1,2 | 0,59 | 100 | 100 | 7,89 | 100 |
+| inside-handy.de | 2.480 | 1,2 | 0,58 | 100 | 100 | 5,76 | 100 |
+| neckermann-reisen.de | 3.129 | 1,1 | 0,57 | 100 | 100 | 8,76 | 100 |
+| testeo.de | 2.541 | 1,1 | 0,56 | 100 | 100 | 3,84 | 100 |
+| Forium.de | 2.819 | 1,1 | 0,56 | 100 | 100 | 2,23 | 100 |
+| suedkurier.de | 2.462 | 1,1 | 0,55 | 100 | 100 | 24,15 | 100 |
+| Cosmoty.de | 2.529 | 1,1 | 0,55 | 100 | 100 | 9,00 | 100 |
+| Ariva | 2.551 | 1,1 | 0,55 | 100 | 100 | 44,48 | 100 |
+| Marktplatz Mittelstand | 2.813 | 1,1 | 0,55 | 100 | 100 | 1,26 | 100 |
+| TecChannel.de | 2.144 | 1,1 | 0,55 | 100 | 100 | 4,37 | 100 |
+| essen-und-trinken.de | 2.787 | 1,1 | 0,55 | 100 | 100 | 22,81 | 100 |
+| Playboy.de | 2.345 | 1,1 | 0,55 | 100 | 100 | 20,81 | 100 |
+| VIDEOGAMESZONE | 2.166 | 1,1 | 0,54 | 100 | 100 | 5,85 | 100 |
+| FASHION.DE | 2.958 | 1,1 | 0,54 | 100 | 100 | 8,35 | 100 |
+| germanblogs.de | 2.552 | 1,0 | 0,52 | 100 | 100 | 0,85 | 100 |
+| selbst Online | 2.487 | 1,0 | 0,50 | 100 | 100 | 4,55 | 100 |
+| tz Online | 2.230 | 1,0 | 0,50 | 100 | 100 | 17,77 | 100 |
+| versatel.de | 1.944 | 1,0 | 0,49 | 100 | 100 | 6,49 | 100 |
+| BRAVO Online | 2.211 | 1,0 | 0,49 | 100 | 100 | 29,34 | 100 |
+| mopo.de | 2.110 | 1,0 | 0,49 | 100 | 100 | 19,38 | 100 |
+| Discover Outdoor | 2.176 | 1,0 | 0,48 | 100 | 100 | 5,69 | 100 |
+| wunschliste.de | 2.124 | 1,0 | 0,48 | 100 | 100 | 2,83 | 100 |
+| Kochrezepte | 2.565 | 1,0 | 0,48 | 100 | 100 | 4,66 | 100 |
+| PONS | 2.107 | 1,0 | 0,47 | 100 | 100 | 15,57 | 100 |
+| stayblue.de | 1.645 | 1,0 | 0,47 | 100 | 100 | 350,52 | 100 |
+| erento.com | 2.365 | 0,9 | 0,47 | 100 | 100 | 4,09 | 100 |
+| Ruhr Nachrichten.de | 2.012 | 0,9 | 0,47 | 100 | 100 | 13,12 | 100 |
+| wetter.net | 2.247 | 0,9 | 0,46 | 100 | 100 | 5,00 | 100 |
+| zattoo.com | 1.751 | 0,9 | 0,46 | 100 | 100 | 9,69 | 100 |
+| COMPUTERWOCHE.de | 1.964 | 0,9 | 0,46 | 100 | 100 | 4,56 | 100 |
+| MERIAN.de | 1.937 | 0,9 | 0,46 | 100 | 100 | 10,24 | 100 |
+| OutdoorCHANNEL.de | 2.179 | 0,9 | 0,46 | 100 | 100 | 5,25 | 100 |
+| Mein schöner Garten Online | 2.308 | 0,9 | 0,45 | 100 | 100 | 5,92 | 100 |
+| Kfz-Auskunft | 2.405 | 0,9 | 0,45 | 100 | 100 | 1,07 | 100 |
+| Mädchen.de | 2.119 | 0,9 | 0,45 | 100 | 100 | 15,42 | 100 |
+| Thomas Cook | 2.467 | 0,9 | 0,45 | 100 | 100 | 13,23 | 100 |
+| AIRLINE DIRECT - discover online travel | 2.475 | 0,9 | 0,44 | 100 | 100 | 3,74 | 100 |
+| GLAMOUR.DE | 1.979 | 0,9 | 0,44 | 100 | 100 | 24,68 | 100 |
+| wiealt.de | 1.519 | 0,9 | 0,44 | 100 | 100 | 184,01 | 100 |
+| noows.de | 2.092 | 0,9 | 0,44 | 100 | 100 | 0,87 | 100 |
+
+---
+
+| | | Netto-RW (Unique User) | | | | Brutto-Reichweite (Kontakte) | |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| | Fälle (ungew.) | % | Unique User Mio | Nutzer-Anteil % | Aff.-Index | Kontakte Mio | Kontakt-Anteil % |
+| Borussia Dortmund | 1.645 | 0,9 | 0,43 | 100 | 100 | 11,62 | 100 |
+| connect online | 1.906 | 0,9 | 0,42 | 100 | 100 | 2,81 | 100 |
+| Abendzeitung | 1.862 | 0,8 | 0,42 | 100 | 100 | 8,66 | 100 |
+| Saarland Online | 1.965 | 0,8 | 0,42 | 100 | 100 | 15,85 | 100 |
+| innovations-report.de | 2.153 | 0,8 | 0,42 | 100 | 100 | 1,01 | 100 |
+| livingathome.de | 2.048 | 0,8 | 0,42 | 100 | 100 | 24,27 | 100 |
+| ad-hoc-news | 2.084 | 0,8 | 0,42 | 100 | 100 | 2,21 | 100 |
+| tvister.de | 2.090 | 0,8 | 0,41 | 100 | 100 | 2,62 | 100 |
+| Rhein Main Presse/Main-Rheiner | 1.817 | 0,8 | 0,40 | 100 | 100 | 6,06 | 100 |
+| Maerkische Allgemeine.de | 1.915 | 0,8 | 0,40 | 100 | 100 | 3,46 | 100 |
+| Hamburger SV | 1.675 | 0,8 | 0,40 | 100 | 100 | 8,01 | 100 |
+| SZ-Online | 1.707 | 0,8 | 0,40 | 100 | 100 | 16,49 | 100 |
+| perlentaucher.de | 1.694 | 0,8 | 0,38 | 100 | 100 | 1,65 | 100 |
+| Neue Osnabrücker Zeitung | 1.617 | 0,8 | 0,37 | 100 | 100 | 13,02 | 100 |
+| Mainpost.de | 1.602 | 0,7 | 0,37 | 100 | 100 | 16,50 | 100 |
+| Bluray-Disc | 1.523 | 0,7 | 0,37 | 100 | 100 | 7,90 | 100 |
+| motorradonline.de | 1.643 | 0,7 | 0,37 | 100 | 100 | 5,32 | 100 |
+| VOGUE.COM | 1.527 | 0,7 | 0,36 | 100 | 100 | 9,04 | 100 |
+| freundin Online | 1.688 | 0,7 | 0,35 | 100 | 100 | 30,90 | 100 |
+| gamezone.de | 1.541 | 0,7 | 0,35 | 100 | 100 | 3,18 | 100 |
+| WZ-newsline (Westdeutsche Zeitung) | 1.578 | 0,7 | 0,35 | 100 | 100 | 5,34 | 100 |
+| fan-lexikon.de | 1.664 | 0,7 | 0,35 | 100 | 100 | 0,89 | 100 |
+| clever-tanken.de | 1.403 | 0,7 | 0,34 | 100 | 100 | 3,61 | 100 |
+| Southpark Studios | 1.223 | 0,7 | 0,34 | 100 | 100 | 9,99 | 100 |
+| Universal Music Netzwerk | 1.648 | 0,7 | 0,34 | 100 | 100 | 1,85 | 100 |
+| HNA online | 1.464 | 0,7 | 0,34 | 100 | 100 | 12,35 | 100 |
+| VIP.de | 1.415 | 0,7 | 0,33 | 100 | 100 | 14,44 | 100 |
+| Rhein-Main.Net | 1.486 | 0,7 | 0,33 | 100 | 100 | 4,41 | 100 |
+| talkline.de | 1.380 | 0,7 | 0,33 | 100 | 100 | 5,93 | 100 |
+| Spektrum der Wissenschaft | 1.600 | 0,7 | 0,33 | 100 | 100 | 1,71 | 100 |
+| Hit Radio FFH | 1.477 | 0,7 | 0,33 | 100 | 100 | 14,05 | 100 |
+| NW-News (Neue Westfälische Zeitung) | 1.415 | 0,7 | 0,33 | 100 | 100 | 16,41 | 100 |
+| CYNAMITE (GAMES AKTUELL) | 1.321 | 0,7 | 0,33 | 100 | 100 | 4,68 | 100 |
+| Fussballdaten.de | 1.439 | 0,7 | 0,32 | 100 | 100 | 5,12 | 100 |
+| klarmobil.de | 1.444 | 0,7 | 0,32 | 100 | 100 | 3,32 | 100 |
+| ovb-online.de | 1.439 | 0,7 | 0,32 | 100 | 100 | 14,33 | 100 |
+| GIGA.de | 1.417 | 0,7 | 0,32 | 100 | 100 | 8,32 | 100 |
+| ÖKO-TEST-Verbraucherberatung | 1.589 | 0,7 | 0,32 | 100 | 100 | 3,00 | 100 |
+| kununu.com | 1.753 | 0,6 | 0,32 | 100 | 100 | 1,10 | 100 |
+| TrailerSeite.de | 1.554 | 0,6 | 0,32 | 100 | 100 | 2,00 | 100 |
+| Donaukurier | 1.482 | 0,6 | 0,32 | 100 | 100 | 4,34 | 100 |
+| förderland | 1.649 | 0,6 | 0,32 | 100 | 100 | 0,95 | 100 |
+| Mitteldeutsche Zeitung | 1.447 | 0,6 | 0,32 | 100 | 100 | 4,94 | 100 |
+| Rhein-Zeitung online | 1.464 | 0,6 | 0,32 | 100 | 100 | 6,23 | 100 |
+| Schwäbische Zeitung Online | 1.394 | 0,6 | 0,32 | 100 | 100 | 11,78 | 100 |
+| General-Anzeiger Online | 1.463 | 0,6 | 0,31 | 100 | 100 | 12,10 | 100 |
+| WUNDERWEIB.de | 1.422 | 0,6 | 0,31 | 100 | 100 | 24,66 | 100 |
+| Autozeitung Online | 1.342 | 0,6 | 0,30 | 100 | 100 | 7,52 | 100 |
+| praline VIDEO | 1.345 | 0,6 | 0,30 | 100 | 100 | 2,52 | 100 |
+| Spickmich.de | 1.346 | 0,6 | 0,30 | 100 | 100 | 43,45 | 100 |
+| Radio ffn | 1.394 | 0,6 | 0,30 | 100 | 100 | 6,44 | 100 |
+| Schneehoehen.de | 1.572 | 0,6 | 0,30 | 100 | 100 | 2,84 | 100 |
+| hiphop.de | 1.140 | 0,6 | 0,30 | 100 | 100 | 2,74 | 100 |
+| Cosmopolitan | 1.376 | 0,6 | 0,29 | 100 | 100 | 18,88 | 100 |
+| QMNetwork.de | 1.307 | 0,6 | 0,29 | 100 | 100 | 4,11 | 100 |
+| Mamiweb.de | 1.402 | 0,6 | 0,29 | 100 | 100 | 7,92 | 100 |
+
+---
+
+| | | Netto-RW (Unique User) | | | | Brutto-Reichweite (Kontakte) | |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| | Fälle (ungew.) | % | Unique User Mio | Nutzer-Anteil % | Aff.-Index | Kontakte Mio | Kontakt-Anteil % |
+| Morgenweb | 1.358 | 0,6 | 0,29 | 100 | 100 | 4,39 | 100 |
+| UNICUM.de | 1.290 | 0,6 | 0,29 | 100 | 100 | 2,10 | 100 |
+| Telebörse.de | 1.087 | 0,6 | 0,29 | 100 | 100 | 10,96 | 100 |
+| GamePro.de | 1.179 | 0,6 | 0,29 | 100 | 100 | 4,17 | 100 |
+| dsf.de | 1.354 | 0,6 | 0,29 | 100 | 100 | 1,30 | 100 |
+| podcast.de | 1.367 | 0,6 | 0,28 | 100 | 100 | 1,26 | 100 |
+| Flughafen Düsseldorf International | 1.439 | 0,6 | 0,28 | 100 | 100 | 5,06 | 100 |
+| Reuters.de | 1.297 | 0,6 | 0,28 | 100 | 100 | 1,31 | 100 |
+| Bayerischer Fußball-Verband | 1.095 | 0,6 | 0,28 | 100 | 100 | 7,02 | 100 |
+| Leipziger Volkszeitung | 1.202 | 0,6 | 0,28 | 100 | 100 | 10,65 | 100 |
+| Nachrichten.de | 1.405 | 0,5 | 0,27 | 100 | 100 | 0,86 | 100 |
+| babyclub.de | 1.371 | 0,5 | 0,27 | 100 | 100 | 2,62 | 100 |
+| Motorsport-Total.com | 1.072 | 0,5 | 0,27 | 100 | 100 | 14,35 | 100 |
+| Hannoversche Allgemeine Zeitung | 1.238 | 0,5 | 0,27 | 100 | 100 | 6,65 | 100 |
+| karriere.de | 1.375 | 0,5 | 0,27 | 100 | 100 | 2,32 | 100 |
+| dmax.de | 1.222 | 0,5 | 0,27 | 100 | 100 | 20,58 | 100 |
+| tripwolf.com | 1.481 | 0,5 | 0,27 | 100 | 100 | 3,52 | 100 |
+| technobase.fm | 1.040 | 0,5 | 0,27 | 100 | 100 | 4,68 | 100 |
+| Rtv.de | 1.152 | 0,5 | 0,26 | 100 | 100 | 3,30 | 100 |
+| Eintracht Frankfurt | 1.129 | 0,5 | 0,26 | 100 | 100 | 6,04 | 100 |
+| citysports.de | 1.411 | 0,5 | 0,26 | 100 | 100 | 1,13 | 100 |
+| Finanztreff.de | 1.020 | 0,5 | 0,26 | 100 | 100 | 34,15 | 100 |
+| Geld.de | 1.435 | 0,5 | 0,26 | 100 | 100 | 0,80 | 100 |
+| Südwest Presse Online | 1.163 | 0,5 | 0,26 | 100 | 100 | 4,01 | 100 |
+| vorname.com | 1.370 | 0,5 | 0,25 | 100 | 100 | 2,46 | 100 |
+| NWZ-Online | 1.160 | 0,5 | 0,25 | 100 | 100 | 12,90 | 100 |
+| GQ.com | 1.142 | 0,5 | 0,25 | 100 | 100 | 7,43 | 100 |
+| Weddix.de | 1.173 | 0,5 | 0,25 | 100 | 100 | 5,03 | 100 |
+| runnersworld.de | 1.141 | 0,5 | 0,25 | 100 | 100 | 2,45 | 100 |
+| küchengötter.de | 1.287 | 0,5 | 0,24 | 100 | 100 | 2,31 | 100 |
+| bigFM.de | 1.038 | 0,5 | 0,24 | 100 | 100 | 6,36 | 100 |
+| boerse-online.de | 1.054 | 0,5 | 0,24 | 100 | 100 | 11,73 | 100 |
+| Hit Radio Antenne | 1.259 | 0,5 | 0,24 | 100 | 100 | 2,62 | 100 |
+| Nordclick | 1.184 | 0,5 | 0,24 | 100 | 100 | 4,26 | 100 |
+| Kölnische Rundschau | 1.173 | 0,5 | 0,24 | 100 | 100 | 3,20 | 100 |
+| freiepresse.de | 1.004 | 0,5 | 0,24 | 100 | 100 | 6,33 | 100 |
+| shz.de | 1.021 | 0,5 | 0,24 | 100 | 100 | 5,08 | 100 |
+| pixelio.de | 1.117 | 0,5 | 0,24 | 100 | 100 | 3,69 | 100 |
+| ENERGY - HIT MUSIC ONLY! | 1.033 | 0,5 | 0,24 | 100 | 100 | 3,89 | 100 |
+| Bild der Frau | 1.171 | 0,5 | 0,23 | 100 | 100 | 4,71 | 100 |
+| YIGG.de | 1.199 | 0,5 | 0,23 | 100 | 100 | 0,76 | 100 |
+| Westfälische Nachrichten | 1.079 | 0,5 | 0,23 | 100 | 100 | 7,31 | 100 |
+| netzeitung.de | 1.126 | 0,5 | 0,23 | 100 | 100 | 1,12 | 100 |
+| MovieGod.de | 1.069 | 0,5 | 0,23 | 100 | 100 | 1,83 | 100 |
+| HÖRZU | 1.151 | 0,5 | 0,23 | 100 | 100 | 2,82 | 100 |
+| gesundheit-heute | 1.172 | 0,5 | 0,23 | 100 | 100 | 0,52 | 100 |
+| praline INTERAKTIV | 979 | 0,5 | 0,23 | 100 | 100 | 12,66 | 100 |
+| Routenplaner24.de | 1.246 | 0,4 | 0,22 | 100 | 100 | 1,09 | 100 |
+| earthTV.com | 1.158 | 0,4 | 0,22 | 100 | 100 | 2,12 | 100 |
+| ka-news.de - Nachrichten für Karlsruhe | 1.027 | 0,4 | 0,22 | 100 | 100 | 7,05 | 100 |
+| Formel1.de | 940 | 0,4 | 0,22 | 100 | 100 | 4,31 | 100 |
+| Offenbach Post Online | 1.002 | 0,4 | 0,22 | 100 | 100 | 3,44 | 100 |
+| Motorsport-Magazin.com (ehemals adrivo.com) | 953 | 0,4 | 0,22 | 100 | 100 | 4,05 | 100 |
+| Heilbronner Stimme online | 996 | 0,4 | 0,22 | 100 | 100 | 5,08 | 100 |
+| inside-digital.de | 956 | 0,4 | 0,22 | 100 | 100 | 1,67 | 100 |
+
+---
+
+| | | Netto-RW (Unique User) | | | | Brutto-Reichweite (Kontakte) | |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| | Fälle (ungew.) | % | Unique User Mio | Nutzer-Anteil % | Aff.-Index | Kontakte Mio | Kontakt-Anteil % |
+| FIT FOR FUN Online | 1.027 | 0,4 | 0,21 | 100 | 100 | 5,77 | 100 |
+| DatingCafe.de | 1.014 | 0,4 | 0,21 | 100 | 100 | 33,47 | 100 |
+| KIDSZONE | 839 | 0,4 | 0,21 | 100 | 100 | 11,99 | 100 |
+| volksfreund.de | 953 | 0,4 | 0,21 | 100 | 100 | 9,85 | 100 |
+| Noé Astro | 1.016 | 0,4 | 0,21 | 100 | 100 | 4,22 | 100 |
+| capital.de | 941 | 0,4 | 0,21 | 100 | 100 | 5,84 | 100 |
+| Mittelbayerische Zeitung | 861 | 0,4 | 0,21 | 100 | 100 | 5,02 | 100 |
+| beQueen | 1.069 | 0,4 | 0,21 | 100 | 100 | 1,04 | 100 |
+| LN-Online | 929 | 0,4 | 0,21 | 100 | 100 | 5,85 | 100 |
+| phonostar | 768 | 0,4 | 0,21 | 100 | 100 | 5,68 | 100 |
+| NEON.de | 941 | 0,4 | 0,21 | 100 | 100 | 50,30 | 100 |
+| Weser-Kurier | 1.000 | 0,4 | 0,21 | 100 | 100 | 4,50 | 100 |
+| alle-autos-in.de | 945 | 0,4 | 0,21 | 100 | 100 | 1,26 | 100 |
+| Adeba.de | 1.065 | 0,4 | 0,21 | 100 | 100 | 1,71 | 100 |
+| Freizeitfreunde Online | 1.092 | 0,4 | 0,21 | 100 | 100 | 5,49 | 100 |
+| Marcopolo.de | 1.075 | 0,4 | 0,21 | 100 | 100 | 2,48 | 100 |
+| Quotenmeter.de | 883 | 0,4 | 0,21 | 100 | 100 | 3,17 | 100 |
+| pooltrax.de | 988 | 0,4 | 0,20 | 100 | 100 | 0,75 | 100 |
+| zehn.de | 975 | 0,4 | 0,20 | 100 | 100 | 2,87 | 100 |
+| Das Haus Online | 1.001 | 0,4 | 0,20 | 100 | 100 | 1,73 | 100 |
+| Joy | 968 | 0,4 | 0,20 | 100 | 100 | 16,25 | 100 |
+| all-in.de - Das Allgäu online! | 882 | 0,4 | 0,20 | 100 | 100 | 21,03 | 100 |
+| PNP-Online | 843 | 0,4 | 0,20 | 100 | 100 | 6,42 | 100 |
+| GirlsgoGames.de | 993 | 0,4 | 0,20 | 100 | 100 | 8,01 | 100 |
+| LECKER Online | 929 | 0,4 | 0,20 | 100 | 100 | 6,57 | 100 |
+| Newspoint.CC | 769 | 0,4 | 0,20 | 100 | 100 | 1,96 | 100 |
+| wuv.de | 688 | 0,4 | 0,20 | 100 | 100 | 3,05 | 100 |
+| LR-Online | 905 | 0,4 | 0,19 | 100 | 100 | 3,29 | 100 |
+| boerse.de | 788 | 0,4 | 0,19 | 100 | 100 | 8,96 | 100 |
+| spielfilm.de | 915 | 0,4 | 0,19 | 100 | 100 | 0,67 | 100 |
+| schoener-wohnen.de | 1.023 | 0,4 | 0,19 | 100 | 100 | 15,45 | 100 |
+| homesolute.com | 1.035 | 0,4 | 0,19 | 100 | 100 | 4,02 | 100 |
+| newsclick.de | 772 | 0,4 | 0,19 | 100 | 100 | 5,39 | 100 |
+| Mamilade Ausflugstipps Deutschland | 1.101 | 0,4 | 0,19 | 100 | 100 | 0,68 | 100 |
+| Finya.de | 741 | 0,4 | 0,19 | 100 | 100 | 163,21 | 100 |
+| motoso.de | 930 | 0,4 | 0,19 | 100 | 100 | 1,60 | 100 |
+| port01.com | 864 | 0,4 | 0,19 | 100 | 100 | 2,56 | 100 |
+| Kreiszeitung Online | 868 | 0,4 | 0,18 | 100 | 100 | 2,94 | 100 |
+| schwarzwaelder-bote.de | 821 | 0,4 | 0,18 | 100 | 100 | 3,62 | 100 |
+| DER AKTIONÄR | 751 | 0,4 | 0,18 | 100 | 100 | 3,17 | 100 |
+| Filmreporter.de | 877 | 0,4 | 0,18 | 100 | 100 | 0,64 | 100 |
+| macnews.de | 568 | 0,4 | 0,18 | 100 | 100 | 3,69 | 100 |
+| 11Freunde.de | 701 | 0,4 | 0,18 | 100 | 100 | 2,73 | 100 |
+| Musicline.de | 829 | 0,4 | 0,18 | 100 | 100 | 1,45 | 100 |
+| Idowa Online | 717 | 0,4 | 0,18 | 100 | 100 | 7,07 | 100 |
+| GameOne | 679 | 0,4 | 0,18 | 100 | 100 | 5,30 | 100 |
+| digital-world.de | 788 | 0,4 | 0,18 | 100 | 100 | 0,90 | 100 |
+| Druckerchannel.de | 806 | 0,4 | 0,18 | 100 | 100 | 1,39 | 100 |
+| Radio sunshine live | 728 | 0,4 | 0,17 | 100 | 100 | 1,67 | 100 |
+| WA-Online (Westfälischer Anzeiger) | 749 | 0,4 | 0,17 | 100 | 100 | 5,47 | 100 |
+| Thueringer-Allgemeine.de | 719 | 0,3 | 0,17 | 100 | 100 | 11,74 | 100 |
+| BonGusto | 895 | 0,3 | 0,17 | 100 | 100 | 1,26 | 100 |
+| tvDIGITAL | 829 | 0,3 | 0,17 | 100 | 100 | 1,12 | 100 |
+| artnet | 788 | 0,3 | 0,17 | 100 | 100 | 1,46 | 100 |
+| KN-Online | 753 | 0,3 | 0,17 | 100 | 100 | 2,57 | 100 |
+| notebookinfo.de | 755 | 0,3 | 0,17 | 100 | 100 | 1,66 | 100 |
+| burdastyle.de | 827 | 0,3 | 0,17 | 100 | 100 | 7,72 | 100 |
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User<br>Mio</th>
+      <th>Nutzer-Anteil<br>%</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte<br>Mio</th>
+      <th>Kontakt-Anteil<br>%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CHIP Fotowelt Online</td>
+      <td>808</td>
+      <td>0,3</td>
+      <td>0,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,74</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Echo Online</td>
+      <td>780</td>
+      <td>0,3</td>
+      <td>0,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,12</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>1. FC Nürnberg</td>
+      <td>676</td>
+      <td>0,3</td>
+      <td>0,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,85</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>tonspion.de</td>
+      <td>632</td>
+      <td>0,3</td>
+      <td>0,17</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,30</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>video.de -</td>
+      <td>728</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Aachener Zeitung</td>
+      <td>749</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,62</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Meedia</td>
+      <td>579</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,22</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Ostsee-Zeitung.de</td>
+      <td>701</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,57</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Eraffe</td>
+      <td>544</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>82,75</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>vodafonelive.de</td>
+      <td>762</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,07</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Intro.de</td>
+      <td>749</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Versicherungen.de</td>
+      <td>856</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,26</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BeLocal.de</td>
+      <td>882</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,58</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>geldsparen.de</td>
+      <td>712</td>
+      <td>0,3</td>
+      <td>0,16</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,91</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>schulradar.de</td>
+      <td>798</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,65</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Billigflug</td>
+      <td>870</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,34</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SUPERillu Online</td>
+      <td>720</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,12</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Golf.de</td>
+      <td>607</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>stromvergleich.de</td>
+      <td>776</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,58</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>READMORE</td>
+      <td>626</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,33</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>motor.de</td>
+      <td>645</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,62</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>webmail.de</td>
+      <td>691</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>30,63</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Energiesparen-im-Haushalt.de</td>
+      <td>726</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,77</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>boerse-frankfurt.de</td>
+      <td>627</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>9,78</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>OS INFORMER</td>
+      <td>619</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,64</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ortsdienst.de</td>
+      <td>735</td>
+      <td>0,3</td>
+      <td>0,15</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,33</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Hertha BSC</td>
+      <td>641</td>
+      <td>0,3</td>
+      <td>0,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,21</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TIKonline.de</td>
+      <td>657</td>
+      <td>0,3</td>
+      <td>0,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,86</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>rap.de</td>
+      <td>521</td>
+      <td>0,3</td>
+      <td>0,14</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,30</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>brainguide</td>
+      <td>628</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>inFranken.de</td>
+      <td>578</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,53</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SVZ online</td>
+      <td>577</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,39</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Gießener Anzeiger</td>
+      <td>612</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,22</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Planet Radio</td>
+      <td>490</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,33</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ELLE Online</td>
+      <td>587</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,43</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Westline</td>
+      <td>495</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,63</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>DVD.DE</td>
+      <td>517</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,41</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>competitionline - Wettbewerbe und Architektur</td>
+      <td>488</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Hannover 96</td>
+      <td>575</td>
+      <td>0,3</td>
+      <td>0,13</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,94</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Auto News</td>
+      <td>547</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,15</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SG Dynamo Dresden</td>
+      <td>467</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>5,52</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>P.M. Online -</td>
+      <td>502</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,60</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Hamburg</td>
+      <td>554</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,61</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>kinder.de - Dein Familienportal</td>
+      <td>713</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,94</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Freitag.de</td>
+      <td>513</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,75</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Vitanet.de</td>
+      <td>629</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,46</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PC ACTION</td>
+      <td>491</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,95</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>AreaGames</td>
+      <td>503</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,70</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Oberpfalznetz</td>
+      <td>599</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,03</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TOUR Magazin</td>
+      <td>569</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,65</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Klassik Radio</td>
+      <td>549</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,54</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SFT (SpieleFilmeTechnik)</td>
+      <td>486</td>
+      <td>0,2</td>
+      <td>0,12</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,97</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Schleswig-Holstein (R.SH)</td>
+      <td>532</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,53</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>howrse.de</td>
+      <td>502</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>68,85</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Platinnetz</td>
+      <td>502</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>16,02</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>zitty.de</td>
+      <td>467</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,22</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User<br>Mio</th>
+      <th>Nutzer-Anteil<br>%</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte<br>Mio</th>
+      <th>Kontakt-Anteil<br>%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>stock-world</td>
+      <td>505</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,62</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>business-wissen.de</td>
+      <td>505</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,33</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>VDI nachrichten</td>
+      <td>469</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,99</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>animeMANGA.de</td>
+      <td>470</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,95</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Sony Music Deutschland</td>
+      <td>444</td>
+      <td>0,2</td>
+      <td>0,11</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,49</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>sportauto-online.de</td>
+      <td>404</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Märkische Oderzeitung Online</td>
+      <td>478</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,81</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Frankenpost Online</td>
+      <td>458</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,70</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Shape</td>
+      <td>427</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>12,84</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>myself.de</td>
+      <td>475</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>4,17</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Dortmund Airport</td>
+      <td>482</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>art-magazin.de</td>
+      <td>449</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,69</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Private-Krankenversicherung.de</td>
+      <td>580</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,22</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Carmondo/ BRASH Cars</td>
+      <td>402</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,30</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PNN.de</td>
+      <td>436</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Neue Presse Hannover</td>
+      <td>416</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>COUPE.de</td>
+      <td>405</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>17,35</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Leben &amp; Erziehen</td>
+      <td>532</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,11</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Volksstimme, Magdeburg</td>
+      <td>410</td>
+      <td>0,2</td>
+      <td>0,10</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,95</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>mediabiz.de</td>
+      <td>419</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,46</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Aachener Nachrichten</td>
+      <td>416</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,78</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Womenweb</td>
+      <td>408</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,21</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>OK! - Magazin</td>
+      <td>427</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,11</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>handy.de</td>
+      <td>465</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,01</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Fuldaer Zeitung</td>
+      <td>356</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,46</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Westfalen Blatt</td>
+      <td>411</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,37</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Harvard Business Manager online</td>
+      <td>359</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,58</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Freies Wort-Online</td>
+      <td>363</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,03</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>pferd-aktuell.de</td>
+      <td>397</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,59</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Mindener Tageblatt</td>
+      <td>423</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,57</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>fischkopf.de</td>
+      <td>353</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>56,68</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>KISS FM</td>
+      <td>347</td>
+      <td>0,2</td>
+      <td>0,09</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,67</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Lust-auf-Genuss.de</td>
+      <td>415</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>airliners.de</td>
+      <td>396</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,87</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>urlaub.de</td>
+      <td>490</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,85</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Nordkurier-Online</td>
+      <td>379</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,92</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Feierabend.de</td>
+      <td>357</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>7,18</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>STYLE.DE</td>
+      <td>400</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,74</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Guter Rat Online</td>
+      <td>378</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,67</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>radio SAW</td>
+      <td>335</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,39</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>impulse.de</td>
+      <td>332</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,77</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>motor-klassik.de</td>
+      <td>385</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,36</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>aktiencheck.de</td>
+      <td>366</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,58</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Köln</td>
+      <td>379</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,75</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ferien.de</td>
+      <td>472</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,69</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>macmagazin.de</td>
+      <td>268</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,36</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Edgar.de</td>
+      <td>419</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>zweitehand.de</td>
+      <td>339</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,36</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>VfL Bochum</td>
+      <td>326</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,55</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Schuelerprofile.de</td>
+      <td>276</td>
+      <td>0,2</td>
+      <td>0,08</td>
+      <td>100</td>
+      <td>100</td>
+      <td>13,66</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>funsporting.de</td>
+      <td>366</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>104.6rtl.com</td>
+      <td>334</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,88</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>RADIO SALÜ</td>
+      <td>316</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>10,25</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Recklinghäuser Zeitung</td>
+      <td>364</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,37</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>audio.de -</td>
+      <td>274</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,87</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Borkener Zeitung</td>
+      <td>331</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>maccommunity.de</td>
+      <td>274</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,28</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User<br>Mio</th>
+      <th>Nutzer-Anteil<br>%</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte<br>Mio</th>
+      <th>Kontakt-Anteil<br>%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>COLORFOTO.de</td>
+      <td>294</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,93</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>FC Augsburg</td>
+      <td>304</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>OTZ.de (Ostthüringer Zeitung)</td>
+      <td>310</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>3,70</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>B2B DEUTSCHLAND</td>
+      <td>334</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,19</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>yacht.de - YACHT online</td>
+      <td>312</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,83</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SPIELERKABINE.net</td>
+      <td>325</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Wolfsburger Allgemeine Zeitung</td>
+      <td>291</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,31</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>jamfm.de</td>
+      <td>284</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,76</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TV14 Online</td>
+      <td>269</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,83</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>stereoplay.de</td>
+      <td>278</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,96</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Internetcologne.de</td>
+      <td>294</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,74</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ArtSchoolVets</td>
+      <td>318</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,34</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>rga-online</td>
+      <td>264</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,44</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Arminia Bielefeld</td>
+      <td>263</td>
+      <td>0,1</td>
+      <td>0,07</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,49</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Göttinger Tageblatt</td>
+      <td>309</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,32</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Münsterländische Volkszeitung</td>
+      <td>305</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>RTLregional.de</td>
+      <td>308</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>WIDESCREEN VISION</td>
+      <td>282</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,72</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>4wheelfun.de</td>
+      <td>272</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,96</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>bbv-net</td>
+      <td>303</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,05</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Baden Online</td>
+      <td>261</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,36</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>delta radio</td>
+      <td>277</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,67</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Nordsee-Zeitung</td>
+      <td>284</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,78</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Ahlener Zeitung</td>
+      <td>238</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,51</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Ibbenbürener Volkszeitung</td>
+      <td>283</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,76</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>sport2.de</td>
+      <td>266</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,21</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>handball-world.com</td>
+      <td>230</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,47</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Solinger-Tageblatt.de</td>
+      <td>252</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,45</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TLZ.de (Thüringische Landeszeitung)</td>
+      <td>285</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,48</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio PSR</td>
+      <td>246</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,51</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Star FM</td>
+      <td>192</td>
+      <td>0,1</td>
+      <td>0,06</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>CDstarts.de</td>
+      <td>232</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,25</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>DEWEZET - Deister- und Weserzeitung</td>
+      <td>233</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,92</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Warner Artist Network</td>
+      <td>240</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,24</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Fliegen.com</td>
+      <td>282</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,22</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Bucher Reisen</td>
+      <td>270</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,72</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>alster radio</td>
+      <td>180</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,49</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>az-online.de</td>
+      <td>213</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,92</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Die Glocke</td>
+      <td>214</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,81</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TORfabrik</td>
+      <td>168</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,74</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Visions.de</td>
+      <td>200</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>GPSies.com</td>
+      <td>240</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,81</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Neue Presse Coburg</td>
+      <td>209</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,21</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Pinneberger Tageblatt</td>
+      <td>184</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>xchar.de</td>
+      <td>194</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>6,47</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>LZ-Online (Lippische Landes-Zeitung)</td>
+      <td>198</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,81</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Classic Driver</td>
+      <td>213</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,08</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>motorsport-aktuell.com</td>
+      <td>166</td>
+      <td>0,1</td>
+      <td>0,05</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,71</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Oberhessische Presse</td>
+      <td>203</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,04</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>rs2.de</td>
+      <td>185</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,48</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>pff-online.de</td>
+      <td>184</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>2,27</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>AUTOGAZETTE.DE</td>
+      <td>202</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,27</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Rockhard.de</td>
+      <td>148</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>1,20</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Antenne Düsseldorf</td>
+      <td>162</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,30</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Spreeradio.de - Berlins größtes Serviceportal</td>
+      <td>198</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,80</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2"></th>
+      <th rowspan="2">Fälle<br>(ungew.)</th>
+      <th colspan="4">Netto-RW (Unique User)</th>
+      <th colspan="2">Brutto-Reichweite<br>(Kontakte)</th>
+    </tr>
+    <tr>
+      <th>%</th>
+      <th>Unique User<br>Mio</th>
+      <th>Nutzer-Anteil<br>%</th>
+      <th>Aff.-Index</th>
+      <th>Kontakte<br>Mio</th>
+      <th>Kontakt-Anteil<br>%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>sn-online</td>
+      <td>144</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,98</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Allgemeine Zeitung Coesfeld</td>
+      <td>194</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,57</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Staedte-Reisen.de</td>
+      <td>216</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Fnweb</td>
+      <td>186</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,45</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>y-style.de</td>
+      <td>180</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,32</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Bonn</td>
+      <td>155</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,40</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Petra</td>
+      <td>149</td>
+      <td>0,1</td>
+      <td>0,04</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,64</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>unsernachwuchs.de</td>
+      <td>152</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,85</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>KinderCampus.de</td>
+      <td>172</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,37</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>berlin030.de</td>
+      <td>134</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,33</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>COUPE Videos</td>
+      <td>155</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,63</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>R.SA (Radio Sachsen)</td>
+      <td>154</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,49</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Peiner Allgemeine Zeitung</td>
+      <td>112</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>praktika.de</td>
+      <td>154</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,18</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TokioHotel.com</td>
+      <td>136</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,83</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>dvz.de</td>
+      <td>123</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,24</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>STZ-Online</td>
+      <td>145</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>BELLEVUE Die schönsten Immobilien der Welt</td>
+      <td>153</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,71</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Erft</td>
+      <td>106</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,24</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>ENERGY Sachsen</td>
+      <td>137</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,25</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Berg</td>
+      <td>143</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,49</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Für Sie</td>
+      <td>124</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,71</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>inside-hotel.de</td>
+      <td>151</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,40</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>siegessäule.de</td>
+      <td>120</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,24</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>TradeSignal Online</td>
+      <td>104</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>9,09</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>in-starmagazin.de</td>
+      <td>109</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,94</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Delmenhorster Kreisblatt</td>
+      <td>121</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,75</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Landeswelle Thüringen</td>
+      <td>114</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>DAZ Deutsche Apotheker Zeitung</td>
+      <td>114</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>fliegen-sparen.de</td>
+      <td>132</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,08</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Sindelfinger Zeitung / Böblinger Zeitung</td>
+      <td>118</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Freecaster</td>
+      <td>99</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,77</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Zeitungsverlag Waiblingen</td>
+      <td>106</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,40</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Wilhelmshavener Zeitung</td>
+      <td>94</td>
+      <td>0,1</td>
+      <td>0,03</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,42</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>DAILY DOSE</td>
+      <td>99</td>
+      <td>0,1</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,86</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Waldeckische Landeszeitung - Frankenberger Zeitung</td>
+      <td>132</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,61</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Bietigheimer Zeitung</td>
+      <td>110</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,21</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Oldenburgische Volkszeitung</td>
+      <td>123</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,23</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Wir-lieben-Pferde.de</td>
+      <td>80</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,58</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Hochstift</td>
+      <td>86</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,29</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Berliner Rundfunk.de</td>
+      <td>101</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,19</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio Gütersloh</td>
+      <td>93</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,36</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>SURF-Magazin</td>
+      <td>92</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,34</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Hochzeit.de</td>
+      <td>103</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,17</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>HAO - der Onlinedienst des Hellweger Anzeigers Unna</td>
+      <td>86</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,33</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Morningstar</td>
+      <td>82</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,46</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Tageblatt für den Kreis Steinfurt</td>
+      <td>92</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,38</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Radio NORA</td>
+      <td>85</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,30</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Kreiszeitung Böblinger Bote</td>
+      <td>80</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,19</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>Vital</td>
+      <td>83</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,44</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>PTAheute</td>
+      <td>85</td>
+      <td>0,0</td>
+      <td>0,02</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,14</td>
+      <td>100</td>
+    </tr>
+    <tr>
+      <td>dstgb</td>
+      <td>80</td>
+      <td>0,0</td>
+      <td>0,01</td>
+      <td>100</td>
+      <td>100</td>
+      <td>0,06</td>
+      <td>100</td>
+    </tr>
+  </tbody>
+</table>

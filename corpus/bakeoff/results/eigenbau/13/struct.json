@@ -1,0 +1,52 @@
+{
+ "pipe_tables": 2,
+ "pipe_rows": 7,
+ "table_rows_max": 4,
+ "html_tables": 0,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 17,
+  "h2": 10,
+  "h3": 17,
+  "h4": 1
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 55,
+ "checkbox_tokens": 0,
+ "chars_out": 30258,
+ "words_out": 4197,
+ "umlauts_out": 224,
+ "max_line_repeat": 2,
+ "max_ngram_repeat": 1,
+ "word_recall": 0.9988,
+ "word_precision": 0.2063,
+ "word_f1": 0.342,
+ "words_ref": 867,
+ "top_missing": [
+  "9×1"
+ ],
+ "top_invented": [
+  "Sie×50",
+  "Telekom×47",
+  "und×45",
+  "Service×34",
+  "in×34",
+  "das×29",
+  "der×29",
+  "die×29",
+  "um×28",
+  "September×24",
+  "mit×23",
+  "den×23",
+  "to×23",
+  "hilft×22",
+  "nicht×22"
+ ],
+ "length_ratio": 4.29,
+ "umlauts_ref": 35,
+ "umlaut_recall": 6.4,
+ "order_lcs": 0.9666,
+ "loop_flag": false,
+ "_ref": "13.txt"
+}

@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-cal-low",
+ "class": "01",
+ "role": "gold",
+ "input": "derived/01_gold-seiten.pdf",
+ "input_bytes": 1029666,
+ "started": "2026-08-07T18:06:26",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 17.46,
+ "max_rss_mb": {
+  "self": 129.1,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 19.0,
+  "children": 0.0
+ },
+ "model_calls": 1,
+ "tokens_in": 760,
+ "tokens_out": 3881,
+ "cost_usd": 0.030247,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "low",
+  "chunks": 1,
+  "chunk_pages": 10,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 9225
+}

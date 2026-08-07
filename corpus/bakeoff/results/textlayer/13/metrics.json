@@ -1,0 +1,29 @@
+{
+ "candidate": "textlayer",
+ "class": "13",
+ "role": "main",
+ "input": "13_mischdokument/13 - Bock Andreas - Telekom Deutschland.pdf",
+ "input_bytes": 3503226,
+ "started": "2026-08-07T18:11:58",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 0.07,
+ "max_rss_mb": {
+  "self": 48.2,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "pages": 32,
+  "empty_pages": 0
+ },
+ "output_chars": 6933
+}

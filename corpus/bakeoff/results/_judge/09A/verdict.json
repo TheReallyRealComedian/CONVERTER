@@ -1,0 +1,42 @@
+{
+  "klasse": "09A",
+  "input": "09_pptx-smartart/A_mehrspaltig-notes_Praesentation_final.pptx",
+  "judge_familie": "Claude (Fable 5) — kein Kandidat ist LLM-basiert (model_calls überall 0), Selbst-Präferenz-Risiko entfällt für diese Klasse",
+  "stichprobe": "p1, p2, p13, p14, p25 (aus _sample.json, identisch für alle Kandidaten) + dokumentweite Text-Anker-Prüfung (Notes-Anker, Kopf/Fuß-Zähler, alle 6 numCol-Körper, alle 9 Tabellen) — alle 4 Outputs vollständig gelesen",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "markitdown",
+      "begruendung": "Einziger Kandidat ohne Inhaltsverlust (word_recall 1,0: alle Notes an der richtigen Folie, Kopf/Fuß, 9/9 Tabellen, plus Chart-Daten) — nur mechanische Tabellen-Nähte, die allerdings auf Folie 22 gerendert den Kernwert »EVA -186« kosten."
+    },
+    {
+      "platz": 2,
+      "kandidat": "docling",
+      "begruendung": "Sauberste Tabellen und vollständige Folieninhalte inkl. Kopf/Fuß und Chart-Daten, verliert aber 100% der Speaker-Notes (genau eine der Klassen-Kerneigenschaften, dafür komplett) und verfälscht die Gliederungs-Nummerierung."
+    },
+    {
+      "platz": 3,
+      "kandidat": "unstructured-neu",
+      "begruendung": "Folien-Kerninhalt fehlerfrei (Titel, 6/6 numCol-Körper in richtiger Spaltenreihenfolge, 9/9 Tabellen, nichts erfunden), aber 61% Wortverlust: Notes, Kopfblock und Fußzeile aller 25 Folien fehlen stillschweigend und ohne Degradations-Meldung."
+    },
+    {
+      "platz": 4,
+      "kandidat": "unstructured-pin",
+      "begruendung": "Identisches Verlustbild wie -neu, zusätzlich in allen 3 PASSIVA-Tabellen die Header-Zellen abgeschnitten (»Thesaurierte« ohne »Gewinne/Verluste«, auf Stichproben-Folie p13) — der Bump 0.18.32→0.24.1 behebt exakt das und sonst nichts."
+    }
+  ],
+  "kernfragen": {
+    "numcol_lesereihenfolge": "Alle 4 Kandidaten: 6/6 mehrspaltige Textkörper (Folien 5, 7, 9, 12, 14, 16) vollständig und in korrekter Spalte-1-dann-Spalte-2-Reihenfolge (verifiziert an p14 gegen Referenz Z. 251-258). Der befürchtete numCol-Bruch tritt bei keinem Tool auf.",
+    "tabellen": "9/9 als Markdown-Tabellen bei allen vieren, Zahlen überall quellexakt. Qualitätsgefälle: docling am saubersten (getrennte EVA-Gitter), markitdown mit Naht-Kollision (EVA -186 im Rendering weg), unstructured-neu korrekt, unstructured-pin mit abgeschnittenen PASSIVA-Headern.",
+    "speaker_notes_1780_zeichen": "Nur markitdown: 100%, an der jeweils richtigen Folie. docling: 0%. unstructured (beide Versionen): 0%.",
+    "was_unstructured_verliert": "Drei Blöcke, alle 25 Folien betreffend bzw. komplett: (1) den 4-zeiligen Kopfblock jeder Folie (»Institut für Publizistik / Wintersemester 2006/07 / Seminar: Controlling in Medienunternehmen / Leitung: Prof. Dr. H.-W. Nienstedt, P. Proner«, 25×), (2) die Fußzeile jeder Folie (»Referenten: Katharina Brodt, Katharina Rübsam, Olga Krieger, Otto Bahmann«, 25×), (3) sämtliche Speaker-Notes (1.780 Zeichen an 10 Folien, inkl. der inhaltlich dichtesten Sätze wie »BV: hohe Vorfinanzierung ... negatives EVA«). Der Folien-BODY (Titel, Bullets, Spalten, Tabellen) überlebt dagegen vollständig — die 62% sind Boilerplate + Notes, kein Kerninhalt-Massaker. Zusätzlich fehlen (bei allen außer markitdown/docling) die Chart-Inhalte; unstructured liefert nur die freien Labels (»145 %«, »60 %«, »10 %«)."
+  },
+  "hinweise_fuer_ergebnis_doc": [
+    "Ursache Notes-Verlust bei unstructured ist Aufruf-Konvention, kein hartes Parser-Limit: der Bake-off fährt den Prod-Pfad partition(filename, strategy='fast') ohne include_slide_notes (harness/adapters.py:371); unstructureds PPTX-Partitioner liest Notes nur mit diesem Flag. Der Kopf-/Fußzeilen-Verlust besteht dagegen in 0.18.32 UND 0.24.1 unverändert.",
+    "Blinder Fleck der DOC-FIX-Degradations-Doktrin: die Warnliste des Serializers (services/unstructured_markdown) kann nur melden, was partition() liefert — Verluste VOR dem Serializer (Notes, Kopf/Fuß) bleiben unsichtbar; die 92-105 geloggten Warnungen betreffen nur die Titel-Heuristik.",
+    "order_lcs unterschätzt markitdown (0,556) und docling (0,615) systematisch: die Referenz hängt alle Notes ans Dokumentende und folgt roher XML-Shape-Reihenfolge; die Kandidaten legen Notes an die Folie und sortieren Shapes visuell (Folie 22: Label-Reihenfolge ZV/BV statt XML-Reihenfolge BV/ZV) — bessere Lesereihenfolge wird als Abweichung gezählt.",
+    "Eigener Eindruck vs. Messwerte: deckungsgleich, keine Abweichung zwischen Judge-Urteil und Harness-Metriken; die Vorab-Messung (~62% Verlust unstructured, ~0% markitdown) bestätigt sich und ist oben konkret aufgeschlüsselt.",
+    "Keine Halluzination bei irgendeinem Kandidaten: markitdowns/doclings scheinbare 'Erfindungen' (top_invented) sind echte Datei-Inhalte, die der a:t-Referenz fehlen (Chart-Cache-Daten, Part-Namen wie 'Inhaltsplatzhalter17.jpg', 'Bar chart'-Labels).",
+    "Kein Kandidat zeichnet Folientitel als Headings aus (H1-H4 = 0 bei allen außer markitdowns ###-Notes/Chart-Labels) — die im Klassen-README befürchtete Titel-Heuristik-Falle (jede kurze Zeile wird Überschrift) tritt nirgends auf, der Preis ist strukturloser Fließtext."
+  ]
+}

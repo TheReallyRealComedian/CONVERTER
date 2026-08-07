@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-nativ",
+ "class": "02",
+ "role": "main",
+ "input": "02_guideline/berichtsband_if2010_II.pdf",
+ "input_bytes": 350618,
+ "started": "2026-08-07T18:40:24",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 166.78,
+ "max_rss_mb": {
+  "self": 124.9,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 6,
+ "tokens_in": 31692,
+ "tokens_out": 44646,
+ "cost_usd": 0.382383,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "medium",
+  "chunks": 6,
+  "chunk_pages": 10,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 83718
+}

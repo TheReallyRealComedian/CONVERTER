@@ -1,0 +1,22 @@
+{
+  "klasse": "10",
+  "kandidat": "unstructured-pin",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Beide unstructured-Kandidaten liefern byte-identischen Output (MD5 c68604b660ca84e77c9273a117abbb2e, diff leer) — alle Befunde und Scores gelten wortgleich für unstructured-pin und unstructured-neu; der Versionsbump 0.18.32→0.24.1 ändert an Klasse 10 nichts am Output (nur Laufzeit 6,9→10,4 s und RSS 317→435 MB).",
+    "Vollständigkeit maximal: Zeilenabgleich gegen die GESAMTE Referenz (596 Zeilen, whitespace-normalisiert) findet nur 3 fehlende Zeilen — die <title>-Zeile (Z1, kein Body-Text), das Nav-Item „Archiv“ (Z11) und „Mein SPIEGEL“ (Z107, steckt im Quell-HTML in einem document.write-JavaScript und wird korrekt übersprungen). Der Artikelkopf ist als einziger Kandidat komplett da: „#### KORRUPTES WEB 2.0“ / „### Verraten und verkauft“ / „Von Christian Stöcker“ / „##### 19. Dezember 2006“.",
+    "Der im Klassen-README benannte Fehlermodus tritt exakt ein — „ein Navigationsverzeichnis mit einem Artikel darin“: vor dem Artikel ~100 Zeilen Ressortmenü als verschachtelte Listen („- Politik| / - Übersicht / - Deutschland / - Ausland …“), nach ihm die kompletten Marginalspalten (TOP 3: LESER EMPFEHLEN, EXKLUSIV, INTERNET-TV, SILBERSCHEIBEN, COM!X, SPEZIAL-THEMEN, SERVICE-ANGEBOTE, SPIEGEL-DOSSIERS), „MELDUNGEN AUS ANDEREN RESSORTS“ samt Herodes-Teaser und die Footer-Sitemap. ≈5,5 von 18 KB (31 %) liegen vor/nach dem Artikelblock; dazu Teaser-Kästen und Social-Bookmark-Zeile im Block selbst.",
+    "Überschriften-Hierarchie quelltreu gespiegelt und dadurch irreführend: „# SPIEGEL ONLINE“ (Quelle: <h1>) wird Dokumenttitel, der Artikeltitel steht als „### Verraten und verkauft“ unter der Dachzeile „#### KORRUPTES WEB 2.0“, und „## MELDUNGEN AUS ANDEREN RESSORTS“ (Quelle: <h2>) überragt den Artikeltitel strukturell — kein Konverter-Fehler im engen Sinn, aber genau die Struktur-Behauptung, die das Markdown-Dokument unbrauchbar sortiert.",
+    "Alt-Text-Duplikate stören den Artikelfluss: jede Bildunterschrift erscheint doppelt mit „Großbildansicht“ dazwischen („Digg-Pausenseite mit Schaufel: Buddeln im Netz nach interessanten Storys / Großbildansicht / Digg-Pausenseite mit Schaufel: …“, Output Z131–135), außerdem „Forum / Forum“ (Z173–175). Alles belegte alt=-Texte des Quell-HTML (2× alt=\"Großbildansicht\", 1× alt=\"Forum\") — keine Erfindung; deckt sich mit der Adapter-Warnung „42× Unbekannte Element-Kategorie 'Image' — als Absatz ausgegeben“.",
+    "Zwischenüberschriften abgeflacht: „Vermarkter bekommen weiche Knie“, „Digg hat ein gewaltiges Problem“ (Quelle: <b>) stehen als nackte Absätze — die Fettung geht verloren, trafilatura erhält sie.",
+    "Trennstrich-Artefakte aus Quell-Zeilenumbrüchen mit eingefügtem Leerzeichen: „Das Mitmach- Web: Medienrevolution oder Seifenblase?“ (Z177), „Herodes- Grabs“ (Z231), „Sternen- Explosion“ (Z235) — die Quelle bricht dort mit Trennstrich um; regelkonform nicht repariert, aber holprig lesbar.",
+    "Link-Ziele fehlen durchgängig — nur Ankertexte bleiben („Friendly Vote“, „Tim O'Reilly sagte schon im November zu SPIEGEL ONLINE“ ohne URL). Gegen die Vergleichsbasis (reiner Seitentext) kein Verlust, aber ein Minus gegenüber trafilatura, das ~30 Original-URLs trägt.",
+    "SERVICE-ANGEBOTE-Boilerplate-Tabelle als Roh-HTML-<table> durchgereicht (Output Z318, per Adapter-Warnung „Tabelle mit verbundenen/ungleichen Zellen“ deklariert) — betrifft nur Boilerplate, kein Artikelinhalt.",
+    "Wortlaut des Artikels exakt, Quell-Eigenheit „buhlen bei Surfen“ unrepariert, Umlaute durchgängig sauber; nichts erfunden."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

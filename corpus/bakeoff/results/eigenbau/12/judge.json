@@ -1,0 +1,18 @@
+{
+  "klasse": "12",
+  "kandidat": "eigenbau",
+  "treue": 4,
+  "vollstaendigkeit": 4,
+  "struktur": 2,
+  "lesereihenfolge": 4,
+  "halluzination": 2,
+  "befunde": [
+    "Auf allen 5 Stichprobenseiten byte-nah identisch zur Textebene (textlayer): gleiche S.-1-Invertierung (Fußnotenblock vor Titel), gleiche korrekte Zweispalten-Folge auf S. 141/142, gleiche Klebefehler ('dieArbeit'), null Überschriften-Markup (struct: h1–h4 = 0), Fußnoten als rohe Zeilen, S.-280-Impressum am Dokumentende korrekt.",
+    "LOOP-STELLE (Auftrag; liegt außerhalb der Bild-Stichprobe): output.md Z. 7340–7349 — die leere Tabellenzeile '|  |  |  |' steht 10× identisch hintereinander, direkt nach dem Seitenkopf 'Drucksache 14/9020 / – 70 – / Deutscher Bundestag – 14. Wahlperiode'. Das ist die Zeile hinter struct 'max_line_repeat: 10' / 'loop_flag: true'.",
+    "Unmittelbar unter den Leerzeilen ist das Impressum der S. 280 als Tabellenzeilen injiziert: '| Druck: MuK. Medien- und Kommunikations GmbH, Berlin Vertrieb: Bundesanzeiger Verlagsgesellschaft mbH, Postfach 13 20, 53003 Bonn, Telefon: 02 28 / 3 82 08 40, Telefax: 02 28 / 3 82 08 44 ISSN 0722-8333 |  |  |' plus zerhackte Varianten ('| Druck: MuK. Medien- und Vertrieb: … Postfach 13 2 ISSN |', '| … munikations GmbH, Berlin 003 Bonn … -8333 |'). Dieselbe Geistertabelle (Leerzeilen + Impressum) steht auch auf S. 40 (Z. 4058–4072), S. 126 (Z. 13271), S. 146 (Z. 15559–15571) und hängt auf S. 181 an der real extrahierten Tabelle 22 (Z. 19690–19698). ISSN-Zeile existiert 6× statt 1× (struct top_invented: 'GmbH×10, Telefon×10, 8333×10').",
+    "Die Geistertabellen ERSETZEN ganze Seiteninhalte: der komplette Text von S. 40 ('Das allgemeine Abortrisiko nach assistierter Reproduktion lag 1999 …') und S. 70 ('Die PND sollte nicht zu einer Routineuntersuchung …') fehlt im Output (0 Grep-Treffer), obwohl die Textebene beide Seiten voll liefert. S. 40 ist ausgerechnet die im Klassen-README benannte Schaufenster-Seite (tiefe Gliederung + Zweispalter + Tabelle mit zweistufigem Kopf + Fußnotenblock). Erklärt word_recall 0,984 und die fehlenden '2001×24, S×16'.",
+    "Die Zerstörung ist STILL: metrics.json meldet warnings: [] — textlayer warnt an denselben Stellen ehrlich ('4/280 Seiten ohne/fast ohne Textebene'). Ein Nutzer sieht dem Output nicht an, dass 4 Seiten fehlen und 5 Tabellen erfundene Zeilen tragen.",
+    "Halluzinations-Einordnung: kein frei erfundener Text, sondern mechanische Duplikation echten Dokumenttexts (Impressum) an falsche Stellen plus fabrizierte leere Tabellenstruktur — irreführend dort, wo im Original Tabelle 8 (S. 70) bzw. Fließtext + Tabelle (S. 40) stehen."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

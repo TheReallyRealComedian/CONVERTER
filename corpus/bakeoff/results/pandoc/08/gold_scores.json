@@ -1,0 +1,91 @@
+{
+ "text": {
+  "word_recall": 0.9569,
+  "word_precision": 0.9263,
+  "word_f1": 0.9413,
+  "words_ref": 394,
+  "words_out": 407,
+  "top_missing": [
+   "1×9",
+   "2×2",
+   "Wettbewerbsanalyse×1",
+   "und×1",
+   "Bild×1",
+   "Branchen×1",
+   "Marktanalyse×1",
+   "Unternehmensressourcen×1"
+  ],
+  "top_invented": [
+   "in×2",
+   "der×1",
+   "die×1",
+   "S×1",
+   "auf×1",
+   "Die×1",
+   "eine×1",
+   "wie×1",
+   "an×1",
+   "stark×1",
+   "Unternehmens×1",
+   "ressourcen×1",
+   "Diese×1",
+   "Darstellung×1",
+   "entspricht×1"
+  ],
+  "cer": 0.082
+ },
+ "cells": {
+  "cell_recall": 0.963,
+  "cell_precision": 0.963,
+  "cells_gold": 27,
+  "cells_out": 27,
+  "top_missing_cells": [
+   "tatsächliche Unternehmensressourcen×1"
+  ],
+  "top_invented_cells": [
+   "tatsächliche Unternehmens-ressourcen×1"
+  ],
+  "shapes_gold": [
+   [
+    14,
+    4,
+    "html"
+   ],
+   [
+    4,
+    4,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    14,
+    4,
+    "html"
+   ],
+   [
+    4,
+    4,
+    "html"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel3_abbildung": {
+  "bild_markiert": true,
+  "fussnote_am_bild": true,
+  "fussnote_definiert": true,
+  "link_erhalten": true
+ },
+ "eigenheiten": {
+  "markteilnehmer_ein_t": "erhalten",
+  "auflage_ohne_leerzeichen": "erhalten",
+  "s189_ohne_leerzeichen": "erhalten"
+ },
+ "colspan_rowspan": {
+  "colspan_out": 5,
+  "rowspan_out": 2,
+  "colspan_gold": 5,
+  "rowspan_gold": 2
+ }
+}

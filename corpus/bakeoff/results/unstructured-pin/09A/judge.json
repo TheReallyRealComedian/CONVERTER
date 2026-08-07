@@ -1,0 +1,20 @@
+{
+  "klasse": "09A",
+  "kandidat": "unstructured-pin",
+  "treue": 5,
+  "vollstaendigkeit": 2,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Speaker-Notes zu 100% verloren (alle 1.780 Zeichen, Notes an 10 Folien: 5, 7, 9, 12, 16, 20-24): z.B. »BV: - hohe Vorfinanzierung und lange Absatzperiode bedürfen kurz- & langfristiger Finanzmittel → hohe Kapitalkosten → negatives EVA« (Referenz Z. 489, Folie 22) — 0 Treffer auf sämtliche Notes-Anker im Output.",
+    "Kopfblock ALLER 25 Folien fehlt: »Institut für Publizistik / Wintersemester 2006/07 / Seminar: Controlling in Medienunternehmen / Leitung: Prof. Dr. H.-W. Nienstedt, P. Proner« (Original p1-p25 oben rechts) — 0× im Output; top_missing bestätigt jedes Token ×25.",
+    "Fußzeile ALLER 25 Folien fehlt: »Referenten: Katharina Brodt, Katharina Rübsam, Olga Krieger, Otto Bahmann« — 0× (top_missing: Katharina×50, Otto×26). Gesamt-Wortverlust 61,7% (word_recall 0,383) = Notes + Kopf + Fuß, NICHT Folien-Kerninhalt.",
+    "PASSIVA-Tabellen (Folien 11/13/15, Original-Stichprobe p13): Header-Zellen mitten im Inhalt abgeschnitten — Output »| Stammkapital | Thesaurierte<br> | Gesellschafter-<br> | langfr.<br> | kurzfr.<br> | Verbindl. |«, Original »Thesaurierte Gewinne/Verluste«, »Gesellschafter-darlehen«, »langfr. Schulden«, »kurzfr. Schulden«. Nur der erste Absatz jeder Header-Zelle überlebt; 0.24.1 (unstructured-neu) liefert beide.",
+    "Positiv: alle 6 numCol-Textkörper (Folien 5, 7, 9, 12, 14, 16) vollständig und in korrekter Spaltenreihenfolge — p14: »Niedrig (durch Periodika)« → »Vorkasse durch Abonnenten hoch« → »Buchverlag« → »wesentlich höher (hohe Vorfinanzierung für Buch)« exakt wie Referenz Z. 251-258.",
+    "Positiv: 9/9 Tabellen als Pipe-Tabellen, alle Zahlen exakt (p13: 5000/2889/0/2000/750/6667 und 5000/2763/5000/27000/7500/15278); beide EVA-Gitter-Tabellen (Folie 22) getrennt und mit »EVA / -186« intakt.",
+    "Charts fehlen komplett (AKTIVA/PASSIVA-Balken, Kosten/EBITA/Cashflow-Linien) — nur die freien Text-Labels (»145 %«, »60 %«, »10 %«, »17.305«, »62.541«) überleben. Nicht referenzrelevant (Chart-XML trägt keine a:t), aber sichtbarer Folieninhalt.",
+    "Nichts erfunden (word_precision 1,0, top_invented leer); Titel-Heuristik konservativ gelöst: keine falschen Überschriften, stattdessen 105 dokumentierte Degradations-Warnungen (Absatz statt Heading) — aber auch null echte Struktur-Auszeichnung (H1-H4: 0)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

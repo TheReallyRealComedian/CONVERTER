@@ -1,0 +1,18 @@
+{
+  "klasse": "05",
+  "kandidat": "gemini-nativ",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 5,
+  "lesereihenfolge": 5,
+  "halluzination": 4,
+  "befunde": [
+    "Wortfehler auf Sample-S. 92 (fortgesetzte Fußnote 52): „ist das Beherrliche in dem lebenden Wesen\" — das Render zeigt eindeutig „das Beharrliche\"; tesseract, docling und eigenbau lesen die Stelle korrekt.",
+    "Erfundene Auszeichnung auf Sample-S. 86: „die *innere*, … das *Unendliche*, dem Naiven das *Reflektierte* …, die *Sehnsucht*\" kursiviert — im Render stehen alle vier Wörter in normalem Satz (Zoom-geprüft, kein Sperrsatz, keine Kursive). Zugleich wird der ECHTE Sperrsatz derselben Seite („e i n e m fortdauernden Gefühl\", „e i n e r Stimmung\") kommentarlos zu „einem\"/„einer\" plattgemacht. Muster deutet auf Trainingswissen über die Jean-Paul-Stelle statt Bildbefund — genau die VLM-Reparatur, die die Rubrik verbietet.",
+    "JSTOR-URL auf Sample-S. 1 mit eingefügtem Extra-Zeichen: „%3C79%3AAETAHBU%3E\" statt Render „%3C79%3AETAHBU%3E\" — identischer Fehler wie bei eigenbau.",
+    "Interpunktions-Normalisierung auf Sample-S. 85: „…das romantische Talent\"[^32], „Ebenso selten…\" — Render hat Punkt nach dem Anker („Talent\".³² „Ebenso…\"); außerdem wechselt das schließende Anführungszeichen dokumentintern (S. 79–86 gerades \", S. 88–92 typografisches “).",
+    "Beide Prüfabsätze (S. 2 „E.T.A. Hoffmanns Rezension … begriff[^5]\" und S. 86 „Beethoven rühmte … schweifendes Gefühl zu bleiben.\") Wort für Wort fehlerfrei: Umlaute, ß, „daß\", Zahlen, Ankerpositionen — als einziger Kandidat sind ALLE Fußnotenziffern 1–52 korrekt nummeriert, korrekt platziert und als Markdown-Fußnoten verlinkbar.",
+    "Vollständigste und strukturtreueste Fassung des Feldes: alle 15 Seiten, Kopfzeilen, Bogensignatur „6\" samt Impressum (als HTML-<small>/<span>-Wart, aber inhaltlich komplett), Seitentrenner, kursive Werktitel wie im Render (*Vorschule der Ästhetik* auch im Fließtext), und die über die Seitengrenze 91/92 laufende Fußnote 52 ist originalgetreu als nachgestellter Kleindruck-Block erhalten."
+  ],
+  "gesamturteil": "brauchbar"
+}

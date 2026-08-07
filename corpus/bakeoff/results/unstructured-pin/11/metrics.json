@@ -1,0 +1,30 @@
+{
+ "candidate": "unstructured-pin",
+ "class": "11",
+ "role": "main",
+ "input": "11_eml-zitatkette/polar-care_zitatkette.eml",
+ "input_bytes": 32641,
+ "started": "2026-08-07T18:19:26",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 6.53,
+ "max_rss_mb": {
+  "self": 315.9,
+  "children": 1.4
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "unstructured_version": "0.18.32",
+  "strategy": "fast",
+  "serializer": "services.unstructured_markdown"
+ },
+ "output_chars": 5625
+}

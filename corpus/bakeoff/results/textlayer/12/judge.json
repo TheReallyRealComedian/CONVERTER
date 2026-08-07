@@ -1,0 +1,21 @@
+{
+  "klasse": "12",
+  "kandidat": "textlayer",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 2,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "S. 1: Lesereihenfolge invertiert — der Fußnotenblock steht als Zeile 1 VOR dem Titel: '*) / Eingesetzt durch Beschluss des Deutschen Bundestages vom 24. März 2000 …' kommt vor 'Deutscher Bundestag / Drucksache 14/9020 / … / Schlussbericht' (Original: Fußnote ganz unten auf der Titelseite, Titel oben).",
+    "S. 141/142: Zweispalten-Lesereihenfolge korrekt — '…wirksames Instrument des Gesundheitsschutzes sein.' (linke Spalte unten) geht direkt in 'Diesem möglichen Nutzen steht andererseits jedoch die…' (rechte Spalte oben) über; kein Spalten-Zickzack.",
+    "Tiefe Gliederung überlebt NICHT als Überschriften-Hierarchie: '2.2.2.1.5' und 'Entwicklungsperspektiven' stehen als zwei nackte Textzeilen (Z. 15714/15715), ebenso 2.2.2.1.6.1–2.2.2.1.6.4 — im Gesamtdokument 0 Markdown-Überschriften (struct: h1–h4 = 0).",
+    "Fußnoten vorhanden, aber roh: Marker klebt am Wort ('eine wich- tige Rolle.664'), Definitionen als Plain-Zeilen an der korrekten Seitenposition ('664 Hennen et al. 2001, S. 105.'); am Seitenwechsel 141→142 unterbricht der Fußnotenblock den laufenden Satz '…in der Arbeitsmedizin | 664 … | --- | birgt daher…'.",
+    "Silbentrennung des Satzspiegels bleibt hart erhalten ('Untersu-\\nchungsauftrags', 'Geschwin-\\ndigkeit') — jede Druckzeile wird eigene Textzeile, Absätze sind nicht rekonstruiert.",
+    "Klebe-Artefakte der Textebene (KEINE Reparaturen, aber Extraktionsfehler): 'bevor er dieArbeit aufgenommen hat' (S. 142; Druckbild: 'die Arbeit'), '§618' (Druckbild: '§ 618'). Deutsche Anführungszeichen „…“/‚…‘ und Umlaute korrekt erhalten.",
+    "S. 280: Impressum vollständig und wortgetreu ('Druck: MuK. Medien- und Kommunikations GmbH, Berlin … ISSN 0722-8333').",
+    "Ehrliche Degradations-Meldung: metrics.json warnt '4/280 Seiten ohne/fast ohne Textebene' — als einziger Kandidat mit expliziter Warnung.",
+    "Hinweis zur Metrik: word_recall/precision 1.0 ist trivial — die Referenz 12.txt IST die Textebene; deren eigene Klebefehler (dieArbeit) stecken damit auch in der Referenz."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

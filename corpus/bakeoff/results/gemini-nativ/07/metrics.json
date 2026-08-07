@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-nativ",
+ "class": "07",
+ "role": "main",
+ "input": "07_formular-punktlinien/aok_scan-300dpi.pdf",
+ "input_bytes": 4429198,
+ "started": "2026-08-07T18:29:41",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 25.06,
+ "max_rss_mb": {
+  "self": 144.2,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 1,
+ "tokens_in": 1308,
+ "tokens_out": 2716,
+ "cost_usd": 0.022332,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "medium",
+  "chunks": 1,
+  "chunk_pages": 10,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 10396
+}

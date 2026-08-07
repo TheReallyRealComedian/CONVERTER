@@ -1,0 +1,20 @@
+{
+  "klasse": "12",
+  "kandidat": "docling",
+  "treue": 3,
+  "vollstaendigkeit": 3,
+  "struktur": 3,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "Tiefe Gliederung überlebt als Überschriften, aber OHNE Hierarchie: '## 2.2.2.1.5 Entwicklungsperspektiven', '## 2.2.2.1.6.1 Prinzip der Freiwilligkeit' und '## 2.2.2.2 Genetische Diagnostik und Versicherungen' liegen alle auf h2 (struct: 416× h2, sonst nichts) — die Tiefenstaffelung existiert nur noch im Nummern-String.",
+    "Typografische Anführungszeichen systematisch ersetzt: aus dem Original-Zitat „Nach dem ADA wird das Recht eines Arbeitgebers…“ wird \"- 'Nach dem ADA wird das Recht…' 666\" — jedes „…“-Zitat der S. 142 erscheint als Bullet-Listenpunkt mit geraden Einfach-Quotes statt als Blockquote mit deutschen Anführungszeichen.",
+    "Buchstaben-Spaltungs-Artefakte auf den Stichprobenseiten: 'praxisreife Test zur validen V orhersage' (S. 141), \"In ihren 'V orschlägen zur Sicherung…\" (S. 142); auf S. 1 'Drucksache 14/ 9020'. Außerhalb der Stichprobe systemisch 176× HTML-Entity-Schaden '&amp;' ('Hölzle &amp; Wiesing').",
+    "S. 280 fehlt KOMPLETT: kein 'Druck: MuK…', kein 'ISSN 0722-8333', kein 'Bundesanzeiger Verlagsgesellschaft' im gesamten Output (0 Treffer) — die Datei endet mit der Grafiken-Verzeichnis-Tabelle. Eine von fünf Stichprobenseiten ist vollständig weg.",
+    "Kopfzeilen und Seitenzahlen restlos entfernt ('– 141 –': 0 Treffer; struct top_missing: 'Drucksache×275, Wahlperiode×275') — angenehm fürs Lesen, aber jede Seiten-Zitierbarkeit gegenüber der amtlichen Drucksache ist verloren; auf S. 1 ist zudem das Datum '14. 05. 2002' hinter den Fußnotenblock verrutscht.",
+    "Lesereihenfolge stark: Spaltenfolge S. 141/142 korrekt, Silbentrennung sauber aufgelöst, und der seitenübergreifende Satz '…in der Arbeitsmedizin birgt daher die besondere Gefahr…' ist als einziger Kandidat zu EINEM Absatz zusammengefügt. Preis: die Fußnoten-Definitionen landen als lose Zeilen mitten im Fließtext ('664 Hennen et al. 2001, S. 105.' steht zwischen den zwei Hälften des Spaltenübergangs-Absatzes, '665 …' zwischen zwei Absätzen der S. 142).",
+    "S. 2: Signaturblock zu einer Zeile kollabiert ('Margot v. Renesse Vorsitzende der Enquete-Kommission …'), Unterschrift ehrlich als '<!-- image -->' markiert; 'Vorwort' korrekt als Überschrift.",
+    "Nichts erfunden; das doppelte TOC-Zellpaar 'Inhaltsübersicht 1 | Inhaltsübersicht 1' ist ein Colspan-Duplikations-Artefakt der Tabellenserialisierung, keine Inhaltserfindung."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

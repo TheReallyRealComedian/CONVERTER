@@ -1,0 +1,18 @@
+{
+  "klasse": "14",
+  "kandidat": "textlayer",
+  "treue": 3,
+  "vollstaendigkeit": 5,
+  "struktur": 2,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "DURCHGEREICHT, KEINE MELDUNG: Der Output ist die eingebackene OCR-Ebene 1:1 (warnings: [] in metrics.json, kein Hinweistext im Markdown). Beide Bruchstellen byte-gleich reproduziert: S.2-Titel 'Asthetik des Erhabenen' (Z. 23; Original-Bild p2: 'Ästhetik') und S.14-Kolumnentitel 'Beethoven-Kritik und die Asthetik des Erhabenen' (Z. 667).",
+    "Prämissen-Korrektur (nachgemessen): Die Ebene ist NICHT flächig kaputt, sondern überwiegend korrektes Deutsch (549 Umlaute, 'für' 17x korrekt, 0x nacktes 'fur', 27x korrektes 'Ästhetik'). Der Schaden ist sporadisch: exakt 2x 'Asthetik' plus vereinzelte Zeichenbrüche.",
+    "Geerbte sporadische Layer-Schäden auf den Stichproben-Seiten: 'W ~ M' statt 'Wenn' (Z. 33, Original p2), 'hin~ugeben' statt 'hinzugeben' (Z. 36), p85: ',,Schreckenfi,' statt '„Schrecken“', 'ohne ubertreibung' statt 'ohne Übertreibung', 'Vorschule der Bsthetik' statt 'Ästhetik', 2x 'Iäßt' statt 'läßt'.",
+    "Inhaltlich falscher Zitat-Nachweis geerbt: '(Seifert,8.167).' (Z. 740) — das Original-Bild p15 zeigt '(Seifert, S. 157).' Eine durchgereichte falsche Seitenzahl ist kein Diakritika-Problem, sondern ein Sachfehler im Apparat.",
+    "Vollständig: JSTOR-Deckblatt, alle 15 Seiten, alle Kolumnentitel und Fußnoten vorhanden; nichts erfunden (reines Kopieren).",
+    "Struktur: roher Zeilen-Dump — keine Überschriften, keine Fußnoten-Auszeichnung, Trennstriche und Kolumnentitel stehen mitten im Satzfluss ('heid-/nisch-antiken' bleibt zeilengetrennt)."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

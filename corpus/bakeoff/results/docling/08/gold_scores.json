@@ -1,0 +1,92 @@
+{
+ "text": {
+  "word_recall": 0.9772,
+  "word_precision": 0.9345,
+  "word_f1": 0.9553,
+  "words_ref": 394,
+  "words_out": 412,
+  "top_missing": [
+   "Bild×1",
+   "Unternehmensressourcen×1",
+   "Strength×1",
+   "Weaknesses×1",
+   "Opportunities×1",
+   "Threats×1",
+   "Quelle×1",
+   "GNU×1",
+   "FDL×1"
+  ],
+  "top_invented": [
+   "1×8",
+   "2×5",
+   "3×2",
+   "Beurteilung×2",
+   "S×1",
+   "Unternehmens×1",
+   "ressourcen×1",
+   "trength×1",
+   "W×1",
+   "eaknesses×1",
+   "O×1",
+   "pportunities×1",
+   "T×1",
+   "hreats×1"
+  ],
+  "cer": 0.0264
+ },
+ "cells": {
+  "cell_recall": 0.963,
+  "cell_precision": 0.8966,
+  "cells_gold": 27,
+  "cells_out": 29,
+  "top_missing_cells": [
+   "tatsächliche Unternehmensressourcen×1"
+  ],
+  "top_invented_cells": [
+   "Beurteilung×2",
+   "tatsächliche Unternehmens-ressourcen×1"
+  ],
+  "shapes_gold": [
+   [
+    14,
+    4,
+    "html"
+   ],
+   [
+    4,
+    4,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    14,
+    4,
+    "pipe"
+   ],
+   [
+    4,
+    4,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel3_abbildung": {
+  "bild_markiert": false,
+  "fussnote_am_bild": false,
+  "fussnote_definiert": false,
+  "link_erhalten": false
+ },
+ "eigenheiten": {
+  "markteilnehmer_ein_t": "erhalten",
+  "auflage_ohne_leerzeichen": "erhalten",
+  "s189_ohne_leerzeichen": "erhalten"
+ },
+ "colspan_rowspan": {
+  "colspan_out": 0,
+  "rowspan_out": 0,
+  "colspan_gold": 5,
+  "rowspan_gold": 2
+ }
+}

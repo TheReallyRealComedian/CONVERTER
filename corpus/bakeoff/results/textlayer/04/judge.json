@@ -1,0 +1,17 @@
+{
+  "klasse": "04",
+  "kandidat": "textlayer",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 1,
+  "lesereihenfolge": 2,
+  "halluzination": 5,
+  "befunde": [
+    "Byte-identisch zur Referenz (diff zeigt nur eingefügte '---'-Seitentrenner): alle 655 Angebots-Zeilen und alle Zahlen vorhanden, 0 Zeilen fehlen (Substring-Test gegen die Referenz-Zeilenliste).",
+    "Null Tabellenstruktur: die 8-spaltige Ranking-Tabelle liegt als Ein-Wert-pro-Zeile-Kolonne vor ('T-Online' / '76.945' / '54,5' / '27,09' / …, Z. 27-34) — für die Klassenfrage (verbundene Zellen als Struktur) Totalverlust, kein einziges Pipe- oder HTML-Element im File (grep '^|' = 0).",
+    "Lesereihenfolge-Artefakt des Text-Layers durchgereicht: die fett gesetzten Kopf-Labels ('Basis', 'AGOF internet facts 2010-I', 'Fälle (ungew.)', 'Netto-RW (Unique User)', 'Brutto-Reichweite (Kontakte)') landen NACH den Datenzeilen mitten im Seitenblock (Z. 139-146) statt vor der Tabelle wie im Original (S. 1 oben).",
+    "Quell-Eigenheit unverändert durchgereicht (keine Reparatur, korrekt): pro Seite eine doppelte Overlay-Zeile mit entarteter Interpunktion — 'MyVideo / 31 633 / 17 4 / 8 62' direkt neben der sauberen Zeile '31.633 / 17,4 / 8,62' (Z. 131-138 vs. 147-154); im gerenderten Original (S. 1) steht die Zeile nur einmal.",
+    "Nichts erfunden, Umlaute korrekt (küchengötter.de, Telebörse.de, HÖRZU), leere Basis-Kontakte-Zellen bleiben leer."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

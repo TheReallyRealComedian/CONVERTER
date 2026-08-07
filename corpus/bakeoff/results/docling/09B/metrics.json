@@ -1,0 +1,31 @@
+{
+ "candidate": "docling",
+ "class": "09B",
+ "role": "main",
+ "input": "09_pptx-smartart/B_smartart_KI-Praesentation-vb.pptx",
+ "input_bytes": 53097998,
+ "started": "2026-08-07T18:50:06",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 5.18,
+ "max_rss_mb": {
+  "self": 819.0,
+  "children": 4.3
+ },
+ "rss_baseline_mb": {
+  "self": 18.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "docling_version": "2.118.1",
+  "ocr_engine": "rapidocr/de",
+  "tableformer": "ACCURATE",
+  "status": "ConversionStatus.SUCCESS"
+ },
+ "output_chars": 32364
+}

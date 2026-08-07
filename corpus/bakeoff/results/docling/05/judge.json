@@ -1,0 +1,19 @@
+{
+  "klasse": "05",
+  "kandidat": "docling",
+  "treue": 2,
+  "vollstaendigkeit": 3,
+  "struktur": 2,
+  "lesereihenfolge": 2,
+  "halluzination": 4,
+  "befunde": [
+    "Zeilenvertauschung auf Sample-S. 85 mitten im Schiller-Zitat: Output liest „…die die eigentümlichste Wirkung mensetzung von Wehsein, das sich in seinem höchsten Grad als ein Schauer und das sicherste Merkmal des Erhabenen ist\"30. (…) Es ist eine Zusamäußert, und von Frohsein… — im Render lauten die Zeilen „…die eigentümlichste Wirkung und das sicherste Merkmal des Erhabenen ist\"³⁰. (…) „…Zusammensetzung von Wehsein, das sich in seinem höchsten Grad als ein Schauer äußert…\". Druckzeilen wurden umsortiert, Wörter an den Nahtstellen zerrissen.",
+    "Zerstörte Passage auf Sample-S. 85: „noch seltner das romants J  Ia  a d  an a sn romantische Geschmack\"s. — das komplette zweite Jean-Paul-Zitat („…das romantische Talent\".³² „Ebenso selten als das romantische Talent ist daher der romantische Geschmack\"³³) ist samt Fußnotenanker 32 verloren.",
+    "Gleiche Garble-Klasse außerhalb der Stichprobe (nicht gewertet, aber musterbildend): „wie sie ohne ,,anhaltendes Studium der nn n  n D     n ne Menge spricht…\" (S. 81), „etws nn  en  n  sete.\" (S. 82), „uu tgt  t s aton a l e stimmbar\" (S. 89), „hr e dz n   dit  r  d st\" (S. 91).",
+    "Systematischer Umlautfehler ā statt ä, auch in den Prüfabsätzen: „erklārt\" (Sample-S. 86, Prüfabsatz), „zurücklāßt\" (Sample-S. 2), dazu „lāßt\", „zunāchst\", „Übergānge\" im Rest. Anführungszeichen als Doppelkomma-Ersatz (,,…\"), teils nur ein Komma (,alle / ,das Gemüt).",
+    "Fußnotenapparat zerlegt: Ziffern zu „s\", „1ª\", „ss\", „s9\", „2o\", „·\", „u4\" verstümmelt; Reihenfolge auf S. 2 vertauscht (1→3→2→4) und Fußnote 5 in der Sammelzeile „4Wackenroder, S. 254. Schmitz, S. 78.\" markerlos; Fußnotenblöcke ohne Abgrenzung mitten zwischen Fließtextabsätze einsortiert.",
+    "Vollständigkeitsbild gemischt: Seite 86 komplett vorhanden (Prüfabsatz bis auf „erklārt\" wortgenau, Sperrsatz „e i n e m\"→„einem\" korrekt kollabiert), Seitenübergang 86→87 sogar zu einem Absatz gejoint; dafür fehlen alle Kopfzeilen, die Bogensignatur „6\" und das Impressum von S. 2, und in den Garble-Stellen ist realer Wortlaut unwiederbringlich weg.",
+    "Keine erfundenen Inhalte im Sinne von Hinzudichtung — die eingefügten Zeichenfolgen („J  Ia  a d  an a sn\") sind Erkennungsschrott, kein Text."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

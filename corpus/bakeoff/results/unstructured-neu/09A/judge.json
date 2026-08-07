@@ -1,0 +1,20 @@
+{
+  "klasse": "09A",
+  "kandidat": "unstructured-neu",
+  "treue": 5,
+  "vollstaendigkeit": 2,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Speaker-Notes zu 100% verloren (alle 1.780 Zeichen, Notes an 10 Folien: 5, 7, 9, 12, 16, 20-24): z.B. »ZV: weniger Vorräte, da Prognosen genauer möglich aufgrund periodischer Erhebung des Absatzes« (Referenz Z. 474, Folie 5) und »BV: ... hohe Kapitalkosten → negatives EVA« (Z. 489) — 0 Treffer auf sämtliche Notes-Anker.",
+    "Kopfblock ALLER 25 Folien fehlt (»Institut für Publizistik / Wintersemester 2006/07 / Seminar: Controlling in Medienunternehmen / Leitung: Prof. Dr. H.-W. Nienstedt, P. Proner«, Original p1-p25) und Fußzeile ALLER 25 Folien fehlt (»Referenten: Katharina Brodt, ...«) — top_missing: Katharina×50, Institut×25, Publizistik×25. Gesamt-Wortverlust 60,7% (word_recall 0,394).",
+    "Der Verlust ist in 0.18.32 und 0.24.1 IDENTISCH — der Versions-Bump ändert am Verlustbild nichts. Einziger Diff zu unstructured-pin (3 Zeilen): die PASSIVA-Header-Zellen sind hier vollständig — »Thesaurierte<br>Gewinne/Verluste | Gesellschafter-<br>darlehen | langfr.<br>Schulden | kurzfr.<br>Schulden« (deckt Original p13).",
+    "Positiv: alle 6 numCol-Textkörper (Folien 5, 7, 9, 12, 14, 16) vollständig und in korrekter Spaltenreihenfolge — p14: »Niedrig (durch Periodika)« → »Vorkasse durch Abonnenten hoch« → »Buchverlag« → »wesentlich höher (hohe Vorfinanzierung für Buch)« exakt wie Referenz Z. 251-258.",
+    "Positiv: 9/9 Tabellen als Pipe-Tabellen mit exakten Zahlen (p13-Werte byte-genau); beide EVA-Gitter (Folie 22) getrennt, »EVA / -186« und »EVA / 4.967« intakt; Umlaute im erhaltenen Text fehlerfrei (»Rübsam«, »regelmäßiger«, »größere Bevorratung«).",
+    "Charts fehlen komplett — nur freie Text-Labels (»145 %«, »60 %«, »10 %«) überleben; markitdown/docling liefern hier Datentabellen aus den Chart-Parts.",
+    "Nichts erfunden (word_precision 1,0); keine falschen Überschriften aus der Titel-Heuristik (92 dokumentierte Warnungen, konservativ als Absatz) — aber auch null Heading-Struktur im gesamten Output.",
+    "Einordnung des 62%-Befunds der Vorab-Messung: verloren geht Boilerplate (Kopf/Fuß, 25× wiederholt) plus die kompletten Notes — der eigentliche Folien-Body (Titel, Bullets, Spalten, Tabellen) überlebt vollständig. Für Lektüre der Folien brauchbar; als treue Konversion der Datei (Klassen-Anspruch inkl. Notes) klar unvollständig, und der Verlust ist im Output unsichtbar (keine Degradations-Meldung, weil er vor dem Serializer in partition() passiert)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

@@ -1,0 +1,16 @@
+{
+  "klasse": "06",
+  "kandidat": "tesseract",
+  "treue": 1,
+  "vollstaendigkeit": 1,
+  "struktur": 1,
+  "lesereihenfolge": 1,
+  "halluzination": 4,
+  "befunde": [
+    "Fast-Totalausfall: 12 Zeilen / rund 40 Wörter aus einem zweiseitigen Formular; S. 2 (kopfständig gescannt) fehlt komplett, der Titel »Fragebogen für die Aufnahme in die Familienversicherung« fehlt, keine einzige Überschrift, Tabelle oder Checkbox im Output.",
+    "Auch die überlebenden Fragmente sind fehlerhaft: »\"Rame der Krankenkasse« statt »Name der Krankenkasse«, »LParkG« statt »LPartG«, »der Familienversicherung bei untersch '« bricht mitten im Wort ab, dazu Zeichenmüll ».—.— . ._. . . . . ._ ..._._« als erste Zeile.",
+    "Umlaute in den Fetzen zufällig intakt (»für«, »Angaben für Ihre«), aber bei >99 % Textverlust ohne Aussagekraft.",
+    "Nichts erfunden, nichts ausgefüllt, keine Loops — der Ausfall ist reiner Verlust, keine Halluzination; genau das erwartete Einbruchs-Verhalten dieser Klasse."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

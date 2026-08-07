@@ -1,0 +1,18 @@
+{
+  "klasse": "04",
+  "kandidat": "eigenbau",
+  "treue": 3,
+  "vollstaendigkeit": 3,
+  "struktur": 3,
+  "lesereihenfolge": 4,
+  "halluzination": 4,
+  "befunde": [
+    "Zellgenauigkeit dort, wo Zeilen sauber sind, ist perfekt: 634 von 655 Angebots-Zeilen stimmen in allen 7 Werten exakt mit dem Text-Layer überein (programmatischer Abgleich, 0 Wert-Mismatches); Stichproben gegen die Original-Seiten (T-Online 76.945/54,5/27,09/4.108,92 S. 1; Preisvergleich.de 14.261/5,6/2,79/8,91 S. 2; Finya.de 741/0,4/0,19/163,21 S. 8; TradeSignal Online 104/0,1/0,03/9,09 S. 12) alle korrekt.",
+    "12 Zeilen — genau eine pro Seite — sind durch zeichenweises Verschmelzen der doppelten Overlay-Zeile des Text-Layers zerstört: '| MMyyVViiddeeoo | 3311.663333 | 1177,44 | 88,6622 | … | 110000 |' (Z. 34, Original S. 1: 'MyVideo 31.633 17,4 8,62'), ebenso 'kküücchheennggöötttteerr.ddee | 11.228877' (Z. 380, S. 7) und 'DDAAZZ DDeeuuttsscchhee AAppootthheekkeerr ZZeeiittuunngg' (Z. 664, S. 12); die saubere Fassung dieser 12 Zeilen fehlt jeweils — die Token existieren so weder im Original noch im Text-Layer.",
+    "Kopfblock unvollständig: 'Quelle:', 'AGOF internet facts 2010-I', 'Zielgruppe:', 'Basis' (als Zielgruppen-Wert) und die Zeile '(101.652 ungew. Fälle, … - 100,0% - 49,68 Mio)' fehlen komplett (grep ohne Treffer) — die Quellenangabe des gesamten Rankings ist weg; 'Basis' überlebt nur als Tabellen-Zeilenlabel.",
+    "Verbundene Zellen nur andeutungsweise: EINE durchgehende Pipe-Tabelle über alle 12 Seiten (Seitengrenzen-Bonus erfüllt, Kopf geht nicht verloren), Gruppenköpfe 'Netto-RW (Unique User)' / 'Brutto-Reichweite (Kontakte)' stehen als Einzelzellen an der Startposition ihres Spanns (Z. 17) — colspan/rowspan sind in Pipes nicht darstellbar, der geforderte HTML-Ausweich fehlt; dazu 11 wiederholte Teil-Kopfzeilen der Folgeseiten als Rausch-Zeilen in der Tabelle (Z. 64, 121, …).",
+    "Dokumentanfang vermüllt: zwei Pseudo-Tabellen aus Kopf-Fragmenten ('| | Brutto-Reichweite Netto-RW (Unique User) (Kontakte) |', Z. 1-4) und ein DUPLIZIERTES Fragment von Seite 12 ('Radio Bonn 155 …', 'Petra 149 …', 'unsernachwuchs.de 152 …', Z. 12-15) stehen vor der Haupttabelle; dieselben drei Zeilen erscheinen zusätzlich korrekt an ihrer richtigen Stelle (Z. 641-643).",
+    "Leere erste Spalte in jeder Datenzeile ('|  | T-Online | …') als strukturelles Artefakt der Einrück-Spalte des Originals."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

@@ -1,0 +1,32 @@
+{
+ "candidate": "unstructured-pin",
+ "class": "09A",
+ "role": "main",
+ "input": "09_pptx-smartart/A_mehrspaltig-notes_Praesentation_final.pptx",
+ "input_bytes": 157450,
+ "started": "2026-08-07T18:19:00",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 7.86,
+ "max_rss_mb": {
+  "self": 311.2,
+  "children": 1.4
+ },
+ "rss_baseline_mb": {
+  "self": 18.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [
+  "105× PPTX: 'Title' unterhalb der Titelebene als Absatz ausgegeben (Laengen-Heuristik, keine Ueberschrift)"
+ ],
+ "adapter_meta": {
+  "unstructured_version": "0.18.32",
+  "strategy": "fast",
+  "serializer": "services.unstructured_markdown"
+ },
+ "output_chars": 6712
+}

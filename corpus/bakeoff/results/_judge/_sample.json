@@ -1,0 +1,160 @@
+{
+ "01": {
+  "renders": [
+   1,
+   2,
+   28,
+   29,
+   54
+  ],
+  "seiten_gesamt": 54,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "02": {
+  "renders": [
+   1,
+   2,
+   29,
+   30,
+   57
+  ],
+  "seiten_gesamt": 57,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "03": {
+  "renders": [
+   1,
+   2,
+   11,
+   12,
+   20
+  ],
+  "seiten_gesamt": 20,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "04": {
+  "renders": [
+   1,
+   2,
+   7,
+   8,
+   12
+  ],
+  "seiten_gesamt": 12,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "05": {
+  "renders": [
+   1,
+   2,
+   8,
+   9,
+   15
+  ],
+  "seiten_gesamt": 15,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "06": {
+  "renders": [
+   1,
+   2
+  ],
+  "seiten_gesamt": 2,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "07": {
+  "renders": [
+   1,
+   2
+  ],
+  "seiten_gesamt": 2,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "08": {
+  "renders": [
+   1,
+   2,
+   6,
+   7,
+   10
+  ],
+  "seiten_gesamt": 10,
+  "dpi": 150,
+  "via_soffice": true
+ },
+ "09A": {
+  "renders": [
+   1,
+   2,
+   13,
+   14,
+   25
+  ],
+  "seiten_gesamt": 25,
+  "dpi": 150,
+  "via_soffice": true
+ },
+ "09B": {
+  "renders": [
+   1,
+   2,
+   49,
+   50,
+   96
+  ],
+  "seiten_gesamt": 96,
+  "dpi": 150,
+  "via_soffice": true
+ },
+ "10": {
+  "renders": null,
+  "hinweis": "kein Render — Referenztext ist die Basis"
+ },
+ "11": {
+  "renders": null,
+  "hinweis": "kein Render — Referenztext ist die Basis"
+ },
+ "12": {
+  "renders": [
+   1,
+   2,
+   141,
+   142,
+   280
+  ],
+  "seiten_gesamt": 280,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "13": {
+  "renders": [
+   1,
+   2,
+   17,
+   18,
+   32
+  ],
+  "seiten_gesamt": 32,
+  "dpi": 150,
+  "via_soffice": false
+ },
+ "14": {
+  "renders": [
+   1,
+   2,
+   8,
+   9,
+   15
+  ],
+  "seiten_gesamt": 15,
+  "dpi": 150,
+  "via_soffice": false
+ }
+}

@@ -1,0 +1,20 @@
+{
+  "klasse": "09B",
+  "kandidat": "docling",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "SmartArt (slide70, diagrams/data1.xml) komplett verloren: 'Board / HR / R&D / Sales & Marketing / Finance & Purchase / Production' (Referenz Z.705-710) fehlt vollstaendig — wie bei allen vier Kandidaten.",
+    "Speaker-Notes fehlen komplett (931 Zeichen): weder das AlphaGo-Zitat \"It's not a human move...\" (Referenz Z.712) noch die 9 Quell-URLs (ageas, tractable, techcrunch, airbus etc., Z.715-725).",
+    "Die 7 Tabellen (Folie 49) mit Daten, sauber formatiert und korrekt gepaart: '| projects: 99 |' / '| success rate: 40% |' bis '43/37%' (Referenz Z.294-323); zusaetzlich die eingebettete Avocado-Chart als beschriftete Tabelle ('Line chart', ~215 echte Datenzeilen aus dem Chart-Cache, Serienname 'avocado' sauber abgesetzt).",
+    "Beste Lesereihenfolge im Feld (geometrisch statt XML-Reihenfolge): einziger Kandidat mit '01 Strategische Ausrichtung -> 02 -> 03 -> 04 Datenreport -> 05 Entscheidungs-fundierung' in Sichtreihenfolge (die anderen drei: 05 vor 04); die Prozess-Schritte der Rezept-Trend-Folie beginnen korrekt mit 'User visits overview page' und enden mit 'The final results page...' (nur die mittleren Schritte 6-9 vertauscht); Mio-$-Betraege den Kategorie-Labels deutlich besser zugeordnet. Restfehler: Sprechblase vor Titel auf Folie 1 (Stichprobe p1) wie bei allen.",
+    "Struktur am reichsten: echte Bullet-Listen, und als EINZIGER die 1.-4.-Aufzaehlung der Checlist-Folie (Stichprobe p96) als nummerierte Liste — allerdings mit erfundenem leerem '5. '-Eintrag (leerer Quell-Absatz als Listenpunkt, ebenso 7 leere '- '-Punkte auf der Action-Based-UI-Folie).",
+    "KEINE Folien-Grenzen: der 98-Folien-Stream fliesst ohne jeden Slide-Marker zusammen — titel-lose Folien (z.B. 'How to innovate...' bis 'DESIRABLE/FEASIBLE/VIABLE' x2) verschmelzen ununterscheidbar; fuer Navigation/Zitierbarkeit im 53-MB-Deck der groesste Nachteil gegenueber unstructured/markitdown.",
+    "Treue hoch mit einem systematischen Schoenheitsfehler: HTML-Entities bleiben escaped ('Analysis &amp; Data Audit', '&lt;1 sec') — rendert als Markdown korrekt, verschmutzt aber Rohtext/grep; Quell-Tippfehler unrepariert ('# Checlist', 'ARTIFICAL INTELLIGENCE'), Blanko-Felder als '\\_\\_\\_' erhalten, Titel/Untertitel mit Leerzeichen gefuegt ('# Machine Learning Training image recognition algorithms' — lesbarer als das geklebte 'LearningTraining' der anderen).",
+    "Folie 53 vollstaendig (alle 13 Kacheln inkl. 'Marketing'/'Sales'); versteckte Folien 33/34 enthalten; nichts erfunden."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

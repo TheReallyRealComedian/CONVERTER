@@ -1,0 +1,125 @@
+{
+ "text": {
+  "word_recall": 0.9634,
+  "word_precision": 0.9555,
+  "word_f1": 0.9594,
+  "words_ref": 1559,
+  "words_out": 1572,
+  "top_missing": [
+   "gamma×15",
+   "Barabási×9",
+   "Solé×6",
+   "ell×5",
+   "k×4",
+   "⁵×3",
+   "P×2",
+   "out×2",
+   "in×2",
+   "⁴×2",
+   "Kumaret×1",
+   "and×1",
+   "3×1",
+   "István×1",
+   "10⁷×1"
+  ],
+  "top_invented": [
+   "γ×13",
+   "Barab×9",
+   "asi×9",
+   "ℓ×7",
+   "Sol×6",
+   "e×6",
+   "5×3",
+   "10×3",
+   "4×2",
+   "Kumar×1",
+   "et×1",
+   "WORLD×1",
+   "WIDE×1",
+   "WEB×1",
+   "Istv×1"
+  ],
+  "cer": 0.1042
+ },
+ "cells": {
+  "cell_recall": 0.3613,
+  "cell_precision": 0.3613,
+  "cells_gold": 357,
+  "cells_out": 357,
+  "top_missing_cells": [
+   "2.1×7",
+   "Barabási et al. 2001×4",
+   "Montoya, Solé 2000×4",
+   "2.4×4",
+   "3.4×3",
+   "⟨k⟩×2",
+   "ℓ_rand×2",
+   "3.65×2",
+   "9.7×2",
+   "56, 627×2"
+  ],
+  "top_invented_cells": [
+   "2 . 1×7",
+   "Barab´ asi et al. 2001×4",
+   "Montoya, Sol´ e 2000×4",
+   "2 . 4×4",
+   "3 . 4×3",
+   "〈 k 〉×2",
+   "3 . 65×2",
+   "9 . 7×2",
+   "56 , 627×2",
+   "2 . 12×2"
+  ],
+  "shapes_gold": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ],
+  "shapes_out": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel2_stellungen": {
+  "familien": {
+   "ell_rand": "fehlt",
+   "ell_real": "fehlt",
+   "ell_pow": "fehlt",
+   "P_out": "fehlt",
+   "P_in": "fehlt",
+   "gamma_in": "fehlt",
+   "gamma_out": "fehlt",
+   "C_rand": "fehlt",
+   "dom_sup": "fehlt",
+   "exp_minus_4": "eingeebnet",
+   "exp_minus_5": "eingeebnet"
+  },
+  "zusammenfassung": {
+   "erhalten": 0,
+   "eingeebnet": 2,
+   "fehlt": 9
+  }
+ },
+ "eigenheiten": {
+  "nr_14_doppelt_15_fehlt": "erhalten",
+  "bereich_absteigend_636_618": "fehlt",
+  "punkt_460_902": "fehlt/geaendert",
+  "komma_460_902": "fehlt/geaendert"
+ }
+}

@@ -1,0 +1,29 @@
+{
+ "candidate": "textlayer",
+ "class": "04",
+ "role": "main",
+ "input": "04_verbundene-zellen/06_ranking_angebote_monat_if2010_I.pdf",
+ "input_bytes": 57313,
+ "started": "2026-08-07T18:11:53",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 0.47,
+ "max_rss_mb": {
+  "self": 48.2,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "pages": 12,
+  "empty_pages": 0
+ },
+ "output_chars": 37955
+}

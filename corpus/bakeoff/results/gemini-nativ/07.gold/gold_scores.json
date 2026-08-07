@@ -1,0 +1,104 @@
+{
+ "text": {
+  "word_recall": 0.9593,
+  "word_precision": 0.9663,
+  "word_f1": 0.9628,
+  "words_ref": 418,
+  "words_out": 415,
+  "top_missing": [
+   "EUR×12",
+   "×5"
+  ],
+  "top_invented": [
+   "EUR×12",
+   "×2"
+  ],
+  "cer": 0.0145
+ },
+ "cells": {
+  "cell_recall": 0.6234,
+  "cell_precision": 0.6316,
+  "cells_gold": 77,
+  "cells_out": 76,
+  "top_missing_cells": [
+   "EUR×12",
+   "×5",
+   "  ×4",
+   " (Nachname)  (Vorname)×4",
+   "Gewinn aus selbstständiger Tätigkeit (monatlich.) Bitte Kopi×1",
+   "Ort, Datum×1",
+   "Unterschrift×1",
+   "ggf. Unterschrift der Familienangehörigen×1"
+  ],
+  "top_invented_cells": [
+   "EUR×12",
+   " ×4",
+   "(Nachname)  (Vorname) ×4",
+   "×3",
+   "Angaben zur letzten bisherigen oder zur weiter bestehenden V×1",
+   "Gewinn aus selbstständiger Tätigkeit (monatlich). Bitte Kopi×1",
+   " Ort, Datum×1",
+   " Unterschrift×1",
+   " ggf. Unterschrift der Familienangehörigen×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "pipe"
+   ],
+   [
+    1,
+    3,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "vorhanden_unstrukturiert",
+   "Sonstige Angaben zu Familienangehörigen": "ueberschrift",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "ueberschrift"
+  },
+  "gleichwertig_erfuellt": "2/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 57,
+  "checkbox_gold": 16,
+  "checkbox_out": 16
+ }
+}

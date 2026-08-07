@@ -1,0 +1,19 @@
+{
+  "klasse": "13",
+  "kandidat": "docling",
+  "treue": 2,
+  "vollstaendigkeit": 2,
+  "struktur": 2,
+  "lesereihenfolge": 2,
+  "halluzination": 4,
+  "befunde": [
+    "Der 0,60-Recall kommt aus der NATIVEN Hälfte (die Referenz enthält nur native Seiten): der komplette Body-Text der nativen Folien 5–8 ist zu '<!-- image -->' degradiert — von S. 5 bleibt nur '## Twitter-Accout telekom_hilft / ## Kundenkontaktpunkt', die Textebenen-Bullets ('Zentrale Anlaufstelle in allen Belangen des Kundenservices…') fehlen; ebenso die Roadmap-Timeline von S. 4 ('Mai / 2010 … 2011', 'Twitter Pilot'), die Wettbewerber-Legende von S. 21 ('Vodafone_de, 1und1, TMobileUKhelp…') und die 32 wiederholten Footer (Dedup — legitim, drückt aber den Recall zusätzlich).",
+    "Stichproben-Seite 18 fehlt komplett — sogar das NATIVE '#newtwitter' aus der Textebene ist weg; zwischen davaidavai (S. 17) und 'Aktivität auf Telekom_hilft' (S. 19) stehen nur Bild-Marker.",
+    "Scan-Stichproben S. 2 und S. 32 fehlen komplett (nur '<!-- image -->'): weder die Tweet-Liste '@georgios_m Hallo…' noch die Abschieds-Tweets '@Telekom_hilft Ich wollte Tschüß sagen…' kommen heraus; ebenso fehlen die Scan-Seiten 9 und 13–16 (René Obermann, iPhone-4-Seiten).",
+    "S. 17 (Stichprobe) ist zwar da, aber beschädigt: Kerning-Zerfall ('This morning I checked my German bank acc ount and found out that 1,400 Euro w ere miss ing'), Buchstabendreher ('L immediately', 'Am sterdar'), eine Zeile reines Kauderwelsch ('cher (hr r hng em one' für 'cheaper than acquiring (or reacquiring) a new one') und Duplikat 'About About' am Absatzende.",
+    "Lesereihenfolge auf der HORIZONT-Seite (S. 12) mitten im Satz verschränkt: 'reaSekundentakt auf Anfragen – via Twitter. Inmitten des Kundenansturms auf übergierte die Telekom trotzdem beinahe im lastete Hotlines' — zwei Spalten ineinander gemischt; auf S. 23 zerfallen die Facebook-Kommentare in verstreute Fragmente ('Stefan [ Gemeind 27. Septer').",
+    "Reine OCR-Müllzeilen werden als Text ausgegeben: '2pdr r drn, edr. n de en', 'al0 ua.alrPad nz buweon-uaie -aMzia-uawab' (S. 28-Bereich); dazu Logo-Reste als Textzeilen ('T', '.T·.', '··T.') und HTML-Entities im Markdown ('Vertrieb &amp; Service').",
+    "Nichts semantisch erfunden, keine gefüllten Lücken: die beschnittene HORIZONT-Spalte bleibt ehrlich fragmentarisch ('Ausbau und plant Kooperati mit anderen Plattformen. Wo das U nehmen künftig…') — die Schäden sind Erkennungs-, keine Erfindungsfehler."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

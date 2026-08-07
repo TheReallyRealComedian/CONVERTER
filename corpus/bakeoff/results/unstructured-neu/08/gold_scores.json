@@ -1,0 +1,88 @@
+{
+ "text": {
+  "word_recall": 0.9492,
+  "word_precision": 0.9791,
+  "word_f1": 0.9639,
+  "words_ref": 394,
+  "words_out": 382,
+  "top_missing": [
+   "1×9",
+   "2×2",
+   "Wettbewerbsanalyse×1",
+   "und×1",
+   "Bild×1",
+   "Branchen×1",
+   "Marktanalyse×1",
+   "Unternehmensressourcen×1",
+   "Quelle×1",
+   "GNU×1",
+   "FDL×1"
+  ],
+  "top_invented": [
+   "Beurteilung×2",
+   "Faktoren×2",
+   "Unternehmens×1",
+   "ressourcen×1",
+   "Unternehmensexterne×1",
+   "Unternehmensinterne×1"
+  ],
+  "cer": 0.0517
+ },
+ "cells": {
+  "cell_recall": 0.963,
+  "cell_precision": 0.8387,
+  "cells_gold": 27,
+  "cells_out": 31,
+  "top_missing_cells": [
+   "tatsächliche Unternehmensressourcen×1"
+  ],
+  "top_invented_cells": [
+   "Beurteilung×2",
+   "tatsächliche Unternehmens-ressourcen×1",
+   "Unternehmensexterne Faktoren×1",
+   "Unternehmensinterne Faktoren×1"
+  ],
+  "shapes_gold": [
+   [
+    14,
+    4,
+    "html"
+   ],
+   [
+    4,
+    4,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    14,
+    4,
+    "pipe"
+   ],
+   [
+    4,
+    4,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel3_abbildung": {
+  "bild_markiert": false,
+  "fussnote_am_bild": false,
+  "fussnote_definiert": false,
+  "link_erhalten": false
+ },
+ "eigenheiten": {
+  "markteilnehmer_ein_t": "erhalten",
+  "auflage_ohne_leerzeichen": "erhalten",
+  "s189_ohne_leerzeichen": "erhalten"
+ },
+ "colspan_rowspan": {
+  "colspan_out": 0,
+  "rowspan_out": 0,
+  "colspan_gold": 5,
+  "rowspan_gold": 2
+ }
+}

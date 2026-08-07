@@ -1,0 +1,18 @@
+{
+  "klasse": "14",
+  "kandidat": "docling",
+  "treue": 3,
+  "vollstaendigkeit": 4,
+  "struktur": 3,
+  "lesereihenfolge": 3,
+  "halluzination": 5,
+  "befunde": [
+    "DURCHGEREICHT, KEINE MELDUNG — trotz konfiguriertem OCR: adapter_meta nennt ocr_engine rapidocr/de, aber der Output ist die eingebackene Ebene, nicht Neu-Lesung. Beweis byte-gleicher Layer-Unikate, die keine Pixel-OCR reproduzieren würde: 'W ~ M', 'hin~ugeben', 'GeschZchte d e ~', 'Theork der Schönen Kilnste', ',,Schreckenfi,', 'x7 E.Burke' (Fußnotenziffer 27), 'ein Alusikästhetiker' (Z. 187), '(Seifert, 8. 167).' statt '(Seifert, S. 157).' — alle identisch in results/_references/14.txt.",
+    "Bruchstelle 1 durchgereicht und dabei GEADELT: '## E.T.A. Hoffmanns Beethoven-Kritik und die Asthetik des Erhabenen' (Z. 23) — die kaputte Titelzeile wird als saubere Markdown-Überschrift formatiert. Das ist die Klassen-Falle in Reinform: sieht redigiert aus, ist es nicht.",
+    "Bruchstelle 2 (S.14-Kolumnentitel 'Asthetik') fehlt, weil docling ALLE Kolumnentitel als Seiten-Möbel verwirft ('Carl Dahlhaus'-Kopfzeilen: 0 von 8) — damit verschwinden auch die gedruckten Seitenzahlen 79-92, die bei einem Zeitschriftenaufsatz zitierrelevant sind.",
+    "Prämissen-Korrektur (nachgemessen): Schaden der Ebene sporadisch, nicht flächig (549 korrekte Umlaute, 2x 'Asthetik' gesamt, docling reproduziert davon 1x — die zweite Stelle entfällt nur durch das Kolumnentitel-Verwerfen, nicht durch Korrektur).",
+    "Eigene Artefakte obendrauf: Fußnote 49 zerlegt — 'Band 11,Wien 1907' der Ebene wird zu versprengtem Absatz 'Band Wien' (Z. 177); Layer-Zeichenmüll '&thetische' wird zu '&amp;thetische Thesen' escaped (Z. 181).",
+    "Positiv: echte Absatz-Zusammenführung inkl. Trennstrich-Auflösung ('heidnisch-antiken' zusammengefügt), zwei Überschriften; nichts erfunden."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

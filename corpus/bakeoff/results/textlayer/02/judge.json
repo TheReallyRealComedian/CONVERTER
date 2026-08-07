@@ -1,0 +1,16 @@
+{
+  "klasse": "02",
+  "kandidat": "textlayer",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 1,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "Output ist byte-identisch zur PDF-Textebene plus '---'-Seitentrenner (diff gegen results/_references/02.txt: nur Leerzeilen-Deltas). Alle Zahlen der Stichprobe korrekt: p29 'VfL Bochum / 561 / 0,1 / 0,07' bis 'xchar.de / 600 / 0,1 / 0,05', p30 'Rhein Main Presse/Main-Rheiner / 601' bis 'Peiner Allgemeine Zeitung / 640 / 0,1 / 0,03' vollständig vorhanden.",
+    "Keine Reparaturen: Quell-Eigenheiten bleiben erhalten, z. B. p57 'Mail:marcus.foebus@agof.de' ohne Leerzeichen und beide Strich-Formen 'Tel: 069-264 888 - 311' vs. '888 – 314' exakt wie im Original.",
+    "Null Markdown-Struktur: 0 Überschriften, 0 Pipe-Tabellen im ganzen File. Die Inhaltsseite (p2) und alle 25 Tabellen sind Fließtext; die Ranking-Tabellen p29/p30 erscheinen als Ein-Wert-pro-Zeile-Läufe ('VfL Bochum\\n561\\n0,1\\n0,07\\n…') — als Tabelle muss alles von Hand rekonstruiert werden.",
+    "Lesereihenfolge innerhalb der Tabellen zeilenweise korrekt (Name→Rang→%→Mio), aber Quell-Reflow-Artefakte werden durchgereicht: Vorwort-Absatz zerfällt in Ein-Wort-Zeilen ('als\\nPDF-Dateien\\nheruntergeladen\\nwerden'), und die im Textlayer beschnittenen Vermarkternamen auf S. 11/12 ('OMORROW FOCUS', 'ne Media') stehen unkommentiert da (Quell-Eigenheit, kein Kandidatenfehler)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

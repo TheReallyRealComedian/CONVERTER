@@ -1,0 +1,31 @@
+{
+ "candidate": "tesseract",
+ "class": "14",
+ "role": "main",
+ "input": "14_ocr-ebene-kaputt/Dahlhaus – ETA Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen.pdf",
+ "input_bytes": 603549,
+ "started": "2026-08-07T18:15:18",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 100.74,
+ "max_rss_mb": {
+  "self": 396.2,
+  "children": 150.3
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "tesseract": "tesseract 5.5.1",
+  "lang": "deu",
+  "dpi": 300,
+  "pages": 15
+ },
+ "output_chars": 41821
+}

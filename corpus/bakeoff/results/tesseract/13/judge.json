@@ -1,0 +1,18 @@
+{
+  "klasse": "13",
+  "kandidat": "tesseract",
+  "treue": 2,
+  "vollstaendigkeit": 4,
+  "struktur": 2,
+  "lesereihenfolge": 3,
+  "halluzination": 5,
+  "befunde": [
+    "Einziger Kandidat, der die S.-32-Tweets liefert, und das gut lesbar: '@Telekom_ hilft Ich wollte Tschüß sagen und Danke für die schöne Zeit, hab heute bei euch gekündigt\" * Schade.' und '@BLUE _TW Wir sagen dann zum Abschied leise \"Servus\". Behalten Sie uns in guter Erinnerung ;-). \"wi' — nur die ^-Kürzel und '^^' sind zerfallen.",
+    "Der Preis des Alles-OCRens: native Seiten verlieren Treue, die die Textebene gratis hatte — 'über /,/ Mio' statt 'über 7,7 Mio' (S. 20, Zahl zerstört), 'Verlängerung des Iwitter-Konzepts' (S. 8), 'Social-Media-Mafßnahmen' (S. 3), '23.08.2010' wird 'OR23M8.2010' (S. 11), Chart-Achsen '14009/10009/19000' statt 14000/10000 (S. 21).",
+    "S. 2 (Stichprobe) kommt zwar 'mit Inhalt' heraus, aber überwiegend als Kauderwelsch: 'Ios_m Hallo. Cas freut / Bea hören und vielen Darık für Erteben, war werbandıet' — von der Tweet-Liste ist nichts Brauchbares übrig, nur die Themen-Zeile ist erkennbar ('EP Speedport Eumes Sinus Hardwarı D&LVerfügbarkelt Ungrden Festnetzgeräte Handys').",
+    "S. 17 (Stichprobe) vollständig und lesbar mit Artefakten: 'This marning | checked my German bankaccount and faund out ihat 1,400 Euro were 37 missing.' — der Tweet-Zähler '37' ist mitten in den Satz gerutscht, 'hacıw ithdramen', 'abıraad'; S. 18 liefert die Bild-Sidebar teilweise ('Achtung: Bitte keine personenbezege-nen Daten posten!', 'Mo. bis Sa. 8:00 bis 20:00 Uhr') plus '#newtwitter', verliert aber 4 von 7 Team-Namen.",
+    "Ehrlich am Beschnitt (kein Reparieren): die HORIZONT-Spalte (S. 12) endet zeilenweise im sichtbaren Fragment ('und verlangen gerade bei kurzen Fı / eine hohe Problemlösungskompei / weiß der Vertriebschef.') — deckungsgleich mit docling/gemini-nativ, nichts aufgefüllt; insgesamt wird nichts erfunden, aller Schaden ist sichtbare Fehlerkennung.",
+    "Null Markdown-Struktur: keine Überschriften, keine Listen, keine Tabellen; Chart-Zahlenkolonnen und Logo-Reste stehen als nackte Zeilen im Text ('Oo / 0) / [@)' auf S. 4), auf S. 15 sind die Tweet-Kacheln zu Fragmentsalat verschränkt ('@Telekom IH / ist das iPhon« / Wochen nach'), Footer geraten mitten in den Seitentext (S. 12)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

@@ -1,0 +1,18 @@
+{
+  "klasse": "13",
+  "kandidat": "gemini-nativ",
+  "treue": 4,
+  "vollstaendigkeit": 2,
+  "struktur": 4,
+  "lesereihenfolge": 4,
+  "halluzination": 4,
+  "befunde": [
+    "Zwei der vier Bild-Stichproben kommen ohne Inhalt heraus: S. 2 liefert NUR die Footer-Zeile 'Social Media Conference 26. Oktober 2010 2' (die gesamte Twitter/Portal-Collage fehlt, nicht einmal ein Platzhalter), und S. 17 (davaidavai-Blog 'Telekom. Witness my Personal Shitstorm Live.') ist nur ein toter Bild-Link '![](page_6_Screenshot_1.png)' — ebenso der ganze Scan-Block S. 13–16 (Obermann-, iPhone-4-Seiten).",
+    "S. 32 halb: die Bild-Tweets sind als faktische Alt-Texte benannt ('![Twitter Post von BLUE_TW](page_2_image_1.png)', '![Twitter Antwort von Telekom_hilft](page_2_image_2.png)'), aber der Wortlaut ('Ich wollte Tschüß sagen…') ist nicht transkribiert; S. 18 liefert nur das native '#newtwitter', die Bild-Sidebar wird Platzhalter.",
+    "Wo Inhalt kommt, ist er erstklassig: native Folien sauber reflowed mit korrekter Struktur (S. 3 als Innovation/Vertrieb/Service-Tabelle, S. 5–8 Titel→Bullets→Timeline) bei erhaltenen Original-Tippfehlern ('Twitter-Accout', 'Ausbau Landigpage', 'Das Konzepts'); die Scan-Seiten 19–30 sind die beste Fassung im Feld (S. 24-Post 'Deutsche Telekom AG Wir sind da wo unsere Kunden sind…' vollständig lesbar, wo docling Kauderwelsch liefert; S. 27 Marco-Ruge-Dialog komplett).",
+    "Diszipliniert am Beschnitt: die abgeschnittene HORIZONT-Spalte (S. 12) bleibt fragmentarisch stehen ('Wo das U nehmen künftig präsent sein will, v Berlemann nicht…') statt aufgefüllt — genau das rubrikkonforme Verhalten; eine Ausnahme ist die Glättung 'durch eine private Twitter-Nachricht, gelöst werden.', wo die Vergleichskandidaten nach 'Twitter-' einen Bruch zeigen.",
+    "Die '![](page_N_Screenshot_1.png)'-Verweise zeigen auf Dateien, die neben output.md nicht existieren — als Markdown-Auslieferung sind das stumme Löcher, die erst beim Lesen auffallen.",
+    "Kleinigkeiten: '@thanj' statt 'thanrj' (drei andere Kandidaten) und '4:48 AM' statt '4:49 AM' auf S. 26, 'datarcoaming' auf S. 26 — Einzelzeichen-Abweichungen in Bildtext, nicht verifizierbar am Render der Stichprobe."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

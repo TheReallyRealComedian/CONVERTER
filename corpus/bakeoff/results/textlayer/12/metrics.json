@@ -1,0 +1,31 @@
+{
+ "candidate": "textlayer",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-07T18:11:55",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 2.96,
+ "max_rss_mb": {
+  "self": 54.8,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [
+  "4/280 Seiten ohne/fast ohne Textebene"
+ ],
+ "adapter_meta": {
+  "pages": 280,
+  "empty_pages": 4
+ },
+ "output_chars": 1319636
+}

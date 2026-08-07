@@ -40,10 +40,24 @@ from manifest import CLASSES, gold_path, result_dir  # noqa: E402
 _SEP_ROW = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
 
+# Zellvergleich ist notations-agnostisch im Geist von Regel 2: ``$2.1$`` und
+# ``2.1`` sind dieselbe Zelle, ``$\ell_{rand}$`` und ``ℓ_rand`` auch —
+# gemessen am gemini-nativ-Lauf, der JEDE Zahlenzelle math-wrappte und damit
+# von 0,86 auf 0,32 Zell-Recall fiel, ohne eine Ziffer zu aendern.
+_CELL_LATEX = {
+    "\\langle": "⟨", "\\rangle": "⟩", "\\ell": "ℓ", "\\gamma": "γ",
+    "\\kappa": "κ", "\\times": "×", "\\sim": "∼", "\\ast": "∗", "\\pm": "±",
+}
+
+
 def _strip_cell(cell: str) -> str:
     c = re.sub(r"<br\s*/?>", " ", cell, flags=re.I)
     c = re.sub(r"<[^>]+>", " ", c)
-    c = re.sub(r"[*_`]{1,3}", "", c)
+    c = re.sub(r"[*`]{1,3}", "", c)
+    c = c.replace("$", "")
+    for k, v in _CELL_LATEX.items():
+        c = c.replace(k, v)
+    c = c.replace("{", "").replace("}", "")
     c = re.sub(r"\s+", " ", c)
     return c.strip()
 

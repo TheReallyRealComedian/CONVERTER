@@ -80,10 +80,14 @@ def _pdf_text(path: Path) -> tuple:
     return "\n\n".join(p for p in parts if p), f"{n} Seiten, {empty} ohne Textebene"
 
 
+# ⚠️ Tag-Grenze ist Pflicht: `<w:t[^>]*>` matcht auch `<w:tab/>` und
+# `<w:txbxContent>` und schluckt dann rohes XML bis zum naechsten `</w:t>`
+# (gemessen an 08: VML-Styles „mso/position/margin" blaehten die Referenz um
+# Faktor ~6). `(?:\s[^>]*|/)?` erlaubt nur Attribute oder Self-Closing.
 _XML_TEXT = {
-    "docx": (re.compile(r"<w:t[^>]*>(.*?)</w:t>", re.S),
+    "docx": (re.compile(r"<w:t(?:\s[^>]*)?>(.*?)</w:t>", re.S),
              ["word/document.xml", "word/footnotes.xml", "word/endnotes.xml"]),
-    "pptx": (re.compile(r"<a:t>(.*?)</a:t>", re.S), None),  # Members dynamisch
+    "pptx": (re.compile(r"<a:t(?:\s[^>]*)?>(.*?)</a:t>", re.S), None),
 }
 
 

@@ -1,0 +1,33 @@
+{
+ "candidate": "tesseract",
+ "class": "06",
+ "role": "main",
+ "input": "06_scan-degradiert/aok_kopie-3fach-schief.pdf",
+ "input_bytes": 8590303,
+ "started": "2026-08-07T18:12:41",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 21.49,
+ "max_rss_mb": {
+  "self": 160.9,
+  "children": 178.2
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [
+  "1/2 Seiten (fast) ohne OCR-Text"
+ ],
+ "adapter_meta": {
+  "tesseract": "tesseract 5.5.1",
+  "lang": "deu",
+  "dpi": 300,
+  "pages": 2
+ },
+ "output_chars": 205
+}

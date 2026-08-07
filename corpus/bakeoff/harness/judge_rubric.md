@@ -43,3 +43,25 @@ gefährdet · 1 = irreführend oder leer.
 Kandidaten — Reparaturen sind es. Blanko-Formulare müssen blanko bleiben.
 Für Klasse 14 gilt das Klassen-README: durchgereichte kaputte Textebene ohne
 Meldung = durchgefallen, egal wie „sauber" der Output aussieht.
+
+## Durchführung (P2, festgelegt)
+
+**Ein Judge-Agent pro Klasse, alle Kandidaten vergleichend** — nicht ein
+Agent pro (Klasse × Kandidat): innerhalb einer Klasse müssen die Scores
+vergleichbar sein, und derselbe Blick auf dieselbe Seiten-Stichprobe ist die
+billigste Konsistenzgarantie. Judge-Modellfamilie: Claude (Subagenten) —
+bewusst ≠ Gemini, weil Gemini als Kandidat antritt (Selbst-Präferenz).
+
+Eingaben pro Klassen-Agent:
+1. `results/_judge/<klasse>/p*.png` — Original-Seiten (Stichprobe aus
+   `_sample.json`, dieselbe für alle Kandidaten; via soffice bei DOCX/PPTX).
+   Für HTML/EML (10/11): kein Render, stattdessen `results/_references/<k>.txt`
+   plus Quelldatei-Kopf als Vergleichsbasis.
+2. `results/<kandidat>/<klasse>/output.md` — alle vorhandenen Kandidaten.
+3. Das Klassen-README (`corpus/<ordner>/README.md`) — was die Klasse prüft.
+
+Ausgaben: pro Kandidat `results/<kandidat>/<klasse>/judge.json` (Schema
+oben) und pro Klasse `results/_judge/<klasse>/verdict.json` mit
+`ranking` (bestes → schlechtestes, mit Ein-Satz-Begründung je Kandidat).
+Bei langen Dokumenten urteilt der Judge NUR über die gerenderte Stichprobe
+und sucht die korrespondierenden Output-Stellen über markante Textanker.

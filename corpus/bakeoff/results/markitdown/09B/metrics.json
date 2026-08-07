@@ -1,0 +1,28 @@
+{
+ "candidate": "markitdown",
+ "class": "09B",
+ "role": "main",
+ "input": "09_pptx-smartart/B_smartart_KI-Praesentation-vb.pptx",
+ "input_bytes": 53097998,
+ "started": "2026-08-07T18:18:30",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 3.47,
+ "max_rss_mb": {
+  "self": 220.9,
+  "children": 4.3
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "markitdown_version": "0.1.7"
+ },
+ "output_chars": 35926
+}

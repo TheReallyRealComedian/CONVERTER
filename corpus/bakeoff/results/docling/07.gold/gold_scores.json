@@ -1,0 +1,118 @@
+{
+ "text": {
+  "word_recall": 0.8325,
+  "word_precision": 0.8766,
+  "word_f1": 0.854,
+  "words_ref": 418,
+  "words_out": 397,
+  "top_missing": [
+   "×39",
+   "×5",
+   "×4",
+   "Ja×4",
+   "EUR×4",
+   "o×1",
+   "bestand×1",
+   "deren×1",
+   "abgeleitet×1",
+   "monatlich×1",
+   "Einkommensteuerbescheides×1",
+   "Bruttoarbeitsentgelt×1",
+   "Beschäftigung×1",
+   "Betriebsrente×1",
+   "Renten×1"
+  ],
+  "top_invented": [
+   "Angaben×4",
+   "Familienangehörigen×4",
+   "Sonstige×4",
+   "zu×4",
+   "Ja×4",
+   "EUR×4",
+   "be×1",
+   "ren×1",
+   "ab×1",
+   "stand×1",
+   "de×1",
+   "geleitet×1",
+   "monat×1",
+   "lich×1",
+   "Einkommensteu×1"
+  ],
+  "cer": 0.3032
+ },
+ "cells": {
+  "cell_recall": 0.2338,
+  "cell_precision": 0.4286,
+  "cells_gold": 77,
+  "cells_out": 42,
+  "top_missing_cells": [
+   "Kind×6",
+   "vom  bis ×6",
+   "×5",
+   "  ×4",
+   " Mitgliedschaft  Familienversicherung  nicht gesetzlich×4",
+   " (Nachname)  (Vorname)×4",
+   " Ja×4",
+   "EUR  (Art der Einkünfte)×4",
+   "×3",
+   "Ehegatte×2"
+  ],
+  "top_invented_cells": [
+   "vom bis×6",
+   "Sonstige Angaben zu Familienangehörigen×5",
+   "Ja×4",
+   ".EUR (Art der Einkünfte)×3",
+   "Gewinn aus selbstständiger Tätigkeit (monat- lich.) Bitte Ko×1",
+   "Bruttoarbeitsentgelt aus geringfügiger Beschäf- tigung (mona×1",
+   "Gesetzliche Rente, Versorgungsbezüge, Be- triebsrente, auslä×1",
+   "Sonstige regelmäßige monatliche Einkünfte im Sinne des Einko×1",
+   "..EUR (Art der Einkünfte)×1",
+   "Wehrdienst oder gesetzlich geregelter Freiwilli- gendienst (×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    9,
+    5,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "ueberschrift",
+   "Sonstige Angaben zu Familienangehörigen": "vorhanden_unstrukturiert",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "ueberschrift"
+  },
+  "gleichwertig_erfuellt": "2/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 0,
+  "checkbox_gold": 16,
+  "checkbox_out": 16
+ }
+}

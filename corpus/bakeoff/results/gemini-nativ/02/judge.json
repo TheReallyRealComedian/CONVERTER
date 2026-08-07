@@ -1,0 +1,18 @@
+{
+  "klasse": "02",
+  "kandidat": "gemini-nativ",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Stichprobenseiten 29/30 fehlerfrei: beide 40-Zeilen-Tabellen vollständig und wertgenau inkl. der zwei Zeilen, an denen docling rutscht ('| Aktienboard | 599 | 0,1 | 0,05 |', '| xchar.de | 600 | 0,1 | 0,05 |'); Spaltenköpfe originalgetreu mit Umbruch ('Reichweite in %<br>(bezogen auf Internetnutzer letzte 3 Monate)').",
+    "Programmatischer Voll-Abgleich gegen die Referenz: 640/640 Angebots-Ränge und 70/70 Vermarkter-Ränge vorhanden, alle Wert-Stichproben exakt (BRIGITTE.de 100/3,5/1,75; GamePro.de 320/0,6/0,31; webmail.de 499/0,2/0,11); alle 57 Seitenmarker vorhanden, keine Seiten-Dubletten; Abschnitt 4 mit 822/824 Einträgen (die 2 'fehlenden' sind Escaping-Varianten: 'LZ \\| NET').",
+    "p57 zeichengenau inkl. der Quell-Eigenheiten, die docling normalisiert: beide Strich-Formen erhalten ('Tel: 069-264 888 - 311' vs. 'Tel: 069-264 888 – 314'). Mikro-Reparaturen: 'Mail:marcus.foebus@agof.de' bekommt ein Leerzeichen ('Mail: marcus…'), URLs werden mit erfundenem Schema verlinkt ('[www.agof.de/internetfacts](http://www.agof.de/internetfacts)').",
+    "Vermarkter-Ranking S. 11/12: liest aus den Pixeln die vollen Namen, wo die Textebene beschnitten ist ('| InteractiveMedia CCSP | 1 | 63,5 | 31,53 |' statt Textlayer-Fragment 'activeMedia CCSP') — deckt sich mit der gerenderten Seite und der Mitgliederliste im Vorwort, keine Erfindung.",
+    "Struktur-Abzug an der Achse, die die Klasse prüft: Heading-Ebenen inkonsistent über Geschwister-Kapitel ('# 1. Vorwort', '# 2. Kerndaten', aber '### 3. Rankings'/'#### 3.1.' und '## 4. Zuordnung'); dazu 17 unechte '# AGOF'-H1s (das Logo als Überschrift transkribiert) und Bild-Platzhalter mit nicht existenten, inkonsistent nummerierten Pfaden ('![AGOF](page_9_image_1.png)' auf Seite 29).",
+    "Fließtext, Chart-Datenlabels (26,39/22,53/… wie Textlayer), Footer und Seite 55/56 (Steckbrief inkl. TOP-2.0-Zelle) vollständig."
+  ],
+  "gesamturteil": "brauchbar"
+}

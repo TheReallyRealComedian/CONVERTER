@@ -19,7 +19,8 @@ Jede Kennzahl in einem Satz begruendet (Sprint-Vorgabe):
   hoher Recall gegen die kaputte Ebene + 0 Umlaute der Durchreich-Beweis.
 * ``max_line_repeat`` / ``max_ngram_repeat`` / ``loop_flag`` — der dokumentierte
   VLM-Fehlermodus auf Punktlinien (06/07) ist der Wiederholungs-Loop; gemessen
-  statt uebersehen.
+  statt uebersehen. ``length_ratio`` ist bewusst NICHT Teil des Flags
+  (partiell gedeckte Referenzen wie 13 erzeugten Fehlalarme).
 * ``footnote_defs`` — Fussnoten sind das Klassenmerkmal von 08 und in 12 real
   (pandoc traegt sie, docling verwirft sie — Sprint-Tabelle).
 * ``fill_tokens`` / ``checkbox_tokens`` — ueberleben Formular-Markierungen (07)
@@ -138,10 +139,11 @@ def score_output(md: str, ref_text: str = None, order_limit: int = 30000) -> dic
             s.setdefault("notes", []).append(
                 f"order_lcs uebersprungen (>{order_limit} Woerter)")
 
-    s["loop_flag"] = bool(
-        s["max_line_repeat"] >= 8 or s["max_ngram_repeat"] >= 5
-        or (ref_text and s.get("length_ratio", 0) > 3)
-    )
+    # length_ratio bleibt eigenstaendiges Signal und geht NICHT in loop_flag:
+    # bei partiell gedeckten Referenzen (13: Textebene nur auf nativen Seiten)
+    # ist ein hohes Verhaeltnis korrekte Mehrleistung, kein Loop — gemessen
+    # am tesseract-13-Fehlalarm (ratio 5,56 bei line_repeat=1, ngram=1).
+    s["loop_flag"] = bool(s["max_line_repeat"] >= 8 or s["max_ngram_repeat"] >= 5)
     return s
 
 

@@ -1,0 +1,101 @@
+{
+ "text": {
+  "word_recall": 0.7321,
+  "word_precision": 0.8338,
+  "word_f1": 0.7796,
+  "words_ref": 418,
+  "words_out": 367,
+  "top_missing": [
+   "×39",
+   "×12",
+   "vom×6",
+   "bis×6",
+   "×5",
+   "Familienversicherung×4",
+   "Nachname×4",
+   "EUR×4",
+   "Einkünfte×4",
+   "EUR×4",
+   "der×3",
+   "Familienangehörigen×3",
+   "Art×3",
+   "Ja×2",
+   "Ehegatte×1"
+  ],
+  "top_invented": [
+   "U×5",
+   "Familienversi×4",
+   "cherung×4",
+   "J×3",
+   "88×2",
+   "a×1",
+   "ee×1",
+   "EEE×1",
+   "Ten×1",
+   "IEnEES×1",
+   "nn×1",
+   "HFEESEIESEn×1",
+   "ı×1",
+   "gehörigen×1",
+   "Familienan×1"
+  ],
+  "cer": 0.1597
+ },
+ "cells": {
+  "cell_recall": 0.0,
+  "cell_precision": 0.0,
+  "cells_gold": 77,
+  "cells_out": 0,
+  "top_missing_cells": [
+   "EUR×12",
+   "Kind×9",
+   "vom  bis ×6",
+   "×5",
+   "  ×4",
+   " Mitgliedschaft  Familienversicherung  nicht gesetzlich×4",
+   " (Nachname)  (Vorname)×4",
+   " Ja×4",
+   "EUR  (Art der Einkünfte)×4",
+   "Ehegatte×3"
+  ],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": []
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "vorhanden_unstrukturiert",
+   "Sonstige Angaben zu Familienangehörigen": "vorhanden_unstrukturiert",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "vorhanden_unstrukturiert"
+  },
+  "gleichwertig_erfuellt": "0/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 0,
+  "checkbox_gold": 16,
+  "checkbox_out": 4
+ }
+}

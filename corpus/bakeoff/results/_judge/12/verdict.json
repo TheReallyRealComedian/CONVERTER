@@ -1,0 +1,47 @@
+{
+  "klasse": "12",
+  "dokument": "Enquete-Kommission 'Recht und Ethik der modernen Medizin', BT-Drs. 14/9020, 280 S.",
+  "judge_familie": "Claude (Fable 5) — bewusst ungleich der Gemini-Familie des Kandidaten gemini-nativ (Selbst-Präferenz ausgeschlossen per Rubrik)",
+  "stichprobe": {
+    "seiten": [1, 2, 141, 142, 280],
+    "hinweis": "Urteil strikt über die gerenderte Stichprobe; Output-Stellen per Anker-Grep lokalisiert. Einzige beauftragte Ausnahme: die eigenbau-Loop-Stelle (liegt auf S. 40/70/126/146/181, außerhalb der Bild-Stichprobe, über struct-Flags + Anker verifiziert)."
+  },
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "gemini-nativ",
+      "scores": {"treue": 5, "vollstaendigkeit": 5, "struktur": 5, "lesereihenfolge": 5, "halluzination": 4},
+      "begruendung": "Einziger Output, in dem die 6-stufige Gliederung als echte Heading-Hierarchie überlebt (####–###### nach Nummerntiefe), mit Markdown-Fußnoten [^n], erhaltener deutscher Typografie und vollständiger Stichprobe inkl. Impressum — Abzüge nur für den erfundenen Bilddateinamen der Unterschrift, 7× ungültiges '#######' jenseits h6 und chunk-abhängig wackelnde Level; Preis: 1564 s und 3,36 USD."
+    },
+    {
+      "platz": 2,
+      "kandidat": "docling",
+      "scores": {"treue": 3, "vollstaendigkeit": 3, "struktur": 3, "lesereihenfolge": 4, "halluzination": 5},
+      "begruendung": "Beste Lesereihenfolge (fügt den seitenübergreifenden Satz als einziger zu einem Absatz zusammen) und saubere Absätze/Überschriften — aber alle 416 Überschriften auf h2 geplättet, jedes „…“-Zitat zu '- '…'' umgeschrieben, 'V orhersage'-Spaltungen, 176× '&amp;', S. 280 fehlt komplett und alle Seitenzahlen sind weg; 492 s, 3,5 GB RSS, 0 USD."
+    },
+    {
+      "platz": 3,
+      "kandidat": "textlayer",
+      "scores": {"treue": 4, "vollstaendigkeit": 5, "struktur": 2, "lesereihenfolge": 4, "halluzination": 5},
+      "begruendung": "Die treueste und einzige ehrlich warnende Fassung (3 s, 0 USD, Stichprobe vollständig, Spaltenfolge korrekt), aber für die Struktur-Klasse blank: null Überschriften, null Tabellen, harte Silbentrennung, Fußnoten und Kopfzeilen roh im Fluss, Titelseite invertiert — Rohstoff, kein Markdown."
+    },
+    {
+      "platz": 4,
+      "kandidat": "eigenbau",
+      "scores": {"treue": 4, "vollstaendigkeit": 4, "struktur": 2, "lesereihenfolge": 4, "halluzination": 2},
+      "begruendung": "Auf der Stichprobe byte-nah identisch zu textlayer (erbt alle Struktur-Defizite), fällt aber durch stille Zerstörung dahinter zurück: Geistertabellen aus 10× leeren Zeilen + injiziertem S.-280-Impressum ersetzen die kompletten Seiten 40 und 70 (u. a. die Schaufenster-Seite der Klasse) und verschmutzen S. 126/146/181 — bei warnings: [] in den Metriken; 201 s, 0 USD ausgewiesen."
+    }
+  ],
+  "kernfragen": {
+    "tiefe_gliederung_als_hierarchie": "Nur gemini-nativ: Level folgt der Nummerntiefe (S. 141: ##### 2.2.2.1.5, ###### 2.2.2.1.6.1; Deckel bei h6 → 7× Literal-'#######' außerhalb der Stichprobe). docling: Überschriften ja, Hierarchie nein (alles h2). textlayer/eigenbau: keinerlei Überschriften-Markup — Nummer und Titel als nackte Zeilen.",
+    "zweispalten_lesereihenfolge_141_142": "Bei allen vier korrekt: linke Spalte vollständig vor rechter, der spaltenübergreifende Satz '…Gesundheitsschutzes sein. / Diesem möglichen Nutzen…' steht überall in richtiger Folge; docling führt zusätzlich den seitenübergreifenden Satz 141→142 zu einem Absatz zusammen, gemini-nativ lässt ihn seitentreu getrennt, textlayer/eigenbau lassen den Fußnotenblock den Satz unterbrechen.",
+    "fussnoten": "gemini-nativ: echte Markdown-Fußnoten [^664]–[^669] mit Definitionen am Seitenende (best). textlayer/eigenbau: vorhanden als rohe Zeilen an der korrekten Seitenposition, Marker ans Wort geklebt ('Rolle.664'). docling: vorhanden, aber als lose Zeilen mitten im Fließtext (Def. 664 steht im aufgetrennten Spaltenübergangs-Absatz).",
+    "tabellen_zweistufiger_kopf": "Auf den 5 Stichprobenseiten kommt keine solche Tabelle vor — aus der Stichprobe nicht beurteilbar. Kontext (nicht gescort): die einschlägigen Tabellenseiten (S. 40, 70, 126, 146) sind exakt die, die eigenbau durch Geistertabellen ersetzt; docling (68) und gemini-nativ (65) emittieren dort Pipe-Tabellen ohne jedes colspan/rowspan (struct: 0) — zweistufige Köpfe wären also bestenfalls geflattet.",
+    "eigenbau_loop": "Benannt: output.md Z. 7340–7349, 10× identische Leerzeile '|  |  |  |' direkt nach dem Seitenkopf '– 70 –', gefolgt vom als Tabellenzeilen injizierten Impressum der S. 280 ('| Druck: MuK. Medien- und Kommunikations GmbH, Berlin Vertrieb: Bundesanzeiger … ISSN 0722-8333 |  |  |' + zerhackte Varianten). Gleiches Muster auf S. 40/126/146, auf S. 181 an die real extrahierte Tabelle 22 angehängt; der echte Inhalt von S. 40 und S. 70 fehlt vollständig."
+  },
+  "abweichungen_judge_vs_metrik": [
+    "word_recall 1,0 für textlayer ist trivial: die Referenz 12.txt IST die Textebene — deren Klebefehler ('dieArbeit' statt 'die Arbeit', '§618') stecken in der Referenz; docling und gemini-nativ sind an diesen Stellen näher am Druckbild als die Referenz.",
+    "doclings top_missing ('Drucksache×275' etc.) ist überwiegend beabsichtigtes Kopfzeilen-Strippen, kein Textverlust — der echte Verlust ist das komplette Impressum der S. 280 und die Seitenzitierbarkeit.",
+    "eigenbaus metrics.json (model_calls: 0, cost: 0, warnings: []) verschweigt den Vision-/Tabellenpfad, der die Geistertabellen erzeugt hat — die struct-Flags (loop_flag, top_invented) haben ihn korrekt angezeigt."
+  ]
+}

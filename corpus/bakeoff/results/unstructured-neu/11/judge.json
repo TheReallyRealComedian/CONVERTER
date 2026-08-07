@@ -1,0 +1,22 @@
+{
+  "klasse": "11",
+  "kandidat": "unstructured-neu",
+  "treue": 5,
+  "vollstaendigkeit": 4,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Beide Kandidaten liefern byte-identischen Output (MD5 4ba57a93719c77d5ebcacec1e67c4acf) — alle Befunde und Scores gelten wortgleich für unstructured-neu und unstructured-pin.",
+    "Kette bleibt erkennbar: eigene Antwort oben als eigene Absätze (Z. 1–5), Signatur „Vielen Dank und schöne Grüße“ / „Oliver Gluth“ freistehend (Z. 7–9), darunter der Outlook-Kopfblock, dann die zitierte Vorgeschichte, zuletzt der Ticket-Footer — nichts vertauscht, nichts vermengt.",
+    "Outlook-Kopfblock auf EINE Zeile kollabiert (Z. 11): „Von: Polar Care Germany <kundenservice@polar.com> Gesendet: Freitag, 8. Mai 2020 09:42 An: Oliver Gluth <oliver@smallpieces.de> Betreff: [Polar Care] Re: AW: [Polar Care] Re: Vantage V Titan Schlaferkennung funktioniert nicht“ — im Quell-HTML sind die vier Felder per <br> in einem <p> getrennt (mit <b>-Fettung der Labels); Zeilenstruktur und Fettung sind weg, aber alle vier Felder samt kompletter Betreff-Verschachtelung sind da und über die Feldmarker noch lesbar.",
+    "Zitierte Vorgeschichte als zwei 1×1-Markdown-Tabellen (Z. 15/16 und 18/19): die Zendesk-Layout-Tabellen der Kommentar-Blöcke (Frank 08.05.2020, Oliver 21.04.2020) werden als Datentabellen durchgereicht — jede zitierte Mail wird EINE Tabellenzelle auf EINER Zeile (2.716 bzw. 1.657 Zeichen). Nebeneffekt: die Blöcke sind als Kästen vom eigenen Text abgesetzt, Fremdtext ist damit (unbeabsichtigt) erkennbar; Preis: sämtliche Absätze, der •-Aufzählungspunkt, die Optionen „1: … 2: … 3: …“ und die Grußformeln stehen im Fließtext-Brei. Ein Blockquote ist nicht einforderbar — die Quelle enthält 0 <blockquote>, Outlook zitiert per Kopfblock.",
+    "Wochen-Übersicht flachgelegt (in Z. 18): „Woche vom: Tage mit korrekter Erkennung Tage mit Falscherkennung 27.01.2020 4 3 02.02.2020 4 3 10.02.2020 6 1 …“ — in der Quelle (HTML wie text/plain) steht jeder Wert in einem eigenen Absatz/einer eigenen Zeile; alle 12 Wochen × 3 Werte sind korrekt und in Reihenfolge, die Zeilen sind aber nur noch über die Datumswerte rekonstruierbar. Eine echte <table> war es auch in der Quelle nie — „Tabelle als Tabelle“ ist hier nicht einforderbar, der Verlust der Zeile-pro-Wert-Struktur schon.",
+    "Einziger Substanzverlust: zwei dekorative Bild-URLs fehlen — Zendesk-Logo „<https://polarcare.zendesk.com/system/photos/3600/5587/5320/logo_50x50.jpg>“ (Referenz Z. 30) und Gravatar-Avatar (Referenz Z. 81); im Referenz-Body enthalten, im Output ersatzlos weg.",
+    "Wortlaut-Treue: normalisierter Zeichen-Diff gegen results/_references/11.txt zeigt außer den zwei URL-Löschungen NULL Abweichungen (Ratio 0,98; Rest exakt gleich). Umlaute, „…“-Anführungen, Gedankenstriche, €-Beträge („24.50€“), „#2458084“, Firmware „5.1.4“, „70%“ — alles exakt.",
+    "Quell-Eigenheiten korrekt NICHT repariert: fehlender Satzpunkt in „…vor der tatsächlichen Zeit liegt Die erkannte Schlafdauer reicht möglicherweise nicht…“, „…jedes andere Gerät, dass eine Schlaferkennung vornimmt“, „Ich hatte gehofft das ein Update…“ — alle drei stehen wörtlich so im Output.",
+    "Alle 3 Grußformeln vorhanden: die eigene freistehend (Z. 7/9), „Mit freundlichen Grüßen Polar Kundenservice/Frank Polar Electro“ und „Danke und Viele Grüße Oliver Gluth“ jeweils inline am Zellen-Ende. Zendesk-Marker „##- Bitte geben Sie Ihre Antwort über dieser Zeile ein. -##“, Gelöst-Hinweis und „[DOK47G-8R9X]“ vollständig.",
+    "Nichts erfunden: keine ergänzten Header, keine erfundenen Werte; einzige Zutat ist die Markdown-Tabellen-Syntax („| … |“ / „| --- |“)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

@@ -1,0 +1,31 @@
+{
+ "candidate": "tesseract",
+ "class": "13",
+ "role": "main",
+ "input": "13_mischdokument/13 - Bock Andreas - Telekom Deutschland.pdf",
+ "input_bytes": 3503226,
+ "started": "2026-08-07T18:13:03",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 135.13,
+ "max_rss_mb": {
+  "self": 247.3,
+  "children": 142.1
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "tesseract": "tesseract 5.5.1",
+  "lang": "deu",
+  "dpi": 300,
+  "pages": 32
+ },
+ "output_chars": 37561
+}

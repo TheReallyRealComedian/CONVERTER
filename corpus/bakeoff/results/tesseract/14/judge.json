@@ -1,0 +1,18 @@
+{
+  "klasse": "14",
+  "kandidat": "tesseract",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 2,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "NEU GELESEN (Rettungspfad, OCRt konstruktionsbedingt immer): 0 Layer-Signaturen im Output. Beide Bruchstellen korrekt: S.2 'Ästhetik des Erhabenen' (Z. 33), S.14-Kolumnentitel '... und die Ästhetik des Erhabenen 91' (Z. 650). Auch der Sachfehler der Ebene ist getilgt: '(Seifert, S. 157).' (Z. 718) wie im Original-Bild p15.",
+    "Wo die Ebene brach, liest tesseract richtig: 'Christian Gottfried Körner' (Z. 84; Ebene: 'Gottfiied'), 'Musikästhetiker' (Z. 695; Ebene: 'Alusikästhetiker'), 'Übertreibung', 'läßt sich je-', '„Schrecken“' — alle gegen p8/p15-Bilder geprüft.",
+    "Eigene, frische OCR-Fehler statt geerbter: wiederkehrend '8.' statt 'S.' in Zitaten ('8. 91.' Z. 375, 'Hoffmann, 8. 50' Z. 683, 'Sulzer, 8. 479' Z. 125, '8.190.'), 1x 'Gotifried' (Z. 695), Fußnotenmarker-Müll 'kann®$'/'Körners®?'/'38»', 'Hoffmann, S. 36£.' und Kolumnentitel p8 als '... Erhabenen 8' statt '85' (Z. 132). Der Zitat-Apparat braucht Korrekturlauf — aber die Fehler sind sichtbar, nicht als sauberer Text getarnt.",
+    "Vollständig: JSTOR-Deckblatt, alle 15 Seiten, alle Kolumnentitel, alle Fußnoten; nichts erfunden, alte Orthographie erhalten (seyn, theils).",
+    "Struktur: roher OCR-Zeilen-Dump wie textlayer — keine Überschriften, keine Fußnoten-Auszeichnung, Trennungen bleiben zeilengebrochen ('heid-/nisch-antiken'); Anführungszeichen als ‚‚..''-Ersatzformen.",
+    "Prämissen-Korrektur (nachgemessen): Layer-Schaden sporadisch, nicht flächig — tesseracts Mehrwert liegt an den ~15 Bruchstellen und dem Zitat-Fix, nicht an flächendeckender Umlaut-Rettung; dafür kauft man sich die eigenen 8./S.-Fehler ein."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

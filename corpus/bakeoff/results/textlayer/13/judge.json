@@ -1,0 +1,18 @@
+{
+  "klasse": "13",
+  "kandidat": "textlayer",
+  "treue": 5,
+  "vollstaendigkeit": 2,
+  "struktur": 2,
+  "lesereihenfolge": 3,
+  "halluzination": 5,
+  "befunde": [
+    "Was da ist, ist byte-treu zur Textebene: Original-Tippfehler korrekt erhalten statt repariert ('Twitter-Accout telekom_hilft', 'Ausbau Landigpage', 'Das Konzepts entspricht'), Umlaute und Zahlen fehlerfrei ('über 7,7 Mio', 'Mo-Fr 8-20h').",
+    "Die Klasse-13-Kernfrage wird per Konstruktion verfehlt: alle gescannten Stichproben-Seiten sind leere Stubs. S. 2 (Twitter-Screenshot-Collage mit Tweet-Liste '@georgios_m Hallo. Das freut mich…' und Service-Portal) liefert nur '2\\n2', S. 17 (davaidavai-Blog 'Telekom. Witness my Personal Shitstorm Live.') nur '17\\n17', S. 32 (Abschieds-Tweets '@Telekom_hilft Ich wollte Tschüß sagen…') nur '32\\n32'.",
+    "S. 18 belegt die saubere Trennung nativ/Scan: das native '#newtwitter' kommt durch, die im Bild liegende Sidebar (Achtung-Hinweis, 'Telekom Kundenservice Mo. bis Sa.', Team-Namen) fehlt — konsistent mit der Referenz.",
+    "Keinerlei Markdown-Struktur: keine Überschriften, keine Listen, Zeilenfragmente mit eingestreuten Leerzeichen-Zeilen ('Kundensupport im Social\\n \\nMedia Zeitalter jetzt…') — roher Textebenen-Dump mit Seitentrennern.",
+    "Lesereihenfolge folgt der Textebenen-Reihenfolge: auf S. 3 stehen die Spalten-Labels 'Vertrieb/Service/Innovation' vom zugehörigen Block getrennt am Blockende; Wingdings-Pfeile erscheinen als 'Î' (Quell-Eigenheit, keine Reparatur).",
+    "Nichts erfunden, nichts ergänzt — als Baseline exakt das im Klassen-README beschriebene Versagensmuster: 'Wer die Datei pauschal als nativ einstuft, liefert für die Scan-Seiten leere Ausgabe' (Scan-Anteil 0,44)."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

@@ -1,0 +1,18 @@
+{
+  "klasse": "14",
+  "kandidat": "gemini-nativ",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 5,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "NEU GELESEN: Keine einzige der Layer-Signaturen im Output (0x 'Asthetik', 0x 'W ~ M'/'hin~ugeben'/'Kilnste'/'Schreckenfi'/'Iäßt'). Beide Bruchstellen korrekt vom Bild: S.2-Titel '# E.T.A. Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen' (Z. 31) und S.14-Kolumnentitel '... und die Ästhetik des Erhabenen 91' (Z. 206).",
+    "Der geerbte Sachfehler der Ebene ist getilgt: '(Seifert, S. 157).' (Z. 220) — gegen das Original-Bild p15 verifiziert; die Ebene und alle Durchreicher schreiben '(Seifert,8.167)'.",
+    "Stichproben-Anker alle bildgetreu: p85 'Übertreibung'/'läßt sich je(doch)'/'„Schrecken“'; Fußnote 31 'Schiller, Über das Erhabene, in: Sämtliche Werke, Band V, S. 796.' und Fußnote 38 (Eggebrecht, DVjs XXIX, 1955, S. 323 ff.) exakt wie im Original p8/p9. Alte Orthographie bleibt stehen (daß, theils, seyn) — keine stillen Modernisierungs-Reparaturen erkennbar.",
+    "Beste Struktur des Feldes: 52 verlinkte Markdown-Fußnoten ([^1]-[^52], vollzählig), Werktitel kursiv, Absätze über Seitengrenzen zusammengeführt, Kolumnentitel mit korrekten gedruckten Seitenzahlen (85, 86 in der Stichprobe) erhalten; JSTOR-Deckblatt vollständig.",
+    "Einschränkung fürs Protokoll: Der Kandidat MELDET nichts und ERKENNT auch nichts — die kaputte Ebene erreicht seinen Pfad schlicht nie (native Bild-Lesung, 2 Chunks à 10 Seiten). Er besteht die Klasse per Konstruktion über Weg (a), nicht durch Detektion; die Chunk-Naht (S. 10/11) liegt außerhalb der Seiten-Stichprobe und ist nicht geprüft.",
+    "Prämissen-Korrektur (nachgemessen): Der Layer-Schaden ist sporadisch (2x 'Asthetik' + Einzelbrüche bei 549 korrekten Umlauten), nicht flächig — der Abstand zu den Durchreichern ist real, aber punktuell, nicht 'jeder Umlaut'."
+  ],
+  "gesamturteil": "brauchbar"
+}

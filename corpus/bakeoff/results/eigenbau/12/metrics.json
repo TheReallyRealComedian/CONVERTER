@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-07T19:22:36",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 201.04,
+ "max_rss_mb": {
+  "self": 750.1,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 1309535
+}

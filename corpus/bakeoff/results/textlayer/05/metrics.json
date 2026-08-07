@@ -1,0 +1,27 @@
+{
+ "candidate": "textlayer",
+ "class": "05",
+ "role": "main",
+ "input": "05_scan-sauber/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf",
+ "input_bytes": 1376792,
+ "started": "2026-08-07T18:11:53",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 0.33,
+ "max_rss_mb": {
+  "self": 46.5,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "error": {
+  "type": "RuntimeError",
+  "message": "Keine Textebene extrahierbar (15 Seiten leer) — Kandidat auf diesem Dokument nicht faehig",
+  "trace_tail": "Traceback (most recent call last):\n  File \"/Users/olivergluth/CODE/CONVERTER/corpus/bakeoff/harness/run_one.py\", line 101, in main\n    result = spec[\"run\"](str(src), ctx)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/olivergluth/CODE/CONVERTER/corpus/bakeoff/harness/adapters.py\", line 86, in run_textlayer\n    raise RuntimeError(\nRuntimeError: Keine Textebene extrahierbar (15 Seiten leer) — Kandidat auf diesem Dokument nicht faehig\n"
+ },
+ "warnings": [
+  "Lauf fehlgeschlagen — Kosten ggf. im LEDGER.json"
+ ]
+}

@@ -1,0 +1,20 @@
+{
+  "klasse": "09B",
+  "kandidat": "unstructured-pin",
+  "treue": 4,
+  "vollstaendigkeit": 2,
+  "struktur": 3,
+  "lesereihenfolge": 3,
+  "halluzination": 5,
+  "befunde": [
+    "SmartArt (slide70, diagrams/data1.xml) komplett verloren: 'Board / HR / R&D / Sales & Marketing / Finance & Purchase / Production' (Referenz Z.705-710) fehlt im Output vollstaendig — auf Seite 70 stehen nur die zwei Textboxen 'Data and Information needed' / 'Processes with automation potential'. Die Uebungsfolie ist damit inhaltlich hohl.",
+    "Alle 7 Tabellen (Folie 49) kommen als leere Huellen: '| projects:<br> |' und '| success rate:<br> |' — saemtliche 14 Zahlwerte (99/40%, 61/36%, 94/46%, 56/48%, 68/51%, 51/22%, 43/37%, Referenz Z.294-323) sind weg. Einziger Kandidat mit diesem Verlust; die Statistik ist der Kern der Folie.",
+    "Speaker-Notes fehlen komplett (931 Zeichen): weder das AlphaGo-Zitat \"It's not a human move...\" (Referenz Z.712) noch die 9 Quell-URLs (ageas, tractable, techcrunch, airbus etc., Z.715-725) tauchen auf.",
+    "Folie 53 verliert zwei von 13 Datenquellen-Kacheln: 'Marketing' und 'Sales' (Referenz Z.390-391) fehlen im Block nach 'Seitenumbruch nach Seite 53'; markitdown und docling haben beide.",
+    "Treue des vorhandenen Texts hoch: Quell-Tippfehler unrepariert erhalten ('# Checlist', 'ARTIFICAL INTELLIGENCE', 'Hightlight Skills'), Umlaute korrekt, Blanko-Felder ('The US site ___________') bleiben blanko, nichts erfunden.",
+    "Lesereihenfolge folgt der XML-Shape-Reihenfolge, nicht der Sichtreihenfolge: auf Folie 1 (Stichprobe p1) steht die Sprechblase 'Intro zu HYVE...' VOR dem Titel 'Define your ambition'; auf der Company-Folie kommt '05 Entscheidungs-fundierung' vor '04 Datenreport'; die nummerierten Prozess-Schritte der Rezept-Trend-Folie beginnen mit Schritt 3/4 ('The Row Selector...') statt 'User visits overview page' (Referenz Z.577).",
+    "Struktur solide, wo vorhanden: Folientitel als H1, echte Bullet-Listen, 'Seitenumbruch nach Seite N'-Marker pro Folie (Folien-Traceability gut); versteckte Folien 33/34 (Biathlon) enthalten.",
+    "metrics.json meldet ehrlich '383x PPTX Title unterhalb der Titelebene als Absatz' — die Titel-Heuristik erklaert kurze Zeilen NICHT zu Ueberschriften (korrekt fuer die 271-Title-Falle dieser Klasse)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

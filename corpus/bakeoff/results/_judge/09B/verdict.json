@@ -1,0 +1,55 @@
+{
+  "klasse": "09B",
+  "judge": {
+    "modellfamilie": "Claude (Fable 5, Subagent)",
+    "bias_notiz": "Kein Familien-Konflikt: alle vier Kandidaten sind regelbasierte Konverter ohne Modell-Calls (metrics.json: model_calls=0); Gemini tritt in dieser Klasse nicht an.",
+    "stichprobe": {
+      "seiten": ["p1.png", "p2.png", "p49.png", "p50.png", "p96.png"],
+      "zuordnung": "Render-Index != Folien-Index, weil Folien 33/34 versteckt sind (98 Folien -> 96 Render-Seiten): p1=slide1 'Define your ambition', p2=slide2 'Machine Learning', p49=slide51 'You think you have the data? Check again!', p50=slide52 (vollflaechiges Sushi-Foto), p96=slide98 'Checlist'.",
+      "eigener_augenschein": "Deckt sich mit den Scores. Eine Abweichung Render vs. XML: p50 zeigt NUR das Sushi-Foto, aber alle vier Kandidaten (und die Referenz Z.388-389) tragen 'do we have the raw data?' + 'Sushi Bild' — der Text liegt hinter dem vollflaechigen Bild; Extraktion ist treu zur Datei, nicht zum Render, daher nicht bestraft. Der Tippfehler 'Checlist' auf p96 ist im Original sichtbar und bleibt in allen vier Outputs unrepariert (korrekt so)."
+    },
+    "ground_truth_verifikation": "Direkt aus dem PPTX gezogen: SmartArt-Text liegt ausschliesslich in ppt/diagrams/data1.xml (9 Runs: Board, HR, R&D, Sales & Marketing, Finance & Purchase, Production) auf slide70; alle 7 <a:tbl> liegen auf slide49 (projects/success-rate-Kaesten); 10 notesSlides, davon 3 mit Substanz (AlphaGo-Zitat, 2x URL-Listen), Rest nur Foliennummern."
+  },
+  "kernfragen": {
+    "smartart_ueberlebt": "NEIN, bei keinem der vier Kandidaten — 0 Treffer fuer Board/Production/Finance in allen Outputs. Die Klassen-These 'alle Werkzeuge verlieren diagrams/data*.xml' bestaetigt sich vollstaendig; die Uebungsfolie 70 ist ueberall inhaltlich hohl.",
+    "tabellen_kommen": "Alle vier emittieren 7 Pipe-Tabellen, aber unstructured-pin (0.18.32) verliert saemtliche 14 Zahlwerte ('| projects:<br> |' leer) — die Folie ist dort wertlos. unstructured-neu (0.24.1), markitdown und docling tragen alle Werte korrekt gepaart (99/40% ... 43/37%).",
+    "notes_kommen": "Nur markitdown (### Notes: mit AlphaGo-Zitat und allen 9 Quell-URLs). unstructured-pin, unstructured-neu und docling verlieren alle 931 Zeichen Notes ersatzlos."
+  },
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "markitdown",
+      "scores": {"treue": 4, "vollstaendigkeit": 4, "struktur": 3, "lesereihenfolge": 3, "halluzination": 5},
+      "gesamturteil": "brauchbar",
+      "begruendung": "Einziger Kandidat mit den Speaker-Notes (AlphaGo-Zitat + alle 9 Quell-URLs) und vollstaendigster Textabdeckung (nur das SmartArt fehlt, das alle verlieren) — bezahlt mit flachgeklopften Listen, leeren '#'-Ueberschriften und XML-Lesereihenfolge."
+    },
+    {
+      "platz": 2,
+      "kandidat": "docling",
+      "scores": {"treue": 4, "vollstaendigkeit": 3, "struktur": 4, "lesereihenfolge": 4, "halluzination": 5},
+      "gesamturteil": "brauchbar mit Nacharbeit",
+      "begruendung": "Bestes Markdown des Feldes (echte Listen, einzige korrekte 01->05-Sichtreihenfolge, sauberste Tabellen), verliert aber alle Notes und segmentiert den 98-Folien-Stream durch keinerlei Folien-Marker."
+    },
+    {
+      "platz": 3,
+      "kandidat": "unstructured-neu",
+      "scores": {"treue": 4, "vollstaendigkeit": 3, "struktur": 4, "lesereihenfolge": 3, "halluzination": 5},
+      "gesamturteil": "brauchbar mit Nacharbeit",
+      "begruendung": "Solide Struktur mit Folien-Markern und intakten Tabellenwerten, verliert aber Notes komplett plus zwei Kacheln der Folie 53 ('Marketing'/'Sales') und liest rein in XML-Reihenfolge — gegenueber docling das schwaechere Markdown bei gleichem Notes-Verlust."
+    },
+    {
+      "platz": 4,
+      "kandidat": "unstructured-pin",
+      "scores": {"treue": 4, "vollstaendigkeit": 2, "struktur": 3, "lesereihenfolge": 3, "halluzination": 5},
+      "gesamturteil": "brauchbar mit Nacharbeit",
+      "begruendung": "Byte-identisch zu unstructured-neu bis auf den entscheidenden Defekt: alle 14 Tabellen-Zahlwerte der Crowdfunding-Folie fehlen ('| projects:<br> |' leer) — stiller Datenverlust zusaetzlich zu Notes und SmartArt, der den Versions-Bump allein rechtfertigt."
+    }
+  ],
+  "querbefunde": [
+    "Treue-Disziplin ueberall vorbildlich: die Quell-Tippfehler 'Checlist', 'ARTIFICAL INTELLIGENCE', 'Hightlight Skills', 'Microfone' bleiben in allen vier Outputs unrepariert, Blanko-Felder ('The US site ___________') bleiben blanko, nirgends Halluzinationen.",
+    "Der Unterschied unstructured-pin vs. -neu ist exakt EIN Befund: mehrabsaetzige Tabellenzellen (diff-verifiziert, sonst byte-identisch) — 0.18.32 wirft den zweiten Absatz der Zelle weg, 0.24.1 traegt ihn.",
+    "markitdown und docling extrahieren zusaetzlich die eingebettete Google-Trends-Chart der Avocado-Folie als ~215-Zeilen-Datentabelle aus dem Chart-Cache — echter Inhalt, kein Erfundenes, aber Excel-Serialdaten ('40825') unaufgeloest; in der a:t-Referenz naturgemaess nicht enthalten.",
+    "Durchsatz-Nebenbefund (53 MB, aus metrics.json): markitdown 3,5 s, docling 5,2 s (819 MB RSS), unstructured-pin 7,4 s, unstructured-neu 16,4 s — kein Kandidat problematisch.",
+    "Fuer den CONVERTER-Serializer (services/unstructured_markdown.py) heisst der Klassen-Befund: SmartArt-Rettung muesste diagrams/data*.xml selbst lesen — kein Kandidat liefert es frei Haus; Notes waeren mit unstructured nur ueber include_page_breaks/Notes-Partitionierung nachzuruesten, markitdown zeigt, dass es geht."
+  ]
+}

@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "02",
+ "role": "main",
+ "input": "02_guideline/berichtsband_if2010_II.pdf",
+ "input_bytes": 350618,
+ "started": "2026-08-07T19:10:23",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 130.14,
+ "max_rss_mb": {
+  "self": 250.7,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 76019
+}

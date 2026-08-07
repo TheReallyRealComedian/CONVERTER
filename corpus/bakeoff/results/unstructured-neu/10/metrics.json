@@ -1,0 +1,33 @@
+{
+ "candidate": "unstructured-neu",
+ "class": "10",
+ "role": "main",
+ "input": "10_html-artikel/spiegel-online_0,1518,455401,00.html",
+ "input_bytes": 85216,
+ "started": "2026-08-07T18:21:12",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 10.37,
+ "max_rss_mb": {
+  "self": 435.4,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [
+  "42× Unbekannte Element-Kategorie 'Image' — als Absatz ausgegeben",
+  "Tabelle mit verbundenen/ungleichen Zellen — HTML statt Pipe-Tabelle behalten"
+ ],
+ "adapter_meta": {
+  "unstructured_version": "0.24.1",
+  "strategy": "fast",
+  "serializer": "services.unstructured_markdown"
+ },
+ "output_chars": 17906
+}

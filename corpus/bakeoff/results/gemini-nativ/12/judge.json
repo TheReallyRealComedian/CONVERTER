@@ -1,0 +1,20 @@
+{
+  "klasse": "12",
+  "kandidat": "gemini-nativ",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 5,
+  "lesereihenfolge": 5,
+  "halluzination": 4,
+  "befunde": [
+    "Einziger Kandidat, bei dem die tiefe Gliederung als ECHTE Überschriften-Hierarchie überlebt: auf S. 141/142 '#### 2.2.2.2', '##### 2.2.2.1.5', '###### 2.2.2.1.6.1' bis '###### 2.2.2.1.6.4' — Heading-Level folgt konsistent der Nummerntiefe (struct: h1=24, h2=17, h3=84, h4=103).",
+    "Fußnoten als echte Markdown-Fußnoten: '…eine wichtige Rolle.[^664]' im Text, '[^664]: Hennen et al. 2001, S. 105.' am Seitenende; auf der Stichprobe vollzählig (664–669 inkl. '[^667]: Datenschutzbeauftragte des Bundes und der Länder 2001a.'), im Gesamtdokument 970 Definitionen.",
+    "Treue-Details stimmen: deutsche Typografie erhalten (Blockquotes '> „Nach dem ADA…“', ‚Anregung‘/‚freiwilligen‘), Umlaut-Recall 1,0, Silbentrennung korrekt aufgelöst; wo die Textebene klebt ('dieArbeit'), liest gemini-nativ das Druckbild richtig ('die Arbeit'). Zweispalten-Folge S. 141/142 korrekt, spaltenübergreifender Absatz sauber zusammengeführt, Kopfzeilen + Seitenmarker ('– 141 –') bleiben als Zitieranker erhalten.",
+    "Halluzinations-Punkt: die Unterschrift auf S. 2 wird als '![Unterschrift M. v. Renesse](screenshot_signature_page2.png)' ausgegeben — der Dateiname ist frei erfunden (kein solches Asset existiert); der Alt-Text selbst ist ehrlich beschreibend.",
+    "Mikro-Abweichung auf S. 280: 'Druck: MuK, Medien- und Kommunikations GmbH' statt 'Druck: MuK. Medien-…' (Komma statt Punkt); Rest des Impressums inkl. 'ISSN 0722-8333' wortgetreu.",
+    "Randbefund direkt an der Stichprobengrenze (S. 140) und systemisch: 7× ungültiges '#######' (z. B. '####### 2.2.2.1.4.1 Molekulargenetische Untersuchungen…') — Markdown endet bei h6, das rendert als Literaltext; zudem wackelt die Ebenen-Zuordnung zwischen den 28 Verarbeitungs-Chunks ('2.1.1.1.1' → h7, gleichtiefes '2.2.2.1.6.1' → h6). Auf den Stichprobenseiten selbst ist die Zuordnung konsistent.",
+    "Seitenwechsel 141→142 trennt den Satz '…in der Arbeitsmedizin' / 'birgt daher…' in zwei Absätze (Fußnotenblock + Trennlinie dazwischen) — seitentreu, aber nicht zusammengeführt wie bei docling.",
+    "Kontext außerhalb der Stichprobe: im Glossar werden Verweispfeile als LaTeX '$\\rightarrow$' statt '→' ausgegeben (struct top_invented 'rightarrow×203') — kein Standard-Markdown, aber inhaltlich korrekt referenzierend."
+  ],
+  "gesamturteil": "brauchbar"
+}

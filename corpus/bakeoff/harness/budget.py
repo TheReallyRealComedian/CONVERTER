@@ -24,10 +24,15 @@ CAP_EUR = 20.0
 EUR_USD = 1.10  # dokumentierte, bewusst grosszuegige Umrechnung
 CAP_USD = CAP_EUR * EUR_USD
 
-# USD pro 1M Tokens. Konservative obere Schranke, bis verifiziert (P2).
+# USD pro 1M Tokens. Verifiziert 2026-08-07 gegen ai.google.dev/gemini-api/
+# docs/pricing (Paid Tier): Input 1,50 / Output 7,50 — Output-Preis gilt
+# AUSDRUECKLICH inkl. Thinking-Tokens; unsere tokens_out-Zaehlung
+# (total - prompt) erfasst genau das. Lehre: der P1-„konservative"
+# Platzhalter (0,60/3,50) lag UNTER dem echten Preis — Verifikation vor
+# Feld-Laeufen war die richtige Vorbedingung.
 PRICES = {
-    "gemini-3.6-flash": {"in": 0.60, "out": 3.50, "verified": False},
-    "_default": {"in": 1.00, "out": 5.00, "verified": False},
+    "gemini-3.6-flash": {"in": 1.50, "out": 7.50, "verified": True},
+    "_default": {"in": 2.00, "out": 10.00, "verified": False},
 }
 
 

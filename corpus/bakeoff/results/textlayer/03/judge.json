@@ -1,0 +1,18 @@
+{
+  "klasse": "03",
+  "kandidat": "textlayer",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 1,
+  "lesereihenfolge": 1,
+  "halluzination": 5,
+  "befunde": [
+    "Wortlaut byte-identisch zur deterministischen Referenz (Set-Diff: 0 fehlend, 0 zusätzlich); Umlaute korrekt ('ÖKO-TEST-Verbraucherberatung', 'Bürstädter Zeitung'), keine Reparaturen.",
+    "Keinerlei Tabellenstruktur: kein einziges Pipe-Zeichen, keine Überschriften — die 20-Seiten-Tabelle kommt als roher Zeilenstrom mit '---'-Seitentrennern heraus, weder EINE Tabelle noch Fragmente mit Struktur.",
+    "Lesereihenfolge zerstört die Kern-Zuordnung: Auf Seite 1 stehen die Vermarkter-Gruppenköpfe NACH allen Datenzeilen und durcheinander ('apotheken-umschau.de / artnet / ADselect / AdTiger.de / Übersicht der Angebote… / ad pepper media / Adconion Media Group', Z. 63-71) — im Original sitzt z. B. 'ad pepper media' VOR '123people.de'. Welches Angebot zu welchem Vermarkter gehört, ist aus dem Output nicht rekonstruierbar.",
+    "Seite 20: 'Quelle: AGOF e.V. / internet facts 2010-II' erscheint VOR den Tabellenzeilen (Z. 1537), im Original steht sie unter der Tabelle; Gruppenköpfe wieder am Ende in falscher Reihenfolge ('Weischer Online / Yahoo! Deutschland / VIACOM Brand Solutions / WEB FINANCIAL GROUP').",
+    "Seiten-Möblierung 20-fach mitgeschleppt: jede Seite trägt '© AGOF e.V. September 2010 … Seite N' und 19 Wiederholungen des Tabellenkopfs 'Übersicht der Angebote in der internet facts 2010-II' stehen mitten im Datenstrom.",
+    "Nichts erfunden, nichts dedupliziert, nichts repariert — ehrlicher Rohtext, aber für den Zweck des Dokuments (Zuordnung Angebot→Vermarkter) wertlos."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

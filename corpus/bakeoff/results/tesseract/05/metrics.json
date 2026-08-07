@@ -1,0 +1,31 @@
+{
+ "candidate": "tesseract",
+ "class": "05",
+ "role": "main",
+ "input": "05_scan-sauber/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf",
+ "input_bytes": 1376792,
+ "started": "2026-08-07T18:12:05",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 35.18,
+ "max_rss_mb": {
+  "self": 150.5,
+  "children": 150.6
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "tesseract": "tesseract 5.5.1",
+  "lang": "deu",
+  "dpi": 300,
+  "pages": 15
+ },
+ "output_chars": 41803
+}

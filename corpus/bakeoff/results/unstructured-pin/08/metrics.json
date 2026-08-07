@@ -1,0 +1,30 @@
+{
+ "candidate": "unstructured-pin",
+ "class": "08",
+ "role": "main",
+ "input": "08_docx-fussnoten/Leitfaden - Businessplan 1.1.docx",
+ "input_bytes": 236601,
+ "started": "2026-08-07T18:18:43",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 17.07,
+ "max_rss_mb": {
+  "self": 303.3,
+  "children": 1.4
+ },
+ "rss_baseline_mb": {
+  "self": 18.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "unstructured_version": "0.18.32",
+  "strategy": "fast",
+  "serializer": "services.unstructured_markdown"
+ },
+ "output_chars": 13095
+}

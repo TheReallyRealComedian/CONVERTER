@@ -1,0 +1,29 @@
+{
+ "candidate": "trafilatura",
+ "class": "10",
+ "role": "main",
+ "input": "10_html-artikel/spiegel-online_0,1518,455401,00.html",
+ "input_bytes": 85216,
+ "started": "2026-08-07T18:18:35",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 1.47,
+ "max_rss_mb": {
+  "self": 50.8,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.1,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "trafilatura_version": "2.2.0",
+  "encoding": "cp1252"
+ },
+ "output_chars": 12664
+}

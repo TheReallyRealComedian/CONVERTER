@@ -1,0 +1,30 @@
+{
+  "klasse": "02",
+  "dokument": "berichtsband_if2010_II.pdf (AGOF internet facts 2010-II, 57 S., DE)",
+  "judge_familie": "Claude (claude-fable-5), bewusst != Gemini wegen Selbst-Praeferenz-Bias",
+  "stichprobe": ["p1", "p2", "p29", "p30", "p57"],
+  "methodik_zusatz": "Neben der Bild-Stichprobe programmatischer Abgleich aller 640 Ranking-Zeilen und der 824 Abschnitt-4-Eintraege gegen results/_references/02.txt (nur zur Fehler-Lokalisierung; Scores stuetzen sich auf die Stichprobe).",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "gemini-nativ",
+      "begruendung": "Einziger Kandidat, der beides liefert: vollstaendige, wertgenaue Tabellen (640/640 Zeilen, p29/p30 fehlerfrei inkl. der docling-Rutscher-Zeilen 599/600) UND Ueberschriften/Tabellen als Markdown — Abzug nur fuer inkonsistente Heading-Ebenen (#1./###3.) und 17 unechte '# AGOF'-Logo-Headings."
+    },
+    {
+      "platz": 2,
+      "kandidat": "docling",
+      "begruendung": "Saubere Tabellen- und Heading-Struktur, aber stiller Datenverlust im Zahlenwerk: ~11 von 640 Ranking-Zeilen fehlen/leer (tagesspiegel.de weg, top.de entkernt), ~16 Wert-Rutscher ('Aktienboard … 0,05 0,05' auf p29), einzelne Abschnitt-4-Eintraege komplett verloren — fuer einen zahlenlastigen Berichtsband der gefaehrlichste Fehlertyp, weil unsichtbar."
+    },
+    {
+      "platz": 3,
+      "kandidat": "textlayer",
+      "begruendung": "Wortlaut und Zahlen zu 100 % treu (byte-gleich zur Textebene), aber null Struktur: 0 Headings, 0 Tabellen — genau die zwei Pruefpunkte der Klasse (Gliederungshierarchie, Tabellen als Tabellen) bleiben vollstaendig Handarbeit."
+    },
+    {
+      "platz": 4,
+      "kandidat": "eigenbau",
+      "begruendung": "Unbrauchbar: Ranking-Seiten 17-31 komplett leer (auf p29/p30 fehlen alle 80 Zeilen samt Werten; Ziffer '0' 485x statt 1936x), 434 leere Pipe-Zeilen, und auf S. 11-16/55 stehen unter Ranking-Ueberschriften ~20 Kopien des mitten im Wort zerhackten Seite-57-Kontaktblocks ('| im per | s | oenlichen | Gesprae |') — irrefuehrend, nicht nur luecken haft."
+    }
+  ],
+  "vorbefund_pruefung": "Vorbefund (Recall 0,49; 434 leere Pipe-Zeilen; '0' fehlt ~1090x) bestaetigt, aber der Mechanismus ist zweiteilig: (1) Die Tabellen-SEITEN des 640er-Rankings (S. 17-31) sind nicht Skelette, sondern voellig leer — nur Caption 'Durchschnittlicher Monat' + Footer ueberlebt; dort fehlen die Zahlwerte (561…640, 0,1, 0,07…0,03). (2) Die 434 leeren '|  |  |  |  |  |'-Zeilen liegen auf S. 11-16/55, wo der Tabellen-Detektor Pseudo-Tabellen baut und sie mit spaltenzerhacktem Text der Seite 57 fuellt (Fragmente wie 'ftsfuehrerin AGOF e.V.', 'udia.dubrau@agof.de'; '264 888' 42x statt 2x). Fliesstext ist ueberwiegend NICHT betroffen (Vorwort, Kap. 2.x, Abschnitt-4-Namen 822/824, p57 an Ort und Stelle intakt) — Ausnahme: Seite 56 fehlt komplett. Verdachtsmechanik fuer den Bericht: Zellen-Extraktion per Rechteck ohne Wortgrenzen mit falschem Seiten-/Koordinatenbezug (dasselbe get_textbox-Schnittmuster, das DOC-FIX bei der Linkeinbettung dokumentiert hat)."
+}

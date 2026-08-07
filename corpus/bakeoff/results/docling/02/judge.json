@@ -1,0 +1,18 @@
+{
+  "klasse": "02",
+  "kandidat": "docling",
+  "treue": 4,
+  "vollstaendigkeit": 4,
+  "struktur": 4,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "Stichprobenseiten 29/30 als echte GFM-Tabellen mit korrekten Spaltenköpfen; 79 von 80 Zeilen wertgenau. Ein Zellen-Rutscher am Seitenende 29: '| Aktienboard | 599 | 0,1 | 0,05 0,05 |' und darunter '| xchar.de | 600 | 0,1 | (leer) |' — xchar.des 0,05 ist in die Aktienboard-Zelle gerutscht (Original p29: Aktienboard 0,05, xchar.de 0,05).",
+    "Stiller Zeilenverlust im 640er-Ranking (außerhalb der Bild-Stichprobe, gegen Referenz diffbar): rank 116 'tagesspiegel.de' fehlt komplett, rank 117 'top.de' nur als leere Zelle '| | 117 | | |', 'GamePro.de | 320' ohne Reichweiten-% — insgesamt ~11 von 640 Zeilen fehlend/beschädigt plus ~16 Wert-Rutscher vom Aktienboard-Typ (z. B. rank 279 'Neue Osnabrücker Zeitung … 0,40 0,40'). Für einen zahlenlastigen Berichtsband ist stiller Einzelzeilen-Verlust der gefährlichste Fehlertyp.",
+    "Abschnitt 4 (Zuordnung) verliert einzelne Einträge ganz: winfuture.de fehlt in der freeXmedia-Liste (im Ranking noch vorhanden), justmac.info, Celebrity, moneyspecial und awa-dav.de fehlen im gesamten File; Kopfzeile und Vermarkter-Name werden zellverdoppelt ('| G+J Electronic Media Sales | G+J Electronic Media Sales |').",
+    "Vermarkter-Ranking S. 11/12: docling fügt die im Textlayer beschnittenen Namensfragmente in falscher Reihenfolge zusammen — '| OMORROW FOCUS T | 2 | 60,4 | 30,03 |', '| rosoft Advertising Mic | 10 |' (gemeint: TOMORROW FOCUS, Microsoft Advertising). Werte korrekt; die Verstümmelung ist Quell-Eigenheit, die Wortstellung docling-eigen.",
+    "Kleinere Treue-Normalisierungen: Halbgeviertstrich zu Bindestrich auf p57 ('Tel: 069-264 888 - 314' statt '888 – 314'), 4× HTML-Entity '&amp;' im Fließtext ('GmbH &amp; Co. KG'); Seiten-Footer '© AGOF e.V. September 2010 / Seite N' durchgängig entfernt (vertretbare Boilerplate-Entscheidung, aber Informationsverlust).",
+    "Struktur sonst gut: Inhalt (p2) als Überschriften+Listen, Gliederung 1.-6. als Headings, p57-Kontakte vollständig bis 'Mail:marcus.foebus@agof.de' — allerdings alles flach auf '##' (keine Ebenen-Differenzierung 2. vs. 2.1.) und Name+Titel zu einer Überschrift verschmolzen ('## Claudia Dubrau Geschäftsführerin AGOF e.V.')."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

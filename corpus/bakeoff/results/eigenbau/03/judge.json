@@ -1,0 +1,20 @@
+{
+  "klasse": "03",
+  "kandidat": "eigenbau",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "Kernfrage der Klasse bestanden: Die über 20 Seiten laufende Tabelle kommt als EINE fortlaufende Markdown-Tabelle heraus (Z. 3-926); die Seitengrenzen p1→p2 ('artnet' → 'Axel Springer Media Impact') und p11→p12 ('harmony.fm' → 'Heilbronner Stimme online') sind nahtlos, 18 der 20 wiederholten Tabellenköpfe 'Übersicht der Angebote in der internet facts 2010-II' wurden korrekt entfernt.",
+    "Die im rohen Textlayer zerstörte Zuordnung wurde korrekt rekonstruiert: Gruppenköpfe stehen VOR ihren Angeboten in Spalte 1 ('| ad pepper media |  |  |' vor '|  | 123people.de |  |'), obwohl die Textebene sie ans Seitenende wirft — exakt die Zuordnung, auf die das Dokument zielt.",
+    "Zell-Korruption durch kaputtes Pipe-Escaping: Das Angebot 'LZ|NET' (Seite 3, Deutscher Fachverlag) steht als '|  | LZ \\ | NET |' (Backslash-Leerzeichen-Pipe) — gerendert zerfällt die Zelle in 'LZ \\' plus 'NET' in einer Phantomspalte; vermutlich auch die Ursache der durchgehend leeren dritten Tabellenspalte.",
+    "Duplikat statt Halluzination: An den Tabellenschluss ist ein zweites Fragment der Seite-3-Inhalte angehängt (Z. 942-988, 'Cinema Management Services' bis 'Fantastic Zero') — dieselben ~35 Zeilen stehen bereits korrekt in der Haupttabelle (Z. 93-135); ein Leser hielte diese Vermarkter für doppelt gelistet.",
+    "Inhaltsverlust am Rand: Die beiden Einleitungsabsätze ('Die folgende Tabelle stellt die den Vermarktern zuzuordnenden Angebote dar…', 'In dieser Auflistung sind auch Angebote aufgeführt…', Seite 1) und die Schlusszeile 'Quelle: AGOF e.V. / internet facts 2010-II' (Seite 20) fehlen komplett; der Dokumenttitel 'Zuordnung Angebote zu Vermarktern' steht als Fließtext statt als Überschrift.",
+    "Wiederholte Gruppenköpfe der Quelle unverändert durchgereicht: 'OMS' erscheint 4× als Gruppenzeile (Z. 467, 518, 569, 621 — die Quelle wiederholt den Gruppenkopf auf den Fortsetzungsseiten 11-14); in der fusionierten Tabelle wirkt OMS dadurch wie vier getrennte Vermarkter. Quell-Eigenheit beibehalten, keine Reparatur — aber die Fusion hätte sie zusammenziehen müssen.",
+    "Seitenfüße als Anhängsel: alle 20 '© AGOF e.V. September 2010 / Seite N'-Blöcke stehen mit '---'-Trennern gesammelt NACH der Tabelle (Z. 928-1111) — harmlos, aber Aufräum-Nacharbeit.",
+    "Wortlaut sonst korrekt (Set-Diff: außer Einleitung/Quelle/LZ|NET kein einziger fehlender Zelltext, Umlaute intakt); 'competitionline  -  Wettbewerbe und Architektur' mit normalisierten Doppel-Leerzeichen (trivial). Nichts erfunden."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

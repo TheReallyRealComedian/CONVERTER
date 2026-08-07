@@ -1,0 +1,36 @@
+{
+  "klasse": "05",
+  "judge_modellfamilie": "Claude (Fable 5) — bewusst ≠ Gemini; Hinweis: gemini-nativ ist Gemini, und eigenbau ist mutmaßlich ebenfalls Gemini-basiert (identischer URL-Einfügefehler „%3AAETAHBU\"), der Judge steht außerhalb beider Familien.",
+  "stichprobe": [
+    "p1 (JSTOR-Deckblatt)",
+    "p2 (Druckseite 79, Titelseite)",
+    "p8 (85)",
+    "p9 (86)",
+    "p15 (92)"
+  ],
+  "methode": "Wort-für-Wort-Abgleich je eines Absatzes der Seiten 2 und 86 gegen das Render; strittige Stellen per Bild-Zoom entschieden (URL-Code, „entzweiteilt\", Sperrsatz e i n e m / e i n e r, angebliche Kursive auf S. 86, „Beharrliche\" auf S. 92). Judge-Inaugenscheinnahme und Scoring sind hier derselbe Durchgang.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "gemini-nativ",
+      "begruendung": "Einziger Kandidat ohne Inhaltsverlust UND mit intaktem Apparat — alle Fußnoten 1–52 korrekt nummeriert und verankert, Lesereihenfolge fehlerfrei, beide Prüfabsätze wortgenau; Abzüge für „Beherrliche\" statt „Beharrliche\" (S. 92), ein erfundenes Zeichen in der JSTOR-URL und vier erfundene Kursivierungen auf S. 86 bei gleichzeitig plattgemachtem echten Sperrsatz."
+    },
+    {
+      "platz": 2,
+      "kandidat": "tesseract",
+      "begruendung": "Am deutschen Wortlaut mit Gemini gleichauf (beide Prüfabsätze 0 Wortfehler, Umlaute/ß/Sperrsatz-Kollaps fehlerfrei) und nichts fehlt — aber die Fußnotenziffern sind großflächig zerstört (!, ?, ®, ?t statt ¹²³), keinerlei Markdown-Struktur, Trennstriche bleiben stehen: brauchbarer Rohtext mit ehrlich sichtbarem Nacharbeitsbedarf."
+    },
+    {
+      "platz": 3,
+      "kandidat": "eigenbau",
+      "begruendung": "Auf 13 von 14 Druckseiten die zweitbeste Fassung des Feldes (echte deutsche Typografie, saubere Superscript-Anker, Prüfabsatz S. 2 fehlerfrei) — aber die gedruckte Seite 86 fehlt komplett und kommentarlos (Header springen 85→87, Prüfabsatz S. 86 nicht bewertbar), und stiller Inhaltsverlust ist der teuerste Ausfallmodus, weil ihn erst ein Seitenvergleich aufdeckt; dazu „entzweielt\" statt „entzweiteilt\" (S. 85)."
+    },
+    {
+      "platz": 4,
+      "kandidat": "docling",
+      "begruendung": "Mehrere zerstörte Passagen („romants J  Ia  a d  an a sn\" frisst das Jean-Paul-Zitat samt Anker 32 auf Sample-S. 85), Druckzeilen-Vertauschung mitten im Schiller-Zitat derselben Seite, systematisch „ā\" statt „ä\" bis in den Prüfabsatz („erklārt\") und ein zerlegter, umsortierter Fußnotenapparat — die Reparatur wäre teurer als ein Neu-OCR mit tesseract."
+    }
+  ],
+  "kernfrage_antwort": "Am reinen Wortlaut zahlt man für nichts: tesseract-deu und der Cloud-VLM sind auf den Prüfabsätzen beide fehlerfrei — die Baseline-Aussage (92,5 Konfidenz, Tesseracts Sweet-Spot) bestätigt sich. Sichtbar besser ist der Cloud-Kandidat beim Apparat, nicht bei den Umlauten: intakte Fußnotenanker 1–52 gegen zerstörte Ziffern, echte Typografie, Reflow mit korrekter Dehyphenierung. Dafür haben die VLM-Pfade den gefährlicheren Fehlermodus: eigenbau verlor kommentarlos eine ganze Seite (86), gemini-nativ erfand Kursivierungen und ein URL-Zeichen — sichtbares Rauschen (tesseract) lässt sich nacharbeiten, stille Lücken und stille Reparaturen muss man erst finden. Anmerkung zur Kernfragen-Formulierung: gesperrtes „B e e t h o v e n\" kommt auf den fünf Sample-Seiten nicht vor; der Sperrsatz-Test lief auf „e i n e m\"/„e i n e r\" (S. 86) — alle dort antretenden Kandidaten kollabieren korrekt zum Wort, alle verlieren die Hervorhebung.",
+  "abweichung_judge_vs_eigener_eindruck": "Keine — Urteil und Inaugenscheinnahme sind hier ein Durchgang; alle score-tragenden Befunde wurden am gerenderten Bild (inkl. Zoom) verifiziert statt aus Kandidaten-Mehrheiten geschlossen."
+}

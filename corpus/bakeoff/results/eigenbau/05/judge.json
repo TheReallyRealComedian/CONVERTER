@@ -1,0 +1,18 @@
+{
+  "klasse": "05",
+  "kandidat": "eigenbau",
+  "treue": 4,
+  "vollstaendigkeit": 2,
+  "struktur": 4,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "SCHWERSTER BEFUND DER KLASSE: Die gedruckte Seite 86 (Sample p9) fehlt komplett und kommentarlos. Header-Folge im Output springt von „…Ästhetik des Erhabenen 85\" direkt auf „…Ästhetik des Erhabenen 87\"; fünf Textanker der Seite (u.a. „Beethoven rühmte und durch eine Strukturanalyse\", „Schubart\", „schweifendes Gefühl\", Fußnoten 38/39 Eggebrecht + Hoffmann S. 50) haben null Treffer im Output. Der Satz vom Seitenende 85 („Die „Besonnenheit\", die Hoffmann an\") bricht ab und findet nie seine Fortsetzung; kein Degradationshinweis.",
+    "OCR-Wortfehler auf Sample-S. 85: „entzweit und entzweielt\" — das Render zeigt eindeutig „entzweit und entzweiteilt\" (Jean-Paul-Zitat); docling, gemini-nativ und tesseract lesen die Stelle korrekt.",
+    "JSTOR-URL auf Sample-S. 1 mit eingefügtem Extra-Zeichen: „%3C79%3AAETAHBU%3E\" statt Render „%3C79%3AETAHBU%3E\" — exakt derselbe Doppel-A-Fehler wie bei gemini-nativ (Indiz für gemeinsame Modellfamilie).",
+    "Auf den vorhandenen Sample-Seiten sonst wortgenau: Prüfabsatz S. 2 („E.T.A. Hoffmanns Rezension … begriff⁵\") ohne einen einzigen Wortfehler; Umlaute/ß fehlerfrei („Mißverständnissen\", „zurückläßt\", „Ästhetik\"), echte deutsche Anführungszeichen, Fußnotenziffern als korrekte Unicode-Superscripts, Trennstriche sauber aufgelöst („einschloß\"). S. 92 inkl. fortgesetzter Fußnote 52 („das Beharrliche…\", „(Seifert, S. 157)\") vollständig und korrekt.",
+    "Kleinnormalisierung S. 85: Ankerstellung „dessen Welt“.³⁵ — Render hat „dessen Welt“³⁵. (Ziffer vor Punkt). Der Sperrsatz-Test („e i n e m\"/„e i n e r\") entfällt: er liegt auf der fehlenden Seite 86.",
+    "Außerhalb der Stichprobe beobachtet, nicht gewertet: inkonsistente Zeilenbehandlung — S. 79/85/92 sind reflowed und dehypheniert, S. 80/87 behalten harte Umbrüche samt Trennstrichen („zugrunde-\", „Gemein-\")."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

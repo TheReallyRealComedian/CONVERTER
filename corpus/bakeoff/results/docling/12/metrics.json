@@ -1,0 +1,31 @@
+{
+ "candidate": "docling",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-07T19:00:55",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 492.19,
+ "max_rss_mb": {
+  "self": 3487.1,
+  "children": 4.3
+ },
+ "rss_baseline_mb": {
+  "self": 18.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "docling_version": "2.118.1",
+  "ocr_engine": "rapidocr/de",
+  "tableformer": "ACCURATE",
+  "status": "ConversionStatus.SUCCESS"
+ },
+ "output_chars": 1498238
+}

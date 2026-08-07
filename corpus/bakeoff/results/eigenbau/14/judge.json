@@ -1,0 +1,17 @@
+{
+  "klasse": "14",
+  "kandidat": "eigenbau",
+  "treue": 3,
+  "vollstaendigkeit": 5,
+  "struktur": 2,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "DURCHGEREICHT, KEINE MELDUNG — mit installiertem, nie betretenem Rettungspfad: metrics.json zeigt gemini_enabled: true, vision_model gemini-3.6-flash, aber model_calls: 0, runtime 10,6 s, warnings: []. Der Klassifikator stufte NATIVE, page.get_text() lieferte die kaputte Ebene unkommentiert aus — exakt das im Klassen-README beschriebene CONVERTER-Verhalten.",
+    "Output ist whitespace-bereinigt identisch mit dem textlayer-Kandidaten (20 reine Leerzeichen-Diffs). Beide Bruchstellen byte-gleich: 'Asthetik des Erhabenen' als S.2-Titel (Z. 24) und im S.14-Kolumnentitel (Z. 680); Original-Bilder zeigen beide Male 'Ästhetik'.",
+    "Prämissen-Korrektur (nachgemessen): Der Schaden der Ebene ist sporadisch, nicht flächig — 549 korrekte Umlaute, 'für/über' durchgehend korrekt, nur 2x 'Asthetik' plus Einzelbrüche. Genau das macht die Falle scharf: der Output sieht fast überall sauber aus.",
+    "Geerbte Einzelbrüche (Stichproben-Seiten): 'W ~ M' statt 'Wenn' (Z. 34), 'hin~ugeben' (Z. 37), p85 ',,Schreckenfi,'/'ubertreibung'/'Bsthetik'/2x 'Iäßt', p15 '(Seifert,8.167).' statt '(Seifert, S. 157).' (Z. 754, gegen Original-Bild geprüft — falsche Seitenzahl im Zitat).",
+    "Vollständig (Deckblatt, 15 Seiten, Fußnoten), nichts erfunden; Struktur roher Zeilen-Dump ohne jede Markdown-Auszeichnung."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

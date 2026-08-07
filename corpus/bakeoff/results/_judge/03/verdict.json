@@ -1,0 +1,26 @@
+{
+  "klasse": "03",
+  "judge_modell": "Claude (Subagent)",
+  "ranking": [
+    {
+      "kandidat": "eigenbau",
+      "platz": 1,
+      "begruendung": "Einziger Kandidat, der die Kernfrage besteht — EINE fortlaufende Tabelle mit korrekt rekonstruierter Gruppen-Zuordnung und 18/20 entfernten Kopf-Wiederholungen; Abzüge für dupliziertes Seite-3-Fragment am Ende, fehlende Einleitung/Quelle-Zeile und die kaputt escapte 'LZ|NET'-Zelle."
+    },
+    {
+      "kandidat": "gemini-nativ",
+      "platz": 2,
+      "begruendung": "Inhaltlich fehlerfrei (null verlorene Zellen, korrekte Zuordnung, einziges korrektes 'LZ\\|NET'-Escaping), aber die Tabelle kommt als ~20 Seiten-Fragmente heraus und wechselt ab Seite 11 die Darstellung von Tabelle zu Überschriften+Fließtext — genau das Fragmentierungs-Muster, das die Klasse prüft."
+    },
+    {
+      "kandidat": "docling",
+      "platz": 3,
+      "begruendung": "Seiten-Fragmente mit erfundener Phantom-Zweispaltigkeit, verifizierten Verlusten (u. a. 'Business Advertising', 'ad-hoc-news.de', 'MTV', 'Mittelbayerische Zeitung') und zerrissen-neu-zusammengesetzten Namen ('Nürtinger Zeitung Westfälische') — behält zwar Teilstruktur, korrumpiert aber still die Daten."
+    },
+    {
+      "kandidat": "textlayer",
+      "platz": 4,
+      "begruendung": "Wortlaut komplett und unverfälscht, aber null Struktur und zerstörte Lesereihenfolge (Gruppenköpfe nach den Daten, durcheinander) — die Zuordnung Angebot→Vermarkter, der einzige Zweck des Dokuments, ist unrekonstruierbar."
+    }
+  ]
+}

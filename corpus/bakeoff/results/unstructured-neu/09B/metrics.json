@@ -1,0 +1,32 @@
+{
+ "candidate": "unstructured-neu",
+ "class": "09B",
+ "role": "main",
+ "input": "09_pptx-smartart/B_smartart_KI-Praesentation-vb.pptx",
+ "input_bytes": 53097998,
+ "started": "2026-08-07T18:20:53",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 16.44,
+ "max_rss_mb": {
+  "self": 463.6,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [
+  "366× PPTX: 'Title' unterhalb der Titelebene als Absatz ausgegeben (Laengen-Heuristik, keine Ueberschrift)"
+ ],
+ "adapter_meta": {
+  "unstructured_version": "0.24.1",
+  "strategy": "fast",
+  "serializer": "services.unstructured_markdown"
+ },
+ "output_chars": 27461
+}

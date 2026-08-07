@@ -1,0 +1,42 @@
+{
+  "klasse": "11",
+  "judge_familie": "Claude (Subagent, Fable 5)",
+  "vergleichsbasis": "results/_references/11.txt (text/plain-Body) + HTML-Part der Quelldatei corpus/11_eml-zitatkette/polar-care_zitatkette.eml (für die Frage, welche Struktur die Quelle überhaupt hergibt)",
+  "gleichstand": true,
+  "hinweis": "Beide Kandidaten-Outputs sind byte-identisch (MD5 4ba57a93719c77d5ebcacec1e67c4acf, diff leer) — der unstructured-Versionsbump ändert an Klasse 11 nichts. Die Platzvergabe ist formal (Vorgabe: Platz 1 und 2), die Reihenfolge trägt keine Information; pin steht als gepinnte Baseline vorn.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "unstructured-pin",
+      "begruendung": "Wortlaut fehlerfrei (Diff gegen Referenz: nur zwei dekorative Bild-URLs fehlen) und die Kette bleibt erkennbar — Antwort, freistehende Signatur, Von:-Block, zwei als Kästen abgesetzte Zitatblöcke, Footer in korrekter Folge —, aber der vierzeilige Outlook-Kopfblock ist auf eine Zeile kollabiert und jede zitierte Mail zu einer einzeiligen Tabellenzelle (2.716 bzw. 1.657 Zeichen) plattgedrückt, inklusive flachgelegter Wochen-Übersicht."
+    },
+    {
+      "platz": 2,
+      "kandidat": "unstructured-neu",
+      "begruendung": "Byte-identisch zu unstructured-pin — identische Stärken und Schwächen, Platz 2 ausschließlich, weil das Format zwei Plätze verlangt."
+    }
+  ],
+  "scores": {
+    "unstructured-pin": {
+      "treue": 5,
+      "vollstaendigkeit": 4,
+      "struktur": 3,
+      "lesereihenfolge": 5,
+      "halluzination": 5,
+      "gesamturteil": "brauchbar mit Nacharbeit"
+    },
+    "unstructured-neu": {
+      "treue": 5,
+      "vollstaendigkeit": 4,
+      "struktur": 3,
+      "lesereihenfolge": 5,
+      "halluzination": 5,
+      "gesamturteil": "brauchbar mit Nacharbeit"
+    }
+  },
+  "kernfragen": {
+    "kette_erkennbar": "Ja — eigene Antwort oben als Absätze, Signatur „Vielen Dank und schöne Grüße“ / „Oliver Gluth“ freistehend, darunter der Von:/Gesendet:/An:/Betreff:-Block (alle vier Felder, Betreff mit voller Re:/AW:-Verschachtelung), dann die Vorgeschichte, zuletzt der Ticket-Footer.",
+    "fremdtext_erkennbar": "Teilweise, und eher zufällig: die zwei Zendesk-Kommentar-Blöcke (Frank 08.05., Oliver 21.04.) landen als 1×1-Markdown-Tabellen und sind dadurch als Kästen vom eigenen Text abgesetzt; innerhalb der Kästen ist aber alles Brei — Absätze, •-Punkt, 1/2/3-Optionen, Grußformeln und die Wochen-Übersicht auf je einer einzigen Zeile. Blockquote-Markierung fehlt, ist aber nicht einforderbar (Quelle hat 0 <blockquote>, Outlook zitiert per Kopfblock).",
+    "header_grussformeln_verloren": "Nein — alle vier Header-Zeilen und alle drei Grußformeln sind vorhanden; die Header-Zeilen allerdings zu einer Zeile zusammengezogen (im Quell-HTML per <br> getrennt), zwei der drei Grußformeln nur noch inline im Fließtext der Zellen."
+  }
+}

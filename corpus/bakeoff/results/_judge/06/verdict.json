@@ -1,0 +1,32 @@
+{
+  "klasse": "06",
+  "dokument": "Blanko-AOK-Formular »Fragebogen für die Aufnahme in die Familienversicherung«, 2 S., Kopie der Kopie, schief; S. 2 im Scan um 180° gedreht",
+  "judge_familie": "Claude (Subagent, Fable 5) — bewusst ≠ Gemini, da Gemini als Kandidat antritt",
+  "datum": "2026-08-07",
+  "nicht_bewertet": [
+    "textlayer — auf dieser Klasse dokumentiert gescheitert (Scan ohne Textebene), nicht bewertet"
+  ],
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "eigenbau",
+      "begruendung": "Einziger Kandidat ohne inhaltlichen Befund: S. 2 trotz 180°-Drehung korrekt reorientiert, Rechtszitate ziffernexakt (»§§ 10 Abs. 6, 289 SGB V«), alle Kästchen/Linien blanko, Ehegatte-Striche erhalten — nur die 5-fach duplizierten Merged-Cell-Fußnoten als Schönheitsfehler."
+    },
+    {
+      "platz": 2,
+      "kandidat": "gemini-nativ",
+      "begruendung": "Text und Struktur fast auf eigenbau-Niveau, aber er »repariert« das Formular: drei erfundene Checkboxen, umgeschriebenes Rechtszitat (»§ 10 Abs. 2« statt »§§ 10 Abs. 6, 289«), befüllbar gemachte Ehegatte-Sperrfelder und ein komplett fehlender Einwilligungssatz."
+    },
+    {
+      "platz": 3,
+      "kandidat": "docling",
+      "begruendung": "S. 1 mit Mühe verwertbar (leere Checkbox-Listen, kleine OCR-Fehler, aber keine Tabellen und verschobene Lesefolge) — die nicht erkannte 180°-Drehung macht S. 2 jedoch zu rückwärts sortiertem Zeichensalat (»Rind«, »Magchan«, »(Nasenme)«), als Dokument unbrauchbar."
+    },
+    {
+      "platz": 4,
+      "kandidat": "tesseract",
+      "begruendung": "Rund 40 fehlerhafte Wortfetzen (»Rame der Krankenkasse«, »LParkG«) aus zwei Seiten, keine Struktur, S. 2 fehlt ganz — der erwartete Totalausfall, der den VLM-Pfad dieser Klasse rechtfertigt."
+    }
+  ],
+  "kernbefund": "Die 180°-gedrehte S. 2 ist der Scharfrichter der Klasse: eigenbau und gemini-nativ reorientieren korrekt, docling liest sie rückwärts als Zeichensalat, tesseract verliert sie ganz. Kein Kandidat füllt Blanko-Felder aus oder loopt auf den Punktlinien — aber gemini-nativ erfindet Formular-Controls und schreibt das SGB-Zitat um, was auf einem Formular Vertrauen kostet; eigenbaus einzige Wortlaut-Abweichung ist »Selbständige« statt »Selbstständige«."
+}

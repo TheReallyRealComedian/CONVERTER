@@ -1,0 +1,31 @@
+{
+ "candidate": "tesseract",
+ "class": "07",
+ "role": "main",
+ "input": "07_formular-punktlinien/aok_scan-300dpi.pdf",
+ "input_bytes": 4429198,
+ "started": "2026-08-07T18:16:59",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 27.79,
+ "max_rss_mb": {
+  "self": 152.4,
+  "children": 172.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.1,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "tesseract": "tesseract 5.5.1",
+  "lang": "deu",
+  "dpi": 300,
+  "pages": 2
+ },
+ "output_chars": 6051
+}

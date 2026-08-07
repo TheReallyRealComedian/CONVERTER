@@ -1,0 +1,19 @@
+{
+  "klasse": "06",
+  "kandidat": "docling",
+  "treue": 2,
+  "vollstaendigkeit": 2,
+  "struktur": 2,
+  "lesereihenfolge": 1,
+  "halluzination": 4,
+  "befunde": [
+    "S. 2 (im Scan 180° gedreht) nicht reorientiert: der Inhalt erscheint rückwärts von unten nach oben — »Geburtsland« vor »Geburtsort« vor »Geburtsname«, Abschnitte in umgekehrter Reihenfolge, die Abschnitts-Überschrift endet als letzte Zeile »Ang    n      nan«.",
+    "Massive Fehllesungen auf S. 2: »Rind« statt »Kind«, »Ehegate«/»Ehegagte« statt »Ehegatte«, »Magchan«/»Migchaet«/»Mgcnant« statt »Mitgliedschaft«, »(Nasenme)«/»(Nahmame)«/»(Naame)« statt »(Nachname)«, »Shu/ium« statt »Schulbesuch/Studium«, »WOm«/»voom«/»Vm« statt »vom«, »EURR«.",
+    "Datenschutzhinweis auf eine Garbage-Zeile reduziert: »Xl e         e  e  det 10e                    e      GB« — die Rechtszitate (§§ 10 Abs. 6, 289 SGB V …) sind vollständig verloren.",
+    "Kerntext auf S. 1 mittendrin abgerissen: »… die mit Rücksic              sen« — der Rest des Pflicht-Absatzes fehlt; auch die Tabellen-Fußnote ist zerlöchert (»durch e      -  (      ist«).",
+    "Keine Tabelle überlebt als Tabelle: Spaltenköpfe »Ehegatte/Kind/Kind/Kind« als lose Einzelzeilen, Zellinhalte als verstreute Checkbox-Listen, die Geschlecht-Kästchen degenerieren zu »(a)□(x)□« und »□(0)«.",
+    "Lesereihenfolge auch auf S. 1 gebrochen: »versichert bei Name der Krankenkasse«, »geschieden«, »Heirat«, »Sonstiges«, »zu erreichen (freiwillige Angabe).« stehen erst NACH der Familienangehörigen-Tabelle.",
+    "Positiv: alle Kästchen bleiben leer (»- [ ]«), kein Blanko-Feld ausgefüllt, keine Wiederholungs-Loops; die S.-1-OCR-Fehler bleiben klein (»Vomname«, »seil«, »lautel«, »Ehegatfe«, »Stlefkind«, »Pftegekind«, »frelwillige«) und die Umlaute überleben dort überwiegend."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

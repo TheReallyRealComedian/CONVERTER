@@ -1,0 +1,19 @@
+{
+  "klasse": "04",
+  "kandidat": "docling",
+  "treue": 2,
+  "vollstaendigkeit": 4,
+  "struktur": 3,
+  "lesereihenfolge": 3,
+  "halluzination": 4,
+  "befunde": [
+    "515 von 655 Angebots-Zeilen zellgenau korrekt (programmatischer Abgleich gegen den Text-Layer), aber 66 namens-identische Zeilen tragen verschobene/verschmolzene/geleerte Zellwerte und ~50 weitere Zeilen sind paarweise zu Doppelzeilen verschmolzen — zusammen ist gut ein Zehntel der Ranking-Zeilen unzuverlässig, ohne jede Markierung im Output.",
+    "Wert-Verschiebung in Nachbarzeilen (gefährlichster Befund): 'Verivox | 9.935 | 4,4 | 2,21 2,19 | …' trägt TripAdvisors 2,19 in der eigenen Unique-User-Zelle, während die TripAdvisor-Zeile dort leer ist (Z. 111-112; Original S. 2: Verivox 2,21, TripAdvisor 2,19) — wer TripAdvisor nachschlägt, findet Leerzellen, wer Verivox liest, zwei Werte.",
+    "Zeilen-Verschmelzung an Seitenenden und im Fließbereich: '1&1 stern.de | 17.005 16.744 | 8,5 8,2 | 4,21 4,07 | …' plus verwaiste Restzeile mit '174,41' (Z. 63-64, S. 1 unten); 'Heilbronner Stimme online inside-digital.de | 956 | …' mit der 996 in einer namenlosen Zeile darüber (Z. 420-421, S. 7 unten); 'News.de TV Movie Online | 10.381 7.116 | 3,9 3,9 | …' (Z. 124, S. 2); 'blog.de | 9.607 9.809' mit Fälle-leerer Onmeda-Zeile darunter (Z. 121-122, S. 2).",
+    "Verbundene Zellen nur per Wiederholungs-Konvention, inkonsistent: auf S. 2-7 wird 'Netto-RW (Unique User)' über 4 Spalten wiederholt (Z. 70; laut Klassen-README spannt es 3 — Aff.-Index gehört nicht dazu), auf S. 1 fehlt der Netto-RW-Gruppenkopf ganz (Z. 19 enthält nur 'Brutto-Reichweite (Kontakte)'), und auf S. 8-11 ist der Gruppenkopf-Text in die Spaltenköpfe hineingebrochen: 'Unique User Mio Netto-RW | Nutzer- Anteil % (Unique User)' (Z. 425, 485, 545, 605).",
+    "Die pro Seite doppelte Overlay-Zeile des Text-Layers wird inkonsistent behandelt: S. 1 beide Fassungen tokenweise in einer Zeile ('MyVideo MyVideo | 31 633 31.633 | 17 4 17,4 | …', Z. 36), auf anderen Seiten überlebt NUR die entartete Fassung mit versprengter Interpunktion: 'Berlin de . | 10 869 . | 5 0 , | 2 51 ,' (Z. 102, S. 2), 'küchengötter de . | 1 287 .' (Z. 397, S. 7), 'DAZ Deutsche Apotheker Zeitung | 114 | 0 1 , | 0 03 ,' (Z. 695, S. 12) — die saubere Schreibweise dieser Zeilen fehlt.",
+    "Mehrzeilige Namen zerreißen Zeilen: 'Sindelfinger Zeitung / Böblinger' + leere Wertezellen, 'Zeitung' als Folgefragment (S. 12); 'BELLEVUE Die schönsten Immobilien der Welt' analog.",
+    "Kopfblock vollständig (## Quelle:, ## AGOF internet facts 2010-I, Zielgruppe, Basis, beide Klammer-Zeilen), 12 Einzeltabellen — eine pro Seite, jede mit Kopf (Seitengrenzen-Kriterium halb erfüllt: Kopf nicht verloren, Tabellen-Einheit schon); Logo als Text 'GTOP' halluziniert (Z. 68)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

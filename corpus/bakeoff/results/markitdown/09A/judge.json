@@ -1,0 +1,19 @@
+{
+  "klasse": "09A",
+  "kandidat": "markitdown",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Einziger Kandidat ohne Wortverlust (word_recall 1,0): Kopfblock und Fußzeile aller 25 Folien vorhanden, ALLE 1.780 Zeichen Speaker-Notes da und an der jeweils richtigen Folie (»### Notes:« unter Folien 5, 7, 9, 12, 16, 20-24), z.B. Folie 5: »ZV: weniger Vorräte, da Prognosen genauer möglich aufgrund periodischer Erhebung des Absatzes« = Referenz Z. 474.",
+    "9/9 Folien-Tabellen als Markdown-Tabellen mit exakten Zahlen (p13: 5000/2889/0/2000/750/6667), zusätzlich 12 Chart-Datentabellen aus den Chart-Parts (»### Chart«, z.B. Folie 20: »| 1 | 42000.0 | 51249.99999999999 | 93250.0 |«) — echte Cache-Werte der Datei, keine Erfindung; die Float-Schwänze sind quelltreu.",
+    "Systematischer Naht-Fehler: nach Chart-Tabellen fehlt die Leerzeile, der Folgetext klebt in der letzten Tabellenzelle — »| Buchverlag | 3000.0 | ... | 1207.0 |17.305« (Folie 4, Original zeigt »17.305« als freies Label), »| ... | 15278.0 |Referenten: Katharina Brodt...« (Folie 11), »| 70000.0 | 23000.0 |Fixe Kosten Buchverlag« (Folie 18), »| 0.09610777385586221 |*« (Folie 21), »| 12757.275148741432 |145 %« (Folie 23) — ca. 7 Stellen, mechanisch reparierbar.",
+    "Schwerster Einzelfund (Folie 22, Struktur EVA): die beiden EVA-Gitter-Tabellen stoßen ohne Leerzeile aneinander (5-Spalter, direkt darunter die 7-Spalten-Zeile »|  |  |  |  |  |  |  |«) — gerendert entsteht EINE 5-Spalten-Tabelle, überzählige Zellen werden von GFM abgeschnitten: »EVA / -186« (Spalte 7, der Kernbefund der Folie) verschwindet in der gerenderten Ansicht, obwohl er im Rohtext steht.",
+    "Lesereihenfolge korrekt: alle 6 numCol-Körper in Spaltenreihenfolge (p14: »Niedrig (durch Periodika)« → »Vorkasse durch Abonnenten hoch« → »Buchverlag« → »wesentlich höher...«), Folienreihenfolge 1-25 mit expliziten Markern »<!-- Slide number: N -->«, Notes an der richtigen Folie (besser als die Referenz, die sie ans Dokumentende hängt).",
+    "Rauschen, keine Halluzination: Bild-Referenzen »![head.jpg](Inhaltsplatzhalter17.jpg)« zeigen auf nicht existierende Dateien (echte Part-Namen aus der PPTX); leeres »### Notes:« unter Folie 1; Folientitel bleiben unausgezeichnete Absätze (Headings nur für Notes/Chart-Labels).",
+    "Treue im Detail sauber: Umlaute vollständig (umlaut_recall 1,0), Original-Eigenheiten unrepariert durchgereicht (»Abonennten«, »erbacht«, »Im Bezug auf« — korrekt so), Markdown-Escaping fachgerecht (»Kk\\* 1.064«)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

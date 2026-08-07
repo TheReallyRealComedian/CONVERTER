@@ -1,0 +1,18 @@
+{
+  "klasse": "06",
+  "kandidat": "gemini-nativ",
+  "treue": 3,
+  "vollstaendigkeit": 4,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 3,
+  "befunde": [
+    "Rechtszitat im Datenschutzhinweis umgeschrieben: Output »ist Ihre Mitwirkung nach § 10 Abs. 2 SGB V erforderlich« — Original (S. 2 unten): »ist Ihr Mitwirken nach §§ 10 Abs. 6, 289 SGB V erforderlich«. Absatz-Nummer erfunden, »289 SGB V« entfallen — auf einem Rechtstext genau die Reparatur, die die Rubrik verbietet.",
+    "Erfundenes Ankreuzkästchen: »☐ Beginn der Familienversicherung« als Option in der Anlass-Liste — im Original (S. 1) ist »Beginn der Familienversicherung: ____« eine eigene Pfeil-Zeile mit Ausfülllinie, ohne Kästchen; die Ausfülllinie fehlt im Output.",
+    "»Die bisherige Versicherung«: Original hat »○ endete am: ○ bestand bei: (Name der Krankenkasse)« als Aufzählung in der Label-Spalte mit Punktlinien in allen 4 Datenspalten — Output macht daraus »☐ endete am: _____ ☐ besteht bei: …« nur in der Ehegatte-Spalte: zwei erfundene Checkboxen, »bestand« → »besteht«, Spaltenzuordnung falsch.",
+    "Ehegatte-Spalte bei Schulbesuch/Studium und Wehrdienst als »vom _____ bis _____« befüllbar dargestellt — das Original zeigt dort »—« (nicht zutreffend); zusätzlich Glättung »ab 23. Jahren« statt »ab 23 Jahren«.",
+    "Satz fehlt komplett: »Mit der Unterschrift erkläre ich, die Zustimmung der Familienangehörigen zur Abgabe der erforderlichen Daten erhalten zu haben.« (S. 2, linke Spalte unter der Unterschriftszeile) — nur der rechte Teilsatz (»Bei getrennt lebenden …«) ist da.",
+    "Sonst sehr hohe Treue trotz Degradation: S. 2 trotz 180°-Drehung korrekt reorientiert, Umlaute durchgängig korrekt, der lange Hinweis-Absatz (»Nachfolgende Daten sind grundsätzlich …«) wortgleich, alle Tabellen als saubere Tabellen, Fußnote * vollständig (unter die Tabelle gezogen — vertretbar), keine ausgefüllten Blanko-Felder, keine Loops."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

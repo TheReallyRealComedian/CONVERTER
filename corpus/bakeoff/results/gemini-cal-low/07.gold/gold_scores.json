@@ -1,0 +1,106 @@
+{
+ "text": {
+  "word_recall": 0.9474,
+  "word_precision": 0.9384,
+  "word_f1": 0.9429,
+  "words_ref": 418,
+  "words_out": 422,
+  "top_missing": [
+   "EUR×12",
+   "×5",
+   "Selbstständige×1",
+   "selbstständiger×1",
+   "Ort×1",
+   "Unterschrift×1",
+   "ggf×1"
+  ],
+  "top_invented": [
+   "EUR×12",
+   "×9",
+   "Selbständige×1",
+   "selbständiger×1",
+   "Ort×1",
+   "Unterschrift×1",
+   "ggf×1"
+  ],
+  "cer": 0.0268
+ },
+ "cells": {
+  "cell_recall": 0.6494,
+  "cell_precision": 0.5814,
+  "cells_gold": 77,
+  "cells_out": 86,
+  "top_missing_cells": [
+   "EUR×12",
+   "×5",
+   "  ×4",
+   "Selbstständige Tätigkeit liegt vor×1",
+   "Gewinn aus selbstständiger Tätigkeit (monatlich.) Bitte Kopi×1",
+   "Sonstige regelmäßige monatliche Einkünfte im Sinne des Einko×1",
+   "Ort, Datum×1",
+   "Unterschrift×1",
+   "ggf. Unterschrift der Familienangehörigen×1"
+  ],
+  "top_invented_cells": [
+   "×21",
+   "EUR×12",
+   "Selbständige Tätigkeit liegt vor×1",
+   "Gewinn aus selbständiger Tätigkeit (monatlich.) Bitte Kopie ×1",
+   "Sonstige regelmäßige monatliche Einkünfte im Sinne des Einko×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "vorhanden_unstrukturiert",
+   "Sonstige Angaben zu Familienangehörigen": "vorhanden_unstrukturiert",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "vorhanden_unstrukturiert"
+  },
+  "gleichwertig_erfuellt": "0/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 67,
+  "checkbox_gold": 16,
+  "checkbox_out": 16
+ }
+}

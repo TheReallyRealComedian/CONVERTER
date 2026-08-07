@@ -1,0 +1,47 @@
+{
+  "klasse": "13",
+  "judge_familie": "Claude (Fable 5) — bewusst ungleich Gemini, da Gemini als Kandidat antritt",
+  "stichprobe": {
+    "seiten": ["p1", "p2", "p17", "p18", "p32"],
+    "klassifikation_verifiziert": {
+      "p1": "nativ (Titelblock in Textebene, Referenz Z. 1–17)",
+      "p2": "reiner Scan (Twitter/Portal-Collage; Textebene nur Footer + '2')",
+      "p17": "reiner Scan (davaidavai-Blog, EN; Textebene nur Footer + '17')",
+      "p18": "Scan mit nativem Textfragment ('#newtwitter' steht in der Textebene, Sidebar nur im Bild)",
+      "p32": "Bild-Tweets ohne Textebene (Footer + '32')"
+    }
+  },
+  "kernfragen": {
+    "kommen_die_scans_raus": "Nur eigenbau liefert die Scan-Stichproben 2/17/18 inhaltlich korrekt (verpasst aber 32); tesseract liefert ALLE Seiten, davon 32 gut, 17 lesbar, 2 als Kauderwelsch; gemini-nativ lässt 2 und 17 leer (Footer bzw. toter Bild-Link); docling und textlayer lassen 2/18/32 leer.",
+    "bleiben_die_nativen_verlustfrei": "textlayer und eigenbau: ja, byte-treu. gemini-nativ: inhaltlich treu, aber reflowed/restrukturiert. tesseract: nein — Re-OCR beschädigt Zahlen ('über /,/ Mio' statt '7,7 Mio', S. 20). docling: nein — Body-Text der nativen Folien 5–8 komplett zu '<!-- image -->' degradiert.",
+    "docling_recall_0_60_was_fehlt": "Der Recall misst gegen die rein NATIVE Referenz, und dort fehlt: der gesamte Folien-Body von S. 5–8 (nur Überschriften überleben), die Roadmap-Timeline von S. 4, die Chart-Legende von S. 21 ('Vodafone_de, 1und1, …'), S. 18 komplett inkl. des nativen '#newtwitter', dazu 32× deduplizierte Footer/Seitenzahlen. Die zusätzlich fehlenden Scan-Seiten (2, 9, 13–16, 32) stehen gar nicht in der Referenz — doclings Problem in dieser Klasse ist, dass es ausgerechnet die falsche (native) Hälfte verliert."
+  },
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "eigenbau",
+      "begruendung": "Einziger Kandidat, der beide Klassen-Hälften trifft — native Seiten byte-treu, Scan-Stichproben 2/17/18 reich und render-verifiziert korrekt —, gedämpft durch zu konservatives Routing (S. 32 und weitere 'wenig-Inhalt'-Scans bleiben Stubs) und unsichtbar aufgefüllte Beschnitt-Lücken auf der HORIZONT-Seite."
+    },
+    {
+      "platz": 2,
+      "kandidat": "gemini-nativ",
+      "begruendung": "Beste Einzelseiten-Qualität des Felds (S. 19–30 sauber strukturiert, Crops diszipliniert fragmentarisch belassen), aber die Klasse wird halb verfehlt: S. 2 kommt als nackte Footer-Zeile, S. 13–17 nur als tote Bild-Platzhalter heraus."
+    },
+    {
+      "platz": 3,
+      "kandidat": "tesseract",
+      "begruendung": "Erfüllt als einziger die Abdeckungs-Hälfte der Klasse (alle Seiten mit Inhalt, S. 32 exklusiv), bezahlt aber mit zerstörter Treue auf nativen Seiten ('/,/ Mio') und Kauderwelsch auf feinteiligen Scans (S. 2) — Rohstoff, kein Ergebnis."
+    },
+    {
+      "platz": 4,
+      "kandidat": "textlayer",
+      "begruendung": "Byte-perfekte native Hälfte, aber per Konstruktion null Scan-Inhalt (44 % der Seiten leer) — die ehrliche Baseline für genau das Versagensmuster, das die Klasse prüft."
+    },
+    {
+      "platz": 5,
+      "kandidat": "docling",
+      "begruendung": "Verliert beide Hälften zugleich: native Folien-Bodies (5–8) werden zu Bild-Markern, die meisten Scan-Seiten (2, 9, 13–16, 18, 32) fehlen ganz, und das Gelieferte trägt Spalten-Verschränkung und OCR-Müllzeilen."
+    }
+  ],
+  "eigener_augenschein_vs_scores": "Kein Widerspruch zwischen Judge-Eindruck und Zahlen; bemerkenswert: die Summen-Optik (gemini-nativ 18 > eigenbau 17) widerspricht dem Ranking bewusst, weil die Klasse Scan-Abdeckung und native Verlustfreiheit prüft und nicht Politur — eigenbau gewinnt beide Kern-Achsen der Stichprobe (4 von 5 Seiten voll vs. 1,5 von 5). Auffälligster Einzelbefund: docling/tesseract/gemini-nativ zeigen auf S. 12 identische Beschnitt-Fragmente ('Kooperati', 'U nehmen', 'v Berlemann'), eigenbau schreibt dort flüssigen Volltext — dreifach belegte, unsichtbare LLM-Rekonstruktion als Klassenrisiko."
+}

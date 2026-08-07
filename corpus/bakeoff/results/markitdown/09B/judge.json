@@ -1,0 +1,20 @@
+{
+  "klasse": "09B",
+  "kandidat": "markitdown",
+  "treue": 4,
+  "vollstaendigkeit": 4,
+  "struktur": 3,
+  "lesereihenfolge": 3,
+  "halluzination": 5,
+  "befunde": [
+    "SmartArt (slide70, diagrams/data1.xml) komplett verloren: 'Board / HR / R&D / Sales & Marketing / Finance & Purchase / Production' (Referenz Z.705-710) fehlt vollstaendig — wie bei allen vier Kandidaten. Slide 70 traegt nur 'Data and Information needed' / 'Processes with automation potential'.",
+    "EINZIGER Kandidat mit Speaker-Notes: '### Notes:'-Bloecke tragen das AlphaGo-Zitat \"It's not a human move. I've never seen a human play this move\" (Slide 10, Referenz Z.712) und ALLE 9 Quell-URLs (ageas.co.uk, tractable.ai, autoauctionmall, techcrunch, youtube, 3dprint.com/109310, autodeskresearch, airbus.com, 3dprintingindustry — grep-verifiziert). 931 Zeichen Notes-Inhalt vollstaendig; nur die Notes, die bloss die Foliennummer enthalten, erscheinen als leere '### Notes:'-Header.",
+    "Die 7 Tabellen (Folie 49) mit Daten und korrekter Paarung: '| projects: 99 |' / '| success rate: 40% |' bis '43/37%' (Referenz Z.294-323).",
+    "Bonus-Extraktion: die eingebettete Google-Trends-Chart der Avocado-Folie kommt als '### Chart'-Tabelle mit ~215 echten Datenzeilen aus dem Chart-Cache (nicht erfunden, in der a:t-Referenz naturgemaess nicht enthalten); Schoenheitsfehler: Excel-Serialdaten als Rohzahlen ('40825') und die Serienbezeichnung klebt an der letzten Zeile ('| 42638 | 69.0 |avocado').",
+    "Treue hoch: Quell-Tippfehler unrepariert ('# Checlist' auf Stichprobe p96, 'ARTIFICAL INTELLIGENCE', 'Hightlight Skills'), Blanko-Felder bleiben blanko; die Bild-Beschreibungen ('Ein Bild, das Sushi, Gericht, Essen enthaelt...') sind KEINE Tool-Halluzination, sondern PowerPoints im File gespeicherte Auto-Alt-Texte, durchgereicht.",
+    "Strukturverlust bei Listen: saemtliche Bullets werden zu Flachzeilen (keine einzige '- '-Liste im Output), die nummerierte 1.-4.-Liste der Checlist-Folie ebenso; dutzende leere '#'-Ueberschriften als Rauschen (z.B. Slides 3, 4, 8, 13, 44); dafuer Tabellen und Chart sauber als Pipe-Tabellen.",
+    "Lesereihenfolge folgt der XML-Shape-Reihenfolge: Sprechblase 'Intro zu HYVE...' vor dem Titel auf Folie 1 (Stichprobe p1), '05 Entscheidungs-fundierung' vor '04 Datenreport' auf der Company-Folie, Prozess-Schritte der Rezept-Trend-Folie verwuerfelt (beginnt mit 'The Row Selector...'). Dafuer beste Folien-Traceability: '<!-- Slide number: N -->' fuer alle 98 Folien inkl. der versteckten 33/34.",
+    "Vollstaendigste Textabdeckung im Feld: Folie 53 mit allen 13 Kacheln inkl. 'Marketing'/'Sales', die unstructured verliert; einziger Verlust gegenueber der Referenz ist das SmartArt."
+  ],
+  "gesamturteil": "brauchbar"
+}

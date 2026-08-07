@@ -1,0 +1,24 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 0,
+ "html_tables": 0,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 0,
+  "h2": 6,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 0,
+ "checkbox_tokens": 75,
+ "chars_out": 4784,
+ "words_out": 640,
+ "umlauts_out": 31,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_flag": false,
+ "_ref": null
+}

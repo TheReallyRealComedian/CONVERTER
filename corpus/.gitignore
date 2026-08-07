@@ -34,6 +34,9 @@ intern/
 bakeoff/envs/*/
 bakeoff/derived/
 bakeoff/results/_references/
+# _judge: Seiten-Renders sind abgeleitet (ignoriert), aber die Verdikte und
+# die Stichproben-Definition sind Mess-Evidenz und bleiben versioniert.
+bakeoff/results/_judge/**/*.png
 
 # Roh-Outputs (output.md): die Grenze läuft nach REPRODUZIERBARKEIT, nicht
 # nach Größe. Ein Score ohne den Text dahinter ist nicht nachprüfbar —
@@ -57,3 +60,6 @@ bakeoff/results/**/output.md
 !bakeoff/results/*/01.gold/output.md
 !bakeoff/results/*/07.gold/output.md
 !bakeoff/results/*/08/output.md
+# Sidecar-Versuche modellgestuetzter Laeufe (attempt*.output.md) sind
+# dieselbe Spur wie output.md — ein wiederholter Lauf ersetzt sie nicht.
+!bakeoff/results/**/attempt*.output.md

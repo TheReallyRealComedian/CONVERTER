@@ -1,0 +1,18 @@
+{
+  "klasse": "06",
+  "kandidat": "eigenbau",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Rechtszitat ziffernexakt trotz Kopie-der-Kopie: »ist Ihr Mitwirken nach §§ 10 Abs. 6, 289 SGB V erforderlich« — deckungsgleich mit dem Datenschutzhinweis am Fuß von S. 2 (im Scan kopfständig), inkl. »§§ 10, 284 SGB V, § 7 KVLG, § 25 SGB XI«.",
+    "S. 2 ist im Scan um 180° gedreht — der Output liefert sie korrekt reorientiert und in logischer Lesefolge (»Angaben zur letzten bisherigen …« → »Sonstige Angaben …« → »Krankenversichertennummer« → Bestätigung → Unterschriftszeile → Datenschutzhinweis).",
+    "Blanko bleibt blanko: alle Ankreuzkästchen durchgängig leer (»☐«), Ausfülllinien leer (»_____«, »vom .......... bis ..........«), keine Wiederholungs-Loops auf den Punktlinien, kein einziges ausgefülltes Feld.",
+    "Ehegatte-Spalten-Semantik exakt erhalten: »—« bei Verwandtschaftsverhältnis, »Ist der Ehegatte mit dem Kind verwandt?«, Schulbesuch/Studium und Wehrdienst — wie im Original (Strich = nicht zutreffend), wo gemini-nativ dort Felder erfindet.",
+    "Merged-Cell-Artefakt: die Fußnote »* Bei fehlender Namensgleichheit …« und der Hinweis »Die folgenden Angaben werden nur dann benötigt …« stehen als 5-fach duplizierte Zellen in allen Spalten statt einmal als übergreifende Zeile — inhaltlich korrekt, aber Putz-Nacharbeit.",
+    "Einzige Wortlaut-Abweichung: »Selbständige Tätigkeit« / »aus selbständiger Tätigkeit« statt Original »Selbstständige/selbstständiger« (Tabelle »Sonstige Angaben«, Zeilen 1–2) plus Interpunktions-Kleinigkeiten (»(monatlich),« statt »(monatlich.)«); alle Umlaute im gesamten Dokument korrekt."
+  ],
+  "gesamturteil": "brauchbar"
+}

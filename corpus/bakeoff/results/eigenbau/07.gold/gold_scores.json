@@ -1,0 +1,107 @@
+{
+ "text": {
+  "word_recall": 0.9617,
+  "word_precision": 0.8816,
+  "word_f1": 0.9199,
+  "words_ref": 418,
+  "words_out": 456,
+  "top_missing": [
+   "×15",
+   "Ort×1"
+  ],
+  "top_invented": [
+   "Angaben×4",
+   "Die×4",
+   "wurde×4",
+   "Rentenversicherungsnummer×4",
+   "folgenden×4",
+   "werden×4",
+   "nur×4",
+   "dann×4",
+   "benötigt×4",
+   "wenn×4",
+   "noch×4",
+   "keine×4",
+   "vergeben×4",
+   "×1",
+   "Ort×1"
+  ],
+  "cer": 0.1477
+ },
+ "cells": {
+  "cell_recall": 0.7662,
+  "cell_precision": 0.7763,
+  "cells_gold": 77,
+  "cells_out": 76,
+  "top_missing_cells": [
+   "  ×4",
+   " (Nachname)  (Vorname)×4",
+   "EUR  (Art der Einkünfte)×4",
+   "×3",
+   "Ort, Datum×1",
+   "Unterschrift×1",
+   "ggf. Unterschrift der Familienangehörigen×1"
+  ],
+  "top_invented_cells": [
+   " ×4",
+   "(Nachname)  (Vorname)×4",
+   "EUR (Art der Einkünfte)×4",
+   "Die folgenden Angaben werden nur dann benötigt, wenn noch ke×4",
+   "×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "ueberschrift",
+   "Sonstige Angaben zu Familienangehörigen": "ueberschrift",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "ueberschrift"
+  },
+  "gleichwertig_erfuellt": "3/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 29,
+  "checkbox_gold": 16,
+  "checkbox_out": 16
+ }
+}

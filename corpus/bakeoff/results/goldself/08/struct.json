@@ -1,0 +1,53 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 18,
+ "html_tables": 2,
+ "colspan_attrs": 5,
+ "rowspan_attrs": 2,
+ "headings": {
+  "h1": 0,
+  "h2": 2,
+  "h3": 4,
+  "h4": 0
+ },
+ "footnote_defs": 1,
+ "fill_tokens": 0,
+ "checkbox_tokens": 0,
+ "chars_out": 4667,
+ "words_out": 394,
+ "umlauts_out": 42,
+ "max_line_repeat": 3,
+ "max_ngram_repeat": 1,
+ "word_recall": 0.239,
+ "word_precision": 0.9949,
+ "word_f1": 0.3854,
+ "words_ref": 1640,
+ "top_missing": [
+  "die×56",
+  "der×41",
+  "und×31",
+  "für×25",
+  "zu×18",
+  "1×17",
+  "3×17",
+  "sind×16",
+  "ist×15",
+  "auf×14",
+  "im×14",
+  "von×13",
+  "des×13",
+  "das×12",
+  "als×12"
+ ],
+ "top_invented": [
+  "Bild×1",
+  "Unternehmensressourcen×1"
+ ],
+ "length_ratio": 0.257,
+ "umlauts_ref": 162,
+ "umlaut_recall": 0.259,
+ "order_lcs": 0.2384,
+ "loop_flag": false,
+ "_ref": "08.txt"
+}

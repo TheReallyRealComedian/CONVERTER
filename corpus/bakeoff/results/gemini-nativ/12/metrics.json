@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-nativ",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-07T18:43:44",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 1564.03,
+ "max_rss_mb": {
+  "self": 128.8,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.1,
+  "children": 0.0
+ },
+ "model_calls": 28,
+ "tokens_in": 155344,
+ "tokens_out": 417548,
+ "cost_usd": 3.364626,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "medium",
+  "chunks": 28,
+  "chunk_pages": 10,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 1329695
+}

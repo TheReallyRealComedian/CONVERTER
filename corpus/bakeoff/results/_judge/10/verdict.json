@@ -1,0 +1,55 @@
+{
+  "klasse": "10",
+  "judge_familie": "Claude (Subagent, Fable 5)",
+  "vergleichsbasis": "results/_references/10.txt (kompletter Seitentext inkl. Boilerplate, 596 Zeilen) + Kopf/Markup-Stichproben der Quelldatei corpus/10_html-artikel/spiegel-online_0,1518,455401,00.html (Heading-Tags, alt-Texte, Autorenzeile, document.write-Blöcke)",
+  "hinweis": "Bewertungs-Prämisse laut Auftrag: trafilaturas Zweck IST Artikel-Extraktion — entfernte Navigation/Teaser/Footer zählen nicht als Unvollständigkeit, solange der Artikel selbst komplett ist. Die beiden unstructured-Outputs sind byte-identisch (MD5 c68604b660ca84e77c9273a117abbb2e) — Platz 2/3 ist formal, die Reihenfolge trägt keine Qualitäts-Information; pin steht als gepinnte Baseline vorn (und war nebenbei 50 % schneller bei 27 % weniger RSS).",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "trafilatura",
+      "begruendung": "Der Artikel selbst ist wortgetreu, in korrekter Reihenfolge und im Fließtext lückenlos (Zeilenabgleich: keine fehlende Artikelzeile inkl. 7-Tab-Infokasten und Nachtrag), die Boilerplate ist bis auf <2 % Residuen (©-Block, ein nackter Kasten-Titel, halber Forum-Kasten) restlos weg und als einziger Kandidat trägt er die Original-URLs — aber der komplette Artikelkopf fehlt: Dachzeile „KORRUPTES WEB 2.0“, Überschrift „Verraten und verkauft“, Autorenzeile „Von Christian Stöcker“ und Datum sind ersatzlos verloren und müssen aus Metadaten nachgerüstet werden."
+    },
+    {
+      "platz": 2,
+      "kandidat": "unstructured-pin",
+      "begruendung": "Nichts fehlt (nur 3 von 596 Referenzzeilen, davon eine im JavaScript) — Artikelkopf samt Autor und Datum als einziger Kandidat komplett —, aber der im Klassen-README benannte Fehlermodus tritt exakt ein: ein Navigationsverzeichnis mit einem Artikel darin, ~31 % des Outputs sind Ressortmenü/Marginalspalten/Footer, der Artikeltitel liegt als H3 unter dem Site-H1 begraben, Bildunterschriften doppeln sich per alt-Text und die <b>-Zwischenüberschriften verlieren ihre Fettung."
+    },
+    {
+      "platz": 3,
+      "kandidat": "unstructured-neu",
+      "begruendung": "Byte-identisch zu unstructured-pin — identische Stärken und Schwächen; Platz 3 ausschließlich, weil das Format eine Reihenfolge verlangt. Der Versionsbump 0.18.32→0.24.1 ändert am Output dieser Klasse nichts, kostet aber +50 % Laufzeit und +37 % Peak-RSS."
+    }
+  ],
+  "scores": {
+    "trafilatura": {
+      "treue": 5,
+      "vollstaendigkeit": 3,
+      "struktur": 4,
+      "lesereihenfolge": 5,
+      "halluzination": 5,
+      "gesamturteil": "brauchbar mit Nacharbeit"
+    },
+    "unstructured-pin": {
+      "treue": 4,
+      "vollstaendigkeit": 5,
+      "struktur": 3,
+      "lesereihenfolge": 5,
+      "halluzination": 5,
+      "gesamturteil": "brauchbar mit Nacharbeit"
+    },
+    "unstructured-neu": {
+      "treue": 4,
+      "vollstaendigkeit": 5,
+      "struktur": 3,
+      "lesereihenfolge": 5,
+      "halluzination": 5,
+      "gesamturteil": "brauchbar mit Nacharbeit"
+    }
+  },
+  "kernfragen": {
+    "artikel_vollstaendig": "unstructured (beide): ja, restlos — Kopf (Dachzeile/Titel/Autor/Datum), Vorspann, Fließtext, beide Bildunterschriften, 7-Tab-Infokasten, Nachtrag. trafilatura: Fließtext/Vorspann/Infokasten/Nachtrag lückenlos, aber Dachzeile, Überschrift, Autorenzeile und Datum fehlen ersatzlos — der einzige echte Artikel-Verlust in dieser Klasse.",
+    "boilerplate_mitgeschleppt": "unstructured (beide): ≈5,5 von 18 KB (31 %) vor/nach dem Artikelblock (Ressortmenü als Nested-Lists, Marginalspalten TOP 3/EXKLUSIV/SILBERSCHEIBEN/COM!X/SERVICE-ANGEBOTE/SPIEGEL-DOSSIERS, MELDUNGEN AUS ANDEREN RESSORTS, Footer-Sitemap) plus Social-Bookmark-Zeile und Teaser-Kästen im Block — der README-Fehlermodus „Navigationsverzeichnis mit einem Artikel darin“ wörtlich. trafilatura: <2 % Residuen (©-Block, nackter „ZUM THEMA“-Kasten-Titel ohne Items, halber Forum-Kasten).",
+    "keine_reparaturen": "Beide Seiten regelkonform: Quell-Eigenheiten „buhlen bei Surfen“, Doppel-Leerzeichen „Eine  Kombination“ und kleingeschriebenes „das vermischen“ stehen unrepariert im Output; nichts erfunden — die scheinbaren unstructured-Zutaten („Großbildansicht“, doppelte Captions, „Forum/Forum“) sind im Quell-HTML als alt=-Texte belegt.",
+    "links": "trafilatura trägt als einziger Kandidat die Hyperlinks (~30 Markdown-Links mit Original-URLs); der unstructured-Serializer liefert nur Ankertexte — gegen die Seitentext-Referenz kein Verlust, für die Weiterverwendung aber ein realer Unterschied."
+  }
+}

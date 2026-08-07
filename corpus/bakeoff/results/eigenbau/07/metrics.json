@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "07",
+ "role": "main",
+ "input": "07_formular-punktlinien/aok_scan-300dpi.pdf",
+ "input_bytes": 4429198,
+ "started": "2026-08-07T19:17:23",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 83.48,
+ "max_rss_mb": {
+  "self": 256.2,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 2,
+ "tokens_in": 2618,
+ "tokens_out": 13461,
+ "cost_usd": 0.104884,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 9757
+}

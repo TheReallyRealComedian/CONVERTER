@@ -1,0 +1,19 @@
+{
+  "klasse": "13",
+  "kandidat": "eigenbau",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 3,
+  "lesereihenfolge": 4,
+  "halluzination": 3,
+  "befunde": [
+    "Das Routing funktioniert als einziges beidseitig: native Seiten kommen byte-treu aus der Textebene (Tippfehler 'Twitter-Accout', 'Landigpage' korrekt unrepariert), und die Scan-Stichproben S. 2, 17, 18 kommen mit reichem, am Render verifiziertem Inhalt heraus — S. 2 inkl. Stats '147 Following | 2,322 Followers | 83 Listed', Themen-Zeile 'VDSL | Speedport | Eumex | Sinus…' und Service-Center als echte 3-Spalten-Tabelle, alles deckungsgleich mit dem Original.",
+    "S. 17 nahezu fehlerfrei transkribiert: 'This morning I checked my German bank account and found out that 1,400 Euro were missing.' exakt wie im Render, Kerning-Eigenheiten des Originals erhalten statt geglättet ('simply followthis link'); S. 18 liefert Sidebar ('Telekom Kundenservice Mo. bis Sa. 8:00 bis 20:00 Uhr' — korrekt ≠ 'Mo. bis Fr.' von S. 2) plus '#newtwitter'.",
+    "Inhaltslücke in der Stichprobe: S. 32 blieb Textebenen-Stub ('32\\n32') — die beiden Abschieds-Tweets ('@Telekom_hilft Ich wollte Tschüß sagen und Danke für die schöne Zeit…' / '@BLUE_TW Wir sagen dann zum Abschied leise \"Servus\"…') fehlen komplett; außerhalb der Stichprobe blieben auch S. 11, 16, 24, 27–30 Stubs, obwohl dort nachweislich Dialog-Inhalt liegt (gemini-nativ/tesseract liefern ihn) — der Klassifikator routet 'wenig-Inhalt'-Scans zu konservativ.",
+    "Reparatur-Befund (außerhalb der Stichprobe, textlich dreifach belegt): Auf der HORIZONT-Seite (S. 12) zeigen docling, tesseract UND gemini-nativ identische Beschnitt-Fragmente ('Ausbau und plant Kooperati', 'Wo das U nehmen künftig präsent sein will, v Berlemann nicht', Headline '…Erwartungen der Nutze') — eigenbau schreibt dort durchgehend flüssigen Volltext ('plant Kooperationen mit anderen Plattformen. Wo das Unternehmen künftig präsent sein will, verrät Berlemann nicht', 'Nutzer'): unsichtbar ergänzte, im Bild nicht vorhandene Wortenden über ~15 Zeilen.",
+    "Kleine verifizierte OCR-Fehler auf S. 2: '@Zxister' statt lesbar '@Zaister', Team-Kürzel 'Tatjana ^sa / Sabrina ^ss / Romina ^rs' statt '^ta / ^sa / ^ro' (die eigene S.-9-Fassung hat dieselben Kürzel richtig); derselbe Tweet erscheint auf S. 2 als '@stephanto' und auf S. 9 als '@stephaniee' — mindestens eine Fassung falsch.",
+    "Erfundene Gliederungs-Etiketten auf Scan-Seiten: englische Editorial-Überschriften wie '# Twitter Profile & Web Portal: Telekom_hilft', '## Left Page:', '### Tweet History' stehen nicht im Original — als Tool-Zutat erkennbar, aber Zutat.",
+    "Native Seiten bleiben strukturlos (roher Textebenen-Dump ohne Überschriften, mit zerhackten Zeilen) — die Markdown-Qualität ist auf die Scan-Hälfte beschränkt."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

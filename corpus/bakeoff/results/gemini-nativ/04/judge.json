@@ -1,0 +1,19 @@
+{
+  "klasse": "04",
+  "kandidat": "gemini-nativ",
+  "bewertete_fassung": "output.md vom Re-Run 2026-08-07 19:52 (max_output_tokens=65536, 4-Seiten-Chunks, warnings leer); Versuch 1 mit 192-Zeilen-Loch liegt als attempt1.output.md daneben — das Loch war ein Harness-Artefakt (Abbruch exakt am 32768er-Output-Deckel), kein Kandidaten-Verhalten",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Vollständig UND zellgenau: alle 655 Angebots-Zeilen vorhanden (Substring-Test: 0 fehlend), 655/655 im programmatischen Voll-Abgleich gegen den Text-Layer wert-exakt, 0 Mismatches; der vormals fehlende Bereich S. 7-11 ist komplett und stimmt gegen die Original-Seiten (Hit Radio Antenne 1.259/0,5/0,24/2,62 S. 7; praline INTERAKTIV 979/12,66 S. 7; Finya.de 741/163,21 und macnews.de 568/3,69 S. 8; das S.-7-Schlusspaar 'Heilbronner Stimme online 996/5,08' + 'inside-digital.de 956/1,67', das docling zu einer Zeile verschmolzen hatte, steht sauber getrennt).",
+    "Verbundene Zellen überleben als echte Struktur — einziger Kandidat: 8 HTML-Tabellen, jede mit '<th rowspan=\"2\"></th>', '<th rowspan=\"2\">Fälle<br>(ungew.)</th>', '<th colspan=\"4\">Netto-RW (Unique User)</th>', '<th colspan=\"2\">Brutto-Reichweite<br>(Kontakte)</th>' (16× rowspan, 8× colspan-4, 8× colspan-2); kleiner Abzug: laut Klassen-README (geometrisch verifiziert) spannt Netto-RW 3 Spalten — colspan=4 zieht den Aff.-Index mit unter die Gruppe.",
+    "Formatbruch in der Dokumentmitte: die Seiten 5-8 (Chunk 2) kommen als 4 Pipe-Tabellen statt HTML — dort sind die Spans nur positionell angedeutet, aber korrekt ausgerichtet: Gruppenzeile '| | | Netto-RW (Unique User) | | | | Brutto-Reichweite (Kontakte) | |' startet über '%' bzw. 'Kontakte Mio', die Spaltenzeile ('| | Fälle (ungew.) | % | …') sitzt spaltenrichtig über den Daten (der Ein-Spalten-Versatz aus Versuch 1 ist weg).",
+    "12 Einzeltabellen (eine pro Seite) statt einer durchgehenden Tabelle — der Kopf geht an keiner Seitengrenze verloren (Bonus-Kriterium des READMEs damit erfüllt, Tabellen-Einheit nicht).",
+    "Der Rest-Wort-Recall (0,983 laut Harness; eigene Multiset-Messung 0,963) ist vollständig als Normalisierung erklärt, nicht als Verlust: es fehlen ausschließlich die 12× wiederholten Kopf-Label-Blöcke des Text-Layers ('Nutzer-'/'Aff.-'/'Index'/'Kontakt-' je 12×, 'Anteil' 24×) und die pro Seite doppelte Overlay-Zeile mit entarteter Interpunktion ('MyVideo 31 633 17 4' etc.), die gemini überall zur EINEN sauberen Zeile normalisiert, wie sie auf der gerenderten Seite steht — kein einziges Inhaltswort fehlt.",
+    "Keine Reparaturen, nichts erfunden: 'arcor.de -' mit hängendem Bindestrich übernommen, leere Basis-Kontakte-Zellen bleiben leer, Kopfblock vollständig ('Quelle: AGOF internet facts 2010-I', beide Klammer-Zeilen, 'Zielgruppe: Basis'), Logo als '**TOP**' (steht so auf S. 1), Umlaute durchgehend korrekt (küchengötter.de, Telebörse.de, HÖRZU, Für Sie)."
+  ],
+  "gesamturteil": "brauchbar"
+}

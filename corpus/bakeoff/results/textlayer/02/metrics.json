@@ -1,0 +1,29 @@
+{
+ "candidate": "textlayer",
+ "class": "02",
+ "role": "main",
+ "input": "02_guideline/berichtsband_if2010_II.pdf",
+ "input_bytes": 350618,
+ "started": "2026-08-07T18:11:52",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 0.75,
+ "max_rss_mb": {
+  "self": 50.8,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 19.6,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "pages": 57,
+  "empty_pages": 0
+ },
+ "output_chars": 74685
+}

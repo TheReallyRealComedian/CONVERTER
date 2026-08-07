@@ -1,0 +1,125 @@
+{
+ "text": {
+  "word_recall": 0.9859,
+  "word_precision": 0.9511,
+  "word_f1": 0.9682,
+  "words_ref": 1559,
+  "words_out": 1616,
+  "top_missing": [
+   "⁵×3",
+   "Albert×2",
+   "ℓ×2",
+   "⁴×2",
+   "κ×2",
+   "Kumaret×1",
+   "characterized×1",
+   "hyperlinks×1",
+   "subset×1",
+   "obtaining×1",
+   "domain×1",
+   "followed×1",
+   "removed×1",
+   "10⁷×1",
+   "10⁸×1"
+  ],
+  "top_invented": [
+   "times×8",
+   "langle×4",
+   "rangle×4",
+   "k×3",
+   "4×3",
+   "5×3",
+   "10×3",
+   "Al×2",
+   "bert×2",
+   "and×2",
+   "sim×2",
+   "quad×2",
+   "text×2",
+   "WORLD×2",
+   "WIDE×2"
+  ],
+  "cer": 0.0676
+ },
+ "cells": {
+  "cell_recall": 0.8683,
+  "cell_precision": 0.8683,
+  "cells_gold": 357,
+  "cells_out": 357,
+  "top_missing_cells": [
+   "⟨k⟩×2",
+   "56, 627×2",
+   "70, 975×2",
+   "209, 293×2",
+   "22, 311×2",
+   "Internet, router∗×2",
+   "153, 127×1",
+   "225, 226×1",
+   "52, 909×1",
+   "1.8 × 10⁻⁴×1"
+  ],
+  "top_invented_cells": [
+   "⟨ k ⟩×2",
+   "56,627×2",
+   "70,975×2",
+   "209,293×2",
+   "22,311×2",
+   "Internet, router\\×2",
+   "153,127×1",
+   "225,226×1",
+   "52,909×1",
+   "1.8 × 10^-4×1"
+  ],
+  "shapes_gold": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ],
+  "shapes_out": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel2_stellungen": {
+  "familien": {
+   "ell_rand": "erhalten",
+   "ell_real": "erhalten",
+   "ell_pow": "erhalten",
+   "P_out": "erhalten",
+   "P_in": "erhalten",
+   "gamma_in": "erhalten",
+   "gamma_out": "erhalten",
+   "C_rand": "erhalten",
+   "dom_sup": "erhalten",
+   "exp_minus_4": "erhalten",
+   "exp_minus_5": "erhalten"
+  },
+  "zusammenfassung": {
+   "erhalten": 11,
+   "eingeebnet": 0,
+   "fehlt": 0
+  }
+ },
+ "eigenheiten": {
+  "nr_14_doppelt_15_fehlt": "erhalten",
+  "bereich_absteigend_636_618": "erhalten",
+  "punkt_460_902": "erhalten",
+  "komma_460_902": "erhalten"
+ }
+}

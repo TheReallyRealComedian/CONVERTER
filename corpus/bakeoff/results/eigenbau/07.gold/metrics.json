@@ -1,0 +1,29 @@
+{
+ "candidate": "eigenbau",
+ "class": "07",
+ "role": "gold",
+ "input": "derived/07_gold-seite2.pdf",
+ "input_bytes": 4428174,
+ "started": "2026-08-07T19:22:05",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 30.49,
+ "max_rss_mb": {
+  "self": 221.9,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 1,
+ "tokens_in": 1309,
+ "tokens_out": 5034,
+ "cost_usd": 0.039719,
+ "warnings": [],
+ "adapter_meta": {
+  "vision_model": "gemini-3.6-flash",
+  "gemini_enabled": true
+ },
+ "output_chars": 4575
+}

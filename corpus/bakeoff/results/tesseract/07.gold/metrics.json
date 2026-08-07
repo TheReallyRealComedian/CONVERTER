@@ -1,0 +1,31 @@
+{
+ "candidate": "tesseract",
+ "class": "07",
+ "role": "gold",
+ "input": "derived/07_gold-seite2.pdf",
+ "input_bytes": 4428174,
+ "started": "2026-08-07T18:17:27",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 13.77,
+ "max_rss_mb": {
+  "self": 115.8,
+  "children": 171.5
+ },
+ "rss_baseline_mb": {
+  "self": 18.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "tesseract": "tesseract 5.5.1",
+  "lang": "deu",
+  "dpi": 300,
+  "pages": 1
+ },
+ "output_chars": 2969
+}

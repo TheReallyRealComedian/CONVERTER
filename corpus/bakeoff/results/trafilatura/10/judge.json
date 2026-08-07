@@ -1,0 +1,20 @@
+{
+  "klasse": "10",
+  "kandidat": "trafilatura",
+  "treue": 5,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Gravierendster Einzelbefund — der Artikelkopf fehlt komplett: der Output beginnt direkt mit dem Vorspann „Nachrichten-Communities gehören zu den heißesten Trends im Netz…“; Dachzeile „KORRUPTES WEB 2.0“ (Quelle: <h4>, Referenz Z124), Überschrift „Verraten und verkauft“ (Quelle: <h3>, Z125), Autorenzeile „Von Christian Stöcker“ (Quelle: <p class=\"spAutorenzeile\">, Z126–127) und Datum „19. Dezember 2006“ (Z116) fehlen ersatzlos. Das sind Artikel-Kernteile, keine Boilerplate — für Library/Weiterverarbeitung muss der Titel nachgerüstet werden (trafilatura hätte ihn als Metadatum, der bewertete Output trägt ihn nicht).",
+    "Fließtext vollständig und wortgetreu: automatischer Zeilenabgleich gegen den Referenz-Artikelbereich (Z116–380, whitespace-normalisiert) findet außer Artikelkopf, Social-Bookmark-Zeile („webnews/folkd/Mister Wong/Linkarena/Schrift:“, gewollt weg) und den Teaser-Kästen KEINE fehlende Zeile — Vorspann bis „Nachtrag: Im Moment ist digg.com nicht zu erreichen - die Seite bekommt gerade ein neues Design.“ komplett, ebenso der komplette 7-Tab-Infokasten „WEB 2.0: DIE MITMACH-PLATTFORMEN…“ (MySpace bis Blogs) und beide Bildunterschriften („Digg-Pausenseite mit Schaufel: …“, „Friendly Vote: \"Bessere Marketing-Ergebnisse!\"“) je genau 1×.",
+    "Quell-Eigenheiten korrekt NICHT repariert: „buhlen bei Surfen um Aufmerksamkeit“ (sic, Referenz Z129–130), Doppel-Leerzeichen in „Eine  Kombination aus Flickr und YouTube“ (Z294), kleingeschriebenes „durch das vermischen, verknüpfen“ (Z329) — alle wörtlich übernommen; Umlaute trotz ISO-8859-1-Quelle (Adapter erkannte cp1252) durchgängig sauber („Augäpfel“, „Pädophilen“, „gewissermaßen“).",
+    "Als einziger Kandidat bleiben die Hyperlinks erhalten: ~30 Markdown-Links mit Original-URLs, z. B. „[Friendly Vote](http://www.friendlyvote.com/)“ und „[Tim O'Reilly sagte schon im November zu SPIEGEL ONLINE](http://www.spiegel.de/netzwelt/web/0,1518,451248,00.html)“.",
+    "Boilerplate-Entfernung erfüllt den Klassen-Zweck fast vollständig: Ressortmenü, Login-Block, Marginalspalten (TOP 3, EXKLUSIV, SILBERSCHEIBEN, COM!X, SERVICE-ANGEBOTE, SPIEGEL-DOSSIERS), „MELDUNGEN AUS ANDEREN RESSORTS“ und Footer-Sitemap sind restlos weg. Residuen unter 2 % des Outputs: der ©-Block am Ende („© SPIEGEL ONLINE 2006 / Alle Rechte vorbehalten / Vervielfältigung nur mit Genehmigung der SPIEGELnet GmbH“), ein nackter Kasten-Titel „#### ZUM THEMA IN SPIEGEL ONLINE“ ohne die zugehörigen drei Teaser darunter (Z85 im Output), und der halbierte Forum-Kasten: „Diskutieren Sie mit anderen SPIEGEL-ONLINE-Lesern!“ behalten, der Kasten-Titel „Das Mitmach-Web: Medienrevolution oder Seifenblase?“ (Referenz Z223–224) entfernt — inkonsequent, aber klein.",
+    "Zwischenüberschriften quelltreu als Fettung, nicht als Heading: „**Vermarkter bekommen weiche Knie**“, „**Digg hat ein gewaltiges Problem**“ — die Quelle setzt hier <b>, kein h-Tag; die Fettung bleibt (im Gegensatz zu unstructured) erhalten.",
+    "Kosmetik: Tab-/Leerzeichen-Restzeilen aus den Kasten-Layouts (z. B. um „Diskutieren Sie…“, Output Z115–121) und die über mehrere Zeilen gerissene Zitat-Konstruktion „Die Seite \" / [Friendly Vote](…) / \" preist sich selbst an…“ — quelltreu, liest sich aber holprig.",
+    "Nichts erfunden, keine ausgefüllten Lücken, keine ergänzten Header."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

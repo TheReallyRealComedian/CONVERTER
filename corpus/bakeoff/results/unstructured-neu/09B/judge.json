@@ -1,0 +1,20 @@
+{
+  "klasse": "09B",
+  "kandidat": "unstructured-neu",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 3,
+  "halluzination": 5,
+  "befunde": [
+    "SmartArt (slide70, diagrams/data1.xml) komplett verloren: 'Board / HR / R&D / Sales & Marketing / Finance & Purchase / Production' (Referenz Z.705-710) fehlt vollstaendig — wie bei allen vier Kandidaten.",
+    "Die 7 Tabellen (Folie 49) kommen MIT Daten und korrekter Paarung: '| projects:<br>99 |' / '| success rate:<br>40% |' bis '43/37%' — exakt die Referenz-Reihenfolge Z.294-323. Das ist der einzige inhaltliche Unterschied zu unstructured-pin (dort alle 14 Zahlen leer): der Versions-Bump 0.18.32->0.24.1 repariert mehrabsaetzige Tabellenzellen.",
+    "Speaker-Notes fehlen komplett (931 Zeichen): weder das AlphaGo-Zitat \"It's not a human move...\" (Referenz Z.712) noch die 9 Quell-URLs (ageas, tractable, techcrunch, airbus etc., Z.715-725).",
+    "Folie 53 verliert zwei von 13 Datenquellen-Kacheln: 'Marketing' und 'Sales' (Referenz Z.390-391) fehlen; markitdown und docling haben beide.",
+    "Treue hoch: Quell-Tippfehler unrepariert ('# Checlist', 'ARTIFICAL INTELLIGENCE', 'Hightlight Skills'), Umlaute korrekt, Blanko-Felder bleiben blanko, nichts erfunden.",
+    "Lesereihenfolge folgt der XML-Shape-Reihenfolge: Sprechblase vor Titel auf Folie 1 (Stichprobe p1), '05 Entscheidungs-fundierung' vor '04 Datenreport' auf der Company-Folie, Prozess-Schritte der Rezept-Trend-Folie verwuerfelt (beginnt mit 'The Row Selector...' statt 'User visits overview page', Referenz Z.577-587). Folien-Reihenfolge selbst korrekt, 'Seitenumbruch nach Seite N'-Marker pro Folie.",
+    "Struktur gut: Titel als H1, echte Bullet-Listen (z.B. die Application/Examples-Punkte der Stichprobe p1), Tabellen als Tabellen mit Inhalt; versteckte Folien 33/34 enthalten; auf der Checlist-Folie (Stichprobe p96) wird die nummerierte 1.-4.-Liste allerdings zu vier Flachabsaetzen.",
+    "Output ist bis auf die 14 Tabellenzellen byte-identisch mit unstructured-pin (diff-verifiziert) — Ranking-Differenz zu pin beruht allein auf dem Tabellen-Befund."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

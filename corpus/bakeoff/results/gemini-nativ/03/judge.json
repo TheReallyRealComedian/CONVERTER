@@ -1,0 +1,19 @@
+{
+  "klasse": "03",
+  "kandidat": "gemini-nativ",
+  "treue": 5,
+  "vollstaendigkeit": 5,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 4,
+  "befunde": [
+    "Inhaltlich der sauberste Kandidat: Set-Diff gegen die Referenz zeigt NULL verlorene Zelltexte — alle Stichproben-Anker intakt ('Mittelbayerische Zeitung' UND 'Mitteldeutsche Zeitung' p12, 'MTV' p20, 'NW-News (Neue Westfälische Zeitung)' ungebrochen), Umlaute korrekt, 'Quelle: AGOF e.V. / internet facts 2010-II' und alle Seitenfüße erhalten; 'LZ|NET' als einziger Kandidat korrekt escaped ('| LZ \\| NET |', Z. 138).",
+    "Kernfrage der Klasse verfehlt: pro Seite eine EIGENE Tabelle mit wiederholtem Kopf '| Übersicht der Angebote in der internet facts 2010-II |' — die eine 20-Seiten-Tabelle kommt als ~20 Fragmente heraus, getrennt durch '---' und Seitenfuß (z. B. Z. 45-54, p1→p2), exakt das im Klassen-README benannte Fragmentierungs-Muster.",
+    "Darstellungsbruch mitten im Dokument: Seiten 1-10 als Markdown-Tabellen mit gefetteten Gruppenzeilen ('| **ad pepper media** |'), ab Seite 11 KEINE Tabelle mehr, sondern '#### OMS'-Überschriften mit losen Textzeilen (Z. 558 ff.) — zwei Repräsentationen desselben Tabellentyps in einem Output; die Bild-Referenzen springen dort auf 'page_1_image_1.png' zurück (Chunk-Neustart).",
+    "Zuordnung Angebot→Vermarkter bleibt trotz Fragmentierung überall korrekt und in Original-Lesereihenfolge: Gruppenkopf stets vor seinen Angeboten (fett bzw. als '####'), auch über die Seitengrenze p11→p12 hinweg ('OMS' je Seite wiederholt wie in der Quelle).",
+    "Kleine Zutat: ab Seite 11 wird das AGOF-Logo als Text-Überschrift '# AGOF' ausgegeben (10×, z. B. Z. 560) — Transkription eines Bild-Wortmarks als Dokumentüberschrift, die es als Text im Original nicht gibt; auf Seiten 1-10 dagegen als Bildplatzhalter '![AGOF Logo](page1_img1.png)' mit generierten Dateinamen.",
+    "Einleitungsabsätze vollständig und wortgetreu als Fließtext erhalten (Z. 5-7); Doppel-Leerzeichen in 'competitionline  -  Wettbewerbe und Architektur' normalisiert (trivial); leere Trennzeilen der Quelle als '| |' beibehalten.",
+    "Nacharbeit für den Zweck der Klasse: 10 Tabellen mergen plus 10 Überschrift-Blöcke zurück in Tabellenform heben und 19 wiederholte Köpfe entfernen — mechanisch und verlustfrei möglich, aber genau die Arbeit, die der Konverter hätte leisten sollen."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

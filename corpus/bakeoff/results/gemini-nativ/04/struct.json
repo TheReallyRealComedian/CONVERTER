@@ -1,0 +1,53 @@
+{
+ "pipe_tables": 4,
+ "pipe_rows": 236,
+ "table_rows_max": 448,
+ "html_tables": 8,
+ "colspan_attrs": 16,
+ "rowspan_attrs": 16,
+ "headings": {
+  "h1": 0,
+  "h2": 0,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 0,
+ "checkbox_tokens": 0,
+ "chars_out": 99586,
+ "words_out": 8677,
+ "umlauts_out": 64,
+ "max_line_repeat": 2,
+ "max_ngram_repeat": 1,
+ "word_recall": 0.9828,
+ "word_precision": 0.9994,
+ "word_f1": 0.991,
+ "words_ref": 8824,
+ "top_missing": [
+  "100×36",
+  "0×21",
+  "1×10",
+  "2×5",
+  "de×5",
+  "4×3",
+  "8×3",
+  "7×3",
+  "31×3",
+  "3×2",
+  "5×2",
+  "51×2",
+  "50×2",
+  "70×1",
+  "54×1"
+ ],
+ "top_invented": [
+  "amp×4",
+  "TOP×1"
+ ],
+ "length_ratio": 1.109,
+ "umlauts_ref": 66,
+ "umlaut_recall": 0.97,
+ "order_lcs": 0.9697,
+ "loop_flag": false,
+ "_ref": "04.txt"
+}

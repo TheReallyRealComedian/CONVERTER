@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-nativ",
+ "class": "14",
+ "role": "main",
+ "input": "14_ocr-ebene-kaputt/Dahlhaus – ETA Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen.pdf",
+ "input_bytes": 603549,
+ "started": "2026-08-07T18:31:10",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 125.86,
+ "max_rss_mb": {
+  "self": 127.3,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 2,
+ "tokens_in": 8444,
+ "tokens_out": 28149,
+ "cost_usd": 0.223783,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "medium",
+  "chunks": 2,
+  "chunk_pages": 10,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 42011
+}

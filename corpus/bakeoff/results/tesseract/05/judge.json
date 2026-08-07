@@ -1,0 +1,18 @@
+{
+  "klasse": "05",
+  "kandidat": "tesseract",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Wortlaut der beiden Prüfabsätze fehlerfrei: S. 2 („E.T.A. Hoffmanns Rezension … begriff.\") und S. 86 („Beethoven rühmte … schweifendes Gefühl zu bleiben.\") ohne einen einzigen Wortfehler, alle Umlaute und ß korrekt („Mißverständnissen\", „zurückläßt\", „rühmte\", „bloß\", „Ästhetik\") — die 92,5er-Baseline-Konfidenz bestätigt sich am deutschen Fließtext voll.",
+    "Sperrsatz-Kernprobe bestanden (Sample-S. 86): „gewiß von einem fortdauernden Gefühl\" und „in einer Stimmung festhält\" — das gesperrte „e i n e m\"/„e i n e r\" des Renders ist korrekt zu Wörtern kollabiert, kein „ein em\"-Zerfall (die Hervorhebung geht verloren, wie bei allen Kandidaten).",
+    "Fußnotenziffern großflächig zerstört oder verloren: S. 2 „einschloß!\" (¹→!), „hinzugeben‘“?\" (²→?), „Welt‘“®\" (³→®), „Rede‘.\" und „begriff.\" (⁴/⁵ ersatzlos weg); S. 85 „erregt2®\", „ausgeht,\" (²⁹ weg), „ist‘‘3°,\", „kann“ ?t)\" (³¹→?t); S. 86 „Drang®®\", „festhält‘3®\". Der Apparat ist textlich komplett, aber die Anker sind vielfach nicht mehr auffindbar — für einen Fußnoten-Aufsatz die teuerste Schwäche.",
+    "Kleinfehler auf Sample-Seiten: „Instrumentierung ete.\" statt „etc.\" (S. 86), „IJSTOR\" (S. 1), JSTOR-URL zu „…R2IIZSHZA2HICTIKHZ3ZAETAHBUA3E…\" zerhackt (S. 1), wiederkehrend „8.\" statt „S.\" in Fußnoten („8. 50\" S. 86, „(Seifert, 8. 157)\" S. 92), Punkt→Komma nach hochgestellten Ankern („des Erhabenen“?\", Und der ‚Schrecken‘\" statt Punkt, S. 85).",
+    "Nullstruktur, aber nichts fehlt und nichts ist umgestellt: kein Markdown (keine Überschriften, keine Kursive der Werktitel), Trennstriche und Zeilenumbrüche bleiben stehen („ein-/schloß\"), Anführungszeichen als Glyphensalat (‚ ‘ ‘‘ „ gemischt) — dafür alle 15 Seiten inkl. Kopfzeilen und Impressum, Fußnoten sauber am Seitenfuß getrennt, Lesereihenfolge auf allen Sample-Seiten strikt korrekt, S. 92 inkl. „das Beharrliche\" fehlerfrei.",
+    "Nichts erfunden, nichts repariert: alle Schäden sind sichtbares Erkennungsrauschen, kein stiller Verlust — der komplementäre Fehlermodus zu eigenbau (stille fehlende Seite) und gemini-nativ (erfundene Kursive)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

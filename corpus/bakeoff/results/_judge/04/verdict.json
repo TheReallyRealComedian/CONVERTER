@@ -1,0 +1,36 @@
+{
+  "klasse": "04",
+  "klasse_name": "Verbundene Zellen (rowspan/colspan) — AGOF Ranking Angebote/Monat, 12 S., DE",
+  "judge_familie": "Claude (Subagent, Fable 5) — bewusst nicht Gemini-Familie, da Gemini als Kandidat antritt",
+  "stichprobe": ["p1", "p2", "p7", "p8", "p12"],
+  "methode": "Alle 4 Kandidaten gegen dieselben 5 gerenderten Seiten + programmatischer Voll-Abgleich aller Zeilenwerte gegen den nativen Text-Layer (results/_references/04.txt, 655 Angebots-Zeilen). gemini-nativ wurde nach dem Harness-Fix neu bewertet (Re-Run output.md vom 2026-08-07 19:52).",
+  "harness_notiz": "Versuch 1 von gemini-nativ brach exakt am Output-Deckel max_output_tokens=32768 ab (LEDGER tout=32764, Abschneide-Warnung im metrics.json) — das stille 192-Zeilen-Loch aus dem Erst-Urteil war ein HARNESS-Artefakt und wird dem Kandidaten nicht zugerechnet; nach Anhebung auf 65536 und 4-Seiten-Chunks lief die Konvertierung sauber durch (warnings leer, gemessene 55.453 Output-Tokens für 12 Seiten). Betriebs-Fußnote: tabellendichte Seiten brauchen >32k Output-Budget pro 10 Seiten.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "gemini-nativ",
+      "begruendung": "Einziger Kandidat, der die Klassenfrage löst: echte rowspan/colspan-Köpfe in 8 HTML-Tabellen bei vollständigen 655/655 zellgenau korrekten Zeilen (0 Wertfehler, 0 fehlende Zeilen, Kopfblock komplett) — Restmängel sind ein Formatbruch (S. 5-8 als korrekt ausgerichtete Pipe-Tabellen), colspan=4 statt der geometrisch verifizierten 3 für Netto-RW und die Aufteilung in 12 Seitentabellen."
+    },
+    {
+      "platz": 2,
+      "kandidat": "eigenbau",
+      "begruendung": "Solide brauchbare Fassung mit klar umrissener Nacharbeit: EINE durchgehende Tabelle über alle 12 Seiten mit 634/655 zellgenau korrekten Zeilen und 0 Wertfehlern, aber 12 zeichenverdoppelte Overlay-Zeilen ('MMyyVViiddeeoo | 3311.663333'), fehlender Quelle-/AGOF-Kopfblock, Müll-Fragmente am Dokumentanfang — und colspan/rowspan bleiben in Pipes prinzipiell unausgedrückt."
+    },
+    {
+      "platz": 3,
+      "kandidat": "docling",
+      "begruendung": "Fast alles vorhanden (nur 18 Namen fehlen als exakter String) und Kopfblock komplett, aber ~10% der Zeilen sind zell-unzuverlässig: 66 Zeilen mit verschobenen/geleerten Werten (TripAdvisors 2,19 steckt in Verivox' Zelle), ~50 paarweise verschmolzene Zeilen, Gruppenkopf mal fehlend (S. 1), mal in die Spaltenköpfe gebrochen (S. 8-11) — für ein Nachschlage-Ranking schwere, unmarkierte Nacharbeit."
+    },
+    {
+      "platz": 4,
+      "kandidat": "textlayer",
+      "begruendung": "Byte-treue, vollständige Rohspur (0 fehlende Zeilen) und als Referenz wertvoll, aber null Tabellenstruktur — 655 Zeilen als Ein-Wert-pro-Zeile-Kolonne mit nachlaufenden Kopf-Labels ist kein Konvertierungs-Ergebnis für diese Klasse."
+    }
+  ],
+  "kernfragen": {
+    "ueberleben_verbundene_zellen": "Nur bei gemini-nativ: echte <th rowspan=\"2\">/<th colspan> in 8 HTML-Tabellen (colspan=4 statt der geometrisch verifizierten 3 für Netto-RW — Aff.-Index faelschlich mit eingruppiert); auf S. 5-8 (Pipe-Chunk) nur positionell, aber spaltenrichtig. docling deutet Spans per Zell-Wiederholung an (inkonsistent: S. 1 fehlt der Netto-RW-Kopf, S. 8-11 ist er in die Spaltenkoepfe gebrochen), eigenbau setzt die Gruppenlabels als Einzelzellen an die Span-Startposition, textlayer hat gar keine Tabelle.",
+    "zahlen_zellgenau": "Ja bei allen dort, wo Zeilen intakt sind — programmatisch: gemini-nativ (Re-Run) 655/655 exakt, eigenbau 634/655 exakt (Rest = 12 zeichenverdoppelte Zeilen), docling 515/655 exakt + 66 Zeilen mit verschobenen Zellen, textlayer identisch mit Referenz. Kein Kandidat hat auch nur einen einzelnen falschen Zahlenwert erfunden; alle Fehler sind Struktur-/Merge-Schäden.",
+    "gemini_recall_0_70": "Aufgeklärt als Harness-Artefakt (s. harness_notiz): Versuch 1 verlor 192 zusammenhaengende Zeilen am 32768er-Output-Deckel. Im Re-Run (Recall 0,983) fehlt kein Inhaltswort mehr — der Restabstand zu 1,0 besteht ausschliesslich aus den 12× wiederholten Kopf-Label-Bloecken des Text-Layers und den pro Seite doppelten Overlay-Artefakt-Zeilen, die gemini zur einen sichtbaren Zeile normalisiert."
+  },
+  "quell_eigenheit": "Der native Text-Layer enthaelt pro Seite EINE Ranking-Zeile doppelt (Overlay-Artefakt, zweite Fassung mit Leerzeichen statt Interpunktion: 'MyVideo 31 633 17 4'); auf der gerenderten Seite steht die Zeile nur einmal. Umgang damit trennt das Feld: gemini-nativ normalisiert zur einen sauberen Zeile (korrekt), textlayer reicht beide durch (treu), docling verschmilzt tokenweise bzw. behaelt nur die entartete Fassung, eigenbau verschmilzt zeichenweise zu Garbage ('kküücchheennggöötttteerr.ddee')."
+}

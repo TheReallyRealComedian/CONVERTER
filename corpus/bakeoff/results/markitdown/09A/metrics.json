@@ -1,0 +1,28 @@
+{
+ "candidate": "markitdown",
+ "class": "09A",
+ "role": "main",
+ "input": "09_pptx-smartart/A_mehrspaltig-notes_Praesentation_final.pptx",
+ "input_bytes": 157450,
+ "started": "2026-08-07T18:18:26",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 4.15,
+ "max_rss_mb": {
+  "self": 159.3,
+  "children": 4.3
+ },
+ "rss_baseline_mb": {
+  "self": 18.1,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "markitdown_version": "0.1.7"
+ },
+ "output_chars": 19544
+}

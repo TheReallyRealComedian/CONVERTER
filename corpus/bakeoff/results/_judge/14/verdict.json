@@ -1,0 +1,35 @@
+{
+  "klasse": "14",
+  "judge_familie": "Claude (Fable 5, Subagent) — bewusst nicht Gemini, da Gemini als Kandidat antritt",
+  "stichprobe": ["p1.png (JSTOR-Deckblatt)", "p2.png (S. 79, Titel)", "p8.png (S. 85)", "p9.png (S. 86)", "p15.png (S. 92, Seifert-Zitat)"],
+  "praemissen_korrektur": "Die Klassen-README-Prämisse 'englisches Modell, jeden Umlaut verloren' ist gegen die Ebene selbst nachgemessen FALSCH: results/_references/14.txt trägt 549 korrekte Umlaute ('für' 17x, 'über' 34x, 'Ästhetik' 27x korrekt; 0x nacktes fur/uber). Kaputt ist die Ebene sporadisch, nicht flächig: exakt 2x 'Asthetik' (S.2-Titel Z. 21, S.14-Kolumnentitel Z. 640) plus ~13 Zeilen mit Einzelbrüchen ('W ~ M' statt 'Wenn', 'hin~ugeben', 'Theork der Schönen Kilnste', 'GeschZchte d e ~', 'Hoffrnanns Bcethoven-Kritik', ',,Schreckenfi,', 'Iäßt', 'x7' statt '27', 'Alusikästhetiker', '&thetische' und der Sachfehler '(Seifert,8.167)' statt '(Seifert, S. 157)'). Der Test 'fehlende Umlaute = durchgereicht' greift deshalb NICHT; Durchreich-Detektor sind die byte-gleichen Bruchstellen. Die Klassen-REGEL (kommentarloses Durchreichen = durchgefallen) bleibt davon unberührt gültig — aber der reale Schaden der Durchreicher ist punktuell, nicht flächig, und genau diese Unauffälligkeit ist die Schärfe der Falle.",
+  "meldungen": "KEIN Kandidat meldet irgendetwas: alle fünf metrics.json haben warnings: [], kein Output enthält einen Hinweis-/Degradationstext (geprüft via Volltext-Suche nach Hinweis/Warnung/OCR/Textebene/Qualität). Weg (b) der Klassen-Regel hat also niemand genommen; bestanden haben nur die zwei Kandidaten, deren Pfad die Ebene nie berührt.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "gemini-nativ",
+      "begruendung": "Liest die Seiten neu vom Bild: beide Bruchstellen korrekt ('Ästhetik' S.2 + S.14), '(Seifert, S. 157)' korrekt, 0 Layer-Signaturen, dazu die mit Abstand beste Struktur (52 verlinkte Fußnoten, kursive Werktitel, zusammengeführte Absätze) — besteht den Klassenzweck per Konstruktion, wenn auch ohne Detektion oder Meldung."
+    },
+    {
+      "platz": 2,
+      "kandidat": "tesseract",
+      "begruendung": "Der Rettungspfad tut, was die Klasse verlangt — die kaputte Ebene erreicht den Output nie ('Ästhetik'/'Gottfried'/'S. 157' korrekt) — kauft das aber mit eigenen frischen Fehlern ('8.' statt 'S.' in Zitaten, 'Gotifried', Marker-Müll) und roher Zeilen-Struktur."
+    },
+    {
+      "platz": 3,
+      "kandidat": "textlayer",
+      "begruendung": "Durchgefallen nach Klassen-Regel: reicht die Ebene 1:1 und kommentarlos durch (beide 'Asthetik'-Bruchstellen, 'W ~ M', '(Seifert,8.167)' byte-gleich) — als Output immerhin vollständig, ehrlich roh und ohne eigene Zusatzschäden; bester der drei Durchreicher."
+    },
+    {
+      "platz": 4,
+      "kandidat": "eigenbau",
+      "begruendung": "Durchgefallen mit identischem Text wie textlayer — verschärfend: der Gemini-Vision-Rettungspfad war installiert (gemini_enabled: true) und wurde nie betreten (model_calls: 0), weil der Klassifikator NATIVE stufte; das ist wortwörtlich das im Klassen-README beschriebene Versagen des Bestands."
+    },
+    {
+      "platz": 5,
+      "kandidat": "docling",
+      "begruendung": "Durchgefallen und dabei am gefährlichsten: reicht die Ebene trotz konfiguriertem rapidocr durch ('x7', 'Alusikästhetiker', 'Seifert, 8. 167' byte-gleich), formatiert die kaputte Titelzeile aber als saubere ##-Überschrift, wirft alle Kolumnentitel samt gedruckter Seitenzahlen weg und zerlegt Fußnote 49 ('Band Wien') — maximale Politur über stillem Defekt ist für diese Klasse die schlechteste Kombination."
+    }
+  ],
+  "kernbefund": "Die Klasse trennt exakt entlang des Pfads, nicht entlang der Sorgfalt: Wer die eingebackene Ebene liest (textlayer, eigenbau, docling), reicht ihre Bruchstellen byte-gleich und wortlos durch — bis hin zur falschen Zitat-Seitenzahl '(Seifert,8.167)' statt '(Seifert, S. 157)' —, wer die Pixel liest (gemini-nativ, tesseract), ist von allen Layer-Schäden frei. Ein Erkennen der kaputten Ebene oder eine Meldung leistet keiner der fünf."
+}

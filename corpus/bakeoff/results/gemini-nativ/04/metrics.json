@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-nativ",
+ "class": "04",
+ "role": "main",
+ "input": "04_verbundene-zellen/06_ranking_angebote_monat_if2010_I.pdf",
+ "input_bytes": 57313,
+ "started": "2026-08-07T19:49:02",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 178.86,
+ "max_rss_mb": {
+  "self": 126.3,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 19.7,
+  "children": 0.0
+ },
+ "model_calls": 3,
+ "tokens_in": 7068,
+ "tokens_out": 55453,
+ "cost_usd": 0.4265,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "medium",
+  "chunks": 3,
+  "chunk_pages": 4,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 99586
+}

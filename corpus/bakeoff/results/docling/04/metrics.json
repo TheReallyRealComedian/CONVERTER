@@ -1,0 +1,31 @@
+{
+ "candidate": "docling",
+ "class": "04",
+ "role": "main",
+ "input": "04_verbundene-zellen/06_ranking_angebote_monat_if2010_I.pdf",
+ "input_bytes": 57313,
+ "started": "2026-08-07T18:31:13",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 642.71,
+ "max_rss_mb": {
+  "self": 2092.3,
+  "children": 4.3
+ },
+ "rss_baseline_mb": {
+  "self": 18.2,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "docling_version": "2.118.1",
+  "ocr_engine": "rapidocr/de",
+  "tableformer": "ACCURATE",
+  "status": "ConversionStatus.SUCCESS"
+ },
+ "output_chars": 150385
+}

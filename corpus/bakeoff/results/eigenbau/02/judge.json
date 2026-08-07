@@ -1,0 +1,17 @@
+{
+  "klasse": "02",
+  "kandidat": "eigenbau",
+  "treue": 2,
+  "vollstaendigkeit": 1,
+  "struktur": 1,
+  "lesereihenfolge": 1,
+  "halluzination": 2,
+  "befunde": [
+    "Vorbefund bestätigt und präzisiert: Die Ranking-Seiten 17-31 (Ränge 1-640) sind nicht Skelette, sondern LEER — jede dieser Seiten besteht nur aus der Caption 'Durchschnittlicher Monat' plus Footer. Auf der gerenderten Stichprobenseite 29 fehlen ALLE 40 Zeilen (VfL Bochum/561/0,1/0,07 bis xchar.de/600/0,1/0,05) samt Spaltenköpfen 'Angebote/Rang/Reichweite in %/Netto-Reichweite'; auf Seite 30 alle 40 Zeilen (Rhein Main Presse/Main-Rheiner/601 bis Peiner Allgemeine Zeitung/640/0,1/0,03). Grep-Beweis: '561' 0 Treffer, '0,07' 0 Treffer, Ziffer '0' nur 485× vs. 1936× in der Referenz.",
+    "Die 434 leeren Pipe-Zeilen '|  |  |  |  |  |' liegen NICHT auf den Ranking-Seiten, sondern in Pseudo-Tabellen auf den Seiten 11-16 und 55 — und deren gefüllte Zellen tragen transplantierten Inhalt von Seite 57: Unter der Überschrift 'Ranking der Vermarkter – Platz 1 bis 20' (S. 11) steht statt der Vermarkter-Werte (63,5/31,53 …) der Kontaktblock, mitten im Wort auf Spalten zerhackt: '| Darüber hinaus stehen wir Ihnen auch gerne … | im per | s | önlichen | Gesprä |'. Auf S. 14-16 wiederholt als kopflose Fragmente 'ftsführerin AGOF e.V.', '-264 888 - 311', 'udia.dubrau@agof.de', 'rcus.foebus@agof.de'. Der Kontaktblock erscheint ~20× ('264 888' 42× statt 2×).",
+    "Fließtext ist überwiegend NICHT betroffen: p1 (Titel), p2 (Inhalt), Vorwort, Kapitel 2.x inkl. Chart-Datenlabels (49,3/50,7/…, 26,39/22,53/…) und p57 selbst sind an ihrer Stelle intakt; die Angebotslisten von Abschnitt 4 sind mit 822/824 Namen fast vollständig (als 3-Spalten-Tabelle mit stets leerer dritter Spalte). ABER: Seite 56 (TOP-2.0-Text, 'Transparenz für Online-Planung', www.agof.de/top) fehlt komplett (0 Treffer), ebenso die Steckbrief-Zeilen 'Enthaltene Merkmale'/'Datenverfügbarkeit'.",
+    "Wo der Text in die Pseudo-Tabellen gerät, ist der Wortlaut zerstört (Spaltenschnitt ohne Wortgrenzen), z. B. S. 12: '| Alle Informationen zu den aktuellen … | Ergeb | g | nissen of.de/ | der in intern |' — für einen Leser irreführend, weil unter Ranking-Überschriften Kontaktdaten stehen.",
+    "Keine einzige Markdown-Überschrift im ganzen File (0× '#'); die nummerierte Gliederung 1.-6. — der Kernprüfpunkt der Klasse — bleibt Fließtext."
+  ],
+  "gesamturteil": "unbrauchbar"
+}
