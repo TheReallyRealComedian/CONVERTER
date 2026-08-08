@@ -1,0 +1,31 @@
+{
+ "candidate": "mineru-vlm",
+ "class": "01",
+ "role": "main",
+ "input": "01_paper-zweispaltig/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf",
+ "input_bytes": 992199,
+ "started": "2026-08-07T22:20:09",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 212.07,
+ "max_rss_mb": {
+  "self": 16.3,
+  "children": 34.3
+ },
+ "rss_baseline_mb": {
+  "self": 14.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "mineru -p /in/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf -o /out -b vlm-engine",
+  "md_file": "67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).md",
+  "stderr_tail": "pp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())\nINFO:     Application shutdown complete.\nINFO:     Finished server process [119]\n",
+  "vram_peak_mb": 6313
+ },
+ "output_chars": 279879
+}

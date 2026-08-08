@@ -1,0 +1,31 @@
+{
+ "candidate": "mineru-vlm",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-07T22:28:42",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 766.12,
+ "max_rss_mb": {
+  "self": 19.2,
+  "children": 31.7
+ },
+ "rss_baseline_mb": {
+  "self": 14.8,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "mineru -p /in/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf -o /out -b vlm-engine",
+  "md_file": "Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.md",
+  "stderr_tail": "pp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())\nINFO:     Application shutdown complete.\nINFO:     Finished server process [119]\n",
+  "vram_peak_mb": 6541
+ },
+ "output_chars": 1170890
+}

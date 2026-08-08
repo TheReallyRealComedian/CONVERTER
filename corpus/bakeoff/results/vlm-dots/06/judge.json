@@ -1,0 +1,21 @@
+{
+  "klasse": "06",
+  "kandidat": "vlm-dots",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 4,
+  "befunde": [
+    "Rechtszitate trotz Kopie-der-Kopie UND 180°-Drehung ziffernexakt: »ist ihr Mitwirken nach §§ 10 Abs. 6, 289 SGB V erforderlich« und »(§§ 10, 284 SGB V, § 7 KVLG, § 25 SGB« — deckungsgleich mit dem kopfständigen Datenschutzhinweis am Fuß von S. 2; einziger GPU-Kandidat auf eigenbau-Niveau bei den Ziffern.",
+    "S. 2 (im Scan 180° gedreht) vollständig reorientiert UND in korrekter logischer Lesefolge: »Angaben zur letzten bisherigen …« → »Sonstige Angaben …« → »Angaben zur Vergabe einer Krankenversichertennummer für familienversicherte Angehörige« (wörtlich exakt) → Bestätigung → Ort/Datum/Unterschrift → Datenschutzhinweis. Der Marker-Block ist als sauberes HTML-Table mit eigene RV-Nr./Geburtsname/Geburtsort/Geburtsland da.",
+    "Kernschwäche Vollständigkeit: die zentrale Tabelle von S. 1 (»Allgemeine Angaben zu Familienangehörigen« — Name/Vorname/Geschlecht-Matrix m-w-X-D/Geburtsdatum/Staatsangehörigkeit/Anschrift/Verwandtschaftsverhältnis/»Ist der Ehegatte mit dem Kind verwandt?« + Namensgleichheits-Fußnote) steht NICHT als Text im Output, sondern als eingebettetes Base64-PNG (1,67 MB — daher die 1,6-MB-Datei; dekodiert und geprüft: es ist exakt diese Tabelle, vollständig lesbar, alle Kästchen leer). Als Pixel erhalten, als Text/Struktur verloren — für Suche/Downstream unsichtbar, aber nicht still verschwunden.",
+    "Zweite Vollständigkeitslücke: der Output bricht mitten im letzten Satz ab — nach »§ 25 SGB« fehlen »XI) zu erheben. Freiwillige Angaben zu Kontaktdaten … verwendet.« (die physisch oberste Zeile des kopfständigen Scans). Zudem fehlt »(Art der Einkünfte)« in den Zellen der Sonstige-Einkünfte-Zeile.",
+    "Blanko bleibt blanko: alle Kästchen leer (»☐«, 31 Checkbox-Tokens), »☐ Ja«-Zeile leer, Ehegatte-Sperrfelder als »—« erhalten, Ausfülllinien leer (max. 10 Unterstriche, keine Punktlinien-Loops — die 1,6 MB sind KEIN Text-Loop, sondern das Bild).",
+    "Halluzination nur im degradierten Kopf: »AKK PLUS … die Gesundheitskasse für Säugern und Jugend« statt »AOK PLUS. Die Gesundheitskasse für Sachsen und Thüringen.« — erfundene Phrase, aber der KV-Nummer/Vorname Name/Bearbeiter-Kasten ist als einziger Kandidat des GPU-Felds vorhanden.",
+    "Vereinzelte Wortfehler auf S. 2: »Softern zuletzt« (Sofern), »abgeletzt wurde« (abgeleitet), »Bruttoarbeitseitig« 2× (Bruttoarbeitsentgelt), »Einkommensteuermercheits« (Einkommensteuerrechts), »Schul- oder Studienbeschreibung«/»Dienstzeitbeschreibung« (jeweils -bescheinigung), »ggt.« (ggf.) — Umlaute durchgängig korrekt (58 im Output).",
+    "Struktur-Marotte: die gerahmten Abschnittstitel von S. 1 werden 1×1-Pseudo-Tabellen (»<table><tr><td>Allgemeine Angaben des Mitglieds</td></tr></table>«), keinerlei Markdown-Headings (h1–h4 = 0).",
+    "Operativer Preis (aus metrics.json): 427 s für 2 Seiten (S. 1 allein 410 s), 9,9 GB VRAM-Peak, 1,68 MB Output für ein 2-Seiten-Blanko-Formular."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

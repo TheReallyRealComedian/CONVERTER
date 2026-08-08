@@ -1,0 +1,58 @@
+{
+ "pipe_tables": 1,
+ "pipe_rows": 31,
+ "table_rows_max": 31,
+ "html_tables": 0,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 27,
+  "h2": 0,
+  "h3": 16,
+  "h4": 27
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 0,
+ "checkbox_tokens": 1,
+ "chars_out": 15572,
+ "words_out": 1832,
+ "umlauts_out": 61,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 0,
+  "wort_pro_zeile": 1
+ },
+ "word_recall": 0.8336,
+ "word_precision": 0.9984,
+ "word_f1": 0.9086,
+ "words_ref": 2194,
+ "top_missing": [
+  "2010×39",
+  "der×39",
+  "AGOF×20",
+  "e×20",
+  "V×20",
+  "September×20",
+  "Seite×20",
+  "Angebote×19",
+  "in×19",
+  "internet×19",
+  "facts×19",
+  "Übersicht×19",
+  "II×19",
+  "de×9",
+  "Online×4"
+ ],
+ "top_invented": [
+  "×1",
+  "page12Picture0×1",
+  "jpeg×1"
+ ],
+ "length_ratio": 0.755,
+ "umlauts_ref": 82,
+ "umlaut_recall": 0.744,
+ "order_lcs": 0.825,
+ "loop_flag": false,
+ "_ref": "03.txt"
+}

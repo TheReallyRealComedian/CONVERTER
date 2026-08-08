@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "07",
+ "role": "main",
+ "input": "07_formular-punktlinien/aok_scan-300dpi.pdf",
+ "input_bytes": 4429198,
+ "started": "2026-08-08T03:15:24",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 310.07,
+ "max_rss_mb": {
+  "self": 30.3,
+  "children": 32.1
+ },
+ "rss_baseline_mb": {
+  "self": 14.6,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/aok_scan-300dpi.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "2 Seiten-Dateien assembliert",
+  "stderr_tail": "\nProcessing PDF pages:   0%|          | 0/2 [00:00<?, ?it/s]\nProcessing PDF pages:  50%|█████     | 1/2 [04:49<04:49, 289.99s/it]\nProcessing PDF pages: 100%|██████████| 2/2 [05:07<00:00, 129.75s/it]\nProcessing PDF pages: 100%|██████████| 2/2 [05:07<00:00, 153.79s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 1219214
+}

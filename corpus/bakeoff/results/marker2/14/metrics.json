@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "14",
+ "role": "main",
+ "input": "14_ocr-ebene-kaputt/Dahlhaus – ETA Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen.pdf",
+ "input_bytes": 603549,
+ "started": "2026-08-08T06:54:41",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 66.06,
+ "max_rss_mb": {
+  "self": 25.4,
+  "children": 31.6
+ },
+ "rss_baseline_mb": {
+  "self": 14.1,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/Dahlhaus – ETA Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen.pdf --output_dir /out --output_format markdown",
+  "md_file": "Dahlhaus – ETA Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen.md",
+  "stderr_tail": "2026-08-08 04:55:46,026 [INFO] marker: Saved markdown to /out/Dahlhaus – ETA Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen\n2026-08-08 04:55:46,026 [INFO] marker: Total time: 60.07136034965515\n",
+  "vram_peak_mb": 6938,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 41538
+}

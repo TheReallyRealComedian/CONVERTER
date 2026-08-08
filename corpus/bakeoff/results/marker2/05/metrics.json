@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "05",
+ "role": "main",
+ "input": "05_scan-sauber/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf",
+ "input_bytes": 1376792,
+ "started": "2026-08-08T06:50:01",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 114.07,
+ "max_rss_mb": {
+  "self": 25.6,
+  "children": 33.7
+ },
+ "rss_baseline_mb": {
+  "self": 14.7,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf --output_dir /out --output_format markdown",
+  "md_file": "dahlhaus_beethoven-kritik_gerastert-300dpi.md",
+  "stderr_tail": "2026-08-08 04:51:53,322 [INFO] marker: Saved markdown to /out/dahlhaus_beethoven-kritik_gerastert-300dpi\n2026-08-08 04:51:53,322 [INFO] marker: Total time: 107.9476068019867\n",
+  "vram_peak_mb": 6766,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 42012
+}

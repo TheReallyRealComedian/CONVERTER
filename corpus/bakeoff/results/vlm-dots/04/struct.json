@@ -1,0 +1,61 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 680,
+ "html_tables": 12,
+ "colspan_attrs": 24,
+ "rowspan_attrs": 24,
+ "headings": {
+  "h1": 0,
+  "h2": 0,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 0,
+ "checkbox_tokens": 1,
+ "chars_out": 101212,
+ "words_out": 8676,
+ "umlauts_out": 64,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 0,
+  "wort_pro_zeile": 0
+ },
+ "word_recall": 0.9825,
+ "word_precision": 0.9993,
+ "word_f1": 0.9909,
+ "words_ref": 8824,
+ "top_missing": [
+  "100×36",
+  "0×21",
+  "1×8",
+  "2×5",
+  "de×5",
+  "4×3",
+  "8×3",
+  "7×3",
+  "31×3",
+  "3×2",
+  "5×2",
+  "51×2",
+  "50×2",
+  "70×1",
+  "54×1"
+ ],
+ "top_invented": [
+  "×1",
+  "vodafone×1",
+  "amp×1",
+  "live×1",
+  "README×1",
+  "TiKonline×1"
+ ],
+ "length_ratio": 0.862,
+ "umlauts_ref": 66,
+ "umlaut_recall": 0.97,
+ "order_lcs": 0.9694,
+ "loop_flag": false,
+ "_ref": "04.txt"
+}

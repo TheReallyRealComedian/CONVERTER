@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "02",
+ "role": "main",
+ "input": "02_guideline/berichtsband_if2010_II.pdf",
+ "input_bytes": 350618,
+ "started": "2026-08-08T04:12:59",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 1052.17,
+ "max_rss_mb": {
+  "self": 28.5,
+  "children": 29.8
+ },
+ "rss_baseline_mb": {
+  "self": 14.5,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/berichtsband_if2010_II.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "57 Seiten-Dateien assembliert",
+  "stderr_tail": "0<00:48, 16.05s/it]\nProcessing PDF pages:  96%|█████████▋| 55/57 [17:10<00:28, 14.27s/it]\nProcessing PDF pages:  98%|█████████▊| 56/57 [17:22<00:13, 13.62s/it]\nProcessing PDF pages: 100%|██████████| 57/57 [17:29<00:00, 11.55s/it]\nProcessing PDF pages: 100%|██████████| 57/57 [17:29<00:00, 18.41s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 829931
+}

@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "05",
+ "role": "main",
+ "input": "05_scan-sauber/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf",
+ "input_bytes": 1376792,
+ "started": "2026-08-08T03:20:34",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 487.13,
+ "max_rss_mb": {
+  "self": 25.3,
+  "children": 30.7
+ },
+ "rss_baseline_mb": {
+  "self": 14.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "15 Seiten-Dateien assembliert",
+  "stderr_tail": "8<00:41, 14.00s/it]\nProcessing PDF pages:  87%|████████▋ | 13/15 [07:31<00:27, 13.63s/it]\nProcessing PDF pages:  93%|█████████▎| 14/15 [07:40<00:12, 12.28s/it]\nProcessing PDF pages: 100%|██████████| 15/15 [08:05<00:00, 16.10s/it]\nProcessing PDF pages: 100%|██████████| 15/15 [08:05<00:00, 32.34s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 68121
+}

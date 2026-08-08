@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "13",
+ "role": "main",
+ "input": "13_mischdokument/13 - Bock Andreas - Telekom Deutschland.pdf",
+ "input_bytes": 3503226,
+ "started": "2026-08-08T03:31:45",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 351.09,
+ "max_rss_mb": {
+  "self": 60.9,
+  "children": 31.4
+ },
+ "rss_baseline_mb": {
+  "self": 14.4,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/13 - Bock Andreas - Telekom Deutschland.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "32 Seiten-Dateien assembliert",
+  "stderr_tail": "7<00:37, 12.47s/it]\nProcessing PDF pages:  94%|█████████▍| 30/32 [05:40<00:25, 12.66s/it]\nProcessing PDF pages:  97%|█████████▋| 31/32 [05:46<00:10, 10.64s/it]\nProcessing PDF pages: 100%|██████████| 32/32 [05:48<00:00,  8.18s/it]\nProcessing PDF pages: 100%|██████████| 32/32 [05:48<00:00, 10.90s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 11500262
+}

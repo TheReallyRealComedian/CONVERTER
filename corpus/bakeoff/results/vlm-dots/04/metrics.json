@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "04",
+ "role": "main",
+ "input": "04_verbundene-zellen/06_ranking_angebote_monat_if2010_I.pdf",
+ "input_bytes": 57313,
+ "started": "2026-08-08T03:44:39",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 509.11,
+ "max_rss_mb": {
+  "self": 25.8,
+  "children": 32.2
+ },
+ "rss_baseline_mb": {
+  "self": 14.4,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/06_ranking_angebote_monat_if2010_I.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "12 Seiten-Dateien assembliert",
+  "stderr_tail": "8<02:16, 45.65s/it]\nProcessing PDF pages:  83%|████████▎ | 10/12 [07:10<01:16, 38.35s/it]\nProcessing PDF pages:  92%|█████████▏| 11/12 [08:13<00:45, 45.95s/it]\nProcessing PDF pages: 100%|██████████| 12/12 [08:27<00:00, 36.13s/it]\nProcessing PDF pages: 100%|██████████| 12/12 [08:27<00:00, 42.25s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 101212
+}

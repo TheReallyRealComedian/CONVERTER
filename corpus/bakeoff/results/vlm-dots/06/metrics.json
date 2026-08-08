@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "06",
+ "role": "main",
+ "input": "06_scan-degradiert/aok_kopie-3fach-schief.pdf",
+ "input_bytes": 8590303,
+ "started": "2026-08-08T03:08:17",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 427.1,
+ "max_rss_mb": {
+  "self": 32.4,
+  "children": 30.3
+ },
+ "rss_baseline_mb": {
+  "self": 15.7,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/aok_kopie-3fach-schief.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "2 Seiten-Dateien assembliert",
+  "stderr_tail": "\nProcessing PDF pages:   0%|          | 0/2 [00:00<?, ?it/s]\nProcessing PDF pages:  50%|█████     | 1/2 [06:50<06:50, 410.75s/it]\nProcessing PDF pages: 100%|██████████| 2/2 [07:05<00:00, 177.68s/it]\nProcessing PDF pages: 100%|██████████| 2/2 [07:05<00:00, 212.64s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 1682166
+}

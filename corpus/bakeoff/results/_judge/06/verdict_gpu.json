@@ -1,0 +1,26 @@
+{
+  "klasse": "06",
+  "feld": "GPU (P3-Addendum)",
+  "dokument": "Blanko-AOK-Formular »Fragebogen für die Aufnahme in die Familienversicherung«, 2 S., Kopie der Kopie, schief; S. 2 im Scan um 180° gedreht",
+  "judge_familie": "Claude (Subagent, Fable 5) — kein Kandidat aus der Claude-Familie im Feld, keine Selbst-Präferenz-Konstellation",
+  "datum": "2026-08-08",
+  "hinweis_re_run": "marker2 wurde nach dem Harness-Fix (surya-Kontext 18000) neu gefahren und hier nach dem frischen Output bewertet; der Alt-Lauf, dessen Kahlschlag auf einem nur in stderr sichtbaren max_tokens-BadRequest beruhte, wird marker2 nicht zugerechnet. Der Fix repariert exakt die Token-Opfer (S.-1-Tabellen), ändert am Rotations-Versagen auf S. 2 aber nichts — das GPU-Ranking bleibt unverändert.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "vlm-dots",
+      "begruendung": "Meistert als einziger GPU-Kandidat die 180°-Seite vollständig — korrekt reorientiert, in richtiger logischer Lesefolge, Rechtszitate ziffernexakt (»§§ 10 Abs. 6, 289 SGB V«), Umlaute sauber, Blanko bleibt blanko — aber die zentrale Tabelle von S. 1 liegt nur als 1,67-MB-Inline-PNG vor (als Text verloren) und der letzte Satz bricht bei »§ 25 SGB« ab; dazu 427 s für 2 Seiten."
+    },
+    {
+      "platz": 2,
+      "kandidat": "mineru-vlm",
+      "begruendung": "Erkennt die Drehung blockweise und liefert als einziger GPU-Kandidat beide Seiten vollständig als Text samt sauberer S.-1-Haupttabelle, aber S. 2 steht exakt rückwärts sortiert und flächig verstümmelt (»Universität« statt »Unterschrift«, »SIG V« statt SGB V), und ein Zellen-Loop (30× »□ Mitgliedschaff □ Familleversif-cherning …«, 88 Symbole in einer Zelle) zerstört die letzte Tabelle."
+    },
+    {
+      "platz": 3,
+      "kandidat": "marker2",
+      "begruendung": "Re-Run: S. 1 jetzt die sauberste des GPU-Felds (KV-Kasten + Kerntabelle komplett, ungecheckte Checkbox-Inputs, blanko) — aber die 180°-Seite bleibt zu ~90 % verloren, und an der Datenschutz-Stelle steht erneut ein frei erfundener englischer Satz (»Detection materials which is one variation of a concentration of a sedimentary sample …«), im zweiten Lauf mit anderem Wortlaut: reproduzierbares Fabulieren statt Einmal-Ausrutscher."
+    }
+  ],
+  "einordnung_vs_p2": "Der P2-Sieger eigenbau bleibt auch gegen das GPU-Feld ungeschlagen: er ist weiterhin der einzige Kandidat, der das komplette Dokument als Text liefert — S. 2 reorientiert UND richtig sortiert, Zitate exakt, nichts erfunden. vlm-dots ordnet sich im Gesamtfeld als #2 VOR gemini-nativ ein: beide meistern die 180°-Seite, aber vlm-dots hält die SGB-Zitate ziffernexakt und erfindet keine Formular-Controls — sein Defekt (Kern-Tabelle nur als Bild, Schluss-Satz abgeschnitten) ist sichtbar und ehrlich, während gemini-nativs Reparaturen (erfundene Checkboxen, umgeschriebenes Rechtszitat) unsichtbar Vertrauen kosten; Preis sind 7 min Laufzeit und 1,6 MB Inline-Bild. mineru-vlm landet zwischen gemini-nativ und docling (~Gesamtplatz 4): besser als docling, weil S. 2 blockweise orientiert statt Zeichensalat, aber rückwärts sortiert, verstümmelt und mit Zellen-Loop. marker2 rückt nach dem Re-Run im Gesamtfeld vor docling (~Platz 5 von 7 bewerteten): seine S. 1 ist besser als doclings, doch das Dokument bleibt unbrauchbar, weil die gedrehte Seite fast ganz fehlt und dort — in beiden Läufen mit verschiedenem Wortlaut — englischer Text in einen deutschen Datenschutzhinweis fabuliert wird; nur tesseract bleibt darunter. Gesamtfeld damit: eigenbau > vlm-dots > gemini-nativ > mineru-vlm > marker2 > docling > tesseract (textlayer unverändert nicht bewertet). Methodenbefund fürs Harness, inzwischen umgesetzt: die Klassen-These »kein Loop geflaggt« hielt der Stichprobe nicht stand — mineru-vlms Wiederholung lebt in EINER Tabellenzelle und unterlief den zeilenbasierten Detektor (loop_flag=false bei max_line_repeat=1); der daraus gebaute Zellen-Detektor misst symbol_pro_zelle=88 bei mineru-06. vlm-dots' auffällige 1,6 MB sind dagegen kein Loop, sondern Base64-Bilddaten. Kernbefund der Klasse bestätigt sich im GPU-Feld auch nach dem Re-Run: die 180°-Seite bleibt der Scharfrichter — dots besteht ganz, mineru halb (Orientierung ja, Ordnung nein), marker verliert sie fast ganz; und kein Kandidat füllt Blanko-Felder aus oder loopt auf den Punktlinien."
+}

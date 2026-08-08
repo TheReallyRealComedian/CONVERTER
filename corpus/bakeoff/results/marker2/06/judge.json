@@ -1,0 +1,20 @@
+{
+  "klasse": "06",
+  "kandidat": "marker2",
+  "lauf": "Re-Run 2026-08-08 nach Harness-Fix (surya-Kontext 18000); der Alt-Lauf mit verschlucktem max_tokens-Abbruch wird marker2 nicht zugerechnet",
+  "treue": 3,
+  "vollstaendigkeit": 2,
+  "struktur": 3,
+  "lesereihenfolge": 3,
+  "halluzination": 2,
+  "befunde": [
+    "S. 1 ist nach dem Fix vollständig und die sauberste des GPU-Felds: KV-Nummer/Vorname Name/Bearbeiter-Kasten als Pipe-Tabelle (neben vlm-dots einziger Kandidat, der ihn liefert), die zentrale Tabelle »Allgemeine Angaben zu Familienangehörigen« komplett als Pipe-Tabelle inkl. Namensgleichheits-Fußnote und Geschlecht-Matrix — Kästchen dort als ungecheckte »<input type=\"checkbox\"/>«-Elemente, Blanko bleibt maschinenlesbar blanko; »lautet«/»zu erreichen (freiwillige Angabe)« jetzt korrekt, die Alt-Lauf-Fehler (»läutet«, »krankenversichertversichert«-Verklebung) sind weg.",
+    "Die 180°-gedrehte S. 2 bleibt der Totalausfall — unverändert zum Alt-Lauf: nur 4 Fragmentzeilen überleben, alle drei Tabellen (letzte bisherige Versicherung, Sonstige Angaben mit den EUR-Zeilen, Krankenversichertennummer/Geburtsname-Block), Unterschriftenblock, Einwilligungssatz und »Bei getrennt lebenden …« fehlen (~90 % der Seite). Diesmal ohne Service-Fehler: stderr endet sauber (»Table processing stats: tables_ocr: 2, tables_total: 2«) — der Verlust ist echtes Rotations-Limit des OCR-Pfads, kein verschluckter Abbruch mehr.",
+    "Der erfundene englische Satz im Datenschutzhinweis besteht in neuer Variante fort: »Detection materials which is one variation of a concentration of a sedimentary sample (X) or embedded framiliar Angaben or Kontakdaran wedan anschleiglich für Rückträgen zu Intervalenbungswertnung verwendet.« — im Original steht dort ausschließlich Deutsch (»Datenschutzhinweis (Artikel 13 der Verordnung (EU) 2016/679) …«), die SGB-Zitate fehlen diesmal komplett. Zwei Läufe, zwei verschiedene englische Fabeln an derselben Stelle: reproduzierbares Fabulieren auf der gedrehten Seite, kein Einzelfall des Alt-Laufs.",
+    "Der »Krankenversichertennummer«-Marker-Block existiert weiter nur als verstümmelte Überschrift ohne Tabelle: »Angaben zur Verlage einer Krankenversichertennunmer für familienversicherte Angeborträge«; dazu »Ich besitzige die Richtigkeit der Angaben und den Erteil des Merktates. Uber Anderungen werde ich sie umgehend« (besitzige/Erteil/Merktates, Umlaute weg, »informieren.« fehlt), und die Fragmente stehen vertauscht (Bestätigung vor dem Krankenversichertennummer-Header).",
+    "Formular-Controls außerhalb von Tabellen weiterhin stillschweigend getilgt: die Ankreuz-Optionen von S. 1 stehen kästchenlos da (» ledig    getrennt lebend    verwitwet    geschieden«), und »#### Ich bin verheiratet oder in einer eingetragenen Lebenspartnerschaft …« macht aus der Ankreuz-Option eine Überschrifts-Behauptung — das Kästchen vor »verheiratet« ist weg. Heading-Inflation generell (Formularzeilen als h4); die Ehegatte-Sperrstriche »——« der Haupttabelle wurden zu leeren, scheinbar befüllbaren Zellen.",
+    "Kleinere Treue-Fehler auf S. 1: Kopfzeile »die Gesundheitskasse für Sachen und Therapien.« statt »für Sachsen und Thüringen.« (erfundene Phrase im degradierten Logo-Bereich, AOK-Schriftzug nur Bild-Platzhalter »_page_0_Picture_10.jpeg«), »mit Rückwendigkeit auf den Familienstand« statt »mit Rücksicht«, »Einkunften« ohne Umlaut.",
+    "Blanko bleibt blanko, keine Loops: kein Feld ausgefüllt, alle Checkbox-Inputs ungecheckt, Ausfülllinien leer, keine Punktlinien-Wiederholungen (max_line_repeat=1). Preis des Fixes: 751 s statt 50 s für 2 Seiten."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

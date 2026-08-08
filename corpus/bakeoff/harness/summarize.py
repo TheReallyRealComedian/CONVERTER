@@ -144,15 +144,17 @@ def main():
     # 3b. Judge-Verdikte (Metrik c)
     judge_dir = RESULTS / "_judge"
     verdicts = sorted(judge_dir.glob("*/verdict.json")) if judge_dir.exists() else []
+    verdicts += sorted(judge_dir.glob("*/verdict_gpu.json")) if judge_dir.exists() else []
     if verdicts:
-        out += ["## Judge-Rankings (Metrik c, Klassen ohne Gold)", ""]
+        out += ["## Judge-Rankings (Metrik c)", ""]
         for v in verdicts:
             data = load(v)
             if not data:
                 continue
             ranking = " > ".join(r["kandidat"] for r in
                                  sorted(data.get("ranking", []), key=lambda r: r.get("platz", 99)))
-            out.append(f"- **{v.parent.name}**: {ranking}")
+            tag = " (GPU-Feld)" if v.name == "verdict_gpu.json" else ""
+            out.append(f"- **{v.parent.name}{tag}**: {ranking}")
         out.append("")
 
     # 4. Kosten

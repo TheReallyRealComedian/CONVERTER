@@ -1,0 +1,127 @@
+{
+ "text": {
+  "word_recall": 0.6962,
+  "word_precision": 0.9122,
+  "word_f1": 0.7897,
+  "words_ref": 418,
+  "words_out": 319,
+  "top_missing": [
+   "×25",
+   "×12",
+   "bis×6",
+   "Familienversicherung×5",
+   "×5",
+   "Mitgliedschaft×4",
+   "nicht×4",
+   "EUR×4",
+   "zu×3",
+   "SGB×3",
+   "o×2",
+   "die×2",
+   "für×2",
+   "10×2",
+   "V×2"
+  ],
+  "top_invented": [
+   "bis×6",
+   "MitgliedschaftFamilienversi×4",
+   "cherungnicht×4",
+   "EUR×4",
+   "Familienan×1",
+   "gehörigen×1",
+   "be×1",
+   "stand×1",
+   "de×1",
+   "ren×1",
+   "ab×1",
+   "geleitet×1",
+   "Ren×1",
+   "ten×1"
+  ],
+  "cer": 0.1694
+ },
+ "cells": {
+  "cell_recall": 0.5455,
+  "cell_precision": 0.5385,
+  "cells_gold": 77,
+  "cells_out": 78,
+  "top_missing_cells": [
+   "vom  bis ×6",
+   "×5",
+   "  ×4",
+   " Mitgliedschaft  Familienversicherung  nicht gesetzlich×4",
+   " (Nachname)  (Vorname)×4",
+   "EUR  (Art der Einkünfte)×4",
+   "Die bisherige Versicherung o endete am: o bestand bei: (Name×1",
+   "Sofern zuletzt eine Familienversicherung bestand, Name und V×1",
+   "Gesetzliche Rente, Versorgungsbezüge, Betriebsrente, ausländ×1",
+   "Schulbesuch/Studium (Bitte bei Kindern ab 23 Jahren Schul- o×1"
+  ],
+  "top_invented_cells": [
+   "vom bis ×6",
+   "×5",
+   "--×5",
+   "MitgliedschaftFamilienversi-cherungnicht gesetzlich×4",
+   "(Nachname)(Vorname)×4",
+   "EUR(Art der Einkünfte)×4",
+   "Angaben zur letzten bisherigen oder zur weiter bestehenden V×1",
+   "Die bisherige Versicherung○ endete am:○ bestand bei: (Name d×1",
+   "Sofern zuletzt eine Familienversicherung be- stand, Name und×1",
+   "Sonstige Angaben zu Familienangehörigen×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    7,
+    5,
+    "html"
+   ],
+   [
+    9,
+    5,
+    "html"
+   ],
+   [
+    7,
+    5,
+    "html"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "colspan_kopf",
+   "Sonstige Angaben zu Familienangehörigen": "colspan_kopf",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "colspan_kopf"
+  },
+  "gleichwertig_erfuellt": "3/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 28,
+  "checkbox_gold": 16,
+  "checkbox_out": 4
+ }
+}

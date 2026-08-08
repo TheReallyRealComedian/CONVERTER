@@ -1,0 +1,73 @@
+{
+ "pipe_tables": 21,
+ "pipe_rows": 375,
+ "table_rows_max": 62,
+ "html_tables": 3,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 93,
+  "h2": 0,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 1,
+ "checkbox_tokens": 38,
+ "chars_out": 279879,
+ "words_out": 46662,
+ "umlauts_out": 8,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 1,
+  "wort_pro_zeile": 11
+ },
+ "word_recall": 0.909,
+ "word_precision": 0.8494,
+ "word_f1": 0.8782,
+ "words_ref": 43607,
+ "top_missing": [
+  "γ×120",
+  "Barab×75",
+  "asi×74",
+  "ki×73",
+  "pc×69",
+  "10×59",
+  "coeﬃcient×58",
+  "ﬁrst×53",
+  "inﬁnite×49",
+  "diﬀerent×48",
+  "Π×40",
+  "ℓ×39",
+  "con×36",
+  "ﬁnite×36",
+  "R×32"
+ ],
+ "top_invented": [
+  "×354",
+  "0×333",
+  "_×256",
+  "k×246",
+  "gamma×170",
+  "frac×158",
+  "tag×146",
+  "i×145",
+  "c×116",
+  "p×114",
+  "langle×102",
+  "rangle×102",
+  "ell×85",
+  "1×83",
+  "Barabási×75"
+ ],
+ "length_ratio": 1.115,
+ "umlauts_ref": 0,
+ "umlaut_recall": null,
+ "order_lcs": null,
+ "notes": [
+  "order_lcs uebersprungen (>30000 Woerter)"
+ ],
+ "loop_flag": false,
+ "_ref": "01.txt"
+}

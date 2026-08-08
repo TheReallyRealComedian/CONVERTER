@@ -1,0 +1,19 @@
+{
+  "klasse": "06",
+  "kandidat": "mineru-vlm",
+  "treue": 2,
+  "vollstaendigkeit": 3,
+  "struktur": 3,
+  "lesereihenfolge": 2,
+  "halluzination": 2,
+  "befunde": [
+    "S. 2 (im Scan 180° gedreht) wird erkannt und blockweise richtig orientiert gelesen — der »Krankenversichertennummer«-Marker-Block ist da (»Angaben zur Vergabe einer Krankenversichertennummer für familienversiche Antgehörige« inkl. Geburtsname/Geburtsort/Geburtsland-Zeilen) — aber die Blöcke stehen exakt RÜCKWÄRTS: Datenschutzhinweis → Unterschriftenblock → Bestätigung → Krankenversichertennummer → Sonstige Angaben → letzte bisherige Versicherung (= bottom-to-top der logischen Seite; das Layout wurde offenbar in Scan-Orientierung sortiert).",
+    "Nachgewiesener Wiederholungs-Loop, den die Struktur-Metrik NICHT geflaggt hat (loop_flag=false, max_line_repeat=1): in der Zelle »Art der disheirgen Versicherung« wiederholt sich »□ Mitgliedschaff □ Familleversif-cherning □ chirft gesetzlich« 30-mal mit Drift (»MitgliEDschaff«, »chirft besitzlich«, »Mamilleversif«) — alles in EINER Zeile/Zelle, unterhalb des zeilenbasierten Detektors. Das Original hat pro Spalte genau ein Kästchen-Trio; 30 fabrizierte Formular-Controls sind auf einem Formular Halluzinationsmasse. Die Zeile »Sofern zuletzt … Name und Vorname der Person« ist im Loop untergegangen (nur »(Vomame)« bleibt).",
+    "Treue auf S. 2 flächig verstümmelt: »Datanschunzhawels« (Datenschutzhinweis), »SIG V«/»SIGB« statt SGB (3×), »(§5) 10« statt »§§ 10«, dreimal »Universität« statt »Unterschrift« (»Mit der Universität erklare ich …«, »reicht die Universität des Familien-«), »Selbstlandige Taileket«, »Eingete« (Ehegatte), »Krankenasse«. Die Paragraphen-ZIFFERN (10/6/289/284/7/25) stimmen, die Gesetzesnamen nicht.",
+    "Treue-Fehler auch auf S. 1: »Namie der Arshikemüsse« (Name der Krankenkasse), »zu effektieren (widwirige Angabe)« (zu erreichen (freiwillige Angabe)), »(freimige Angabe)«, »des Angenhöhen« (des Angehörigen).",
+    "Stärke: die Haupttabelle von S. 1 ist als HTML-Table sauber — Checkbox-Matrix ☐(m)/(w)/(X)/(D) vollständig, Ehegatte-Sperrfelder »——« erhalten, und die Namensgleichheits-Fußnote steht EINMAL als colspan-Zelle (besser als eigenbaus 5-fach-Duplikat). 136 Checkbox-Tokens, alle leer.",
+    "Blanko bleibt blanko: kein Feld ausgefüllt, keine Punktlinien-Loops (keine Punkt-/Unterstrich-Läufe ≥6); der einzige Loop ist der o.g. Zellen-Loop.",
+    "Fehlend: KV-Nummer/Vorname Name/Bearbeiter-Kasten und AOK-Kopf von S. 1; »informieren.« nur als Fragment »information.«; die Sonstige-Angaben-Tabelle hat verrutschte Spalten (6 Zellen auf 5 Header, »(An der Einkunfte)«/vom/bis in falschen Zellen)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

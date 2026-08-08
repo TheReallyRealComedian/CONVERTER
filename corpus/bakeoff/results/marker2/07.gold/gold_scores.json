@@ -1,0 +1,107 @@
+{
+ "text": {
+  "word_recall": 0.7656,
+  "word_precision": 1.0,
+  "word_f1": 0.8672,
+  "words_ref": 418,
+  "words_out": 320,
+  "top_missing": [
+   "×16",
+   "×10",
+   "×5",
+   "zu×3",
+   "SGB×3",
+   "Angaben×2",
+   "zur×2",
+   "der×2",
+   "die×2",
+   "für×2",
+   "10×2",
+   "V×2",
+   "letzten×1",
+   "bisherigen×1",
+   "oder×1"
+  ],
+  "top_invented": [],
+  "cer": 0.192
+ },
+ "cells": {
+  "cell_recall": 0.6364,
+  "cell_precision": 0.6533,
+  "cells_gold": 77,
+  "cells_out": 75,
+  "top_missing_cells": [
+   "×5",
+   "  ×4",
+   " Mitgliedschaft  Familienversicherung  nicht gesetzlich×4",
+   " (Nachname)  (Vorname)×4",
+   " Ja×4",
+   "EUR  (Art der Einkünfte)×4",
+   "Ort, Datum×1",
+   "Unterschrift×1",
+   "ggf. Unterschrift der Familienangehörigen×1"
+  ],
+  "top_invented_cells": [
+   "×6",
+   "Mitgliedschaft Familienversicherung nicht gesetzlich×4",
+   " (Nachname)×4",
+   " (Vorname)×4",
+   "Ja×4",
+   "EUR (Art der Einkünfte)×4"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    6,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "fehlt",
+   "Sonstige Angaben zu Familienangehörigen": "vorhanden_unstrukturiert",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "vorhanden_unstrukturiert"
+  },
+  "gleichwertig_erfuellt": "0/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 33,
+  "checkbox_gold": 16,
+  "checkbox_out": 0
+ }
+}

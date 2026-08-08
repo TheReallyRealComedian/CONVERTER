@@ -1,0 +1,73 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 973,
+ "html_tables": 64,
+ "colspan_attrs": 6,
+ "rowspan_attrs": 13,
+ "headings": {
+  "h1": 8,
+  "h2": 60,
+  "h3": 182,
+  "h4": 62
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 55,
+ "checkbox_tokens": 12,
+ "chars_out": 2417599,
+ "words_out": 167507,
+ "umlauts_out": 15639,
+ "max_line_repeat": 4,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 1,
+  "wort_pro_zeile": 24
+ },
+ "word_recall": 0.9132,
+ "word_precision": 0.9494,
+ "word_f1": 0.931,
+ "words_ref": 174144,
+ "top_missing": [
+  "ge×142",
+  "gen×130",
+  "Be×114",
+  "nen×109",
+  "be×107",
+  "den×106",
+  "ten×103",
+  "schen×93",
+  "Ge×81",
+  "ei×64",
+  "Ver×60",
+  "ver×60",
+  "chen×58",
+  "men×57",
+  "sche×52"
+ ],
+ "top_invented": [
+  "werden×46",
+  "Untersuchungen×35",
+  "genetischen×28",
+  "genetischer×26",
+  "Menschenwürde×24",
+  "Kommission×22",
+  "Präimplantationsdiagnostik×22",
+  "Schwangerschaft×22",
+  "genetische×20",
+  "einer×19",
+  "Embryonen×17",
+  "Forschung×17",
+  "Diagnostik×16",
+  "Patienten×16",
+  "Patientinnen×16"
+ ],
+ "length_ratio": 0.987,
+ "umlauts_ref": 15633,
+ "umlaut_recall": 1.0,
+ "order_lcs": null,
+ "notes": [
+  "order_lcs uebersprungen (>30000 Woerter)"
+ ],
+ "loop_flag": false,
+ "_ref": "12.txt"
+}

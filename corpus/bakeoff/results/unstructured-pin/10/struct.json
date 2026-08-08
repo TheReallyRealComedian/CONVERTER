@@ -19,6 +19,10 @@
  "umlauts_out": 178,
  "max_line_repeat": 1,
  "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 0,
+  "wort_pro_zeile": 4
+ },
  "word_recall": 0.9827,
  "word_precision": 0.9904,
  "word_f1": 0.9865,

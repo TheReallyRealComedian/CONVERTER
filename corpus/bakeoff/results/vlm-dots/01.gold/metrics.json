@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "01",
+ "role": "gold",
+ "input": "derived/01_gold-seiten.pdf",
+ "input_bytes": 1029666,
+ "started": "2026-08-08T04:30:31",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 82.08,
+ "max_rss_mb": {
+  "self": 25.7,
+  "children": 28.1
+ },
+ "rss_baseline_mb": {
+  "self": 14.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/01_gold-seiten.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "2 Seiten-Dateien assembliert",
+  "stderr_tail": "\nProcessing PDF pages:   0%|          | 0/2 [00:00<?, ?it/s]\nProcessing PDF pages:  50%|█████     | 1/2 [00:35<00:35, 35.36s/it]\nProcessing PDF pages: 100%|██████████| 2/2 [01:20<00:00, 41.10s/it]\nProcessing PDF pages: 100%|██████████| 2/2 [01:20<00:00, 40.24s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 206058
+}

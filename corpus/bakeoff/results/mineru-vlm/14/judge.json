@@ -1,0 +1,20 @@
+{
+  "klasse": "14",
+  "kandidat": "mineru-vlm",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "NEU GELESEN per Konstruktion (vlm-engine OCRt immer, model_calls extern 0): null Layer-Signaturen im Output. Bruchstelle 1 korrekt: '# E.T.A. Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen' (Z. 30; Ebene Z. 21: 'Asthetik'); Bruchstelle 2 (S.14-Kolumnentitel 'Asthetik') existiert bei ihm nicht als Text, weil ALLE Kolumnentitel gestrippt sind — getilgt durch Entsorgung, nicht durch Lesung.",
+    "Stichproben-Anker bildgetreu: p2 'Wenn Hoffmann' (Ebene 'W ~ M') und 'hinzugeben\"²' (Ebene 'hin~ugeben\"~', Z. 36); p8 'ohne Übertreibung' (Z. 93; Ebene 'ubertreibung'), '$^{27}$ E.Burke, Vom Erhabenen und Schönen…' (Z. 97; Ebene 'x7'), 'Burke, S. 92' (Ebene '5. 92'); p15 '(Seifert, S. 157).' (Z. 152; Ebene '(Seifert,8.167)') und 'Selbständigkeit' (Ebene 'Selbstgndigkeit'). Auch außerhalb der Stichprobe alle 13 P2-Bruchanker korrekt ('Musikästhetiker', 'ästhetische Thesen', 'läßt', 'Franz Beck', 'Kant', 'wurde', 'Überlegenheit').",
+    "KEINE Meldung: metrics.json warnings [], kein Hinweistext im Markdown — besteht den Klassenzweck nur per Konstruktion (Weg a ohne Detektion), Weg (b) nicht genommen.",
+    "Stiller Fußnoten-Verlust — Hauptmangel: 5 von 52 Fußnoten-TEXTEN fehlen bei stehenden In-Text-Markern (Fn 19, 38, 39, 48, 49). Auf Stichproben-Seite p9 (S. 86) baumeln beide: 'Sturm und Drang $^{38}$ , proklamiert' und 'festhält\" $^{39}$ .' (Z. 110), aber 'H.H.Eggebrecht, Das Ausdrucks-Prinzip…' und 'Hoffmann, S. 50.' fehlen im gesamten Output (Volltext-grep 0 Treffer; ebenso 'Hoffmann, S. 382'/Schnaus-Fn 19, 'Schnaus, S. 143'/Fn 48, 'Wien 1907, S. 305'/Fn 49-Beethoven-Briefe). Für einen wissenschaftlichen Aufsatz ist das unauffälliger Apparat-Verlust: man merkt ihn erst beim Nachschlagen.",
+    "Falsche Fußnoten-Nummer auf Stichproben-Seite p2: Fn-3-Text als '$^{8}$ W.H. Wackenroder, Werke und Briefe…' (Z. 42) — der In-Text-Marker 'Welt\"³' (Z. 36) ist korrekt, die Apparat-Zeile falsch nummeriert (Original p2: '³ W.H. Wackenroder…'); Fehl-Lesung der hochgestellten 3, kein Layer-Echo.",
+    "Seiten-Möbel komplett entsorgt: alle 14 Kolumnentitel ('Carl Dahlhaus' 0×, 'E.T.A. Hoffmanns Beethoven-Kritik…' als Kopfzeile 0×) samt gedruckten Seitenzahlen, dazu das Impressum 'Archiv für Musikwissenschaft… © Franz Steiner Verlag GmbH, D-6200 Wiesbaden' (p2 unten, 0 Treffer) und der JSTOR-Footer; struct.json-top_missing bestätigt ('Carl×7', 'Dahlhaus×7').",
+    "Struktur sonst die sauberste Fließtext-Aufbereitung des GPU-Felds: echte #-Überschriften, über Zeilen- und Seitengrenzen zusammengeführte Absätze (nur vereinzelt Residuen wie 'Deskrip- tion', 'son- dern', Z. 144), Fußnoten als eigene $^{n}$-Zeilen; JSTOR-Logo als Bild-Referenz + <details>-OCR ('J STOR®') statt Erfindung — der Bild-Link ![](images/9e5646….jpg) hängt allerdings ins Leere, da kein images/-Ordner mitgeliefert wird.",
+    "Nichts erfunden: keine ausgefüllten Lücken, keine Wiederholungsschleifen (max_ngram_repeat 1), length_ratio 0.956."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

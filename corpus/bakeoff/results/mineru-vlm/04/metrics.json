@@ -1,0 +1,31 @@
+{
+ "candidate": "mineru-vlm",
+ "class": "04",
+ "role": "main",
+ "input": "04_verbundene-zellen/06_ranking_angebote_monat_if2010_I.pdf",
+ "input_bytes": 57313,
+ "started": "2026-08-07T22:18:30",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 99.04,
+ "max_rss_mb": {
+  "self": 15.9,
+  "children": 31.7
+ },
+ "rss_baseline_mb": {
+  "self": 14.7,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "mineru -p /in/06_ranking_angebote_monat_if2010_I.pdf -o /out -b vlm-engine",
+  "md_file": "06_ranking_angebote_monat_if2010_I.md",
+  "stderr_tail": "pp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())\nINFO:     Application shutdown complete.\nINFO:     Finished server process [118]\n",
+  "vram_peak_mb": 6423
+ },
+ "output_chars": 79064
+}

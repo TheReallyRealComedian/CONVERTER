@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-08T04:32:35",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 6621.72,
+ "max_rss_mb": {
+  "self": 35.6,
+  "children": 28.1
+ },
+ "rss_baseline_mb": {
+  "self": 14.6,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "280 Seiten-Dateien assembliert",
+  "stderr_tail": "it]\nProcessing PDF pages:  99%|█████████▉| 278/280 [1:50:06<00:36, 18.02s/it]\nProcessing PDF pages: 100%|█████████▉| 279/280 [1:50:13<00:14, 14.80s/it]\nProcessing PDF pages: 100%|██████████| 280/280 [1:50:16<00:00, 11.26s/it]\nProcessing PDF pages: 100%|██████████| 280/280 [1:50:16<00:00, 23.63s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 2417599
+}

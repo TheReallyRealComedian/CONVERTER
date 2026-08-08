@@ -1,0 +1,95 @@
+{
+ "text": {
+  "word_recall": 0.9402,
+  "word_precision": 0.9874,
+  "word_f1": 0.9632,
+  "words_ref": 418,
+  "words_out": 398,
+  "top_missing": [
+   "×15",
+   "×5",
+   "EUR×4",
+   "Renten×1"
+  ],
+  "top_invented": [
+   "EUR×4",
+   "Rente×1"
+  ],
+  "cer": 0.0136
+ },
+ "cells": {
+  "cell_recall": 0.7792,
+  "cell_precision": 0.8333,
+  "cells_gold": 77,
+  "cells_out": 72,
+  "top_missing_cells": [
+   "×5",
+   "  ×4",
+   "EUR  (Art der Einkünfte)×4",
+   "Gesetzliche Rente, Versorgungsbezüge, Betriebsrente, ausländ×1",
+   "Ort, Datum×1",
+   "Unterschrift×1",
+   "ggf. Unterschrift der Familienangehörigen×1"
+  ],
+  "top_invented_cells": [
+   "-×6",
+   "EUR (Art der Einkünfte)×4",
+   "×1",
+   "Gesetzliche Rente, Versorgungsbezüge, Betriebsrente, ausländ×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    5,
+    5,
+    "html"
+   ],
+   [
+    8,
+    5,
+    "html"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "ueberschrift",
+   "Sonstige Angaben zu Familienangehörigen": "ueberschrift",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "ueberschrift"
+  },
+  "gleichwertig_erfuellt": "3/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 24,
+  "checkbox_gold": 16,
+  "checkbox_out": 16
+ }
+}

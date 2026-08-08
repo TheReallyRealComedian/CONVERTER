@@ -1,0 +1,58 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 658,
+ "html_tables": 1,
+ "colspan_attrs": 2,
+ "rowspan_attrs": 2,
+ "headings": {
+  "h1": 4,
+  "h2": 0,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 0,
+ "checkbox_tokens": 0,
+ "chars_out": 79064,
+ "words_out": 8448,
+ "umlauts_out": 53,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 0,
+  "wort_pro_zeile": 0
+ },
+ "word_recall": 0.9567,
+ "word_precision": 0.9993,
+ "word_f1": 0.9775,
+ "words_ref": 8824,
+ "top_missing": [
+  "100×36",
+  "Mio×24",
+  "Unique×23",
+  "User×23",
+  "Kontakte×23",
+  "Anteil×22",
+  "0×21",
+  "ungew×11",
+  "Fälle×11",
+  "Nutzer×11",
+  "Aff×11",
+  "Index×11",
+  "Kontakt×11",
+  "Netto×11",
+  "RW×11"
+ ],
+ "top_invented": [
+  "amp×4",
+  "UniqueUserMio×1",
+  "KontakteMio×1"
+ ],
+ "length_ratio": 0.818,
+ "umlauts_ref": 66,
+ "umlaut_recall": 0.803,
+ "order_lcs": 0.9556,
+ "loop_flag": false,
+ "_ref": "04.txt"
+}

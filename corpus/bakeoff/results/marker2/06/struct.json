@@ -1,0 +1,28 @@
+{
+ "pipe_tables": 2,
+ "pipe_rows": 15,
+ "table_rows_max": 11,
+ "html_tables": 0,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 0,
+  "h2": 1,
+  "h3": 4,
+  "h4": 4
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 6,
+ "checkbox_tokens": 1,
+ "chars_out": 13019,
+ "words_out": 436,
+ "umlauts_out": 34,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 2,
+ "loop_signale": {
+  "symbol_pro_zelle": 0,
+  "wort_pro_zeile": 5
+ },
+ "loop_flag": false,
+ "_ref": null
+}

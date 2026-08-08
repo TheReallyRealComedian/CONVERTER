@@ -1,0 +1,65 @@
+![](_page_0_Picture_10.jpeg)
+
+die Gesundheitskasse  
+für Sachen und Therapien.
+
+| KV-Nummer:    |
+|---------------|
+| Vorname Name: |
+| Bearbeiter:   |
+
+## Fragebogen für die Aufnahme in die Familienversicherung
+
+### Allgemeine Angaben des Mitglieds
+
+#### Ich war bisher
+
+ im Rahmen einer eigenen Mitgliedschaft      versichert bei \_\_\_\_\_  
+ im Rahmen einer Familienversicherung      Name der Krankenkasse  
+ nicht gesetzlich krankenversichert
+ 
+
+#### Ich bin verheiratet oder in einer eingetragenen Lebenspartnerschaft nach dem Lebenspartnerschaftsgesetz – LPartG seit \_\_\_\_\_ (Bitte machen Sie die Angaben für Ihren Lebenspartner unter „Ehegatte“.)
+
+ ledig       getrennt lebend       verwitwet       geschieden
+ 
+
+#### Anlass für die Aufnahme in die Familienversicherung:
+
+ Beginn meiner Mitgliedschaft       Geburt des Kindes       Heirat  
+ Beendigung der vorherigen eigenen Mitgliedschaft des Angehörigen       Sonstiges \_\_\_\_\_
+ 
+
+#### Beginn der Familienversicherung: \_\_\_\_\_
+
+Bei Fragen bin ich tagsüber unter Telefon-Nr. \_\_\_\_\_ zu erreichen (freiwillige Angabe).
+
+Meine E-Mail-Adresse lautet \_\_\_\_\_ (freiwillige Angabe).
+
+### Angaben zu Familienangehörigen
+
+Nachfolgende Daten sind grundsätzlich nur für solche Angehörigen erforderlich, die bei uns familienversichert werden sollen. Abweichend hiervon benötigen wir die Angaben zu Ihrem Ehegatten/Lebenspartner auch dann, wenn bei uns ausschließlich die Familienversicherung für Ihre Kinder durchgeführt werden soll. In diesem Fall sind neben den allgemeinen Angaben auch die Informationen zur Versicherung des Ehegatten/Lebenspartners und – sofern der Ehegatte/Lebenspartner nicht gesetzlich versichert und mit den Kindern verwandt ist – zu seinem Einkommen notwendig; hierbei sind die Einnahmen zwingend durch Einkommensnachweise zu belegen und Zuschläge, die mit Rückwendigkeit auf den Familienstand gezahlt werden; bei den Angaben zu den Einkunften unberücksichtigt zu lassen.
+
+Bitte beachten Sie, dass eine gleichzeitige Durchführung der Familienversicherung bei unterschiedlichen Krankenkassen rechtlich unzulässig ist. Stellen Sie deshalb bitte mit Ihren Angaben sicher, dass eine doppelte Familienversicherung ausgeschlossen ist.
+
+### Allgemeine Angaben zu Familienangehörigen
+
+|                                                                                                                                                                                                                                                                                                                                                           | Ehegatte                                                                                                               | Kind                                                                                                                                                     | Kind                                                                                                                                                     | Kind                                                                                                                                                     |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Name*                                                                                                                                                                                                                                                                                                                                                     |                                                                                                                        |                                                                                                                                                          |                                                                                                                                                          |                                                                                                                                                          |
+| * Bei fehlender Namensgleichheit zwischen dem Mitglied und dem Familienangehörigen sind die Personenstandsverhältnisse durch geeignete Urkunden (z. B. Eheurkunde, Lebenspartnerschaftsurkunde, Geburtsurkunde) oder – sofern deren Vorlage nicht möglich ist – durch andere geeignete Unterlagen (z. B. Bescheid über Kindergeld) einmalig nachzuweisen. |                                                                                                                        |                                                                                                                                                          |                                                                                                                                                          |                                                                                                                                                          |
+| Vorname                                                                                                                                                                                                                                                                                                                                                   |                                                                                                                        |                                                                                                                                                          |                                                                                                                                                          |                                                                                                                                                          |
+| Geschlecht (m = männlich, w = weiblich, X = unbestimmt, D = divers)                                                                                                                                                                                                                                                                                       | <input type="checkbox"/> (m) <input type="checkbox"/> (w)<br><input type="checkbox"/> (X) <input type="checkbox"/> (D) | <input type="checkbox"/> (m) <input type="checkbox"/> (w)<br><input type="checkbox"/> (X) <input type="checkbox"/> (D)                                   | <input type="checkbox"/> (m) <input type="checkbox"/> (w)<br><input type="checkbox"/> (X) <input type="checkbox"/> (D)                                   | <input type="checkbox"/> (m) <input type="checkbox"/> (w)<br><input type="checkbox"/> (X) <input type="checkbox"/> (D)                                   |
+| Geburtsdatum                                                                                                                                                                                                                                                                                                                                              |                                                                                                                        |                                                                                                                                                          |                                                                                                                                                          |                                                                                                                                                          |
+| Staatsangehörigkeit                                                                                                                                                                                                                                                                                                                                       |                                                                                                                        |                                                                                                                                                          |                                                                                                                                                          |                                                                                                                                                          |
+| ggf. vom Mitglied abweichende Anschrift                                                                                                                                                                                                                                                                                                                   |                                                                                                                        |                                                                                                                                                          |                                                                                                                                                          |                                                                                                                                                          |
+| Verwandtschaftsverhältnis des Mitglieds zum Kind<br>(* Die Bezeichnung „leibliches Kind“ ist auch bei Adoption zu verwenden.)                                                                                                                                                                                                                             |                                                                                                                        | <input type="checkbox"/> leibliches Kind*<br><input type="checkbox"/> Stiefkind<br><input type="checkbox"/> Enkel<br><input type="checkbox"/> Pflegekind | <input type="checkbox"/> leibliches Kind*<br><input type="checkbox"/> Stiefkind<br><input type="checkbox"/> Enkel<br><input type="checkbox"/> Pflegekind | <input type="checkbox"/> leibliches Kind*<br><input type="checkbox"/> Stiefkind<br><input type="checkbox"/> Enkel<br><input type="checkbox"/> Pflegekind |
+| Ist der Ehegatte mit dem Kind verwandt?<br>(Bitte nur beim fehlenden Verwandtschaftsverhältnis ankreuzen.)                                                                                                                                                                                                                                                |                                                                                                                        | <input type="checkbox"/> (nein)                                                                                                                          | <input type="checkbox"/> (nein)                                                                                                                          | <input type="checkbox"/> (nein)                                                                                                                          |
+
+### Sonstige Angaben zur Familienangehörigen
+
+Ich besitzige die Richtigkeit der Angaben und den Erteil des Merktates. Uber Anderungen werde ich sie umgehend
+
+Angaben zur Verlage einer Krankenversichertennunmer für familienversicherte Angeborträge
+
+Detection materials which is one variation of a concentration of a sedimentary sample (X) or embedded framiliar Angaben or Kontakdaran wedan anschleiglich für Rückträgen zu Intervalenbungswertnung verwendet.

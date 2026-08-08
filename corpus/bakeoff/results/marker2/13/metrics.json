@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "13",
+ "role": "main",
+ "input": "13_mischdokument/13 - Bock Andreas - Telekom Deutschland.pdf",
+ "input_bytes": 3503226,
+ "started": "2026-08-08T06:51:55",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 166.05,
+ "max_rss_mb": {
+  "self": 25.6,
+  "children": 34.3
+ },
+ "rss_baseline_mb": {
+  "self": 14.4,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/13 - Bock Andreas - Telekom Deutschland.pdf --output_dir /out --output_format markdown",
+  "md_file": "13 - Bock Andreas - Telekom Deutschland.md",
+  "stderr_tail": "2026-08-08 04:54:39,212 [INFO] marker: Saved markdown to /out/13 - Bock Andreas - Telekom Deutschland\n2026-08-08 04:54:39,212 [INFO] marker: Total time: 159.50542211532593\n",
+  "vram_peak_mb": 6960,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 27501
+}

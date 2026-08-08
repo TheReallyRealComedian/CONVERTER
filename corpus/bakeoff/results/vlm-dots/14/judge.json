@@ -1,0 +1,19 @@
+{
+  "klasse": "14",
+  "kandidat": "vlm-dots",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "NEU GELESEN per Konstruktion (dots.ocr-VLM, seitenweise): null Layer-Signaturen. Als einziger GPU-Kandidat liest er BEIDE Bruchstellen aktiv korrekt statt sie zu entsorgen: S.2-Titel 'E.T.A. Hoffmanns Beethoven-Kritik und die / Ästhetik des Erhabenen' (Z. 32-33; Ebene 'Asthetik') UND den S.14-Kolumnentitel 'E.T.A. Hoffmanns Beethoven-Kritik und die Ästhetik des Erhabenen 91' (Z. 328; Ebene Z. 640 'Asthetik') — weil er Kolumnentitel überhaupt mitführt.",
+    "Alle Stichproben-Anker bildgetreu: p2 'Wenn Hoffmann'/'hinzugeben\"²' (Z. 39; Ebene 'W ~ M'/'hin~ugeben'); p8 'ohne Übertreibung' (Z. 195), '²⁷ E. Burke, *Vom Erhabenen und Schönen*…' (Z. 205; Ebene 'x7'), '³⁰ Burke, S. 110.' (Z. 208; Ebene '5. 110'), '³¹ Schiller, *Über das Erhabene*…' (Z. 209; Ebene 'ober'); p9 '³⁸ H. H. Eggebrecht, *Das Ausdrucks-Prinzip im musikalischen Sturm und Drang*…' (Z. 227; Ebene 'Awci~ucks-Prinzip im nzwikalischen'); p15 '(Seifert, S. 157).' (Z. 346; Ebene '(Seifert,8.167)') und 'Selbständigkeit' (Ebene 'Selbstgndigkeit').",
+    "Vollständigster Output des gesamten 8er-Felds: alle 52 Fußnoten-Texte vorhanden (Nummern-Lückencheck 1-52 leer; Eggebrecht-Fn 38 und 'Hoffmann, S. 50.' nur hier und bei den P2-Pixel-Lesern), Kolumnentitel und gedruckte Seitenzahlen erhalten (nur 82/86/88 fehlen), als einziger Kandidat mit Impressum 'Archiv für Musikwissenschaft… D-6200 Wiesbaden' (Z. 53-54) und JSTOR-Zeitstempel-Footer 'Fri May 18 12:23:29 2007' (Z. 28).",
+    "KEINE Meldung: warnings [], kein Hinweistext — besteht per Konstruktion, nicht per Detektion; Weg (b) der Klassen-Regel nimmt auch er nicht.",
+    "Kleinigkeiten, kein Inhaltsverlust: Trennungs-Residuen bleiben stellenweise stehen, gehäuft auf S. 91 ('Deskrip- tion', 'Katego- rien', 'Gleichge- wicht', ~11 Stück in Z. 330) und vereinzelt in Fußnoten ('Be- merkungen' Z. 97, 'kei- neswegs' Z. 336); Anführungszeichen-Mix (ASCII ',,…\"' in Fn 50-52 und Teilen von S. 91 vs. „…\" im übrigen Haupttext); URL-Case-Abweichung 'sici?SICI=' (Z. 9; Original klein); Kursiv-Grenze verrutscht '*Be- merkungen zur Geschichte des Begriffswortes, Struktur*' (Z. 97).",
+    "Struktur seitenecht statt dokumentecht: ----Trenner je Seite, Fußnoten als Unicode-Superscript-Zeilen am Seitenende, Werktitel kursiv — aber keinerlei Markdown-Überschriften (headings 0; Titel als Fließtext-Zeilen) und vereinzelt konservierte Druck-Zeilenumbrüche (p2-Folgeabsatz Z. 47-49).",
+    "Nichts erfunden, nichts geloopt: max_ngram_repeat 1, length_ratio 0.981, order_lcs 0.929 (höchster Wert des GPU-Felds)."
+  ],
+  "gesamturteil": "brauchbar"
+}

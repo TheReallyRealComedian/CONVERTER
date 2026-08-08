@@ -1,0 +1,31 @@
+{
+ "candidate": "mineru-vlm",
+ "class": "03",
+ "role": "main",
+ "input": "03_tabelle-seitengrenze/zuordnung_Angebot-Vermarkter_if2010_II.pdf",
+ "input_bytes": 56082,
+ "started": "2026-08-07T22:16:48",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 102.04,
+ "max_rss_mb": {
+  "self": 15.9,
+  "children": 32.5
+ },
+ "rss_baseline_mb": {
+  "self": 14.9,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "mineru -p /in/zuordnung_Angebot-Vermarkter_if2010_II.pdf -o /out -b vlm-engine",
+  "md_file": "zuordnung_Angebot-Vermarkter_if2010_II.md",
+  "stderr_tail": "pp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())\nINFO:     Application shutdown complete.\nINFO:     Finished server process [119]\n",
+  "vram_peak_mb": 6301
+ },
+ "output_chars": 18364
+}

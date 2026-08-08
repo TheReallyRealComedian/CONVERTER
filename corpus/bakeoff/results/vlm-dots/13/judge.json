@@ -1,0 +1,18 @@
+{
+  "klasse": "13",
+  "kandidat": "vlm-dots",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 4,
+  "halluzination": 3,
+  "befunde": [
+    "Halluzination exakt an der Klassen-Prüfstelle (S. 12, beschnittene HORIZONT-Spalten): 'Trotzdem wagt die Telekom nur Ausbau und plant Kooperationsmit anderen Plattformen. Wo das Unternehmen künftig präsent sein will, wird Berlemann nicht. Man darf aber dagegen ausgehen, dass Facebook und andere Communities dazugehören können. Schließlich, so Berlemann, müsste „dort sein, wo der Kunde ist“. Als er Ersatz für andere Serviceleistungen er den 140-Zeichen-Kanal indes räumt, ist es eine Ergänzung und Entlastung.' — die korrekten Fragmente ('Kooperati', 'U nehmen', 'v Berlemann', 'Entlastu') sind zu flüssigem Pseudo-Volltext aufgefüllt, fast wortgleich mit eigenbaus Gemini-Auffüllung aus dem P2-Feld ('Wo das Unternehmen künftig präsent sein will, verrät Berlemann nicht'). Ebenso in der Nachbarspalte: 'bei kurzen Füße', 'Hier kommt:', 'ist das Core zur Qualität', 'entzerrigen' — erfundene Wortenden, denen man die Beschnitt-Lücke nicht mehr ansieht.",
+    "Acht Seiten kommen ausschließlich als eingebettetes Base64-PNG plus Footer, ohne ein Wort Text: S. 2, 9, 10, 11, 15, 16, 23, 32 — aus der Stichprobe damit p2 (Twitter/Portal-Collage) und p32 (Abschieds-Tweets) inhaltsleer. Mildernd gegenüber marker2/mineru: die Bilder sind real eingebettet statt tote Links (output.md 11,5 MB), der Inhalt ist visuell konserviert, aber nicht extrahiert — nicht durchsuchbar, nicht vertonbar.",
+    "Das Transkribierte ist die sauberste Fassung im GPU-Feld: S. 3 vollständig als Heading+Bullet-Hierarchie mit korrekten '→'-Pfeilen und intakten Leerzeichen (einziger Kandidat); S. 17 nahezu fehlerfrei und diszipliniert fragmentarisch beendet ('A German law gave me the'); Lessons Learned (S. 31) als echte Liste; '---'-Seitentrenner mit Footern je Seite ergeben eine exakte, referenz-deckungsgleiche Seitenzuordnung (Titel S. 24–30 alle auf der richtigen Seite).",
+    "Native Verluste durch Bild-Verkennung: die S.-4-Roadmap-Beschriftungen ('Landingpage Telekom_hilft', 'Service-Notizen', 'Mobilfunk-Forum', 'Twitter Pilot Telekom-hilft', 'Ausbau Landigpage', Monatsleiste) stehen in der nativen Textebene, fehlen aber komplett — die Timeline wurde als Diagramm-Bild behandelt; ebenso die Monatsleisten von S. 5/6, die Mitarbeiternamen-Sidebar von S. 18 und die S.-21-Chart-Legende ('Vodafone_de, 1und1, TMobileUKhelp…').",
+    "Native Anker korrekt: 'Kumulierte Reichweite bislang: über 7,7 Mio (Vorsicht!)', 'Bereits über 9000 Follower', Quell-Tippfehler erhalten ('Twitter-Accout telekom_hilft', 'Das Konzepts entspricht'). Keine erfundenen Chart-Datenreihen — Diagramme bleiben Bilder mit ihren echten Captions.",
+    "Kleinfehler: 'Telefonvertragen' statt 'Telefonverträgen' (S. 12, Umlaut-Verlust), Footer '26. OKtober 2010' (S. 11), 'Jul 29th' statt 'Juli 29th' (S. 17), ergänzter Satzpunkt hinter '…einschlägigen Threads.' (S. 7, Original ohne Punkt), 'personenbezogen-nen' mit Trennstrich-Artefakt (S. 18), 'CoT weet' statt 'CoTweet' (S. 26)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

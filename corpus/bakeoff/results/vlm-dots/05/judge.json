@@ -1,0 +1,18 @@
+{
+  "klasse": "05",
+  "kandidat": "vlm-dots",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 3,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Beide Prüfabsätze (S. 2/Druckseite 79 und S. 9/Druckseite 86) wortgenau gegen das Render: 0 Wortfehler, Umlaute/ß fehlerfrei, Anker als Unicode-Superscript korrekt positioniert; tokenweise identisch mit den beiden Schwesterkandidaten (maschinell trianguliert).",
+    "Einziger GPU-Kandidat mit komplettem UND korrekt nummeriertem Fußnotenapparat: alle 52 Definitionen vorhanden, alle Ziffern richtig (per Inventar-Grep verifiziert) — auf Sample-Seite 85 inkl. „³³ Jean Paul, *Vorschule der Ästhetik*“ mit korrektem Ä (der Umlautverlust an dieser Stelle betraf nur marker2s Alt-Lauf) und auf Sample-Seite 86 mit intakten 38/39 (die mineru-vlm komplett fehlen). Anmerkung nach marker2-Neu-Lauf: dokumentweit bleibt vlm-dots der einzige mit 52/52 korrekten Nummern (marker2 neu: 50/52).",
+    "Vollständigster Output des Feldes: einziger mit JSTOR-Fußzeile („http://www.jstor.org / Fri May 18 12:23:29 2007“, S. 1) und Impressum der Druckseite 79 („Archiv für Musikwissenschaft, Jahrgang XXXVIII … Wiesbaden“); das JSTOR-Logo ist als Base64-PNG eingebettet — dekodiert und verifiziert: echter Bild-Crop des Logos, keine Erfindung.",
+    "URL-Abweichung auf Sample-Seite 1: „sici?SICI=0003-9292…“ — der Query-Parameter-Name großgeschrieben, das Original ist klein („sici?sici=“, Zoom-verifiziert); der Rest der URL inkl. „%3AETAHBU“ zeichengenau.",
+    "HAUPTSCHWÄCHE (Struktur): Reflow seiteninkonsistent — Sample-Seite 86 sauber zu Absätzen gefügt, Sample-Seite 85 dagegen zeilenweise mit hängenden Trennstrichen übernommen („Dun- kelheit“, „Zusam- mensetzung“ im gerenderten Text); off-sample betrifft das ganze Seiten (80, 83, 87, 89) plus angeklebte Reste („Dahin-reißendes“, S. 84). Seitenfurniture steht im Fließtext (---, Kopfzeilen „Carl Dahlhaus“, Seitenzahlen), keine Markdown-Überschriften — als Lesetext braucht es einen Dehyphenierungs- und Header-Strip-Pass, der aber mechanisch und verlustfrei ist.",
+    "Zeichenrauschen: doppelte Punkte an Ankern 35/36/37 (Sample-Seite 85: „Welt“.³⁵.“ statt „Welt“³⁵.“), Anführungszeichen-Mix (typografisch neben gerade neben Doppelkomma); off-sample Jahres-Verstümmelung in Fn 20/25 („Leipzig ¹830“, „München ¹967“ statt ²1830/⁴1967), „Alle gros“ statt „Allegros“ (S. 81) und Fn 41 nach 43 einsortiert (S. 87)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

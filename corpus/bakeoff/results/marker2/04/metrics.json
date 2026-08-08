@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "04",
+ "role": "main",
+ "input": "04_verbundene-zellen/06_ranking_angebote_monat_if2010_I.pdf",
+ "input_bytes": 57313,
+ "started": "2026-08-07T23:47:40",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 24.04,
+ "max_rss_mb": {
+  "self": 25.9,
+  "children": 27.8
+ },
+ "rss_baseline_mb": {
+  "self": 14.5,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/06_ranking_angebote_monat_if2010_I.pdf --output_dir /out --output_format markdown",
+  "md_file": "06_ranking_angebote_monat_if2010_I.md",
+  "stderr_tail": "2026-08-07 21:48:01,744 [INFO] marker: Table processing stats: {'tables_pdftext': 12, 'tables_total': 12}\n2026-08-07 21:48:02,002 [INFO] marker: Saved markdown to /out/06_ranking_angebote_monat_if2010_I\n2026-08-07 21:48:02,002 [INFO] marker: Total time: 17.965338468551636\n",
+  "vram_peak_mb": 7156,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 135974
+}

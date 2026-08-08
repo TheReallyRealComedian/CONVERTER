@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "01",
+ "role": "gold",
+ "input": "derived/01_gold-seiten.pdf",
+ "input_bytes": 1029666,
+ "started": "2026-08-07T23:53:55",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 32.08,
+ "max_rss_mb": {
+  "self": 26.1,
+  "children": 29.8
+ },
+ "rss_baseline_mb": {
+  "self": 14.8,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/01_gold-seiten.pdf --output_dir /out --output_format markdown",
+  "md_file": "01_gold-seiten.md",
+  "stderr_tail": "2026-08-07 21:54:25,477 [INFO] marker: Table processing stats: {'tables_pdftext': 2, 'tables_total': 2}\n2026-08-07 21:54:25,520 [INFO] marker: Saved markdown to /out/01_gold-seiten\n2026-08-07 21:54:25,520 [INFO] marker: Total time: 26.22854232788086\n",
+  "vram_peak_mb": 7282,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 13865
+}

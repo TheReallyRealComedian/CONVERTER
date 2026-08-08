@@ -1,0 +1,73 @@
+{
+ "pipe_tables": 50,
+ "pipe_rows": 965,
+ "table_rows_max": 47,
+ "html_tables": 0,
+ "colspan_attrs": 0,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 112,
+  "h2": 123,
+  "h3": 138,
+  "h4": 3
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 232,
+ "checkbox_tokens": 7,
+ "chars_out": 1360272,
+ "words_out": 161891,
+ "umlauts_out": 15390,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 1,
+  "wort_pro_zeile": 13
+ },
+ "word_recall": 0.8846,
+ "word_precision": 0.9515,
+ "word_f1": 0.9168,
+ "words_ref": 174144,
+ "top_missing": [
+  "14×548",
+  "Deutscher×276",
+  "Drucksache×276",
+  "9020×276",
+  "Wahlperiode×276",
+  "Bundestag×271",
+  "ge×173",
+  "gen×157",
+  "Be×144",
+  "den×141",
+  "be×140",
+  "nen×127",
+  "ten×123",
+  "schen×111",
+  "der×98"
+ ],
+ "top_invented": [
+  "×176",
+  "werden×41",
+  "Untersuchungen×36",
+  "Menschenwürde×32",
+  "genetischer×26",
+  "genetischen×24",
+  "Patienten×20",
+  "Diagnostik×19",
+  "Schwangerschaft×19",
+  "genetische×19",
+  "Embryonen×18",
+  "einer×17",
+  "Forschung×17",
+  "Durchführung×17",
+  "Kommission×16"
+ ],
+ "length_ratio": 0.959,
+ "umlauts_ref": 15633,
+ "umlaut_recall": 0.984,
+ "order_lcs": null,
+ "notes": [
+  "order_lcs uebersprungen (>30000 Woerter)"
+ ],
+ "loop_flag": false,
+ "_ref": "12.txt"
+}

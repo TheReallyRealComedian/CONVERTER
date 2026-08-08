@@ -1,0 +1,39 @@
+{
+  "klasse": "13",
+  "feld": "GPU (P3-Addendum)",
+  "judge_familie": "Claude (Fable 5) — bewusst ungleich Gemini; keiner der drei GPU-Kandidaten ist Claude- oder Gemini-Familie (MinerU-VLM, marker/surya, dots.ocr)",
+  "laufzurechnung": "marker2 wird ausschließlich nach dem Neu-Lauf 2026-08-08T06:51 (surya-Kontext 18000) beurteilt; der Erst-Lauf vom 2026-08-07 war ein Harness-Artefakt (8k-Kontext, BadRequestError) und wird dem Kandidaten nicht zugerechnet — dessen auffälligste Befunde ('## Second part of the problem', 'University of California Department of Biology', 'Kanal Bergen') existieren im regulären Lauf nicht.",
+  "stichprobe": {
+    "seiten": ["p1", "p2", "p17", "p18", "p32"],
+    "identisch_mit_p2_verdikt": true,
+    "zusatzverifikation": "S. 9, 12 und 13 des Originals eigens gerendert (pdftoppm): S. 9 zeigt dieselbe Twitter/Portal-Collage wie S. 2 (mineru-vlms Doppel-Block ist gerechtfertigte Abdeckung, kein Artefakt); S.-17-Unterkante bei 200 dpi geprüft; S. 13 belegt, dass 'Andrew Barker' (marker2-Neu-Lauf) nirgends auf der Folie steht."
+  },
+  "kernfragen": {
+    "kommen_die_scans_raus": "mineru-vlm liefert als einziger ALLE Stichproben-Scans mit korrektem Text — erstmals im Gesamtfeld (P2+GPU) eine Fassung, die S. 2 UND S. 32 zugleich trifft (P2: eigenbau verpasste 32, tesseract lieferte 2 nur als Kauderwelsch); auch die 'wenig-Inhalt'-Scans (9, 10, 11, 15, 16) kommen mit Inhalt. vlm-dots transkribiert nur die reichen Scans (3, 12–14, 17, 22, 24–30) und lässt 8 Seiten inkl. p2/p32 als eingebettetes Bild ohne Text. marker2 OCRt 12–17 und 24–30 in jetzt deutlich besserer Qualität, aber die Collage-Scans 2, 9–11 und 32 bleiben auch mit 18k-Kontext leere Bild-Platzhalter — die Lücke sitzt in der Layout-Klassifikation, nicht in der Kontextlänge; die S.-22/23-Pinnwand fällt gegenüber dem Artefakt-Lauf sogar auf Platzhalter zurück.",
+    "bleiben_die_nativen_verlustfrei": "Keiner ist byte-treu wie textlayer/eigenbau im P2-Feld. vlm-dots am nächsten dran: Bullets wortgenau mit intakten Leerzeichen, aber die native S.-4-Roadmap samt Monatsleisten wird als Bild verkannt und fehlt komplett. mineru-vlm inhaltlich verlustfrei (alle Kernaussagen, '7,7 Mio (Vorsicht!)' korrekt), aber mit zusammengeklebten Bullets in der S.-3-Tabelle. marker2 bleibt auch im Neu-Lauf flächig verklebt — byte-gleich zum Erst-Lauf, der Schaden stammt aus dem Textebenen-Merge, nicht aus surya ('Social-Media-Maßnahmendes eChannel', 'ViralesMarketing funktioniert.Telekom wird nicht gebasht', '7,7 Mio(Vorsicht!)'); nur S. 8 ist jetzt eine echte Bullet-Liste.",
+    "s12_beschnittene_spalten": "Nur noch mineru-vlm hält die Crops: 'plant Kooperati mit anderen Plattformen. Wo das U nehmen künftig präsent sein will, v Berlemann nicht.' — Fragmente exakt erhalten. vlm-dots füllt durchgehend flüssig auf ('Wo das Unternehmen künftig präsent sein will, wird Berlemann nicht. […] räumt, ist es eine Ergänzung und Entlastung.' plus 'kurzen Füße'/'das Core'), fast wortgleich mit eigenbaus Gemini-Auffüllung aus P2. marker2 füllt im 18k-Lauf TEILS auf ('U nehmen'→'Unternehmen', 'v Berlemann nicht'→'verlernen nicht' — der Name verschwindet), gemischt mit erhaltenen Fragmenten ('indes r', 'Entlastur:') und Konfabulat-Müll ('Fielden', 'Fieldsofort', 'sensual publikum')."
+  },
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "mineru-vlm",
+      "begruendung": "Gewinnt alle drei Kern-Achsen der Klasse: einziger Kandidat im Gesamtfeld mit Text auf allen Scan-Stichproben inkl. S. 2 UND S. 32, native Hälfte inhaltlich verlustfrei, und als einziger GPU-Kandidat auf den S.-12-Crops ehrlich fragmentarisch — bezahlt mit sichtbaren VLM-Loops (max_line_repeat 13 = '@Kreativathletin' 13× im S.-12-Tweet-Screenshot, dazu driftende 'Followings'-Zahlenschleifen) und konfabulierten Chart-Datentabellen."
+    },
+    {
+      "platz": 2,
+      "kandidat": "vlm-dots",
+      "begruendung": "Sauberste Markdown-Fassung des Felds (S. 3 als einziger mit intakter Bullet-Struktur, exakte Seitenzuordnung, keine erfundenen Chart-Daten), aber nur die halbe Scan-Hälfte wird Text (8 Seiten inkl. p2/p32 bleiben eingebettete Bilder) und auf den S.-12-Crops füllt es am konsequentesten unsichtbar auf — das gemini-nativ-Profil aus P2, belastet mit eigenbaus S.-12-Sünde."
+    },
+    {
+      "platz": 3,
+      "kandidat": "marker2",
+      "begruendung": "Der 18k-Lauf hebt die Scan-OCR auf hohes Niveau (S. 15–18 jetzt weitgehend korrekt) und räumt die Artefakt-Konfabulate aus, ändert aber keine der beiden Klassen-Achsen: die Collage-Scans 2/9–11/32 bleiben leere Platzhalter UND die native Hälfte bleibt durch Klebewörter unwortgetreu — dazu verliert er die S.-12-Fragment-Disziplin ('verlernen nicht') und konfabuliert punktuell weiter ('Andrew Barker', '@Telekom_hilft_haute_mangen')."
+    }
+  ],
+  "einordnung_vs_p2": {
+    "mineru-vlm": "Spielt über dem P2-Sieger eigenbau auf dessen eigener Achse: volle Scan-Abdeckung inkl. der von eigenbau als Stubs belassenen S. 32 und 'wenig-Inhalt'-Scans, und auf S. 12 ehrlicher als eigenbau (Fragmente statt unsichtbarem Gemini-Volltext). Was eigenbau voraus hat: byte-treue native Textebene und keine Loop-Artefakte. In Summe die beste Einzel-Konverter-Leistung auf Klasse 13 im Gesamtfeld — als OCR-Slot im Eigenbau-Routing wäre mineru-vlm dem dortigen Gemini-Pfad auf dieser Klasse überlegen (mehr Abdeckung, keine Crop-Auffüllung), bräuchte aber einen Loop-Detektor (max_line_repeat als Abbruchsignal ist im Harness ja bereits messbar).",
+    "vlm-dots": "Entspricht dem gemini-nativ-Profil aus P2 (Platz 2: beste Politur, halbe Klasse) — schwächer als gemini-nativ in der Crop-Disziplin (füllt auf, wo gemini-nativ diszipliniert fragmentarisch blieb), stärker in Seitenzuordnung und Bild-Konservierung (Base64 statt toter Links). Rangiert im Gesamtfeld etwa gleichauf mit gemini-nativ, hinter eigenbau und mineru-vlm.",
+    "marker2": "Landet zwischen tesseract und textlayer: unversehrte Zahlen ('7,7 Mio' aus der Textebene, wo tesseract '/,/ Mio' machte) und im 18k-Lauf saubere OCR auf den reichen Scans, aber tesseracts Treue-Preis in milder Form (Klebewörter statt zerstörter Ziffern) auf fast jeder nativen Folie und textlayers Leerstellen auf den Collage-Scans; anders als beide alte Baselines füllt er Crops teilweise auf. Im Gesamtfeld hinter eigenbau/mineru-vlm/gemini-nativ/vlm-dots, vor textlayer und docling."
+  },
+  "eigener_augenschein_vs_scores": "Die Summen-Optik (mineru-vlm 18 = vlm-dots 18 > marker2 15) trennt die ersten beiden nicht — das Ranking folgt wie im P2-Verdikt den Kern-Achsen der Klasse (Scan-Abdeckung + native Verlustfreiheit + Crop-Ehrlichkeit), und dort gewinnt mineru-vlm alle drei gegen vlm-dots. Bemerkenswertester Querbefund über beide Felder, durch den marker2-Neu-Lauf verschärft: Auf den S.-12-Crops füllen die generativen Decoder auf (eigenbaus Gemini in P2, dots.ocr, jetzt auch surya-ocr-2 im 18k-Lauf) — und der Vergleich der beiden marker2-Läufe legt nahe, dass mehr Sprachkontext die Vervollständigungs-Neigung erhöht: der 8k-Artefakt-Lauf ließ 'Wo das Unehmen künftig präsent sein will, v Berlemann nicht' fragmentarisch stehen, der reguläre 18k-Lauf schreibt 'Wo das Unternehmen künftig präsent sein will, verlernen nicht' (dokumentierte Beobachtung über die Läufe, keine Bewertungsgrundlage — bewertet ist nur der Neu-Lauf). Einziger Crop-ehrlicher GPU-Kandidat bleibt mineru-vlm, das seine Abdeckung mit der komplementären Decoder-Pathologie bezahlt: sichtbaren Repetition-Loops samt driftender Zahlen ('147 2,303 83'→'146 2,203 83'); Loop und Auffüllung sind dieselbe Krankheitsfamilie, nur ist der Loop im Diff sofort erkennbar und die Auffüllung nicht."
+}

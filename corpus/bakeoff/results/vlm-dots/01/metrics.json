@@ -1,0 +1,32 @@
+{
+ "candidate": "vlm-dots",
+ "class": "01",
+ "role": "main",
+ "input": "01_paper-zweispaltig/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf",
+ "input_bytes": 992199,
+ "started": "2026-08-08T03:53:08",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 1190.16,
+ "max_rss_mb": {
+  "self": 33.3,
+  "children": 31.0
+ },
+ "rss_baseline_mb": {
+  "self": 14.3,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "python3 /opt/dots.ocr/dots_ocr/parser.py /in/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf --output /out --ip 127.0.0.1 --port 8003 --prompt prompt_layout_all_en",
+  "md_file": "54 Seiten-Dateien assembliert",
+  "stderr_tail": "0<01:03, 21.31s/it]\nProcessing PDF pages:  96%|█████████▋| 52/54 [19:16<00:51, 25.74s/it]\nProcessing PDF pages:  98%|█████████▊| 53/54 [19:36<00:24, 24.18s/it]\nProcessing PDF pages: 100%|██████████| 54/54 [19:47<00:00, 20.08s/it]\nProcessing PDF pages: 100%|██████████| 54/54 [19:47<00:00, 21.99s/it]\n",
+  "vram_peak_mb": 9921,
+  "server_model": "rednote-hilab/dots.ocr"
+ },
+ "output_chars": 2419268
+}

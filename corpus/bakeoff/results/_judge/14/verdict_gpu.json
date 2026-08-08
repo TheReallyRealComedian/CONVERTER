@@ -1,0 +1,28 @@
+{
+  "klasse": "14",
+  "feld": "GPU-Addendum P3 (mineru-vlm, marker2, vlm-dots)",
+  "judge_familie": "Claude (Fable 5, Subagent) — bewusst nicht Gemini, da Gemini als Kandidat antritt",
+  "stichprobe": ["p1.png (JSTOR-Deckblatt)", "p2.png (S. 79, Titel)", "p8.png (S. 85)", "p9.png (S. 86)", "p15.png (S. 92, Seifert-Zitat)"],
+  "re_run_notiz": "marker2 wurde neu bewertet auf dem Re-Run 2026-08-08T06:54 (surya-Server-Kontext 18000). Der Vorlauf lief mit einem 8k-Kontext-Harness-Artefakt; dessen Befunde — erfundenes 'Burke, S. 82.', Fn 35 als '28', zwei duplizierte Fn-Zeilen auf S. 85 — werden marker2 NICHT zugerechnet und sind im Re-Run verifiziert verschwunden (alle vier Alt-Fehler-Anker 0 Treffer). Unverändert gegenüber dem Vorlauf sind Durchreich-Verhalten, Misch-Provenienz und fehlende Meldung.",
+  "pruefbasis": "P2-Prämissen-Korrektur übernommen: die Ebene ist sporadisch kaputt, nicht flächig — Durchreich-Detektor sind die byte-gleichen Bruchstellen (2× 'Asthetik', '(Seifert,8.167)', 'W ~ M', 'hin~ugeben', 'x7', 'ubertreibung', 'Awci~ucks-Prinzip', 'ober das Erhabene', '5. 110' u.a.), alle gegen results/_references/14.txt und die Original-Renders verifiziert.",
+  "meldungen": "KEIN GPU-Kandidat meldet irgendetwas: alle drei metrics.json haben warnings [], kein Output enthält Hinweis-/Degradationstext. Weg (b) der Klassen-Regel bleibt auch im GPU-Feld unbegangen — verschärfend bei marker2, dessen Pipeline die kaputte Ebene auf genau einer Seite nachweislich erkannt und re-OCRt hat, ohne das zu sagen.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "vlm-dots",
+      "begruendung": "Liest alle 15 Seiten neu vom Bild und ist der einzige Kandidat des 8er-Gesamtfelds, der beide 'Asthetik'-Bruchstellen aktiv korrekt liest (S.14-Kolumnentitel '…Ästhetik des Erhabenen 91' statt Entsorgung), dazu '(Seifert, S. 157)', 'Burke, S. 110.', Eggebrecht-Fn 38 korrekt und alle 52 Fußnoten samt Impressum — Preis sind nur Kleinigkeiten (Trennungs-Residuen, Quote-Mix, keine Markdown-Überschriften)."
+    },
+    {
+      "platz": 2,
+      "kandidat": "mineru-vlm",
+      "begruendung": "Liest ebenfalls alles neu und fehlerfrei an allen Bruch-Ankern ('Ästhetik' 2×, 'S. 157', '27', 'Übertreibung') mit der saubersten Markdown-Struktur des GPU-Felds — verliert aber still 5 von 52 Fußnoten-Texten bei stehengelassenen Markern (davon 38+39 auf Stichproben-Seite p9: Eggebrecht-Beleg weg), nummeriert Fn 3 als '8' und entsorgt alle Kolumnentitel: brauchbar mit Nacharbeit."
+    },
+    {
+      "platz": 3,
+      "kandidat": "marker2",
+      "begruendung": "Durchgefallen nach Klassen-Regel (Re-Run, 18k): reicht die Ebene auf 14 von 15 Seiten byte-gleich und kommentarlos durch (##-geadelte 'Asthetik'-Titelzeile, 'W~M', 'hin~ugeben', '(Seifert,8.167)', 'Awci~ucks-Prinzip') und re-OCRt still genau S. 85 — die Reparatur dieser einen Seite ist im Re-Run fehlerfrei (Fn 27–37 korrekt, 'Burke, S. 110.'), doch die unmarkierte Misch-Provenienz ohne jede Meldung bleibt für den Klassenzweck das irreführendste Verhalten: der Detektor existiert, feuert auf 1 von ≥14 kaputten Seiten und schweigt."
+    }
+  ],
+  "kernbefund": "Auch das GPU-Feld trennt exakt entlang des Pfads: die zwei Pixel-Leser (vlm-dots, mineru-vlm) sind frei von allen Layer-Schäden, der Layer-Nutzer (marker2) reicht sie durch. Neu gegenüber P2 sind zwei Fehlertypen der GPU-Klasse selbst: stiller Apparat-Verlust beim Neu-Lesen (mineru: 5 Fußnoten weg, Marker baumeln) und unmarkierte Misch-Provenienz (marker2: ein interner Bad-Layer-Detektor existiert, feuert auf genau 1 von ≥14 kaputten Seiten — die Titelseite mit 'W ~ M'/'hin~ugeben' bleibt Ebene — und meldet nichts; nach dem 18k-Re-Run ist die reparierte Seite selbst fehlerfrei). Eine Meldung leistet weiterhin keiner von acht.",
+  "einordnung_vs_p2": "Ins P2-Feld einsortiert (gemini-nativ > tesseract > textlayer > eigenbau > docling) ergibt sich als 8er-Gesamtbild: gemini-nativ (1) > vlm-dots (2) > mineru-vlm (3) > tesseract (4) > textlayer (5) > eigenbau (6) > marker2 (7) > docling (8). vlm-dots rückt dicht an gemini-nativ heran — gleiche Anker-Fehlerfreiheit, vollständigster Apparat des Felds (einziger mit beiden Bruchstellen aktiv gelesen UND 52/52 Fußnoten), aber ohne dessen Politur (keine verlinkten Fußnoten/Headings, Trennungs-Residuen) und wie alle ohne Meldung. mineru-vlm schlägt tesseract (Struktur 4 vs 2, keine wiederkehrenden Zitat-Verleser), zahlt aber mit einem Verlusttyp, den P2 nicht kannte: komplett fehlende Fußnoten-Texte hinter intakten Markern. marker2 (Re-Run) steht in der Politur-Liga der Durchreicher hinter den ehrlich-rohen (textlayer, eigenbau): dieselbe ##-Adelung der kaputten Titelzeile wie docling plus die im Gesamtfeld einzigartige unmarkierte Misch-Provenienz — aber seit dem Re-Run ohne erfundene Zitat-Details, mit einer echt reparierten Seite und ohne doclings Fußnoten-Zerlegung, deshalb neu VOR docling auf Platz 7 (die Vorlauf-Einstufung hinter docling beruhte auf dem 8k-Harness-Artefakt und wird marker2 nicht zugerechnet). GPU-These des Addendums halb bestätigt: 'GPU-Kandidaten OCRen normalerweise selbst' gilt für die zwei VLM-Pipelines uneingeschränkt, für marker2 nur heuristisch pro Seite — und die Heuristik hat bei 600-dpi-Schärfe mit gesund aussehender Dichte fast überall NICHT gefeuert, exakt die Klassifikator-Falle des Klassen-READMEs."
+}

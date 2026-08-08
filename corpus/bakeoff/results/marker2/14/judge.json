@@ -1,0 +1,20 @@
+{
+  "klasse": "14",
+  "kandidat": "marker2",
+  "lauf": "Re-Run 2026-08-08T06:54 (surya-Server-Kontext 18000; der Vorlauf mit 8k-Kontext war ein Harness-Artefakt und wird marker2 nicht zugerechnet — dieses Urteil bewertet ausschließlich den frischen Output)",
+  "treue": 3,
+  "vollstaendigkeit": 4,
+  "struktur": 3,
+  "lesereihenfolge": 4,
+  "halluzination": 5,
+  "befunde": [
+    "DURCHGEREICHT auf 14 von 15 Seiten, KEINE Meldung (warnings [], kein Hinweistext im Markdown): Bruchstelle 1 byte-gleich UND geadelt — '## **E.T.A. Hoffmanns Beethoven-Kritik und die Asthetik des Erhabenen**' (Z. 21) ist weiterhin die EINZIGE Markdown-Überschrift des Dokuments (die docling-Figur aus P2: Politur über stillem Defekt). Bruchstelle 2 (S.14-Kolumnentitel 'Asthetik', Ebene Z. 640) entsorgt statt gelesen — alle Kolumnentitel gestrippt ('Carl Dahlhaus, E…' 0 Treffer).",
+    "Layer-Signaturen byte-gleich auf den Stichproben-Seiten: p2 'W~M Hoffmann' (Z. 27; Ebene 'W ~ M'), 'hin~ugeben\"~', 'einschloßl'; p9 'Das Awci~ucks-Prinzip im nzwikalischen Sturm' (Z. 127; Ebene Z. 429), 'Sturm und Drangs8' (Z. 121; Ebene Z. 401) und die Kropfinger-Fn als '*Bemrhngen zur Geschichte des Begfiffmortes ,Struktur1 in der Mwik*' (Z. 55); p15 '(Seifert,8.167)' + 'Selbstgndigkeit' (Z. 173; Original-Render p15: '(Seifert, S. 157).'). Außerhalb der Stichprobe ebenso: 'Theork der Schönen Kilnste' (Z. 45), 'GeschZchte de~deutschen Ode' (Z. 49), 'Iäßt'/'Beethoren'/'ob~vohl' (Z. 73), 'Stralilen'/'einfiußreichsten'/',,Großeu' (Z. 81), 'Hant'/'uurde'/'ffberlegenheit' (Z. 143), 'Pranz Beck' (Z. 159), '&thetische' (Z. 163), 'Alusikästhetiker' (Z. 169), 'Hege1' (Z. 125), 'Beethovan' (Z. 155) — alle gegen results/_references/14.txt als Ebene verifiziert.",
+    "Verdeckte MISCH-Provenienz bleibt: genau S. 85 (Stichprobe p8) ist still frisch gelesen (deutsche „-Anführungszeichen clustern exakt wie im Vorlauf nur in Z. 93/95/97/115): 'ohne Übertreibung' (Ebene 'ubertreibung'), '„Schrecken\", der' (Ebene ',,Schreckenfi,'), '<sup>27</sup> E.Burke' (Ebene 'x7'), '*Über das Erhabene*' (Ebene 'ober'). Marker besitzt also einen Layer-Qualitäts-Detektor, der auf 1 von mindestens 14 vergleichbar kaputten Seiten feuert (die Titelseite mit 'W ~ M'/'hin~ugeben' bleibt Ebene) und nichts meldet — der Leser kann nicht einmal die Regel 'alles ist die Ebene' anwenden.",
+    "Der 18k-Re-Run heilt die Frisch-Fehler des Vorlaufs vollständig: Fn-Block S. 85 jetzt korrekt und einfach — '<sup>30</sup> Burke, S. 110.' (Z. 105; Vorlauf erfand 'S. 82.'), Fn 35 korrekt als '<sup>35</sup> Jean Paul, S. 57; auf die Abhängigkeit…' (Z. 115; Vorlauf: '28'), keine Duplikate mehr ('Burke, S. 92. <sup>29</sup>' und 'Jean Paul, S. 57. <sup>37</sup>' je 0 Treffer); der p8-Absatz ist vollständig inkl. Schiller-Klammer '…bis zum Entzücken steigen kann\"<sup>31</sup>)' (Z. 93). Nichts mehr erfunden → Halluzination 5.",
+    "Vollständigkeit hoch, weil die Ebene alles trägt (length_ratio 0.96, alle 52 Fn-Texte in Layer- oder Frisch-Form vorhanden, word_f1 0.9445 gegen die Ebene): Verluste sind die Seiten-Möbel — Kolumnentitel samt gedruckter Seitenzahlen und Wiesbaden-Impressum (0 Treffer), wie bei docling.",
+    "Marker-typischer Format-Müll über dem Layer-Text bleibt: Bold-Fragmente '**Io** Hoffmann, S. **36.**' mit zwei verklebten Fn in einer Zeile (Z. 55), '**An**schein' (Z. 73), '*Philosophi***cal**' und Fn-Nummer in Kursiv verschluckt '*Vom Erhabenen25.*' (Z. 81), 's.190' — Struktur-Behauptung über kaputter Quelle.",
+    "Klassen-Regel: durchgefallen — kommentarloses Durchreichen der unbrauchbaren Ebene auf 14 von 15 Seiten; die stille Teil-Reparatur genau einer Seite erfüllt weder Weg (a) (erkennen + neu lesen) noch Weg (b) (durchreichen + melden)."
+  ],
+  "gesamturteil": "unbrauchbar"
+}

@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "02",
+ "role": "main",
+ "input": "02_guideline/berichtsband_if2010_II.pdf",
+ "input_bytes": 350618,
+ "started": "2026-08-07T23:52:30",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 85.06,
+ "max_rss_mb": {
+  "self": 26.0,
+  "children": 28.3
+ },
+ "rss_baseline_mb": {
+  "self": 14.7,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/berichtsband_if2010_II.pdf --output_dir /out --output_format markdown",
+  "md_file": "berichtsband_if2010_II.md",
+  "stderr_tail": "tokens', 'code': 400}}\n2026-08-07 21:53:53,250 [INFO] marker: Table processing stats: {'tables_pdftext': 20, 'tables_ocr': 3, 'tables_total': 23}\n2026-08-07 21:53:53,677 [INFO] marker: Saved markdown to /out/berichtsband_if2010_II\n2026-08-07 21:53:53,677 [INFO] marker: Total time: 78.59661197662354\n",
+  "vram_peak_mb": 7916,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 153293
+}

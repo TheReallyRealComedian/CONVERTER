@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "03",
+ "role": "main",
+ "input": "03_tabelle-seitengrenze/zuordnung_Angebot-Vermarkter_if2010_II.pdf",
+ "input_bytes": 56082,
+ "started": "2026-08-07T23:46:50",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 50.06,
+ "max_rss_mb": {
+  "self": 25.4,
+  "children": 28.1
+ },
+ "rss_baseline_mb": {
+  "self": 14.1,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/zuordnung_Angebot-Vermarkter_if2010_II.pdf --output_dir /out --output_format markdown",
+  "md_file": "zuordnung_Angebot-Vermarkter_if2010_II.md",
+  "stderr_tail": "2026-08-07 21:47:37,977 [INFO] marker: Table processing stats: {'tables_ocr': 1, 'tables_total': 1}\n2026-08-07 21:47:38,086 [INFO] marker: Saved markdown to /out/zuordnung_Angebot-Vermarkter_if2010_II\n2026-08-07 21:47:38,086 [INFO] marker: Total time: 44.09656286239624\n",
+  "vram_peak_mb": 7152,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 15572
+}

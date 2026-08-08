@@ -19,6 +19,10 @@
  "umlauts_out": 344,
  "max_line_repeat": 2,
  "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 1,
+  "wort_pro_zeile": 39
+ },
  "word_recall": 0.9155,
  "word_precision": 0.9848,
  "word_f1": 0.9489,
@@ -61,6 +65,6 @@
  "umlauts_ref": 346,
  "umlaut_recall": 0.994,
  "order_lcs": 0.8894,
- "loop_flag": false,
+ "loop_flag": true,
  "_ref": "02.txt"
 }

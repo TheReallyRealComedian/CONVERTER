@@ -1,0 +1,18 @@
+{
+  "klasse": "05",
+  "kandidat": "marker2",
+  "treue": 4,
+  "vollstaendigkeit": 5,
+  "struktur": 5,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Bewertet ist der NEU-LAUF vom 2026-08-08 06:50 (surya-vLLM mit 18k-Kontext; der Erst-Lauf litt unter einem Harness-Artefakt: 8k-Kontext → still geschluckte max_tokens-BadRequests). Sämtliche stillen Sample-Korruptionen des Alt-Laufs sind verschwunden: Fn 38 jetzt korrekt „38“ (vorher „33“), Fn 31 korrekt (vorher „[1]“), Fn 35 korrekt (vorher nur ein Anführungszeichen), die Phantom-Zeile „Burke, S. 82.“ existiert nicht mehr, Fn 33 trägt „Vorschule der Ästhetik“ mit korrektem Ä (vorher „Asthetik“), und die im Alt-Lauf zu „anforg 1759, S. 56.“ zerstörten Fn 17/18 sind vollständig und korrekt da.",
+    "Beide Prüfabsätze (S. 2/Druckseite 79 und S. 9/Druckseite 86) wortgenau gegen das Render: 0 Wortfehler, Umlaute/ß fehlerfrei, Anker als <sup>n</sup> korrekt positioniert; tokenidentisch mit vlm-dots trianguliert. Sperrsatz „e i n e m“/„e i n e r“ wie bei allen Kandidaten zum Wort kollabiert.",
+    "Fußnotenapparat auf den Sample-Seiten 11/11 korrekt (1–5, 27–37, 38/39). Dokumentweit alle 52 Fußnotentexte vorhanden, 50/52 Nummern korrekt — die zwei Ausreißer liegen off-sample und sind besonders still, weil Anker UND Definition konsistent falsch sind (kein baumelnder Anker warnt): Fn 6→„8“ (S. 80) und Fn 19→„10“ (S. 83); per Inventar-Grep (6 und 19 kommen 0×, 8 und 10 je 4× vor) und Kandidaten-Triangulation verifiziert.",
+    "Bestes Markdown des Feldes: sauberer Reflow ohne hängende Trennstriche, Kursive der Buchtitel korrekt gescopet (inkl. Fn 38 „Das Ausdrucks-Prinzip …“), Titel als Überschrift, Fußnoten als getrennte Blöcke; die Alt-Lauf-Merges („pp. 79-92.Stable URL:“, Fn 31+32 auf einer Zeile) sind weg.",
+    "Kleinst-Slip auf Sample-Seite 92: „(Seifart, S. 157)“ statt „Seifert“ — im Ultra-Zoom ist die Punze des zweiten „e“ im Bilevel-Raster fast zugelaufen, und Fn 52 selbst nennt „W. Seifert“ korrekt; dazu Punkt-vor-Anker-Verschiebungen (S. 85: „Welt“.<sup>35</sup>“ statt „Welt“³⁵.“).",
+    "Off-sample-Kontext (nicht gescored): Editions-Hochzahlen vor Jahreszahlen still gefallen (Fn 7/20/25: „Leipzig 1794“/„Leipzig 1830“/„München 1967“ statt ²1794/²1830/⁴1967 — Informationsverlust, aber kein Falschwert; vlm-dots macht daraus „¹830“/„¹967“ = falsche Jahre); Lauf-zu-Lauf-Nichtdeterminismus bei Buchstaben: „Vietor“ ohne ë (Body S. 80 + Fn 9; der Alt-Lauf hatte den Body richtig), „Mendelsschns“ statt „Mendelssohns“ (S. 81; Alt-Lauf richtig); JSTOR-Zeitstempel fehlt (Furniture), toter Bildverweis „_page_0_Picture_12.jpeg“."
+  ],
+  "gesamturteil": "brauchbar"
+}

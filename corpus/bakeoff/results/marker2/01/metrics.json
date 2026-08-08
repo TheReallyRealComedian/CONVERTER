@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "01",
+ "role": "main",
+ "input": "01_paper-zweispaltig/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf",
+ "input_bytes": 992199,
+ "started": "2026-08-07T23:48:04",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 266.07,
+ "max_rss_mb": {
+  "self": 25.9,
+  "children": 29.1
+ },
+ "rss_baseline_mb": {
+  "self": 14.4,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).pdf --output_dir /out --output_format markdown",
+  "md_file": "67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001).md",
+  "stderr_tail": "[INFO] marker: Table processing stats: {'tables_pdftext': 3, 'tables_ocr': 2, 'tables_total': 5}\n2026-08-07 21:52:27,818 [INFO] marker: Saved markdown to /out/67 - Albert-Barabasi - Statistical Mechanics of Complex Networks (2001)\n2026-08-07 21:52:27,818 [INFO] marker: Total time: 259.6982374191284\n",
+  "vram_peak_mb": 7604,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 271661
+}

@@ -1,0 +1,19 @@
+{
+  "klasse": "13",
+  "kandidat": "mineru-vlm",
+  "treue": 4,
+  "vollstaendigkeit": 4,
+  "struktur": 3,
+  "lesereihenfolge": 4,
+  "halluzination": 3,
+  "befunde": [
+    "Einziger GPU-Kandidat, der ALLE fünf Stichprobenseiten mit Inhalt liefert — inkl. der beiden im Gesamtfeld härtesten: S. 2 kommt reich und render-deckungsgleich ('@georgios_m Hallo. Das freut mich zu hören und vielen Dank für den Hinweis. ^ka', Themenzeile 'VDSL Speedport Eumex Sinus Hardware DSL-Verfügbarkeit Upgrades Festnetzgeräte Handys…'), und S. 32 exakt wortgetreu ('@Telekom_hilft Ich wollte Tschüß sagen und Danke für die schöne Zeit, hab heute bei euch gekündigt^^ Schade.' / '@BLUE_TW Wir sagen dann zum Abschied leise \"Servus\". Behalten Sie uns in guter Erinnerung ;-). ^wi') — S. 32 hatte im P2-Feld nur tesseract, S. 2+32 zusammen niemand. Auch die S.-9-Wiederholung der S.-2-Collage wird geliefert (am Original verifiziert: S. 9 zeigt dieselbe Collage).",
+    "max_line_repeat 13 lokalisiert: Output-Zeilen 541–553, dreizehnmal konsekutiv '@Kreativathletin' — VLM-Repetition-Loop beim Transkribieren des mittleren Tweet-Screenshots der HORIZONT-Seite (S. 12); der gesamte Loop-Block (Z. 524–583, '@Kreativathletin'/'Telekom_hilft'/'@KREATIVATHLETIN' alternierend) umfasst ~60 Zeilen für einen Screenshot mit real drei Tweets. Verwandte Degenerationen: '147 2,303 83'/'Followings' ~20 Paare im S.-2-Block (und die Zahlen DRIFTEN im Loop: 147→146, 2,303→2,203 — das Original zeigt einmalig '147 2,322 83'), die 'Telkline Tadila…'-Endloszeile (Z. 105), '…die sich die überhöhere Internet-System' 9× in einer Zeile (Z. 192). Preis: die echte S.-2-Sidebar ('Achtung: Bitte keine personenbezogenen Daten posten!…') ging im Loop unter.",
+    "S.-12-Crop-Disziplin vorbildlich (der Kern-Test der Klasse): 'Trotzdem wagt die Telekom nur Ausbau und plant Kooperati mit anderen Plattformen. Wo das U nehmen künftig präsent sein will, v Berlemann nicht.' — die Beschnitt-Fragmente bleiben exakt stehen, ebenso die rechte Spalte ('eine hohe Problemlösungskompet'); keine unsichtbare Auffüllung wie beim P2-eigenbau (Gemini) und bei vlm-dots. Auch S. 17 endet korrekt fragmentarisch ('A German law gave me the').",
+    "Native Anker korrekt: 'Kumulierte Reichweite bislang: über 7,7 Mio (Vorsicht!)', 'Bereits über 9000 Follower', Quell-Tippfehler unrepariert erhalten ('Twitter-Accout telekom_hilft', 'Ausbau Landigpage', 'Das Konzepts entspricht'); Umlaute durchgehend sauber. Native Hälfte inhaltlich verlustfrei, aber nicht byte-treu (Ellipse '…'→'...', Bullets in der S.-3-Tabelle zusammengeklebt: 'in Abstimmung mit MarketingNeue Qualität der Kommunikation…').",
+    "Verifizierter Fakten-Dreher im S.-2-Scan: 'Location: Berlin, Deutschland' — das Render zeigt 'Location Bonn, Deutschland'. Dazu kleinere OCR-Fehler ('CoFchart' statt 'CoTweet', 'diort', 'gechecket').",
+    "Chart-Konfabulation statt Bild-Verweis: Diagramme werden als <details>-Datentabellen mit hunderten '~'-Schätzwerten ausgegeben, die in Degenerations-Loops laufen — das S.-20-Histogramm alterniert ~130/~140 über >100 Zeilen bis 'Bin ~2.99', die S.-21-Followerkurve erfindet Stützstellen mit unmöglichen Datumsangaben ('2.1.10.10', '16.1.10.10'). Als Schätzung markiert, aber Pseudo-Präzision; die S.-4-Roadmap-Tabelle enthält ein erfundenes Label ('Social Web (Followme!)').",
+    "Bild-Verweise ('![](images/<hash>.jpg)') zeigen auf nicht mitgelieferte Dateien — der Ergebnisordner enthält nur output.md; alle Bildanker sind tote Links."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

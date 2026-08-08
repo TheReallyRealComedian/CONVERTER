@@ -1,0 +1,73 @@
+{
+ "pipe_tables": 2,
+ "pipe_rows": 35,
+ "table_rows_max": 573,
+ "html_tables": 37,
+ "colspan_attrs": 12,
+ "rowspan_attrs": 8,
+ "headings": {
+  "h1": 431,
+  "h2": 0,
+  "h3": 0,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 93,
+ "checkbox_tokens": 7,
+ "chars_out": 1170890,
+ "words_out": 146998,
+ "umlauts_out": 14272,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 1,
+  "wort_pro_zeile": 60
+ },
+ "word_recall": 0.8107,
+ "word_precision": 0.9604,
+ "word_f1": 0.8792,
+ "words_ref": 174144,
+ "top_missing": [
+  "der×586",
+  "14×574",
+  "S×475",
+  "und×347",
+  "die×321",
+  "Deutscher×278",
+  "Drucksache×276",
+  "9020×276",
+  "Wahlperiode×276",
+  "Bundestag×274",
+  "2001×262",
+  "den×237",
+  "in×217",
+  "2000×194",
+  "Vgl×190"
+ ],
+ "top_invented": [
+  "Untersuchungen×34",
+  "rightarrow×30",
+  "Menschenwürde×25",
+  "genetischen×25",
+  "genetischer×22",
+  "Präimplantationsdiagnostik×18",
+  "Durchführung×16",
+  "×16",
+  "möglicherweise×14",
+  "Versicherungsunternehmen×14",
+  "Informationen×13",
+  "Schwangerschaftsabbruch×13",
+  "Patientinnen×13",
+  "Möglichkeiten×12",
+  "000×12"
+ ],
+ "length_ratio": 0.885,
+ "umlauts_ref": 15633,
+ "umlaut_recall": 0.913,
+ "order_lcs": null,
+ "notes": [
+  "order_lcs uebersprungen (>30000 Woerter)"
+ ],
+ "loop_flag": true,
+ "_ref": "12.txt"
+}

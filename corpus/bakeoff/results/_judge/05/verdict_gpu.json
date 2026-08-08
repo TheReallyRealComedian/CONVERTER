@@ -1,0 +1,23 @@
+{
+  "klasse": "05",
+  "judge_modell": "Claude (Subagent)",
+  "hinweis_marker2_neulauf": "marker2 wurde am 2026-08-08 neu gefahren, nachdem der surya-vLLM-Server im Erst-Lauf mit zu kleinem 8k-Kontext lief (Harness-Artefakt: marker schluckte max_tokens-BadRequests still); die Alt-Lauf-Befunde (Fn 38→„33“, Phantom „Burke, S. 82.“, „Asthetik“, zu „anforg 1759, S. 56.“ zerstörte Fn 17/18) sind im Neu-Lauf durchgängig verschwunden, werden marker2 NICHT zugerechnet und dieses Verdikt bewertet ausschließlich den Neu-Lauf.",
+  "ranking": [
+    {
+      "platz": 1,
+      "kandidat": "marker2",
+      "begruendung": "Im Neu-Lauf sind sämtliche stillen Apparat-Korruptionen des Erst-Laufs weg: Sample-Fußnoten 11/11 korrekt, beide Prüfabsätze wortgenau, dokumentweit alle 52 Fußnotentexte da — und das im besten, sofort nutzbaren Markdown des Feldes (Kursive, sauberer Reflow, 114 s). Restlast: zwei konsistent falsch nummerierte Fußnoten off-sample (6→„8“, 19→„10“ — besonders still, weil Anker und Definition übereinstimmen), „Seifart“ an fast zugelaufener Glyphe (S. 92) und still gefallene Editions-Hochzahlen; bei etwa gleicher stiller Fehlerlast wie vlm-dots entscheidet die Form."
+    },
+    {
+      "platz": 2,
+      "kandidat": "vlm-dots",
+      "begruendung": "Einziger mit dokumentweit 52/52 korrekt nummerierten Fußnoten und maximaler Vollständigkeit (JSTOR-Fußzeile, Impressum, Logo als echter Bild-Crop) — aber zahlen-perfekt ist der Apparat trotzdem nicht (zwei verstümmelte Jahreszahlen „¹830“/„¹967“, Fn 41 falsch einsortiert), und die Form verlangt einen Pflicht-Nachpass: seiteninkonsistenter Reflow mit hängenden Trennstrichen („Dun- kelheit“, Sample-S. 85), Seitenfurniture im Fließtext, „SICI“ statt „sici“ in der URL; dazu 487 s Laufzeit gegen 84–114 s der Konkurrenz."
+    },
+    {
+      "platz": 3,
+      "kandidat": "mineru-vlm",
+      "begruendung": "Sauberster Fließtext-Reflow, schnellster Lauf und beide Prüfabsätze wortgenau — aber der teuerste Ausfallmodus des Feldes: die Fußnoten 38/39 der Sample-Seite 86 fehlen komplett (dokumentweit 5 von 52; ganze Seitenfuß-Blöcke von S. 83, 86, 89 verschluckt), also derselbe stille Inhaltsverlust, für den P2 den Kandidaten eigenbau abgewertet hat — nur an den ins Leere zeigenden Ankern erkennbar; dazu Fn-Ziffer 3→„8“ (S. 79) und durchgängig verlorene Kursive."
+    }
+  ],
+  "einordnung_vs_p2": "Der P2-Kernbefund hält auch im GPU-Feld: am reinen deutschen Wortlaut (Umlaute, ß, beide Prüfabsätze bei allen dreien 0 Wortfehler, tokenidentisch trianguliert) ist keiner von gemini-nativ unterscheidbar, und alle drei schlagen tesseracts zerstörte Fußnotenziffern und Null-Struktur deutlich. marker2 rückt im Neu-Lauf in gemini-nativs Liga (voller Inhalt, 50/52-Apparat, sofort brauchbares Markdown), vlm-dots erreicht als einziger Lokaler geminis 52/52-Nummern-Integrität, bezahlt aber mit Reflow-Nacharbeit und 5,8-facher Laufzeit; mineru-vlm bleibt wegen still verschluckter Fußnoten dahinter."
+}

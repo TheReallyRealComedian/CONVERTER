@@ -1,0 +1,32 @@
+{
+ "candidate": "marker2",
+ "class": "12",
+ "role": "main",
+ "input": "12_grosses-pdf/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf",
+ "input_bytes": 1739897,
+ "started": "2026-08-07T23:55:05",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 872.14,
+ "max_rss_mb": {
+  "self": 29.7,
+  "children": 30.8
+ },
+ "rss_baseline_mb": {
+  "self": 14.5,
+  "children": 0.0
+ },
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "container_cmd": "marker_single /in/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.pdf --output_dir /out --output_format markdown",
+  "md_file": "Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht.md",
+  "stderr_tail": " marker: Table processing stats: {'tables_pdftext': 42, 'tables_ocr': 8, 'tables_total': 50}\n2026-08-07 22:09:34,967 [INFO] marker: Saved markdown to /out/Enquete Komission - Recht und Ethik der modernen Medizin - Abschlussbericht\n2026-08-07 22:09:34,967 [INFO] marker: Total time: 865.5098493099213\n",
+  "vram_peak_mb": 7986,
+  "surya_server": "datalab-to/surya-ocr-2"
+ },
+ "output_chars": 1360272
+}

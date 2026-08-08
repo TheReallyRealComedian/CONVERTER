@@ -1,0 +1,18 @@
+{
+  "klasse": "05",
+  "kandidat": "mineru-vlm",
+  "treue": 4,
+  "vollstaendigkeit": 3,
+  "struktur": 4,
+  "lesereihenfolge": 5,
+  "halluzination": 5,
+  "befunde": [
+    "Prüfabsatz S. 2 (Druckseite 79, „E.T.A. Hoffmanns Rezension … begriff⁵.“) wort- und zeichengenau gegen das Render: 0 Wortfehler, Umlaute/ß fehlerfrei („Mißverständnissen“, „zurückläßt“, „einschloß¹“), deutsche Anführungszeichen, Anker ¹–⁵ an korrekter Position, Trennstriche des Drucks sauber aufgelöst.",
+    "Prüfabsätze S. 9 (Druckseite 86) ebenfalls 0 Wortfehler („erklärt“ korrekt, Original-Eigenheit „Themas untereinander“ unrepariert übernommen); Sperrsatz „e i n e m“/„e i n e r“ wie bei allen Kandidaten zum Wort kollabiert, die Hervorhebung ist verloren.",
+    "HAUPTBEFUND (Vollständigkeit): die Fußnoten 38 und 39 der Sample-Seite 86 fehlen komplett — der Fließtext trägt beide Anker („Sturm und Drang $^{38}$“, „festhält“ $^{39}$“), aber „³⁸ H.H.Eggebrecht, Das Ausdrucks-Prinzip im musikalischen Sturm und Drang …“ und „³⁹ Hoffmann, S. 50.“ (im Render am Seitenfuß klar vorhanden) existieren nirgends im Output (grep-verifiziert). Off-sample setzt sich das Muster fort: auch 19, 48, 49 fehlen → 5 von 52 Fußnoten still verloren, jeweils komplette Seitenfuß-Blöcke (S. 83, 86, 89). Immerhin lokalisierbar: die ins Leere zeigenden Anker verraten die Lücke.",
+    "Fußnotenziffer falsch gelesen: „$^{8}$ W.H. Wackenroder, Werke und Briefe“ statt ³ (Sample-Seite 79, Fußnote 3; der Zoom ins Render zeigt eindeutig „³“, und die Sequenz 1–5 lässt nur 3 zu).",
+    "Formatrauschen auf Sample-Seite 85: Anker mal angeklebt („Erhabenen“27.), mal mit Leerraum („erregt 28,“) statt hochgestellt; spuriöser Punkt vor Anker 37 („überließ“. $^{37}$ , sondern“ — Original: „überließ“³⁷, sondern).",
+    "Kursive des Originals (Buchtitel in Fußnoten, „Vorschule der Ästhetik“ im Fließtext) durchgängig nicht ausgezeichnet — marker2 und vlm-dots erhalten sie; JSTOR-Logo als toter Bildverweis (images/…jpg nicht mitgeliefert) plus <details>-Wrapper, JSTOR-Fußzeile mit Zeitstempel fehlt (Furniture, nicht gewichtet)."
+  ],
+  "gesamturteil": "brauchbar mit Nacharbeit"
+}

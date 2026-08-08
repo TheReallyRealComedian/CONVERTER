@@ -1,0 +1,45 @@
+{
+ "pipe_tables": 0,
+ "pipe_rows": 0,
+ "table_rows_max": 68,
+ "html_tables": 3,
+ "colspan_attrs": 7,
+ "rowspan_attrs": 0,
+ "headings": {
+  "h1": 15,
+  "h2": 55,
+  "h3": 4,
+  "h4": 0
+ },
+ "footnote_defs": 0,
+ "fill_tokens": 0,
+ "checkbox_tokens": 0,
+ "chars_out": 19105,
+ "words_out": 2214,
+ "umlauts_out": 82,
+ "max_line_repeat": 1,
+ "max_ngram_repeat": 1,
+ "loop_signale": {
+  "symbol_pro_zelle": 0,
+  "wort_pro_zeile": 4
+ },
+ "word_recall": 0.9991,
+ "word_precision": 0.9901,
+ "word_f1": 0.9946,
+ "words_ref": 2194,
+ "top_missing": [
+  "READMORE×1",
+  "Leipziger×1"
+ ],
+ "top_invented": [
+  "AGOF×20",
+  "README×1",
+  "Leipzig×1"
+ ],
+ "length_ratio": 0.88,
+ "umlauts_ref": 82,
+ "umlaut_recall": 1.0,
+ "order_lcs": 0.8642,
+ "loop_flag": false,
+ "_ref": "03.txt"
+}
