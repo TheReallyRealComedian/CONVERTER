@@ -28,6 +28,7 @@ from app_pkg import auth as auth_module
 from app_pkg import cards as cards_module
 from app_pkg import collections as collections_module
 from app_pkg import create_app
+from app_pkg import document_api as document_api_module
 from app_pkg import docwrite as docwrite_module
 from app_pkg import documents as documents_module
 from app_pkg import highlights as highlights_module
@@ -70,6 +71,7 @@ mobile_auth_module.register(app)
 mermaid_module.register(app)
 markdown_module.register(app)
 documents_module.register(app)
+document_api_module.register(app)
 audio_module.register(app)
 library_module.register(app)
 highlights_module.register(app)

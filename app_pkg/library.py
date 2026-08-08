@@ -24,6 +24,10 @@ ALLOWED_CONVERSION_TYPES = {
     # element. content = the speaker-labelled transcript Markdown; the audio
     # lives in metadata_json + OUTPUT_DIR/narration_<id>.wav (no schema touch).
     'audio_narration',
+    # DOC-API: async service conversions (POST /api/document-conversions).
+    # content = the converted Markdown once ready; job state lives in
+    # metadata_json (doc_status / warnings / error — no schema touch).
+    'document_conversion',
 }
 
 # R2-C: lifecycle triage locations. Internal keys; DE labels (Inbox/Später/

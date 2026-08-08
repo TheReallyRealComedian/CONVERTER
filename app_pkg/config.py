@@ -91,3 +91,26 @@ def rq_job_timeout_for(n):
 # Back-compat export: existing imports + test_narration_write.py:16 still resolve
 # this name. == 600 at the default deadline (n=1), so behaviour-neutral.
 TIMEOUT_RQ_JOB_SECONDS = rq_job_timeout_for(1)
+
+
+# --- DOC-API: RQ envelope for a document conversion, scaled from the page
+# count (the work-set metric — pages are what the PDF pipeline iterates).
+# PER_PAGE mirrors the narration lesson: it must cover the worst-case cost of
+# one page, which is a single Gemini-Vision call at its full per-call deadline
+# (TIMEOUT_GEMINI_SECONDS) — a genuinely-progressing conversion is never
+# false-killed; the shared HARD_CAP backstops pathological page counts.
+# Non-PDF formats (and PDFs whose page count can't be read) run as n=1: the
+# unstructured 'fast' path is CPU-seconds, so BASE + one page is ample.
+TIMEOUT_DOC_JOB_BASE_SECONDS = 300
+TIMEOUT_DOC_JOB_PER_PAGE_SECONDS = TIMEOUT_GEMINI_SECONDS
+
+
+def doc_convert_job_timeout_for(page_count):
+    """RQ ``job_timeout`` (seconds) for converting a ``page_count``-page document.
+
+    ``min(BASE + PER_PAGE * max(n, 1), HARD_CAP)`` — same shape as
+    ``rq_job_timeout_for``; ``None`` / non-int / < 1 all floor to n=1.
+    """
+    n = page_count if isinstance(page_count, int) and page_count > 0 else 1
+    scaled = TIMEOUT_DOC_JOB_BASE_SECONDS + TIMEOUT_DOC_JOB_PER_PAGE_SECONDS * n
+    return min(scaled, TIMEOUT_RQ_JOB_HARD_CAP)
