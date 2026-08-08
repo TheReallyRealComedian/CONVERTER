@@ -593,8 +593,31 @@ class _VramSampler:
             Path(self.log.name).unlink(missing_ok=True)
 
 
+def _assemble_pages(out_dir: Path) -> tuple:
+    """Fuegt Pro-Seite-Markdown (dots-Parser: <name>_page_N[_nohf].md) in
+    Seitenreihenfolge zusammen. Der „groesste .md"-Glob nahm sonst EINE
+    Seite von 54 (live: Recall 0,017 auf 01)."""
+    import re as _re
+    pages = {}
+    for f in Path(out_dir).rglob("*_page_*.md"):
+        m = _re.search(r"_page_(\d+)(_nohf)?\.md$", f.name)
+        if not m:
+            continue
+        idx, nohf = int(m.group(1)), bool(m.group(2))
+        # Volle Fassung (mit Kopf-/Fusszeilen) bevorzugen — vergleichbar mit
+        # den anderen Kandidaten, die auch alles ausgeben:
+        if idx not in pages or (pages[idx][1] and not nohf):
+            pages[idx] = (f, nohf)
+    if not pages:
+        return None, None
+    parts = [pages[i][0].read_text(encoding="utf-8", errors="replace")
+             for i in sorted(pages)]
+    return "\n\n---\n\n".join(parts), len(pages)
+
+
 def _docker_convert(image: str, inner_cmd: list, input_path: str,
-                    extra_args: list = None, timeout: int = 5400) -> tuple:
+                    extra_args: list = None, timeout: int = 5400,
+                    assemble: str = "largest") -> tuple:
     """docker run mit /in (ro) + /out (tmp) + Modell-Cache; liefert (md, meta)."""
     import subprocess
     import tempfile
@@ -621,6 +644,12 @@ def _docker_convert(image: str, inner_cmd: list, input_path: str,
         if proc.returncode != 0:
             raise RuntimeError(
                 f"Container rc={proc.returncode}: {proc.stderr[-800:] or proc.stdout[-800:]}")
+        if assemble == "pages":
+            md, n_pages = _assemble_pages(Path(out_dir))
+            if md is not None:
+                return md, {"container_cmd": " ".join(inner_cmd),
+                            "md_file": f"{n_pages} Seiten-Dateien assembliert",
+                            "stderr_tail": proc.stderr[-300:]}
         md_files = sorted(Path(out_dir).rglob("*.md"),
                           key=lambda p: p.stat().st_size, reverse=True)
         if not md_files:
@@ -754,7 +783,8 @@ def run_vlm_dots(input_path: str, ctx: Ctx) -> AdapterResult:
              "--output", "/out", "--ip", "127.0.0.1", "--port", "8003",
              "--prompt", "prompt_layout_all_en"],
             input_path,
-            extra_args=["--network", "host"])
+            extra_args=["--network", "host"],
+            timeout=14400, assemble="pages")
     meta["vram_peak_mb"] = vram.peak_mb()
     meta["server_model"] = DOTS_MODEL
     if not md.strip():

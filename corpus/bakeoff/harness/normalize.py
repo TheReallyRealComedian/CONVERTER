@@ -71,6 +71,11 @@ def to_plain(text: str) -> str:
     fallen weg (Syntax), Fussnoten-INHALT bleibt.
     """
     t = canonicalize(text)
+    # Base64-Bild-Payloads sind Bilddaten, kein Textbestand — ohne den Strip
+    # leckt ein einziges eingebettetes Bild >100k Zeichen in CER/Multiset
+    # (live an vlm-dots gemessen: CER 25,0 statt Textvergleich).
+    t = re.sub(r"data:image/[^)\"'\s>]+", "", t)
+    t = re.sub(r"<img\b[^>]*>", " ", t, flags=re.I)
     t = _TABLE_SEP.sub("", t)
     t = _LINK.sub(lambda m: m.group(1), t)
     t = _FOOTNOTE_DEF.sub("", t)
