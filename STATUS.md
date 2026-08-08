@@ -1,6 +1,8 @@
 # STATUS
 
-**Stand**: 2026-08-05
+**Stand**: 2026-08-08
+
+> **✅ DOC-BAKE ist gemessen (2026-08-07/08, vier Phasen, alle abgenommen)** — 13 Kandidaten × 14 Klassen × 3 Messebenen, 113 Läufe, 16 Judge-Verdikte, Cloud-Kosten 7,61 € von 20 €. Ergebnis-Doc: [docs/doc_convert_bakeoff_2026-08-08.md](docs/doc_convert_bakeoff_2026-08-08.md) — die eine Frage ist beantwortet (Eigenbau **bimodal**: gewinnt 03/06/13 durch Multi-Page-Merge + Routing, ist auf 01 score-identisch zur Textebene und verliert auf 02/05/12 **still** ganze Seiten), Durchsatz auf der A2000 erstmals gemessen (mineru 21,9 · marker 19,3 · dots 2,5 S/min am 280-Seiter), Deutsch-Scores für dots/mineru/marker existieren jetzt. **Kein Deploy-Anteil** — das Harness lebt in `corpus/bakeoff/` und ist kein App-Code; der GPU-Kram lief in eigenen Containern, CONVERTERs Stack unberührt. **Das Entscheidungs-Doc (welche Engine) schreibt der Master aus den Zahlen** — bewusst nicht Teil des Sprints.
 
 > ⚠️ **DOC-FIX ist done, aber NICHT deployt (2026-07-31) — das ist die einzige Ausnahme zum „alles deployt"-Banner direkt darunter, das ansonsten weiter gilt.** Fünf Commits (`6ec156e` · `a8dbefd` · `4903abd` · `11c7997` · `23a06cb` + Wrap), pytest **798 → 861**. Deploy ist ein **reines `up -d --build`**: kein Schema, kein Dep, kein Token, keine Migration, Antwortform von `/transform-document` unverändert. Optional danach eine `.env`-Zeile `PDF_VISION_MODEL=…` — **ohne sie ist alles verhaltensrichtig**, sie ist die Notbremse beim nächsten Modell-Tod. ⚠️ **Bis zum Deploy läuft in Prod weiter der tote Modellname** `gemini-2.0-flash` (404 seit 01.06.2026) und der alte Office-Pfad ohne Tabellen.
 >
