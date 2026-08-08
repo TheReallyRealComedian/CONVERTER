@@ -71,6 +71,22 @@ def _max_consecutive_line_repeat(lines: list) -> int:
     return best
 
 
+def _max_token_per_line(canon: str) -> int:
+    """Maximale Vorkommen EINES Tokens (Wort/Fill/Checkbox) in einer Zeile.
+
+    Faengt Zell-interne Loops mit OCR-Rausch-Varianten, die exakten
+    n-Gramm- und Zeilenvergleichen entgehen (live: mineru wiederholte in
+    EINER Zelle 30x „□ <Rauschvariante>" — loop_flag blieb faelschlich aus).
+    """
+    from collections import Counter
+    best = 0
+    for line in canon.splitlines():
+        toks = nz.words(nz.to_plain(line)) if line.strip() else []
+        if len(toks) >= 15:
+            best = max(best, Counter(toks).most_common(1)[0][1])
+    return best
+
+
 def _max_ngram_repeat(tokens: list, n: int = 8) -> int:
     """Maximale ANZAHL direkt aufeinanderfolgender Wiederholungen eines n-Gramms."""
     if len(tokens) < 2 * n:
@@ -119,6 +135,7 @@ def score_output(md: str, ref_text: str = None, order_limit: int = 30000) -> dic
         "umlauts_out": sum(md.count(c) for c in UMLAUTS),
         "max_line_repeat": _max_consecutive_line_repeat(lines),
         "max_ngram_repeat": _max_ngram_repeat(out_words),
+        "max_token_per_line": _max_token_per_line(canon),
     }
 
     if ref_text:
@@ -143,7 +160,8 @@ def score_output(md: str, ref_text: str = None, order_limit: int = 30000) -> dic
     # bei partiell gedeckten Referenzen (13: Textebene nur auf nativen Seiten)
     # ist ein hohes Verhaeltnis korrekte Mehrleistung, kein Loop — gemessen
     # am tesseract-13-Fehlalarm (ratio 5,56 bei line_repeat=1, ngram=1).
-    s["loop_flag"] = bool(s["max_line_repeat"] >= 8 or s["max_ngram_repeat"] >= 5)
+    s["loop_flag"] = bool(s["max_line_repeat"] >= 8 or s["max_ngram_repeat"] >= 5
+                          or s["max_token_per_line"] >= 15)
     return s
 
 

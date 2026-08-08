@@ -210,6 +210,13 @@ def _nr_sequence_verdict(out_canon: str) -> str:
     """
     seq = [int(m.group(1))
            for m in re.finditer(r"\|\s*(\d{1,2})\s*\|\s*$", out_canon, re.M)]
+    # HTML-Tabellen (mineru, gemini): letzte Zelle jeder <tr> zaehlt.
+    for tr in re.findall(r"<tr\b.*?</tr>", out_canon, re.S | re.I):
+        tds = re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", tr, re.S | re.I)
+        if tds:
+            last = re.sub(r"<[^>]+>", "", tds[-1]).strip()
+            if re.fullmatch(r"\d{1,2}", last):
+                seq.append(int(last))
     for i in range(len(seq) - 2):
         if seq[i:i + 3] == [14, 14, 16]:
             return "erhalten"

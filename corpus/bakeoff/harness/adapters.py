@@ -734,9 +734,13 @@ def run_marker2(input_path: str, ctx: Ctx) -> AdapterResult:
     # sonst den Multimodal-Encoder-Cache mit 114k-Token-VIDEO-Budget und
     # der KV-Cache faellt auf -5 GiB, egal wie klein Batch/Kontext sind
     # (live: mit dem Limit 16k-Budget, KV +4,22 GiB, Server in 300s oben).
+    # max_len 18000 = suryas eigener Default. Der 8192-Deckel des ersten
+    # Versuchs produzierte max_tokens-BadRequests, die marker STILL schluckte
+    # (06: ~60 % Inhalt weg, nur in stderr sichtbar) — Harness-Artefakt,
+    # nicht Kandidaten-Verhalten. Startbar seit dem mm-Limit-Fix.
     _ensure_openai_server(SURYA_SERVER_NAME, SURYA_MODEL, 8001,
-                          gpu_util="0.6", max_len="8192",
-                          extra_server_args=["--max-num-seqs", "16",
+                          gpu_util="0.6", max_len="18000",
+                          extra_server_args=["--max-num-seqs", "8",
                                              "--enforce-eager",
                                              "--limit-mm-per-prompt",
                                              '{"image":4,"video":0}'])
