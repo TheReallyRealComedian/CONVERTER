@@ -95,7 +95,25 @@ Zwei Spalten, weil du beide Pfade gebaut haben willst (W-1: betriebliches Materi
 
 ---
 
-## 6. Drei Dinge, die ich dir nicht abnehmen kann
+## 6. ✅ Entschieden (Oli, 2026-08-08)
+
+| Weiche | Entscheidung |
+|---|---|
+| **HTML** | **trafilatura + Metadaten separat** — sauberer Fließtext, Titel/Autor/Datum holt ein eigener Schritt aus dem HTML-Kopf. TITLE-FIX bleibt funktionsfähig. |
+| **Kostendeckel** | **Deckel je Auftrag mit Degradation auf den lokalen Pfad** — kein Abbruch, der Nutzer bekommt immer ein Ergebnis. |
+| **Umschalter** | **Pro Auftrag, mit Default aus einer CONVERTER-Einstellung.** |
+
+### ⚠️ Was diese drei zusammen bedeuten
+
+**Der lokale Pfad ist damit tragend, nicht optional.** Läuft ein Auftrag ins Budget, wird er lokal zu Ende geführt — also muss der lokale Pfad in derselben Ausbaustufe fertig sein wie der Cloud-Pfad, nicht „später". Das verschiebt die Bau-Reihenfolge in Abschnitt 7.
+
+**Und es erzeugt gemischte Herkunft innerhalb eines Dokuments**: Seiten 1–50 aus der Cloud, ab Seite 51 lokal, weil der Deckel griff. Genau dafür wurde marker im Bake-off kritisiert („unmarkierte Misch-Provenienz", 14 von 15 Seiten durchgereicht, eine still neu geOCRt). Die Herkunft je Block aus Leitplanke 1 ist damit **keine Kür mehr, sondern Voraussetzung dafür, dass die Degradations-Entscheidung überhaupt vertretbar ist** — ein Dokument, das mitten im Lauf den Pfad gewechselt hat, muss das sagen.
+
+**Der Deckel-Wert selbst ist noch offen** — er lässt sich erst sinnvoll setzen, wenn klar ist, welche Dokumentgrößen real durchlaufen. Vorschlag: beim Bau einen konservativen Startwert setzen und ihn nach den ersten echten Aufträgen justieren.
+
+---
+
+## 6b. Historisch — die Weichen vor der Entscheidung
 
 **(a) HTML: Vollständigkeit oder Sauberkeit?** trafilatura liefert Fließtext mit <2 % Boilerplate — und **verliert Dachzeile, Titel, Autor und Datum ersatzlos**. CONVERTER leitet den Library-Titel aus der ersten Überschrift ab (TITLE-FIX); mit trafilatura ist die weg. unstructured hat alles, aber 31 % Boilerplate. Entweder du nimmst trafilatura und holst die Metadaten separat, oder du nimmst Boilerplate in Kauf.
 
@@ -109,9 +127,9 @@ Zwei Spalten, weil du beide Pfade gebaut haben willst (W-1: betriebliches Materi
 
 In dieser Reihenfolge, wenn du den Empfehlungen folgst:
 
-1. **API-Fläche** — Endpoint, Token, Job-Modell, Antwortform inklusive Herkunft und Degradationssignal. Hängt an keiner Engine, kann sofort starten.
-2. **Router mit zwei Backends** — der schnellste Weg zu etwas Nutzbarem: PDF über einen Pfad, Office über pandoc/markitdown. Deckt den Großteil ab.
-3. **Die restlichen Backends** und die Rettung von Routing und Merge aus dem Eigenbau.
-4. **Der zweite Pfad** (lokal gegen Cloud) samt Umschalter.
+1. **API-Fläche** — Endpoint, Token, Job-Modell, Antwortform **inklusive Herkunft je Block und Degradationssignal**. Hängt an keiner Engine, kann sofort starten. Die Antwortform muss die gemischte Herkunft von Anfang an tragen, sonst ist sie beim ersten Deckel-Fall falsch.
+2. **Router mit beiden PDF-Pfaden** — Cloud *und* lokal, gemeinsam. Durch die Degradations-Entscheidung ist das eine Einheit, keine zwei Ausbaustufen: ohne den lokalen Pfad kann der Deckel nichts tun als abbrechen.
+3. **Office und Web** — pandoc, markitdown, trafilatura samt Metadaten-Schritt, unstructured für EML. Alles lokal, alles ohne Modell, deshalb billig und unabhängig vom Rest.
+4. **Routing und Multi-Page-Merge** aus dem Eigenbau retten, danach die fünf Detektoren abschalten.
 
 Was **nicht** gebaut wird, bis es einen Anlass gibt: XLSX (kein Belegexemplar, kein bekannter Bedarf), SmartArt-Extraktion (verliert das gesamte Feld — machbar über `diagrams/data*.xml`, aber ein eigenes Vorhaben), und eine Human-in-the-Loop-Korrekturfläche.
