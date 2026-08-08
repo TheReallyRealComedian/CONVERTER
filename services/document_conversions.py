@@ -22,17 +22,39 @@ File layout under ``DOC_CONVERT_DIR`` (id-derived names, never user input):
   (tmp + ``os.replace``) so the web side can never observe a half-written file:
   an unparseable result file is therefore a real defect, not a race.
 
-metadata_json contract (v1, DOC-API P1 — grows provenance/usage in P2):
+metadata_json contract (v2, DOC-API P2):
 
   {
     "doc_status": "pending" | "ready" | "failed",
     "job_id": "<rq job id>",
+    "mode": "cloud" | "lokal",           # effective mode of THIS job
+    "budget_eur": 1.0,                   # per-job cap, frozen at submit
     "source_format": "pdf",              # lowercased extension
-    "source_sha256": "<hex>",            # content hash (P2 idempotency key)
+    "source_sha256": "<hex>",            # content hash (idempotency key)
     "page_count": 12 | null,             # PDFs only; null elsewhere
-    "warnings": ["..."],                 # serializer degradations (ready)
+    "provenance_unit": "page"|"document",# set on ready (see below)
+    "provenance": ["deterministisch"],   # one entry per unit, in order
+    "degradations": [{"code","message","pages"}],  # structured, in-answer
+    "usage": {"model_calls",             # set on ready; null = unknown
+              "cost_eur"} | null,
     "error": null | "..."                # set when doc_status == 'failed'
   }
+
+Provenance semantics (the contract other services rely on):
+
+* Values: ``deterministisch`` (extracted verbatim, no model involved) <
+  ``ocr`` (classic OCR) < ``modell`` (a generative decoder produced or could
+  have produced the text). The ordering matters: where a backend cannot
+  attribute units individually, the value is **rounded UP** — a consumer must
+  never read ``deterministisch`` on text that may be model-generated
+  (Bake-off lesson: unmarked mixed provenance is the worst silent failure).
+* Unit: ``page`` where the pipeline knows real page boundaries (PDF with a
+  readable page count) — one entry per page, list order == page order.
+  ``document`` everywhere else — exactly ONE entry covering the whole
+  document. Non-PDF formats have no stable page concept in this pipeline
+  (unstructured processes an element stream; DOCX "pages" are a renderer
+  artifact), so the honest unit is the document. The unit is carried IN the
+  answer (``provenance_unit``), never implied by the format.
 """
 import json
 import os
@@ -45,6 +67,21 @@ DOC_STATUS_FAILED = 'failed'
 DOC_STATUSES = (DOC_STATUS_PENDING, DOC_STATUS_READY, DOC_STATUS_FAILED)
 
 DOCUMENT_CONVERSION_TYPE = 'document_conversion'
+
+# Per-job mode (locked decision 1): the caller picks, a CONVERTER setting
+# provides the default. German values verbatim from the sprint contract.
+MODE_CLOUD = 'cloud'
+MODE_LOCAL = 'lokal'
+DOC_MODES = (MODE_CLOUD, MODE_LOCAL)
+
+# Provenance values (locked decision 3), ordered by trust: see module docstring.
+PROVENANCE_DETERMINISTIC = 'deterministisch'
+PROVENANCE_OCR = 'ocr'
+PROVENANCE_MODEL = 'modell'
+PROVENANCE_VALUES = (PROVENANCE_DETERMINISTIC, PROVENANCE_OCR, PROVENANCE_MODEL)
+
+UNIT_PAGE = 'page'
+UNIT_DOCUMENT = 'document'
 
 # Namespace directory on the shared volume. Tests monkeypatch THIS module
 # global; every path function below reads it at call time.
@@ -122,16 +159,65 @@ def discard_job_files(conversion_id, source_ext=None):
             pass
 
 
-def build_doc_metadata(*, status=DOC_STATUS_PENDING, source_format=None,
-                       source_sha256=None, page_count=None, warnings=None,
+def degradation(code, message, pages=None):
+    """One structured degradation entry: what could not be done cleanly.
+
+    ``code`` is a stable snake_case slug for machines, ``message`` is German
+    for humans (house microcopy), ``pages`` optionally names the affected
+    pages (1-based) — ``None`` means "the whole job".
+    """
+    return {'code': code, 'message': message, 'pages': pages}
+
+
+# Degradation codes used by P2 (the contract doc lists them with meanings):
+DEGRADATION_BUDGET_EXCEEDED = 'budget_exceeded'
+DEGRADATION_CLOUD_UNAVAILABLE = 'cloud_unavailable'
+DEGRADATION_SERIALIZER = 'serializer'
+DEGRADATION_PROVENANCE_DOCUMENT_ONLY = 'provenance_document_only'
+
+
+def build_result_payload(markdown, *, provenance_unit, provenance,
+                         degradations=None, usage=None):
+    """The ONE result shape a conversion run produces (``result_<id>.json``).
+
+    Shared by the worker task, the paged pipeline (services/document_pipeline)
+    and the tests, so whatever backend fills it — today's blackbox or the
+    follow-up sprint's router — reconcile reads the identical structure.
+
+    ``usage`` is ``{'model_calls': int, 'cost_eur': float}`` when the run can
+    account for itself, or ``None`` when it genuinely cannot (the legacy cloud
+    engine neither reports calls nor costs — ``None`` is honest, ``0`` would
+    be a claim).
+    """
+    return {
+        'markdown': markdown,
+        'provenance_unit': provenance_unit,
+        'provenance': list(provenance),
+        'degradations': list(degradations or []),
+        'usage': usage,
+    }
+
+
+def build_doc_metadata(*, status=DOC_STATUS_PENDING, mode=None, budget_eur=None,
+                       source_format=None, source_sha256=None, page_count=None,
                        error=None):
-    """Build the ``metadata_json`` dict for a document_conversion Conversion."""
+    """Build the ``metadata_json`` dict for a document_conversion Conversion.
+
+    The result fields (provenance_unit / provenance / degradations / usage)
+    are absent at submit time and merged in by the ready-reconcile from the
+    worker's result payload.
+    """
     return {
         'doc_status': status,
+        'mode': mode,
+        'budget_eur': budget_eur,
         'source_format': source_format,
         'source_sha256': source_sha256,
         'page_count': page_count,
-        'warnings': list(warnings or []),
+        'provenance_unit': None,
+        'provenance': None,
+        'degradations': [],
+        'usage': None,
         'error': error,
     }
 

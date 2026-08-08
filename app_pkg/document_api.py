@@ -53,21 +53,26 @@ import os
 import tempfile
 
 from flask import jsonify, request
-from flask_login import current_user
+from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 from werkzeug.utils import secure_filename
 
-from app_pkg.config import doc_convert_job_timeout_for
+from app_pkg.config import DOC_CONVERT_BUDGET_EUR, doc_convert_job_timeout_for
 from app_pkg.documents import ACCEPTED_EXTENSIONS
 # Reuse the Ingest auth primitives (same Bearer parse + target-user resolver
 # as the Card/Narration writes); only the secret differs — mirrored, not shared.
 from app_pkg.ingest import _bearer_token, _resolve_target_user
-from models import Conversion, db
+# The shared settings blob has ONE merge-writer (LEARN-UP owns the blob; the
+# merge preserves foreign namespaces — see write_settings_keys).
+from app_pkg.learn import write_settings_keys
+from models import Conversion, User, db
 from services.document_conversions import (
+    DOC_MODES,
     DOC_STATUS_FAILED,
     DOC_STATUS_PENDING,
     DOC_STATUS_READY,
     DOCUMENT_CONVERSION_TYPE,
+    MODE_CLOUD,
     build_doc_metadata,
     discard_job_files,
     doc_metadata,
@@ -80,6 +85,39 @@ from services.document_conversions import (
 from tasks import convert_document_task
 
 logger = logging.getLogger(__name__)
+
+# --- per-user default mode (locked decision 1) ---------------------------------
+#
+# Lives in the SAME User.settings_json blob as the learn settings (one blob,
+# one migration — the LEARN-UP argument), but in an OWN namespace key: the
+# learn keys sit flat in the blob, DOC-API settings sit nested under
+# 'document_api', so the two key spaces cannot collide and future DOC-API
+# settings have a home. Reads are lenient (mirrors get_user_settings), the PUT
+# is strict, and every write goes through learn.write_settings_keys so neither
+# feature's save can drop the other's keys.
+DOC_API_SETTINGS_NAMESPACE = 'document_api'
+DOC_API_SETTINGS_DEFAULTS = {'default_mode': MODE_CLOUD}
+
+
+def get_doc_api_settings(user):
+    """Effective DOC-API settings — defaults overlaid with the stored
+    namespace; unknown keys and invalid values are silently dropped."""
+    settings = dict(DOC_API_SETTINGS_DEFAULTS)
+    raw = getattr(user, 'settings_json', None)
+    if not raw:
+        return settings
+    try:
+        stored = json.loads(raw)
+    except (ValueError, TypeError):
+        return settings
+    if not isinstance(stored, dict):
+        return settings
+    namespace = stored.get(DOC_API_SETTINGS_NAMESPACE)
+    if not isinstance(namespace, dict):
+        return settings
+    if namespace.get('default_mode') in DOC_MODES:
+        settings['default_mode'] = namespace['default_mode']
+    return settings
 
 # Per-request upload cap for the document service. Deliberately far below the
 # global 500-MB MAX_CONTENT_LENGTH (sized for audio): documents that large are
@@ -131,6 +169,49 @@ def _pdf_page_count(path):
             return doc.page_count
     except Exception:
         return None
+
+
+def _resolve_mode(raw, target):
+    """Resolve the per-job mode from the request field (locked decision 1).
+
+    Absent → the user's settings default. Present → STRICTLY read (house
+    pattern since LEARN-MORE): only the exact values switch, anything else —
+    including ``''`` and case variants — is a 400 via ``ValueError``.
+    """
+    if raw is None:
+        return get_doc_api_settings(target)['default_mode']
+    if raw in DOC_MODES:
+        return raw
+    raise ValueError(
+        "Ungültiger Modus. Erlaubt: 'cloud' oder 'lokal'.")
+
+
+def _find_duplicate(user_id, source_sha256, mode):
+    """Idempotency lookup (2.4): same user + content hash + mode → stored job.
+
+    Substring prefilter on the metadata JSON text, then exact confirmation —
+    the ingest ``_find_by_source_id`` pattern (``contains(autoescape=True)``
+    per house rule, although a hex hash carries no LIKE wildcards). Only
+    ``pending``/``ready`` rows dedup: a repeated submit must not re-spend
+    model money on a result that exists or is in flight. ``failed`` rows do
+    NOT dedup — re-submitting the file IS this API's retry path. The mode is
+    part of the key: a lokal result must not answer a cloud request (different
+    quality claim), and vice versa.
+    """
+    candidates = (Conversion.query
+                  .filter_by(user_id=user_id,
+                             conversion_type=DOCUMENT_CONVERSION_TYPE)
+                  .filter(Conversion.metadata_json.contains(
+                      source_sha256, autoescape=True))
+                  .all())
+    for candidate in candidates:
+        metadata = doc_metadata(candidate)
+        if (metadata.get('source_sha256') == source_sha256
+                and metadata.get('mode') == mode
+                and metadata.get('doc_status') in (DOC_STATUS_PENDING,
+                                                   DOC_STATUS_READY)):
+            return candidate
+    return None
 
 
 # --- auth: dual path (session/bearer user OR service token) -------------------
@@ -221,8 +302,16 @@ def reconcile_document_conversion(conversion):
             return
         conversion.content = payload.get('markdown') or ''
         metadata['doc_status'] = DOC_STATUS_READY
-        metadata['warnings'] = [w for w in (payload.get('warnings') or [])
-                                if isinstance(w, str)]
+        # Result fields from the worker's build_result_payload shape; lightly
+        # type-guarded (the payload is our own task's, not user input).
+        metadata['provenance_unit'] = payload.get('provenance_unit')
+        provenance = payload.get('provenance')
+        metadata['provenance'] = provenance if isinstance(provenance, list) else None
+        degradations = payload.get('degradations')
+        metadata['degradations'] = [d for d in (degradations or [])
+                                    if isinstance(d, dict)]
+        usage = payload.get('usage')
+        metadata['usage'] = usage if isinstance(usage, dict) else None
         metadata['error'] = None
         _persist_metadata(conversion, metadata)
         # Post-commit: the DB row is the artifact now, the volume files are
@@ -263,16 +352,25 @@ def _document_conversion_response(conversion):
     """The service-facing answer — deliberately NOT ``Conversion.to_dict()``.
 
     The library dict carries the app's inner life (lifecycle, tags, favorite);
-    the contract carries exactly what a consuming service needs. P2 grows this
-    by provenance / degradations / usage — the shape is the sprint's point.
+    the contract carries exactly what a consuming service needs: the Markdown,
+    its per-unit provenance, the degradation list (partial success is a 200
+    WITH this list, never a 500), the job's mode/budget and the usage — plus
+    the source facts. ``provenance_unit`` travels IN the answer so the
+    page-vs-document meaning is never implied by the format.
     """
     metadata = doc_metadata(conversion)
     status = doc_status(conversion)
+    ready = status == DOC_STATUS_READY
     return {
         'id': conversion.id,
         'status': status,
-        'markdown': conversion.content if status == DOC_STATUS_READY else None,
-        'warnings': metadata.get('warnings') or [],
+        'mode': metadata.get('mode'),
+        'markdown': conversion.content if ready else None,
+        'provenance_unit': metadata.get('provenance_unit') if ready else None,
+        'provenance': metadata.get('provenance') if ready else None,
+        'degradations': metadata.get('degradations') or [],
+        'usage': metadata.get('usage') if ready else None,
+        'budget_eur': metadata.get('budget_eur'),
         'error': metadata.get('error'),
         'source': {
             'filename': conversion.source_filename,
@@ -321,6 +419,13 @@ def register(app):
                          'Erlaubt: PDF, DOCX, PPTX, EML, HTML, TXT, MD.'
             }), 400
 
+        # Per-job mode (multipart form field), strictly read; absent → the
+        # user's settings default (locked decision 1).
+        try:
+            mode = _resolve_mode(request.form.get('mode'), target)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+
         # Spool to the shared volume first (same directory as the final path →
         # os.replace stays an atomic same-FS rename), verify, then create the
         # row. No DB rollback paths for upload problems.
@@ -343,6 +448,17 @@ def register(app):
                 return jsonify({'error': 'Leere Datei.'}), 400
 
             source_sha256 = _file_sha256(tmp_path)
+
+            # Idempotency (2.4): same user + hash + mode with a pending/ready
+            # job → serve the stored state instead of re-spending model money.
+            # 200 (not 202): nothing new was enqueued.
+            duplicate = _find_duplicate(target.id, source_sha256, mode)
+            if duplicate is not None:
+                reconcile_document_conversion(duplicate)  # may have finished
+                payload = _document_conversion_response(duplicate)
+                payload['deduped'] = True
+                return jsonify(payload), 200
+
             page_count = _pdf_page_count(tmp_path) if ext == 'pdf' else None
 
             conversion = Conversion(
@@ -362,8 +478,11 @@ def register(app):
 
             os.replace(tmp_path, doc_source_path(conversion.id, ext))
 
+            # Budget frozen per job at submit time (locked decision 2): an env
+            # change never re-prices an already enqueued job.
             metadata = build_doc_metadata(
-                status=DOC_STATUS_PENDING, source_format=ext,
+                status=DOC_STATUS_PENDING, mode=mode,
+                budget_eur=DOC_CONVERT_BUDGET_EUR, source_format=ext,
                 source_sha256=source_sha256, page_count=page_count)
             conversion.metadata_json = json.dumps(metadata)
             db.session.commit()
@@ -376,7 +495,7 @@ def register(app):
 
         job = _app_module.task_queue.enqueue(
             convert_document_task,
-            conversion.id, ext,
+            conversion.id, ext, mode, metadata['budget_eur'], page_count,
             meta={'user_id': target.id, 'conversion_id': conversion.id},
             job_timeout=doc_convert_job_timeout_for(page_count),
         )
@@ -393,6 +512,7 @@ def register(app):
         return jsonify({
             'id': conversion.id,
             'status': DOC_STATUS_PENDING,
+            'mode': mode,
             'job_id': job.id,
         }), 202
 
@@ -418,6 +538,40 @@ def register(app):
 
         reconcile_document_conversion(conversion)
         return jsonify(_document_conversion_response(conversion))
+
+    @app.route('/api/document-conversions/settings', methods=['GET'])
+    @login_required
+    def api_get_doc_api_settings():
+        """The user's DOC-API settings (today: the default mode).
+
+        Session surface like the learn settings — the service-token caller
+        never needs it (it either sends ``mode`` or accepts the default).
+        No route clash with ``/<int:conversion_id>``: 'settings' is not an int.
+        """
+        return jsonify(get_doc_api_settings(current_user))
+
+    @app.route('/api/document-conversions/settings', methods=['PUT'])
+    @login_required
+    def api_put_doc_api_settings():
+        # Strict write, lenient read — the learn-settings mechanic, own
+        # namespace: unknown key or invalid value → 400, nothing written.
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        unknown = set(data) - set(DOC_API_SETTINGS_DEFAULTS)
+        if unknown:
+            return jsonify({
+                'error': f"Unbekannte Einstellung: {', '.join(sorted(unknown))}."}), 400
+        settings = get_doc_api_settings(current_user)
+        if 'default_mode' in data:
+            if data['default_mode'] not in DOC_MODES:
+                return jsonify({'error': "Ungültiger Wert für 'default_mode'."}), 400
+            settings['default_mode'] = data['default_mode']
+        user = db.session.get(User, current_user.id)
+        # Merge-write under the namespace key — preserves the learn keys.
+        write_settings_keys(user, {DOC_API_SETTINGS_NAMESPACE: settings})
+        db.session.commit()
+        return jsonify(settings)
 
     # NO csrf exemption here — see the module docstring: bearer presence
     # already skips the CSRF inversion, and cookie sessions (a legitimate auth

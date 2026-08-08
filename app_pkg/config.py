@@ -114,3 +114,21 @@ def doc_convert_job_timeout_for(page_count):
     n = page_count if isinstance(page_count, int) and page_count > 0 else 1
     scaled = TIMEOUT_DOC_JOB_BASE_SECONDS + TIMEOUT_DOC_JOB_PER_PAGE_SECONDS * n
     return min(scaled, TIMEOUT_RQ_JOB_HARD_CAP)
+
+
+# --- DOC-API P2: per-job cost cap (locked decision 2) --------------------------
+#
+# Hard cap per job, with degradation to the local path instead of aborting.
+# The VALUE is a deliberately conservative placeholder until real document
+# sizes have run through (sprint note) — visible here, overridable per env,
+# frozen onto each job at submit time. At the bake-off-measured cloud price
+# (1.48 ct/page, gemini medium over 492 pages) 1 € buys ~67 pages; a tight
+# start is safe because the cap degrades — the caller always gets a result.
+DOC_CONVERT_BUDGET_EUR = _env_positive_float('DOC_CONVERT_BUDGET_EUR', 1.0)
+
+# Estimated cloud cost per page, used for the pre-flight budget check while
+# the legacy engine cannot account for itself (it reports neither calls nor
+# spend). Bake-off measurement as the default; env-overridable so a model
+# price change never needs a code change.
+DOC_CONVERT_CLOUD_CENT_PER_PAGE = _env_positive_float(
+    'DOC_CONVERT_CLOUD_CENT_PER_PAGE', 1.48)

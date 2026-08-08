@@ -88,6 +88,27 @@ def local_day_end(now=None, days_ahead=0):
     return (start_local + timedelta(days=1 + days_ahead)).astimezone(timezone.utc)
 
 
+def write_settings_keys(user, updates):
+    """Merge ``updates`` into the user's raw settings blob, preserving the rest.
+
+    ``User.settings_json`` is shared by features with disjoint key spaces
+    (learn keys flat, DOC-API under the ``document_api`` namespace key). Every
+    writer must go through this merge: a plain ``json.dumps(own_keys)`` would
+    silently drop the other feature's settings on each save. Lenient on a
+    missing/corrupt blob (starts fresh), does NOT commit — the caller owns the
+    transaction.
+    """
+    raw = getattr(user, 'settings_json', None)
+    try:
+        stored = json.loads(raw) if raw else {}
+    except (ValueError, TypeError):
+        stored = {}
+    if not isinstance(stored, dict):
+        stored = {}
+    stored.update(updates)
+    user.settings_json = json.dumps(stored)
+
+
 def get_user_settings(user):
     """Effective learn settings for ``user`` — defaults overlaid with the
     stored blob; unknown keys and invalid values are silently dropped."""
@@ -418,7 +439,10 @@ def register(app):
                 return jsonify({'error': f"Ungültiger Wert für '{key}'."}), 400
             settings[key] = validated
         user = db.session.get(User, current_user.id)
-        user.settings_json = json.dumps(settings)
+        # Merge-write: the blob also carries other features' namespaces
+        # (DOC-API) — a plain dumps(settings) would drop them (see
+        # write_settings_keys).
+        write_settings_keys(user, settings)
         db.session.commit()
         return jsonify(settings)
 
