@@ -25,6 +25,13 @@ env/
 # Generated output files (These are handled by volumes in docker-compose)
 output_pdfs/
 
+# Not needed in the image (DOC-ENGINE P2): corpus/ alone is 6.5 GB and made
+# the COPY layer 7.08 GB; tests/ and docs/ are verified unreferenced by app
+# code and Dockerfile (pytest runs locally, never in the container).
+corpus/
+tests/
+docs/
+
 # IDE / Editor specific configs
 .vscode/
 .idea/

@@ -1,0 +1,107 @@
+{
+ "text": {
+  "word_recall": 0.9593,
+  "word_precision": 0.995,
+  "word_f1": 0.9769,
+  "words_ref": 418,
+  "words_out": 403,
+  "top_missing": [
+   "×10",
+   "×5",
+   "o×2"
+  ],
+  "top_invented": [
+   "×2"
+  ],
+  "cer": 0.0307
+ },
+ "cells": {
+  "cell_recall": 0.7662,
+  "cell_precision": 0.6484,
+  "cells_gold": 77,
+  "cells_out": 91,
+  "top_missing_cells": [
+   "×5",
+   "  ×4",
+   " (Nachname)  (Vorname)×4",
+   "EUR  (Art der Einkünfte)×4",
+   "Die bisherige Versicherung o endete am: o bestand bei: (Name×1"
+  ],
+  "top_invented_cells": [
+   "×6",
+   " ×4",
+   "(Nachname)×4",
+   "(Vorname)×4",
+   "EUR×4",
+   "(Art der Einkünfte)×4",
+   "Mit der Unterschrift erkläre ich, die Zustimmung der Familie×1",
+   "Bei getrennt lebenden Familienangehörigen reicht die Untersc×1",
+   "Angaben zur letzten bisherigen oder zur weiter bestehenden V×1",
+   "Die bisherige Versicherung  endete am:  bestand bei: (Name×1"
+  ],
+  "shapes_gold": [
+   [
+    5,
+    5,
+    "pipe"
+   ],
+   [
+    8,
+    5,
+    "pipe"
+   ],
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    6,
+    5,
+    "html"
+   ]
+  ],
+  "shapes_out": [
+   [
+    2,
+    3,
+    "pipe"
+   ],
+   [
+    1,
+    2,
+    "pipe"
+   ],
+   [
+    7,
+    5,
+    "html"
+   ],
+   [
+    10,
+    5,
+    "html"
+   ],
+   [
+    7,
+    5,
+    "html"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel1_fettbalken": {
+  "balken": {
+   "Angaben zur letzten bisherigen": "vorhanden_unstrukturiert",
+   "Sonstige Angaben zu Familienangehörigen": "vorhanden_unstrukturiert",
+   "Angaben zur Vergabe einer Krankenversichertennummer": "vorhanden_unstrukturiert"
+  },
+  "gleichwertig_erfuellt": "0/3"
+ },
+ "formular": {
+  "fill_tokens_gold": 43,
+  "fill_tokens_out": 33,
+  "checkbox_gold": 16,
+  "checkbox_out": 18
+ }
+}

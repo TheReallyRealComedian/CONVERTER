@@ -70,7 +70,11 @@ def convert_docx_pandoc(source_path):
     markdown = proc.stdout
     if not markdown.strip():
         raise RuntimeError('pandoc lieferte leeres Markdown.')
-    warnings = [proc.stderr.strip()[:300]] if proc.stderr.strip() else []
+    # Degradation messages are German house microcopy; raw tool output stays
+    # quoted inside a German frame (precedent: the ``error`` field carries raw
+    # English traceback tails). Documented in the contract doc (P3).
+    stderr = proc.stderr.strip()
+    warnings = [f'pandoc meldete: {stderr[:300]}'] if stderr else []
     return markdown, warnings
 
 

@@ -559,20 +559,30 @@ def fake_pdf_service(monkeypatch):
     return keys
 
 
-def test_task_cloud_rounds_provenance_up_to_model(monkeypatch, doc_convert_dir,
-                                                  fake_pdf_service):
+def test_task_cloud_routes_to_paged_backend(monkeypatch, doc_convert_dir,
+                                            fake_pdf_service):
+    """Cloud + key + pre-flight ok → the page-wise gemini backend runs with
+    the job's key and frozen budget; the legacy engine is never touched
+    (DOC-ENGINE P2 — replaced the blackbox branch and its provenance
+    round-up)."""
     monkeypatch.setenv('GEMINI_API_KEY', 'k-123')
+    calls = {}
+
+    def fake_run_cloud_pdf(source_path, api_key, budget_eur, model_name=None):
+        calls['args'] = (api_key, budget_eur)
+        return build_result_payload(
+            '# Cloud', provenance_unit='page', provenance=['modell'] * 3,
+            usage={'model_calls': 3, 'cost_eur': 0.044})
+
+    monkeypatch.setattr('services.pdf_cloud.run_cloud_pdf', fake_run_cloud_pdf)
     _plant_source(901, 'pdf')
     convert_document_task(901, 'pdf', 'cloud', 5.0, 3)
     payload = doc_lib.read_result_file(901)
-    assert fake_pdf_service == ['k-123']  # ran WITH the key
-    # Blackbox engine → document-level entry, rounded UP, gap named, usage
-    # honestly unknown.
-    assert payload['provenance_unit'] == 'document'
-    assert payload['provenance'] == ['modell']
-    assert [d['code'] for d in payload['degradations']] == [
-        'provenance_document_only']
-    assert payload['usage'] is None
+    assert fake_pdf_service == []  # legacy engine untouched on this path
+    assert calls['args'] == ('k-123', 5.0)
+    assert payload['provenance_unit'] == 'page'
+    assert payload['provenance'] == ['modell'] * 3
+    assert payload['usage'] == {'model_calls': 3, 'cost_eur': 0.044}
 
 
 def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,

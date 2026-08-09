@@ -231,11 +231,17 @@ def _gemini_thinking_configs(types_mod):
     return chain
 
 
-def _run_gemini_nativ(input_path: str, ctx: Ctx, level: str) -> AdapterResult:
+def _run_gemini_nativ(input_path: str, ctx: Ctx, level: str,
+                      chunk_pages: int = None) -> AdapterResult:
     import time as _time
     import fitz
     from google import genai
     from google.genai import types
+
+    # P2-Messung ganz-vs-seitenweise: chunk_pages=1 erzwingt einen Call je
+    # Seite; None = Modul-Default (env GEMINI_CHUNK_PAGES, wie im Bake-off).
+    if chunk_pages is None:
+        chunk_pages = GEMINI_CHUNK_PAGES
 
     api_key = _load_env_key("GEMINI_API_KEY")
     if not api_key:
@@ -251,13 +257,13 @@ def _run_gemini_nativ(input_path: str, ctx: Ctx, level: str) -> AdapterResult:
     doc = fitz.open(input_path)
     n_pages = len(doc)
     chunks = []
-    if n_pages <= GEMINI_CHUNK_PAGES:
+    if n_pages <= chunk_pages:
         chunks.append(Path(input_path).read_bytes())
     else:
-        for start in range(0, n_pages, GEMINI_CHUNK_PAGES):
+        for start in range(0, n_pages, chunk_pages):
             sub = fitz.open()
             sub.insert_pdf(doc, from_page=start,
-                           to_page=min(start + GEMINI_CHUNK_PAGES, n_pages) - 1)
+                           to_page=min(start + chunk_pages, n_pages) - 1)
             chunks.append(sub.tobytes())
             sub.close()
     doc.close()
@@ -346,7 +352,7 @@ def _run_gemini_nativ(input_path: str, ctx: Ctx, level: str) -> AdapterResult:
         tokens_in=counters["tin"], tokens_out=counters["tout"],
         cost_usd=round(counters["cost"], 6), warnings=warnings,
         meta={"model": GEMINI_MODEL, "media_resolution": level,
-              "chunks": len(chunks), "chunk_pages": GEMINI_CHUNK_PAGES,
+              "chunks": len(chunks), "chunk_pages": chunk_pages,
               "thinking": thinking_used},
     )
 
@@ -838,6 +844,22 @@ ADAPTERS = {
         "formats": {"pdf", "pdf-scan", "pdf-mixed"},
         "env": "eigenbau",
         "beschreibung": "Kalibrierung: media_resolution=HIGH",
+    },
+    # DOC-ENGINE P2: die Ganz-gegen-seitenweise-Messung (Sprint 2.1) — beide
+    # medium, Unterschied ist NUR das Chunking. Eigene Ergebnis-Ordner, damit
+    # die Kalibrierungs-Laeufe unangetastet bleiben.
+    "gemini-p2-ganz": {
+        "run": _make_gemini_fixed("medium"),
+        "formats": {"pdf", "pdf-scan", "pdf-mixed"},
+        "env": "eigenbau",
+        "beschreibung": "P2-Messung: medium, ein Call fuers ganze Dokument",
+    },
+    "gemini-p2-seitenweise": {
+        "run": lambda input_path, ctx: _run_gemini_nativ(
+            input_path, ctx, "medium", chunk_pages=1),
+        "formats": {"pdf", "pdf-scan", "pdf-mixed"},
+        "env": "eigenbau",
+        "beschreibung": "P2-Messung: medium, ein Call je Seite",
     },
     "unstructured-pin": {
         "run": run_unstructured,

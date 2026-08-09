@@ -1,0 +1,119 @@
+{
+ "text": {
+  "word_recall": 0.9897,
+  "word_precision": 0.9602,
+  "word_f1": 0.9747,
+  "words_ref": 1559,
+  "words_out": 1607,
+  "top_missing": [
+   "⁵×3",
+   "l×3",
+   "ℓ×2",
+   "⁴×2",
+   "κ×2",
+   "Kumaret×1",
+   "10⁷×1",
+   "10⁸×1",
+   "10⁶×1"
+  ],
+  "top_invented": [
+   "times×8",
+   "ell×5",
+   "langle×4",
+   "rangle×4",
+   "of×3",
+   "4×3",
+   "5×3",
+   "10×3",
+   "the×2",
+   "sim×2",
+   "quad×2",
+   "Network×2",
+   "structure×2",
+   "8×2",
+   "kappa×2"
+  ],
+  "cer": 0.0571
+ },
+ "cells": {
+  "cell_recall": 0.9356,
+  "cell_precision": 0.9356,
+  "cells_gold": 357,
+  "cells_out": 357,
+  "top_missing_cells": [
+   "⟨k⟩×2",
+   "Internet, router∗×2",
+   "1.8 × 10⁻⁴×1",
+   "1.1 × 10⁻⁵×1",
+   "3 × 10⁻⁴×1",
+   "5.4 × 10⁻⁵×1",
+   "5.5 × 10⁻⁵×1",
+   "4 × 10⁷×1",
+   "2 × 10⁸×1",
+   "Internet, domain∗×1"
+  ],
+  "top_invented_cells": [
+   "⟨ k ⟩×2",
+   "Internet, router×2",
+   "Movie actors×1",
+   "1.8 × 10^-4×1",
+   "1.1 × 10^-5×1",
+   "3 × 10^-4×1",
+   "5.4 × 10^-5×1",
+   "5.5 × 10^-5×1",
+   "Words, cooccurence×1",
+   "Words, synonyms×1"
+  ],
+  "shapes_gold": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ],
+  "shapes_out": [
+   [
+    18,
+    9,
+    "pipe"
+   ],
+   [
+    21,
+    11,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [],
+ "regel2_stellungen": {
+  "familien": {
+   "ell_rand": "erhalten",
+   "ell_real": "erhalten",
+   "ell_pow": "erhalten",
+   "P_out": "erhalten",
+   "P_in": "erhalten",
+   "gamma_in": "erhalten",
+   "gamma_out": "erhalten",
+   "C_rand": "erhalten",
+   "dom_sup": "erhalten",
+   "exp_minus_4": "erhalten",
+   "exp_minus_5": "erhalten"
+  },
+  "zusammenfassung": {
+   "erhalten": 11,
+   "eingeebnet": 0,
+   "fehlt": 0
+  }
+ },
+ "eigenheiten": {
+  "nr_14_doppelt_15_fehlt": "erhalten",
+  "bereich_absteigend_636_618": "erhalten",
+  "punkt_460_902": "erhalten",
+  "komma_460_902": "erhalten"
+ }
+}

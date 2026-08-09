@@ -40,38 +40,34 @@ def update_job_stage(stage, **extras):
 
 
 def _convert_pdf(source_path, mode, budget_eur, page_count):
-    """PDF branch: route the legacy engine by mode + budget, attribute honestly.
+    """PDF branch: cloud = the page-wise gemini backend, local = legacy engine.
 
-    The legacy engine is a blackbox (one call, no per-page reporting), so the
-    honest provenance depends on HOW it runs:
-
-    * **Local run** (mode ``lokal``, or a cloud job degraded here): the engine
-      is instantiated WITHOUT an API key — provably zero model calls, every
-      page is deterministic → per-page provenance (trivially honest because
-      homogeneous), ``usage`` is a known 0/0.
-    * **Cloud run** (mode ``cloud``, key present, budget suffices): the engine
-      MAY route pages through Gemini Vision but does not say which — so the
-      provenance is ONE document-level entry, rounded UP to ``modell`` (a
-      consumer must never read ``deterministisch`` on possibly-generated
-      text), plus a ``provenance_document_only`` degradation naming the gap,
-      and ``usage`` is ``None`` (unknown — 0 would be a claim). The engine
-      sprint replaces this branch with real per-page attribution.
+    * **Cloud run** (mode ``cloud``, key present, pre-flight passes):
+      ``services.pdf_cloud.run_cloud_pdf`` — one call per page, per-page
+      ``modell`` provenance, costs booked from ``usage_metadata``, and the
+      REAL mid-flight cap: if actual costs exhaust the budget mid-document,
+      the remaining pages come from the local page function with flipped
+      provenance and one named ``budget_exceeded`` entry (DOC-ENGINE P2;
+      replaced the blackbox branch that could only round provenance up).
+    * **Local run** (mode ``lokal``, or a cloud job degraded here): the
+      legacy engine WITHOUT an API key — provably zero model calls, every
+      page deterministic, ``usage`` a known 0/0. DOC-LOCAL replaces this.
 
     Cloud degrades to local — never aborts — when the key is missing
     (``cloud_unavailable``) or the pre-flight estimate ``page_count × cent``
-    exceeds the job's frozen budget (``budget_exceeded``). The estimate uses
-    the bake-off-measured per-page price from config, because the legacy
-    engine cannot account for itself mid-flight.
+    exceeds the job's frozen budget (``budget_exceeded``): if the ESTIMATE
+    already says the budget cannot carry the document, not a single call is
+    spent on a result that would be mostly local anyway. The mid-flight cap
+    covers the complementary case: the estimate passed, but real per-page
+    costs (token-dense pages) exhaust the budget during the run.
     """
     from app_pkg.config import DOC_CONVERT_CLOUD_CENT_PER_PAGE
     from services import PDFExtractionService
     from services.document_conversions import (
         DEGRADATION_BUDGET_EXCEEDED,
         DEGRADATION_CLOUD_UNAVAILABLE,
-        DEGRADATION_PROVENANCE_DOCUMENT_ONLY,
         MODE_CLOUD,
         PROVENANCE_DETERMINISTIC,
-        PROVENANCE_MODEL,
         UNIT_DOCUMENT,
         UNIT_PAGE,
         build_result_payload,
@@ -98,19 +94,8 @@ def _convert_pdf(source_path, mode, budget_eur, page_count):
                     f'Kostendeckel {budget_eur:.2f} €. Lokal konvertiert.'))
 
     if cloud:
-        svc = PDFExtractionService(api_key)
-        markdown = svc.extract_markdown(source_path)
-        degradations.append(degradation(
-            DEGRADATION_PROVENANCE_DOCUMENT_ONLY,
-            'Die Übergangs-Engine weist Herkunft nicht je Seite aus; '
-            'konservativ als modell markiert.'))
-        return build_result_payload(
-            markdown,
-            provenance_unit=UNIT_DOCUMENT,
-            provenance=[PROVENANCE_MODEL],
-            degradations=degradations,
-            usage=None,
-        )
+        from services.pdf_cloud import run_cloud_pdf
+        return run_cloud_pdf(source_path, api_key, budget_eur)
 
     svc = PDFExtractionService(None)  # provably deterministic run
     markdown = svc.extract_markdown(source_path)

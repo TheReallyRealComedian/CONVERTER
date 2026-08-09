@@ -61,10 +61,12 @@ def test_pandoc_sentinel_pins_the_measured_invocation(fake_pandoc):
     assert warnings == []
 
 
-def test_pandoc_stderr_becomes_warning(fake_pandoc):
+def test_pandoc_stderr_becomes_framed_warning(fake_pandoc):
+    """Raw tool output travels quoted inside a German frame (the error-field
+    precedent: frame German, quote raw)."""
     fake_pandoc['state']['stderr'] = '[WARNING] Could not convert image x\n'
     markdown, warnings = ob.convert_docx_pandoc('/tmp/x.docx')
-    assert warnings == ['[WARNING] Could not convert image x']
+    assert warnings == ['pandoc meldete: [WARNING] Could not convert image x']
 
 
 def test_pandoc_nonzero_rc_raises(fake_pandoc):

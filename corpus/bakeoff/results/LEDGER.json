@@ -1167,6 +1167,50 @@
    "cost_usd": 0.199202,
    "price_verified": true,
    "note": "chunk 3/3 level=medium"
+  },
+  {
+   "ts": "2026-08-09T16:49:13",
+   "candidate": "gemini-p2-ganz",
+   "class": "01",
+   "model": "gemini-3.6-flash",
+   "tokens_in": 1268,
+   "tokens_out": 7904,
+   "cost_usd": 0.061182,
+   "price_verified": true,
+   "note": "chunk 1/1 level=medium"
+  },
+  {
+   "ts": "2026-08-09T16:49:19",
+   "candidate": "gemini-p2-seitenweise",
+   "class": "01",
+   "model": "gemini-3.6-flash",
+   "tokens_in": 748,
+   "tokens_out": 1036,
+   "cost_usd": 0.008892,
+   "price_verified": true,
+   "note": "chunk 1/2 level=medium"
+  },
+  {
+   "ts": "2026-08-09T16:49:31",
+   "candidate": "gemini-p2-seitenweise",
+   "class": "01",
+   "model": "gemini-3.6-flash",
+   "tokens_in": 748,
+   "tokens_out": 2779,
+   "cost_usd": 0.021965,
+   "price_verified": true,
+   "note": "chunk 2/2 level=medium"
+  },
+  {
+   "ts": "2026-08-09T16:49:40",
+   "candidate": "gemini-p2-seitenweise",
+   "class": "07",
+   "model": "gemini-3.6-flash",
+   "tokens_in": 768,
+   "tokens_out": 1558,
+   "cost_usd": 0.012837,
+   "price_verified": true,
+   "note": "chunk 1/1 level=medium"
   }
  ]
 }
