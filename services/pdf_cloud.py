@@ -16,6 +16,14 @@ budget degradation mechanic alive. Side effect, measured: page-wise spent
 half the output tokens of the whole-doc call on 01 (3.8k vs 7.9k — less
 thinking per call), 1.5 ct/Seite ≈ the bake-off's 1.48 ct calculation.
 
+**Named limit of that measurement**: nothing in ``01.gold`` runs ACROSS the
+page break (page 2 opens with TABLE I) — the 0.006 measures token noise, not
+continuity, and the one mechanism whole-doc could win on (a structure
+spanning pages) is absent from the measuring corpus. The decision stands
+(the delta bound holds for non-spanning content, and cross-page merging is
+DOC-LOCAL's multi-page-merge territory anyway); a corpus exemplar WITH a
+page-spanning table is backlogged so the gap is measurable.
+
 The prompt, temperature, max_output_tokens, thinking-config chain and the
 429-retry come VERBATIM from the measured harness adapter
 (``corpus/bakeoff/harness/adapters.py``) — the measurement only holds for
@@ -58,8 +66,11 @@ MODEL_PRICES_USD_PER_M = {
 }
 DEFAULT_PRICE_USD_PER_M = {'in': 2.00, 'out': 10.00}
 
-# Documented, deliberately generous conversion (bake-off ledger convention):
-# overstating EUR costs trips the cap early — the harmless direction.
+# Fixed conversion ASSUMPTION (bake-off ledger convention, 2026-08): 1 EUR =
+# 1.10 USD. Costs are overstated — and the cap trips early, the harmless
+# direction — only while the real rate stays above 1.10; if EUR/USD falls
+# below that, booked costs UNDERSTATE reality. A knob is not warranted for a
+# ~10 % band on cent amounts; revisit the constant if the rate regime shifts.
 EUR_PER_USD = 1 / 1.10
 
 MAX_OUTPUT_TOKENS = 32768  # harness cap; a single page never came close

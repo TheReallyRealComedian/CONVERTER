@@ -1,9 +1,9 @@
 # Document-API-Kontrakt — Dokument-Konvertierung als Dienst
 
-Stand 2026-08-09 (Sprint DOC-API, P1+P2). Alle Pfade relativ zur Basis-URL des
-CONVERTER-Stacks. Antworten `application/json`; die Einreichung ist
-`multipart/form-data`. Dieses Dokument ist der Vertrag, den ein fremder Dienst
-liest — was hier steht, gilt; was die Antwort trägt, steht hier.
+Stand 2026-08-09 (Sprints DOC-API + DOC-ENGINE). Alle Pfade relativ zur
+Basis-URL des CONVERTER-Stacks. Antworten `application/json`; die Einreichung
+ist `multipart/form-data`. Dieses Dokument ist der Vertrag, den ein fremder
+Dienst liest — was hier steht, gilt; was die Antwort trägt, steht hier.
 
 ## 1. Ablauf in einem Absatz
 
@@ -155,12 +155,14 @@ aus dem Format ab.
 
 **Garantie der konservativen Aufrundung**: `deterministisch` wird nur
 behauptet, wenn es **garantiert** ist. Kann eine Engine ihre Einheiten nicht
-einzeln ausweisen (die heutige Übergangs-Engine im Cloud-Modus), wird
-dokumentweit auf **`modell` aufgerundet** und die Lücke als Degradation
-`provenance_document_only` benannt. Ein falsches `modell` (Misstrauen, wo
-keins nötig war) ist der harmlose Fehler; ein falsches `deterministisch`
-wäre unmarkierter Modelltext — genau der stille Fehler, den der Bake-off
-zwölffach fand.
+einzeln ausweisen, wird dokumentweit auf **`modell` aufgerundet** und die
+Lücke als Degradation `provenance_document_only` benannt. Ein falsches
+`modell` (Misstrauen, wo keins nötig war) ist der harmlose Fehler; ein
+falsches `deterministisch` wäre unmarkierter Modelltext — genau der stille
+Fehler, den der Bake-off zwölffach fand. *(Seit DOC-ENGINE weist der
+Cloud-PDF-Pfad die Herkunft **echt je Seite** aus — die Aufrundung ist dort
+Geschichte; die Garantie bleibt für jede künftige Engine, die ihre Einheiten
+nicht trennen kann.)*
 
 ### 5b. `usage: null` heißt unbekannt, nicht null Euro
 
@@ -168,10 +170,14 @@ zwölffach fand.
 
 - Lokale/deterministische Läufe melden sicher `{"model_calls": 0,
   "cost_eur": 0.0}`.
-- Die heutige Übergangs-Engine im Cloud-Modus meldet **`null`**: sie weist
-  weder Calls noch Kosten aus, und eine 0 wäre eine Behauptung. Wer Kosten
-  bilanziert, behandelt `null` als „unbekannt, konservativ > 0 möglich".
-  Der Engine-Folge-Sprint ersetzt das durch echte Zahlen.
+- Der Cloud-PDF-Pfad meldet seit DOC-ENGINE **echte Zahlen**: ein Call je
+  Seite, Kosten aus `usage_metadata` des Modells (nie eine Schätzung; fehlt
+  die Metadatenauskunft ausnahmsweise, wird der gemessene Seitenpreis
+  gebucht statt 0 — sonst wäre der Deckel still entwaffnet).
+- **`null`** bleibt Teil des Vertrags und heißt „ehrlich unbekannt": ein
+  künftiges Backend ohne Selbst-Buchführung meldet `null`, nie eine
+  erfundene 0. Wer Kosten bilanziert, behandelt `null` als „unbekannt,
+  konservativ > 0 möglich".
 
 ## 6. Modus je Auftrag
 
@@ -182,7 +188,7 @@ zwölffach fand.
   unterliegt dem Kostendeckel (§7).
 - **`lokal`** → garantiert ohne Modell-Calls; Ergebnis ist beweisbar
   `deterministisch`. Preis heute: gescannte Seiten bleiben leer (kein lokales
-  OCR bis zum Engine-Sprint).
+  OCR bis DOC-LOCAL).
 - **alles andere** → `400 {"error": "Ungültiger Modus. Erlaubt: 'cloud' oder
   'lokal'."}` — strikt gelesen, nur der exakte Wert schaltet; auch `""`,
   `"Cloud"` oder `" lokal"` sind 400.
@@ -204,11 +210,21 @@ Jeder Auftrag trägt einen Kostendeckel (`budget_eur`), am Submit aus
 `DOC_CONVERT_BUDGET_EUR` eingefroren (Start: **1,00 €**; eine Env-Änderung
 preist keinen laufenden Auftrag um). Wird er erreicht, **läuft der Auftrag
 lokal weiter statt abzubrechen** — der Aufrufer bekommt immer ein Ergebnis,
-und jede lokal entstandene Seite trägt die geänderte Herkunft. Heute wird der
-Deckel **vor** dem Lauf geprüft (Seitenzahl × 1,48 ct, Bake-off-Messung,
-`DOC_CONVERT_CLOUD_CENT_PER_PAGE`); mit der seitenweisen Engine greift er
-mitten im Dokument (die Mechanik steht und ist testbelegt — maximal eine
-Seite Überhang, die laufende Seite wird nie abgebrochen).
+und jede lokal entstandene Seite trägt die geänderte Herkunft. Der Deckel
+greift **zweistufig** (DOC-ENGINE, Semantik von Oli so entschieden):
+
+1. **Preflight, ganz-oder-gar-nicht**: sagt schon die Schätzung
+   (Seitenzahl × 1,48 ct, Bake-off-Messung,
+   `DOC_CONVERT_CLOUD_CENT_PER_PAGE`), dass das Budget das Dokument nicht
+   trägt, wird **kein einziger** Cloud-Call ausgegeben — das ganze Dokument
+   läuft lokal (keine Mischqualitäts-Fragmente, kein Geld für ein Ergebnis,
+   das ohnehin überwiegend lokal endete). Ein 280-Seiten-Dokument gegen
+   1,00 € degradiert also vollständig, bevor ein Call läuft.
+2. **Mid-flight, das Netz**: passiert die Schätzung den Preflight, reißen
+   aber die **echten** per-Seite-Kosten (tokendichte Seiten) das Budget
+   während des Laufs, schalten die verbleibenden Seiten auf den lokalen
+   Pfad um — maximal eine Seite Überhang, die laufende Seite wird nie
+   abgebrochen, jede Seite trägt ihre echte Herkunft.
 
 Degradations-Einträge sind `{"code", "message", "pages"}`: `code` ist ein
 stabiler snake_case-Slug für Maschinen, `message` deutsch für Menschen,
@@ -216,13 +232,14 @@ stabiler snake_case-Slug für Maschinen, `message` deutsch für Menschen,
 
 | Code | Bedeutung |
 |---|---|
-| `budget_exceeded` | Der Deckel griff — Auftrag (teilweise) lokal statt cloud gelaufen. `pages` nennt die lokal entstandenen Seiten, sofern seitenweise bekannt. |
+| `budget_exceeded` | Der Deckel griff — Auftrag (teilweise) lokal statt cloud gelaufen. `pages` nennt die lokal entstandenen Seiten, sofern seitenweise bekannt (`null` beim Preflight-Fall = ganzer Auftrag). |
 | `cloud_unavailable` | Modus `cloud` angefragt, aber kein Cloud-Backend konfiguriert (kein API-Key im Worker) — lokal konvertiert. |
-| `provenance_document_only` | Die Übergangs-Engine weist Herkunft nicht je Seite aus; konservativ dokumentweit als `modell` markiert (§5a). |
-| `serializer` | Der Office-Serializer musste Struktur aufgeben (z.B. Tabelle ohne HTML-Repräsentation als Fließtext). `message` trägt den Befund. |
+| `provenance_document_only` | Eine Engine weist Herkunft nicht je Seite aus; konservativ dokumentweit als `modell` markiert (§5a). **Seit DOC-ENGINE nicht mehr vergeben** (der Cloud-PDF-Pfad attribuiert echt je Seite); bleibt im Vokabular für künftige Backends ohne Einheiten-Trennung. |
+| `serializer` | Sammelcode für **alle Backend-Warnungen** des Konvertierwegs: der unstructured-Serializer musste Struktur aufgeben (deutsche Meldung, z.B. „Tabelle ohne text_as_html — als Fliesstext ausgegeben"), oder ein Werkzeug-Backend meldete etwas auf stderr. ⚠️ **Meldungsform bei Werkzeug-Warnungen**: deutscher Rahmen mit roh zitierter — meist englischer — Werkzeug-Ausgabe, z.B. `"pandoc meldete: [WARNING] Could not convert image …"` (bis 300 Zeichen Zitat; dieselbe Konvention wie das `error`-Feld, das rohe Traceback-Tails trägt). |
+| `backend_fallback` | Das für das Format gewählte Backend lieferte nichts Verwertbares und der Bestands-Pfad übernahm (heute ein Fall: trafilatura findet in einer HTML-Datei keinen Hauptinhalt → Element-Extraktion). Das Ergebnis ist `ready`, der Pfadwechsel steht hier. |
 
-Die Liste ist offen — neue Codes kommen mit dem Engine-Sprint dazu; ein
-Konsument behandelt unbekannte Codes als informativ, nicht als Fehler.
+Die Liste ist offen — neue Codes kommen mit DOC-LOCAL dazu; ein Konsument
+behandelt unbekannte Codes als informativ, nicht als Fehler.
 
 ## 8. Idempotenz
 
@@ -251,16 +268,30 @@ Retry-Endpunkt).
 | 413 | Upload > 100 MB |
 | 503 | `DOC_CONVERT_TOKEN` nicht konfiguriert · kein Zielnutzer vorhanden |
 
-## 10. Was dieser Kontrakt (noch) nicht ist
+## 10. Die Engine hinter der Form (Stand DOC-ENGINE)
 
-Die Engine hinter der Form ist die **heutige** Fähigkeit (PDF:
-`pdf_extraction`; Office/Web: `unstructured`-Serializer). Der Engine-Sprint
-(Router, gemini-nativ cloud / mineru lokal, echte per-Seite-Herkunft, echte
-`usage`-Zahlen, Mid-Flight-Deckel) tauscht das Backend **hinter** dieser
-Form; die Form selbst — Felder, Werte, Garantien — ist der Vertrag und
-bleibt. Der bestehende Web-Pfad `POST /transform-document` ist unberührt und
-kein Teil dieses Kontrakts.
+Der Dienst ist ein **Router**: Format rein, gemessenes Backend raus
+(Bake-off 2026-08-08, Entscheidungs-Doc). Die Form selbst — Felder, Werte,
+Garantien — ist der Vertrag und bleibt bei jedem Backend-Tausch stehen.
+
+| Format | Backend | Herkunft in der Antwort |
+|---|---|---|
+| PDF, Modus `cloud` | gemini-nativ seitenweise (`services/pdf_cloud.py`, `media_resolution=medium`, Modell env-overridable via `PDF_VISION_MODEL`) | `page`, je Seite `modell` — bzw. `deterministisch` ab der Seite, an der der Deckel griff |
+| PDF, Modus `lokal` | Bestands-Engine ohne API-Key (`pdf_extraction`) — **bis DOC-LOCAL** (mineru); Scan-Seiten bleiben bis dahin leer | `page` (lesbare Seitenzahl) bzw. `document`, `deterministisch` |
+| DOCX | pandoc `-f docx -t gfm --wrap=none` (Release-deb 3.10.1 im Image — die jammy-apt-Version 2.9 trug die Fußnoten-Kette nicht) | `document`, `deterministisch` |
+| PPTX | markitdown 0.1.7 (einziger Kandidat mit Sprechernotizen) | `document`, `deterministisch` |
+| HTML/HTM | trafilatura 2.2.0 + Metadaten-Kopf (`<title>`-Tag als `# `-Überschrift — TITLE-FIX greift; Autor/Datum aus `extract_metadata` als Kursivzeile); leere Extraktion → `backend_fallback` auf unstructured | `document`, `deterministisch` |
+| EML, TXT, MD | unstructured + Serializer (Bestand; EML konkurrenzlos) | `document`, `deterministisch` |
+| XLSX | **bewusst ungebaut** — 400 am Submit | — |
+
+Alle Office-/Web-Backends sind modellfrei — `deterministisch` ist dort per
+Konstruktion garantiert, `usage` ein sicheres 0/0.
+
+Der bestehende Web-Pfad `POST /transform-document` ist unberührt und kein
+Teil dieses Kontrakts (er konvertiert weiterhin über unstructured).
 
 Implementierung: `app_pkg/document_api.py` ·
 `services/document_conversions.py` · `services/document_pipeline.py` ·
-`tasks.convert_document_task`. Tests: `tests/test_document_api.py`.
+`services/office_backends.py` · `services/pdf_cloud.py` ·
+`tasks.convert_document_task`. Tests: `tests/test_document_api.py` ·
+`tests/test_office_backends.py` · `tests/test_pdf_cloud.py`.
