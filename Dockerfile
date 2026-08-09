@@ -12,10 +12,21 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     tesseract-ocr \
     libreoffice \
-    pandoc \
     ffmpeg \
     ghostscript \
     && rm -rf /var/lib/apt/lists/*
+
+# pandoc from the official release deb, NOT jammy's apt (2.9.2.1): the DOCX
+# backend (DOC-ENGINE) was measured with 3.10.1, and 2.9's gfm writer predates
+# GFM footnotes — it demotes the measured image-footnote-link chain (rule 3)
+# to escaped text plus a numbered list, voiding the choice. Arch-aware deb
+# (amd64 Mintbox / arm64 local builds both exist upstream).
+ARG PANDOC_VERSION=3.10.1
+RUN arch="$(dpkg --print-architecture)" \
+    && curl -fsSL -o /tmp/pandoc.deb \
+       "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-${arch}.deb" \
+    && dpkg -i /tmp/pandoc.deb \
+    && rm /tmp/pandoc.deb
 
 # CPU-only PyTorch: the CUDA wheels pulled transitively by unstructured (torch +cu130
 # plus the nvidia-*-cu13 stack, ~3.9 GB) are dead weight — the container has no GPU

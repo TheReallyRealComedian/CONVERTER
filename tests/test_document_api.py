@@ -698,14 +698,16 @@ def test_pdf_end_to_end_with_real_local_extraction(app, client, test_user,
     assert body['source']['page_count'] == 1
 
 
-def test_docx_end_to_end_with_real_serializer(app, client, test_user, doc_token,
-                                              mock_redis_queue, doc_convert_dir,
-                                              monkeypatch):
+def test_eml_end_to_end_with_real_serializer(app, client, test_user, doc_token,
+                                             mock_redis_queue, doc_convert_dir,
+                                             monkeypatch):
     """Submit → worker task (stubbed partition, REAL serializer) → poll → ready.
 
-    Non-PDF: no page concept → document-level provenance, and a serializer
-    warning becomes a structured degradation on a ready (not failed) result —
-    partial success is a 200 with a list, never a 500.
+    EML is the canonical unstructured-path format since DOC-ENGINE (DOCX/PPTX/
+    HTML route to their measured winners). No page concept → document-level
+    provenance, and a serializer warning becomes a structured degradation on a
+    ready (not failed) result — partial success is a 200 with a list, never a
+    500.
     """
     def fake_partition(filename=None, strategy=None):
         def el(category, text='', depth=None, html=None):
@@ -722,9 +724,9 @@ def test_docx_end_to_end_with_real_serializer(app, client, test_user, doc_token,
     monkeypatch.setattr(sys.modules['unstructured.partition.auto'],
                         'partition', fake_partition)
 
-    cid = _submit(client, app, data=b'PK\x03\x04 fake docx bytes',
-                  filename='bericht.docx')
-    convert_document_task(cid, 'docx', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
+    cid = _submit(client, app, data=b'From: a@b.de\n\nHallo',
+                  filename='mail.eml')
+    convert_document_task(cid, 'eml', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
 
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'ready'
@@ -737,7 +739,7 @@ def test_docx_end_to_end_with_real_serializer(app, client, test_user, doc_token,
         'message': 'Tabelle ohne text_as_html — als Fliesstext ausgegeben',
         'pages': None}]
     assert body['usage'] == {'model_calls': 0, 'cost_eur': 0.0}
-    assert body['source']['format'] == 'docx'
+    assert body['source']['format'] == 'eml'
     assert body['source']['page_count'] is None
 
 
@@ -751,14 +753,14 @@ def test_task_failure_leaves_no_result_and_consumes_source(app, client,
 
     monkeypatch.setattr(sys.modules['unstructured.partition.auto'],
                         'partition', boom)
-    cid = _submit(client, app, data=b'kaputt', filename='defekt.docx')
+    cid = _submit(client, app, data=b'kaputt', filename='defekt.eml')
 
     with pytest.raises(RuntimeError):
-        convert_document_task(cid, 'docx', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
+        convert_document_task(cid, 'eml', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
 
     # No result file → reconcile keys on the RQ job; source is consumed.
     assert not (doc_convert_dir / f'result_{cid}.json').exists()
-    assert not (doc_convert_dir / f'source_{cid}.docx').exists()
+    assert not (doc_convert_dir / f'source_{cid}.eml').exists()
 
     job = mock_redis_queue['fetch'].return_value
     job.is_failed = True

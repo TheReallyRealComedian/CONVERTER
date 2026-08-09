@@ -174,6 +174,10 @@ DEGRADATION_BUDGET_EXCEEDED = 'budget_exceeded'
 DEGRADATION_CLOUD_UNAVAILABLE = 'cloud_unavailable'
 DEGRADATION_SERIALIZER = 'serializer'
 DEGRADATION_PROVENANCE_DOCUMENT_ONLY = 'provenance_document_only'
+# DOC-ENGINE: the format's chosen backend yielded nothing usable and the
+# legacy path took over (e.g. trafilatura found no main content in an HTML
+# file) — the result is still ready, the switch is named here.
+DEGRADATION_BACKEND_FALLBACK = 'backend_fallback'
 
 
 def build_result_payload(markdown, *, provenance_unit, provenance,

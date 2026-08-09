@@ -128,16 +128,16 @@ def _convert_pdf(source_path, mode, budget_eur, page_count):
     )
 
 
-def _convert_office(source_path, source_ext):
-    """Non-PDF branch: unstructured + serializer — deterministic by construction.
+def _deterministic_document_payload(markdown, warnings):
+    """The shared non-PDF result shape: document-level, deterministic.
 
-    No page concept in this pipeline (an element stream; DOCX "pages" are a
-    renderer artifact) → ONE document-level provenance entry. Serializer
-    warnings become structured ``serializer`` degradations: partial success
-    is a ready result WITH a degradation list, never a failure.
+    Every office/web backend in this task is model-free by construction
+    (pandoc/markitdown/trafilatura/unstructured serializer), and none has a
+    stable page concept → ONE document-level provenance entry, usage a known
+    0/0. Backend warnings become structured ``serializer`` degradations:
+    partial success is a ready result WITH a degradation list, never a
+    failure.
     """
-    from unstructured.partition.auto import partition
-
     from services.document_conversions import (
         DEGRADATION_SERIALIZER,
         PROVENANCE_DETERMINISTIC,
@@ -145,10 +145,7 @@ def _convert_office(source_path, source_ext):
         build_result_payload,
         degradation,
     )
-    from services.unstructured_markdown import elements_to_markdown
 
-    elements = partition(filename=source_path, strategy="fast")
-    markdown, warnings = elements_to_markdown(elements, source_ext=source_ext)
     return build_result_payload(
         markdown,
         provenance_unit=UNIT_DOCUMENT,
@@ -158,19 +155,79 @@ def _convert_office(source_path, source_ext):
     )
 
 
+def _convert_office(source_path, source_ext):
+    """Legacy non-PDF branch: unstructured + serializer (EML/TXT/MD, and the
+    fallback target for an empty trafilatura extraction).
+
+    Since DOC-ENGINE this no longer carries DOCX/PPTX/HTML — those route to
+    their measured winners below; EML stays here deliberately (decision doc:
+    functional, without competition).
+    """
+    from unstructured.partition.auto import partition
+
+    from services.unstructured_markdown import elements_to_markdown
+
+    elements = partition(filename=source_path, strategy="fast")
+    markdown, warnings = elements_to_markdown(elements, source_ext=source_ext)
+    return _deterministic_document_payload(markdown, warnings)
+
+
+def _convert_docx(source_path):
+    """DOCX branch: pandoc (DOC-ENGINE) — the bake-off winner (rule 3, the
+    image-footnote-link chain: 4/4 vs 0/4 for every other candidate)."""
+    from services.office_backends import convert_docx_pandoc
+
+    return _deterministic_document_payload(*convert_docx_pandoc(source_path))
+
+
+def _convert_pptx(source_path):
+    """PPTX branch: markitdown (DOC-ENGINE) — recall 1.0, only candidate
+    carrying speaker notes."""
+    from services.office_backends import convert_pptx_markitdown
+
+    return _deterministic_document_payload(*convert_pptx_markitdown(source_path))
+
+
+def _convert_html(source_path, source_ext):
+    """HTML branch: trafilatura + metadata head (DOC-ENGINE, <2 % boilerplate).
+
+    trafilatura finding no main content degrades to the unstructured path
+    (named ``backend_fallback`` entry) instead of failing — the legacy path
+    could always serve some text for HTML, a hard fail would be a capability
+    regression, and re-submitting (this API's retry) would never converge.
+    """
+    from services.document_conversions import (
+        DEGRADATION_BACKEND_FALLBACK,
+        degradation,
+    )
+    from services.office_backends import convert_html_trafilatura
+
+    markdown, warnings = convert_html_trafilatura(source_path)
+    if markdown is None:
+        payload = _convert_office(source_path, source_ext)
+        payload['degradations'].append(degradation(
+            DEGRADATION_BACKEND_FALLBACK,
+            'Artikel-Extraktion fand keinen Hauptinhalt. '
+            'Element-Extraktion übernommen.'))
+        return payload
+    return _deterministic_document_payload(markdown, warnings)
+
+
 def convert_document_task(conversion_id, source_ext, mode, budget_eur,
                           page_count):
     """Convert an uploaded document to Markdown → ``result_<id>.json`` (DOC-API).
 
     **DB-free worker task (Option B, like the narration render).** The worker
     container mounts only the shared volume, never the SQLite DB, so this task
-    reads the source from the id-derived path, converts it with the existing
-    capability (PDF → ``pdf_extraction``, everything else → ``unstructured`` +
-    ``elements_to_markdown``), and writes a **structured** result JSON
-    atomically — it never flips the Conversion. The web side reconciles
-    ``pending`` → ``ready``/``failed`` on the next poll by *reading* that file
-    (markdown + provenance + degradations + usage — existence alone is not
-    enough, the DOC-API extension over the narration mechanic).
+    reads the source from the id-derived path, routes it to the format's
+    measured winner (DOC-ENGINE: DOCX → pandoc, PPTX → markitdown, HTML/HTM →
+    trafilatura; PDF → ``pdf_extraction`` until DOC-LOCAL; EML/TXT/MD →
+    ``unstructured`` + ``elements_to_markdown``), and writes a **structured**
+    result JSON atomically — it never flips the Conversion. The web side
+    reconciles ``pending`` → ``ready``/``failed`` on the next poll by
+    *reading* that file (markdown + provenance + degradations + usage —
+    existence alone is not enough, the DOC-API extension over the narration
+    mechanic).
 
     ``mode`` / ``budget_eur`` / ``page_count`` arrive from the web side: the
     mode is the resolved per-job choice (explicit or settings default), the
@@ -193,6 +250,12 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
 
         if source_ext == 'pdf':
             payload = _convert_pdf(source_path, mode, budget_eur, page_count)
+        elif source_ext == 'docx':
+            payload = _convert_docx(source_path)
+        elif source_ext == 'pptx':
+            payload = _convert_pptx(source_path)
+        elif source_ext in ('html', 'htm'):
+            payload = _convert_html(source_path, source_ext)
         else:
             payload = _convert_office(source_path, source_ext)
 
