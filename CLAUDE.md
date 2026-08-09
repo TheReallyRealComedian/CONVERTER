@@ -18,7 +18,7 @@ Flask web app for multimedia conversion: Markdown-to-PDF, document-to-Markdown, 
 - `tasks.py` — RQ background tasks (narration rendering: `generate_narration_task`)
 - `worker.py` — RQ worker process
 - `models.py` — SQLAlchemy models (User, ConversionHistory)
-- `tests/` — Characterization tests (~37 tests, ~5s); mocks at SDK-singleton boundary so they survive future service splits
+- `tests/` — Characterization tests (**923, ~50s** — Stand DOC-ENGINE 2026-08-09); mocks at SDK-singleton boundary so they survive future service splits
 - `static/js/` — Per-feature JS modules + shared `_utils.js` (Helper: `showAlert`, `showToast`, `formatFileSize`); templates inline only small `window.PageData = {…}` blocks
 - `static/css/style.css` — Single stylesheet with TOC + section comments (not split by design)
 
