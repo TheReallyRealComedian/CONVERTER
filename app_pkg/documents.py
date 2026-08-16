@@ -8,7 +8,7 @@ from flask import jsonify, render_template, request, send_file
 from flask_login import login_required
 from werkzeug.utils import secure_filename
 
-from services.unstructured_markdown import elements_to_markdown
+from services.document_router import convert_non_pdf
 
 
 # Single source of truth for what /transform-document accepts. The template
@@ -18,9 +18,9 @@ ACCEPTED_EXTENSIONS = ('pdf', 'docx', 'pptx', 'eml', 'html', 'htm', 'txt', 'md')
 
 
 def register(app):
-    # Late import: tests patch ``app.partition`` and
-    # ``app.pdf_extraction_service`` on the top-level app.py module, so
-    # look those up at call time rather than capturing imports here.
+    # Late import: tests patch ``app.pdf_extraction_service`` on the
+    # top-level app.py module, so look it up at call time rather than
+    # capturing the import here.
     import app as _app_module
 
     @app.route('/document-converter')
@@ -62,12 +62,14 @@ def register(app):
                 app.logger.info("PDF erkannt - verwende PDFExtractionService mit Tabellenerkennung...")
                 output_markdown = _app_module.pdf_extraction_service.extract_markdown(temp_file_path)
             else:
-                # Andere Formate (DOCX, PPTX, HTML, EML, etc.): bestehende unstructured Pipeline
-                app.logger.info("Partitioning document with unstructured (strategy='fast')...")
-                elements = _app_module.partition(filename=temp_file_path, strategy="fast")
-                output_markdown, warnings = elements_to_markdown(elements, source_ext=ext)
-                for warning in warnings:
-                    app.logger.warning("Serializer (%s): %s", original_filename, warning)
+                # Non-PDF: the SAME router the API task uses (DOC-WEB P1) —
+                # one place knows the formats, web and API can't drift apart.
+                app.logger.info("Routing document via document_router (ext=%s)...", ext)
+                output_markdown, degradations = convert_non_pdf(temp_file_path, ext)
+                for entry in degradations:
+                    app.logger.warning(
+                        "Konvertierung (%s) [%s]: %s",
+                        original_filename, entry['code'], entry['message'])
 
             output_path_obj = Path(original_filename)
             output_filename = f"{output_path_obj.stem}.md"
@@ -84,7 +86,7 @@ def register(app):
             )
 
         except Exception as e:
-            app.logger.error(f"Unstructured processing failed: {e}", exc_info=True)
+            app.logger.error(f"Document conversion failed: {e}", exc_info=True)
             return jsonify({'error': 'Error processing file. Please try again.'}), 500
         finally:
             if temp_file_path and os.path.exists(temp_file_path):

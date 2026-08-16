@@ -10,7 +10,7 @@ Several names are kept at module level on purpose because the Stage 6
 characterization tests patch them by attribute on this module:
 ``deepgram_service``, ``gemini_service``, ``google_tts_service``,
 ``pdf_extraction_service``, ``task_queue``, ``Job``, ``async_playwright``,
-``partition``, ``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``.
+``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``.
 The blueprints look these up via ``import app as _app_module`` so the
 patches reach the route handlers at call time.
 """
@@ -21,7 +21,6 @@ from playwright.async_api import async_playwright
 from redis import Redis
 from rq import Queue
 from rq.job import Job
-from unstructured.partition.auto import partition
 
 from app_pkg import audio as audio_module
 from app_pkg import auth as auth_module

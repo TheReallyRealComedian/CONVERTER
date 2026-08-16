@@ -11,9 +11,11 @@ imported, because both happen during ``app.py`` module load:
 
 1. ``unstructured.partition.auto`` and ``playwright.async_api`` are stubbed
    in ``sys.modules``.  These are heavy production dependencies; the
-   characterization tests mock them at the ``app.partition`` /
-   ``app.async_playwright`` boundary anyway, so a lightweight stub is
-   sufficient and keeps the dev-machine install footprint small.
+   characterization tests mock them on the stub module / at the
+   ``app.async_playwright`` boundary anyway (since DOC-WEB the router
+   lazy-imports ``partition`` at call time — there is no ``app.partition``
+   singleton anymore), so a lightweight stub is sufficient and keeps the
+   dev-machine install footprint small.
 2. ``os.makedirs`` is wrapped to no-op for ``/app/*`` paths so the
    container-internal ``os.makedirs('/app/data', exist_ok=True)`` line
    does not fail on macOS / Linux dev boxes.
