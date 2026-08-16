@@ -2,9 +2,11 @@
 
 Mocked at the genai.Client boundary (google-genai is installed on the dev
 box; only the client is faked). The PDFs are REAL two-page PyMuPDF documents
-with text layers, so the local page function (text layer) and the page
-splitting run for real — what the mid-flight cap serves after the switch is
-the actual page text, not a placeholder.
+with text layers. The mid-flight degradation target is the DOC-LOCAL mineru
+engine — faked HERE at the engine interface (page/close/degradations),
+because its container mechanics have their own suite (test_pdf_local); what
+this file proves is the WIRING: the switch reaches the engine, engine
+degradations reach the payload, close() always runs.
 """
 from types import SimpleNamespace
 
@@ -88,20 +90,77 @@ def test_full_cloud_run_books_real_costs(fake_genai, tmp_path):
     assert config.http_options.timeout == pdf_cloud.TIMEOUT_GEMINI_SECONDS * 1000
 
 
-def test_midflight_cap_switches_to_text_layer(fake_genai, tmp_path):
+@pytest.fixture
+def fake_local_engine(monkeypatch):
+    """Replace the DOC-LOCAL engine at pdf_cloud's seam: serves mineru-style
+    pages (modell, 0 €), records construction/serving/close. Set
+    ``state['fail'] = True`` BEFORE the run to simulate an engine that falls
+    back to the text layer and reports its backend_fallback degradation."""
+    state = {'created': [], 'fail': False}
+
+    class FakeEngine:
+        def __init__(self, source_path, page_count):
+            self.source_path = source_path
+            self.page_count = page_count
+            self.degradations = []
+            self.closed = False
+            self.pages_served = []
+            state['created'].append(self)
+
+        def page(self, index):
+            self.pages_served.append(index)
+            if state['fail']:
+                if not self.degradations:
+                    self.degradations.append(
+                        {'code': 'backend_fallback', 'message': 'kaputt',
+                         'pages': [index + 1]})
+                return {'markdown': f'T{index}',
+                        'origin': 'deterministisch', 'cost_eur': 0.0}
+            return {'markdown': f'M{index}', 'origin': 'modell',
+                    'cost_eur': 0.0}
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(pdf_cloud, 'LocalPdfEngine', FakeEngine)
+    return state
+
+
+def test_midflight_cap_switches_to_local_engine(fake_genai, fake_local_engine,
+                                                tmp_path):
     """The P2 core proof at REAL costs: page 1's booked usage exhausts the
-    budget, page 2 comes from the deterministic text layer with flipped
-    provenance and one named entry — no abort, no second model call."""
-    path = _two_page_pdf(tmp_path, ('Cloud-Seite.', 'Lokaler Fallback.'))
+    budget, page 2 comes from the DOC-LOCAL engine with one named entry —
+    no abort, no second model call. Since DOC-LOCAL the switched page keeps
+    ``modell`` provenance (mineru is a VLM); the budget_exceeded entry is
+    what names the switch."""
+    path = _two_page_pdf(tmp_path, ('Cloud-Seite.', 'Lokaler Rest.'))
     # 100k out tokens ≈ 0.68 € > 0.5 € budget after page 1.
     fake_genai['queue'] = [_response('# Cloud', tokens_out=100_000)]
     payload = run_cloud_pdf(path, 'key-1', budget_eur=0.5)
-    assert payload['provenance'] == ['modell', 'deterministisch']
-    assert 'Lokaler Fallback.' in payload['markdown']  # real page text
+    assert payload['provenance'] == ['modell', 'modell']
+    assert payload['markdown'].endswith('M1')  # engine served page 2
     assert [d['code'] for d in payload['degradations']] == ['budget_exceeded']
     assert payload['degradations'][0]['pages'] == [2]
     assert payload['usage']['model_calls'] == 1
     assert fake_genai['queue'] == []  # nothing left → exactly one call made
+    engine = fake_local_engine['created'][0]
+    assert engine.pages_served == [1]  # lazy: never touched before the cap
+    assert engine.closed is True
+
+
+def test_engine_degradations_reach_the_payload(fake_genai, fake_local_engine,
+                                               tmp_path):
+    """If the local engine itself fails after the switch, its
+    backend_fallback entry must arrive IN the payload — otherwise the whole
+    failure path is invisible to the caller."""
+    path = _two_page_pdf(tmp_path, ('Cloud-Seite.', 'Textebene zwei.'))
+    fake_genai['queue'] = [_response('# Cloud', tokens_out=100_000)]
+    fake_local_engine['fail'] = True
+    payload = run_cloud_pdf(path, 'key-1', budget_eur=0.5)
+    assert payload['provenance'] == ['modell', 'deterministisch']
+    assert [d['code'] for d in payload['degradations']] == [
+        'budget_exceeded', 'backend_fallback']
+    assert fake_local_engine['created'][0].closed is True
 
 
 def test_empty_answer_raises(fake_genai, tmp_path):

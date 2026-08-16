@@ -28,6 +28,19 @@ RUN arch="$(dpkg --print-architecture)" \
     && dpkg -i /tmp/pandoc.deb \
     && rm /tmp/pandoc.deb
 
+# docker CLI, client binary only (DOC-LOCAL): the worker starts the mineru
+# sibling container over the host's docker socket — it needs the CLI, never
+# a daemon. Static binary from download.docker.com (pinned, arch-aware:
+# x86_64 Mintbox / aarch64 local builds), ~40 MB instead of the docker.io
+# apt package's containerd stack.
+ARG DOCKER_CLI_VERSION=27.5.1
+RUN arch="$(uname -m)" \
+    && curl -fsSL -o /tmp/docker.tgz \
+       "https://download.docker.com/linux/static/stable/${arch}/docker-${DOCKER_CLI_VERSION}.tgz" \
+    && tar -xzf /tmp/docker.tgz -C /tmp docker/docker \
+    && mv /tmp/docker/docker /usr/local/bin/docker \
+    && rm -rf /tmp/docker.tgz /tmp/docker
+
 # CPU-only PyTorch: the CUDA wheels pulled transitively by unstructured (torch +cu130
 # plus the nvidia-*-cu13 stack, ~3.9 GB) are dead weight — the container has no GPU
 # passthrough and the extraction path is ML-free (partition strategy="fast"; PDFs go via

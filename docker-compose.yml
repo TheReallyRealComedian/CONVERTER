@@ -54,11 +54,40 @@ services:
       # Shared volume for podcast files
       - podcast_data:/app/output_podcasts
       - ./google-credentials.json:/app/google-credentials.json
+      # DOC-LOCAL: Docker-Socket fuer den mineru-Geschwister-Container.
+      # ⚠️ Der Socket ist ROOT-AEQUIVALENT auf dem Host — bewusste
+      # Entscheidung (Sprint DOC-LOCAL, gesperrte Entscheidung 1): die GPU
+      # ist nur waehrend eines Auftrags belegt (kein Dauer-Sidecar, der
+      # 6,5 GB von 12 GB gegen ComfyUI/LoRA hielte), und die Invokation
+      # bleibt die gemessene. Details: docs/document_api_contract.md §10.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # DOC-LOCAL: Austausch-Verzeichnis Worker ↔ Geschwister-Container als
+      # HOST-Bind (kein Named Volume): der Geschwister-Container wird vom
+      # HOST-Daemon gestartet, seine -v-Quellen muessen Host-Pfade sein —
+      # ein Named Volume hat keinen stabilen, dokumentierten Host-Pfad.
+      - ./doclocal_exchange:/app/doclocal_exchange
     environment:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - REDIS_URL=redis://redis:6379
+      # DOC-LOCAL: dieselbe Austausch-Flaeche in beiden Sichten. HOST_DIR
+      # nutzt ${PWD} — Compose MUSS aus dem Projektverzeichnis aufgerufen
+      # werden (ist die dokumentierte Deploy-Praxis), sonst zeigen Worker-
+      # Sicht und Daemon-Sicht auf verschiedene Verzeichnisse.
+      - DOC_LOCAL_EXCHANGE_DIR=/app/doclocal_exchange
+      - DOC_LOCAL_EXCHANGE_HOST_DIR=${PWD}/doclocal_exchange
+      # DOC-LOCAL: Image-Pin per Tag. mineru:latest hat KEINEN
+      # Registry-Digest (lokal geladen, Image-ID 6cc9e57ff5bd, mineru 3.4.4,
+      # Modell-Snapshot bff20d4 eingebacken) — der Tag `mineru:3.4.4` wird
+      # beim Deploy einmalig gesetzt (docker tag mineru:latest mineru:3.4.4)
+      # und macht einen stillen latest-Rebuild sichtbar: neuer latest traegt
+      # den Tag nicht, der Worker faellt kontrolliert auf die Textebene
+      # (backend_fallback) statt still eine ungemessene Engine zu fahren.
+      - MINERU_IMAGE=mineru:3.4.4
+      # Host-Pfad des HF-Caches (Nachlade-Netz; die Gewichte selbst sind im
+      # Image eingebacken — gemessen 2026-08-16). Leer = kein Mount.
+      - MINERU_MODELS_DIR=${MINERU_MODELS_DIR:-}
     env_file:
       - .env
     depends_on:

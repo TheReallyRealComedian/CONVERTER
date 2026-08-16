@@ -40,18 +40,23 @@ def update_job_stage(stage, **extras):
 
 
 def _convert_pdf(source_path, mode, budget_eur, page_count):
-    """PDF branch: cloud = the page-wise gemini backend, local = legacy engine.
+    """PDF branch: cloud = page-wise gemini, local = mineru (DOC-LOCAL).
 
     * **Cloud run** (mode ``cloud``, key present, pre-flight passes):
       ``services.pdf_cloud.run_cloud_pdf`` — one call per page, per-page
       ``modell`` provenance, costs booked from ``usage_metadata``, and the
       REAL mid-flight cap: if actual costs exhaust the budget mid-document,
-      the remaining pages come from the local page function with flipped
-      provenance and one named ``budget_exceeded`` entry (DOC-ENGINE P2;
-      replaced the blackbox branch that could only round provenance up).
-    * **Local run** (mode ``lokal``, or a cloud job degraded here): the
-      legacy engine WITHOUT an API key — provably zero model calls, every
-      page deterministic, ``usage`` a known 0/0. DOC-LOCAL replaces this.
+      the remaining pages come from the local page function with one named
+      ``budget_exceeded`` entry (DOC-ENGINE P2; the mid-flight target is the
+      mineru engine too since DOC-LOCAL).
+    * **Local run** (mode ``lokal``, or a cloud job degraded here):
+      ``services.pdf_local.run_local_pdf`` — the mineru VLM in a sibling
+      container (DOC-LOCAL replaced the legacy PyMuPDF-text-layer engine that
+      returned scans EMPTY). Per-page provenance ``modell`` at cost 0.00 €;
+      if the engine itself fails, pages fall back to the text layer with a
+      named ``backend_fallback`` entry. The engine needs a real page count —
+      unknown at submit → re-derived here via fitz (an unreadable PDF raises,
+      exactly as the legacy engine's own fitz.open did).
 
     Cloud degrades to local — never aborts — when the key is missing
     (``cloud_unavailable``) or the pre-flight estimate ``page_count × cent``
@@ -59,18 +64,15 @@ def _convert_pdf(source_path, mode, budget_eur, page_count):
     already says the budget cannot carry the document, not a single call is
     spent on a result that would be mostly local anyway. The mid-flight cap
     covers the complementary case: the estimate passed, but real per-page
-    costs (token-dense pages) exhaust the budget during the run.
+    costs (token-dense pages) exhaust the budget during the run. Pre-flight
+    degradation entries are PREPENDED to the local run's own list, so a
+    ``backend_fallback`` never hides why the job went local at all.
     """
     from app_pkg.config import DOC_CONVERT_CLOUD_CENT_PER_PAGE
-    from services import PDFExtractionService
     from services.document_conversions import (
         DEGRADATION_BUDGET_EXCEEDED,
         DEGRADATION_CLOUD_UNAVAILABLE,
         MODE_CLOUD,
-        PROVENANCE_DETERMINISTIC,
-        UNIT_DOCUMENT,
-        UNIT_PAGE,
-        build_result_payload,
         degradation,
     )
 
@@ -97,20 +99,15 @@ def _convert_pdf(source_path, mode, budget_eur, page_count):
         from services.pdf_cloud import run_cloud_pdf
         return run_cloud_pdf(source_path, api_key, budget_eur)
 
-    svc = PDFExtractionService(None)  # provably deterministic run
-    markdown = svc.extract_markdown(source_path)
-    if isinstance(page_count, int) and page_count > 0:
-        unit, provenance = UNIT_PAGE, [PROVENANCE_DETERMINISTIC] * page_count
-    else:
-        # Unknown page count → don't claim page granularity we don't have.
-        unit, provenance = UNIT_DOCUMENT, [PROVENANCE_DETERMINISTIC]
-    return build_result_payload(
-        markdown,
-        provenance_unit=unit,
-        provenance=provenance,
-        degradations=degradations,
-        usage={'model_calls': 0, 'cost_eur': 0.0},
-    )
+    from services.pdf_local import run_local_pdf
+
+    if not (isinstance(page_count, int) and page_count > 0):
+        import fitz
+        with fitz.open(source_path) as doc:
+            page_count = doc.page_count
+    payload = run_local_pdf(source_path, page_count)
+    payload['degradations'] = degradations + payload['degradations']
+    return payload
 
 
 def _deterministic_document_payload(markdown, warnings):
@@ -206,8 +203,8 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
     container mounts only the shared volume, never the SQLite DB, so this task
     reads the source from the id-derived path, routes it to the format's
     measured winner (DOC-ENGINE: DOCX → pandoc, PPTX → markitdown, HTML/HTM →
-    trafilatura; PDF → ``pdf_extraction`` until DOC-LOCAL; EML/TXT/MD →
-    ``unstructured`` + ``elements_to_markdown``), and writes a **structured**
+    trafilatura; PDF → gemini page-wise bzw. mineru seit DOC-LOCAL; EML/TXT/MD
+    → ``unstructured`` + ``elements_to_markdown``), and writes a **structured**
     result JSON atomically — it never flips the Conversion. The web side
     reconciles ``pending`` → ``ready``/``failed`` on the next poll by
     *reading* that file (markdown + provenance + degradations + usage —

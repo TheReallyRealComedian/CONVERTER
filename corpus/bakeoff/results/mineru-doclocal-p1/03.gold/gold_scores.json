@@ -1,0 +1,49 @@
+{
+ "text": {
+  "word_recall": 0.9926,
+  "word_precision": 1.0,
+  "word_f1": 0.9963,
+  "words_ref": 271,
+  "words_out": 269,
+  "top_missing": [
+   "Logo×2"
+  ],
+  "top_invented": [],
+  "cer": 0.0146
+ },
+ "cells": {
+  "cell_recall": 0.0,
+  "cell_precision": 0.0,
+  "cells_gold": 102,
+  "cells_out": 0,
+  "top_missing_cells": [
+   "Übersicht der Angebote in der internet facts 2010-II×2",
+   "OMS×2",
+   "Aachener Nachrichten×1",
+   "Aachener Zeitung×1",
+   "Abendzeitung×1",
+   "Ahlener Zeitung×1",
+   "all-in.de - Das Allgäu online!×1",
+   "Allgemeine Zeitung Coesfeld×1",
+   "Allgemeine Zeitung Mainz×1",
+   "alster radio×1"
+  ],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    51,
+    1,
+    "pipe"
+   ],
+   [
+    51,
+    1,
+    "pipe"
+   ]
+  ],
+  "shapes_out": []
+ },
+ "notes": [
+  "CER via difflib-Approximation (rapidfuzz nicht installiert)"
+ ]
+}

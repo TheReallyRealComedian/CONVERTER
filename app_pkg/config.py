@@ -104,15 +104,36 @@ TIMEOUT_RQ_JOB_SECONDS = rq_job_timeout_for(1)
 TIMEOUT_DOC_JOB_BASE_SECONDS = 300
 TIMEOUT_DOC_JOB_PER_PAGE_SECONDS = TIMEOUT_GEMINI_SECONDS
 
+# --- DOC-LOCAL: the lokal-mode envelope rides the measured mineru curve —
+# ~61 s fixed model start + ~2.5 s/page (fitted 2..280 pages; 280 pages ran
+# 766 s ≈ 13 min). The engine module's own container deadline is
+# 300 + 10 × n (``services/pdf_local.mineru_run_timeout_for``, ~4× margin
+# for GPU contention with Olis ComfyUI use); this envelope adds a constant
+# 300 s on top for source handling, a possible text-layer fallback pass after
+# a failed run, and the result write — envelope > container deadline always.
+# 280 pages: envelope 3400 s (~57 min) vs deadline 3100 s vs measured 766 s.
+# The cloud envelope needs no lokal term: 300 s/page ≥ 10 s/page covers any
+# mid-flight cloud→mineru switch by construction.
+TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS = 600
+TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS = 10
 
-def doc_convert_job_timeout_for(page_count):
+
+def doc_convert_job_timeout_for(page_count, mode=None):
     """RQ ``job_timeout`` (seconds) for converting a ``page_count``-page document.
 
     ``min(BASE + PER_PAGE * max(n, 1), HARD_CAP)`` — same shape as
     ``rq_job_timeout_for``; ``None`` / non-int / < 1 all floor to n=1.
+    ``mode='lokal'`` (string literal here — the ``MODE_LOCAL`` constant lives
+    downstream of config) switches to the mineru curve above; every other
+    mode keeps the Gemini-Vision envelope unchanged.
     """
     n = page_count if isinstance(page_count, int) and page_count > 0 else 1
-    scaled = TIMEOUT_DOC_JOB_BASE_SECONDS + TIMEOUT_DOC_JOB_PER_PAGE_SECONDS * n
+    if mode == 'lokal':
+        scaled = (TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS
+                  + TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS * n)
+    else:
+        scaled = (TIMEOUT_DOC_JOB_BASE_SECONDS
+                  + TIMEOUT_DOC_JOB_PER_PAGE_SECONDS * n)
     return min(scaled, TIMEOUT_RQ_JOB_HARD_CAP)
 
 

@@ -32,10 +32,15 @@ SAME switch as ``services/pdf_extraction`` (DOC-FIX): one vision model for
 both PDF paths, flipped together (a hardcoded name cost two months of
 silent failure once).
 
-``local_page`` is the per-page deterministic counterpart the pipeline
-switches to when the budget cap hits mid-document: the raw PyMuPDF text
-layer (provably no model; empty on scans). DOC-LOCAL replaces it with the
-real local engine — this module only needs it to keep the switch honest.
+``local_page`` is the counterpart the pipeline switches to when the budget
+cap hits mid-document. Since DOC-LOCAL that is the REAL local engine —
+``services.pdf_local.LocalPdfEngine``, the mineru VLM in a sibling
+container: ONE memoized run over exactly the remaining pages (locked
+decision 3), per-page provenance ``modell`` at cost 0.00 €. Should the
+engine itself fail, it serves the PyMuPDF text layer and reports one
+``backend_fallback`` degradation — which this module APPENDS to the
+pipeline payload, otherwise the failure path would be invisible to the
+caller.
 
 Pure module: no Flask, no SDK singleton; genai/fitz imports live inside
 ``run_cloud_pdf`` (worker-side, in-task import convention).
@@ -45,11 +50,9 @@ import os
 import time
 
 from app_pkg.config import DOC_CONVERT_CLOUD_CENT_PER_PAGE, TIMEOUT_GEMINI_SECONDS
-from services.document_conversions import (
-    PROVENANCE_DETERMINISTIC,
-    PROVENANCE_MODEL,
-)
+from services.document_conversions import PROVENANCE_MODEL
 from services.document_pipeline import run_paged_conversion
+from services.pdf_local import LocalPdfEngine
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +165,12 @@ def run_cloud_pdf(source_path, api_key, budget_eur, model_name=None):
     negotiated = {'config': None, 'done': False}
 
     doc = fitz.open(source_path)
+    engine = None
     try:
         page_count = doc.page_count
+        # The mid-flight degradation target (DOC-LOCAL): lazy — costs
+        # nothing unless the cap actually switches.
+        engine = LocalPdfEngine(source_path, page_count)
 
         def _page_pdf_bytes(index):
             sub = fitz.open()
@@ -263,12 +270,14 @@ def run_cloud_pdf(source_path, api_key, budget_eur, model_name=None):
                     'origin': PROVENANCE_MODEL,
                     'cost_eur': cost}
 
-        def local_page(index):
-            return {'markdown': doc[index].get_text('text').strip(),
-                    'origin': PROVENANCE_DETERMINISTIC,
-                    'cost_eur': 0.0}
-
-        return run_paged_conversion(page_count, cloud_page, local_page,
-                                    budget_eur)
+        payload = run_paged_conversion(page_count, cloud_page, engine.page,
+                                       budget_eur)
+        # The pipeline only collects budget degradations; an engine-level
+        # backend_fallback must reach the payload too or the failure path
+        # is invisible to the caller.
+        payload['degradations'].extend(engine.degradations)
+        return payload
     finally:
+        if engine is not None:
+            engine.close()
         doc.close()

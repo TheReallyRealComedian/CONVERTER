@@ -497,7 +497,7 @@ def register(app):
             convert_document_task,
             conversion.id, ext, mode, metadata['budget_eur'], page_count,
             meta={'user_id': target.id, 'conversion_id': conversion.id},
-            job_timeout=doc_convert_job_timeout_for(page_count),
+            job_timeout=doc_convert_job_timeout_for(page_count, mode),
         )
 
         # job_id back into metadata — reconcile keys "still converting" vs

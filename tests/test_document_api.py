@@ -35,6 +35,8 @@ import fitz
 from app_pkg.config import (
     DOC_CONVERT_BUDGET_EUR,
     TIMEOUT_DOC_JOB_BASE_SECONDS,
+    TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS,
+    TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS,
     TIMEOUT_DOC_JOB_PER_PAGE_SECONDS,
     TIMEOUT_RQ_JOB_HARD_CAP,
     doc_convert_job_timeout_for,
@@ -248,6 +250,28 @@ def test_doc_job_timeout_scales_from_pages():
     assert doc_convert_job_timeout_for(10) == (
         TIMEOUT_DOC_JOB_BASE_SECONDS + 10 * TIMEOUT_DOC_JOB_PER_PAGE_SECONDS)
     assert doc_convert_job_timeout_for(10_000) == TIMEOUT_RQ_JOB_HARD_CAP
+
+
+def test_doc_job_timeout_lokal_rides_the_mineru_curve():
+    """DOC-LOCAL: mode=lokal switches to the measured mineru envelope
+    (61 s + 2,5 s/Seite gemessen; Container-Deadline 300 + 10 s/Seite) —
+    and the envelope must stay ABOVE the module's container deadline for
+    every page count, or RQ could kill a run its own deadline still allows."""
+    from services.pdf_local import mineru_run_timeout_for
+
+    floor = (TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS
+             + TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS)
+    assert doc_convert_job_timeout_for(None, 'lokal') == floor
+    assert doc_convert_job_timeout_for(1, 'lokal') == floor
+    # 12_grosses-pdf, the sprint's named case: 280 pages → 3400 s (~57 min)
+    # envelope over a measured ~766 s run.
+    assert doc_convert_job_timeout_for(280, 'lokal') == 3400
+    assert doc_convert_job_timeout_for(10_000, 'lokal') == TIMEOUT_RQ_JOB_HARD_CAP
+    for n in (1, 12, 280, 1000):
+        assert (doc_convert_job_timeout_for(n, 'lokal')
+                > mineru_run_timeout_for(n))
+    # Cloud mode is byte-identical to the pre-DOC-LOCAL envelope:
+    assert doc_convert_job_timeout_for(10, 'cloud') == doc_convert_job_timeout_for(10)
 
 
 # --- P2: per-job mode, strictly read --------------------------------------------
@@ -585,42 +609,71 @@ def test_task_cloud_routes_to_paged_backend(monkeypatch, doc_convert_dir,
     assert payload['usage'] == {'model_calls': 3, 'cost_eur': 0.044}
 
 
+@pytest.fixture
+def fake_local_run(monkeypatch):
+    """Replace the DOC-LOCAL engine run (services.pdf_local.run_local_pdf):
+    mineru-style payload — per-page ``modell``, 0 €, no degradations. The
+    container mechanics have their own suite (test_pdf_local); these tests
+    prove the TASK routing."""
+    calls = []
+
+    def fake_run_local_pdf(source_path, page_count):
+        calls.append((source_path, page_count))
+        return build_result_payload(
+            '# Lokal', provenance_unit='page',
+            provenance=['modell'] * page_count,
+            usage={'model_calls': 0, 'cost_eur': 0.0})
+
+    monkeypatch.setattr('services.pdf_local.run_local_pdf',
+                        fake_run_local_pdf)
+    return calls
+
+
 def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,
-                                                 fake_pdf_service):
+                                                 fake_pdf_service,
+                                                 fake_local_run):
     # 3 pages × 1.48 ct ≈ 0.044 € > cap 0.01 € → the key is NEVER used, the
-    # run is provably deterministic, and the degradation names the numbers.
+    # run goes to the mineru engine (DOC-LOCAL: provenance ``modell``, 0 €)
+    # and the degradation names the numbers.
     monkeypatch.setenv('GEMINI_API_KEY', 'k-123')
     _plant_source(902, 'pdf')
     convert_document_task(902, 'pdf', 'cloud', 0.01, 3)
     payload = doc_lib.read_result_file(902)
-    assert fake_pdf_service == [None]
+    assert fake_pdf_service == []  # legacy engine untouched (DOC-LOCAL)
+    assert fake_local_run == [(doc_lib.doc_source_path(902, 'pdf'), 3)]
     assert payload['provenance_unit'] == 'page'
-    assert payload['provenance'] == ['deterministisch'] * 3
+    assert payload['provenance'] == ['modell'] * 3
     assert [d['code'] for d in payload['degradations']] == ['budget_exceeded']
     assert 'Kostendeckel 0.01 €' in payload['degradations'][0]['message']
     assert payload['usage'] == {'model_calls': 0, 'cost_eur': 0.0}
 
 
 def test_task_cloud_without_key_degrades(monkeypatch, doc_convert_dir,
-                                         fake_pdf_service):
+                                         fake_pdf_service, fake_local_run):
     monkeypatch.delenv('GEMINI_API_KEY', raising=False)
     _plant_source(903, 'pdf')
     convert_document_task(903, 'pdf', 'cloud', 5.0, 2)
     payload = doc_lib.read_result_file(903)
-    assert fake_pdf_service == [None]
-    assert payload['provenance'] == ['deterministisch'] * 2
+    assert fake_pdf_service == []
+    assert fake_local_run == [(doc_lib.doc_source_path(903, 'pdf'), 2)]
+    assert payload['provenance'] == ['modell'] * 2
     assert [d['code'] for d in payload['degradations']] == ['cloud_unavailable']
 
 
 def test_task_local_mode_never_touches_the_key(monkeypatch, doc_convert_dir,
-                                               fake_pdf_service):
+                                               fake_pdf_service,
+                                               fake_local_run):
+    """mode=lokal routes straight to the mineru engine — whose call signature
+    carries no API key at all (key-free by construction), and neither the
+    legacy engine nor the cloud backend is ever built."""
     monkeypatch.setenv('GEMINI_API_KEY', 'k-123')
     _plant_source(904, 'pdf')
     convert_document_task(904, 'pdf', 'lokal', 5.0, 2)
     payload = doc_lib.read_result_file(904)
-    assert fake_pdf_service == [None]
+    assert fake_pdf_service == []
+    assert fake_local_run == [(doc_lib.doc_source_path(904, 'pdf'), 2)]
     assert payload['provenance_unit'] == 'page'
-    assert payload['provenance'] == ['deterministisch'] * 2
+    assert payload['provenance'] == ['modell'] * 2
     assert payload['degradations'] == []
     assert payload['usage'] == {'model_calls': 0, 'cost_eur': 0.0}
 
@@ -681,11 +734,24 @@ def test_pipeline_payload_flows_through_reconcile(app, client, test_user,
 
 # --- end-to-end: submit → run task → poll → result ------------------------------
 
-def test_pdf_end_to_end_with_real_local_extraction(app, client, test_user,
-                                                   doc_token, mock_redis_queue,
-                                                   doc_convert_dir, monkeypatch):
-    """Submit (mode lokal) → worker task (REAL PyMuPDF extraction, provably no
-    model) → poll → ready with per-page deterministic provenance."""
+def test_pdf_end_to_end_local_engine_failure_degrades(app, client, test_user,
+                                                      doc_token,
+                                                      mock_redis_queue,
+                                                      doc_convert_dir,
+                                                      monkeypatch, tmp_path):
+    """Submit (mode lokal) → worker task with an UNAVAILABLE mineru engine
+    (docker mocked to rc=1) → the REAL PyMuPDF text layer serves the pages,
+    the switch is a named backend_fallback on a ready result — DOC-LOCAL's
+    sprint-1.3 failure path, end to end through submit/task/reconcile."""
+    from types import SimpleNamespace as NS
+
+    import services.pdf_local as pdf_local_mod
+
+    monkeypatch.setenv('DOC_LOCAL_EXCHANGE_DIR', str(tmp_path))
+    monkeypatch.setattr(
+        pdf_local_mod.subprocess, 'run',
+        lambda *a, **k: NS(returncode=1, stdout='', stderr='kein docker'))
+
     cid = _submit(client, app, data=_pdf_bytes('Hallo Konvertierung.'),
                   filename='echt.pdf', mode='lokal')
 
@@ -698,11 +764,12 @@ def test_pdf_end_to_end_with_real_local_extraction(app, client, test_user,
 
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'ready'
-    assert 'Hallo Konvertierung.' in body['markdown']
+    assert 'Hallo Konvertierung.' in body['markdown']  # real text layer
     assert body['mode'] == 'lokal'
     assert body['provenance_unit'] == 'page'
     assert body['provenance'] == ['deterministisch']
-    assert body['degradations'] == []
+    assert [d['code'] for d in body['degradations']] == ['backend_fallback']
+    assert 'kein docker' in body['degradations'][0]['message']
     assert body['usage'] == {'model_calls': 0, 'cost_eur': 0.0}
     assert body['source']['format'] == 'pdf'
     assert body['source']['page_count'] == 1

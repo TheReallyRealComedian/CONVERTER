@@ -1,0 +1,26 @@
+{
+ "candidate": "mineru-doclocal-p1",
+ "class": "03",
+ "role": "gold",
+ "input": "derived/03_gold-seiten.pdf",
+ "input_bytes": 65165,
+ "started": "2026-08-16T14:09:45+02:00",
+ "host": "mintbox",
+ "platform": "Linux",
+ "runtime_s": 65.7,
+ "model_calls": 0,
+ "tokens_in": 0,
+ "tokens_out": 0,
+ "cost_usd": 0.0,
+ "warnings": [],
+ "adapter_meta": {
+  "image": "mineru:latest",
+  "image_id": "6cc9e57ff5bd",
+  "mineru_version": "3.4.4",
+  "backend": "vlm-engine",
+  "container_cmd": "mineru -p /in/03_gold-seiten.pdf -o /out -b vlm-engine",
+  "model_snapshot": "opendatalab/MinerU2.5-Pro-2605-1.2B @ bff20d4 (im Image eingebacken)",
+  "assembly": "services/pdf_local.py::content_list_to_pages (DOC-LOCAL P1): aus <name>_content_list.json je page_idx zusammengesetzt; header/footer/page_number BEHALTEN (Entscheidung 5) — minerus eigenes .md filtert sie"
+ },
+ "output_chars": 2156
+}

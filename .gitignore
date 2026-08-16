@@ -63,3 +63,6 @@ yarn-error.log*
 .idea/
 *.sublime-project
 *.sublime-workspace
+# DOC-LOCAL: Austausch-Verzeichnis Worker <-> mineru-Geschwister-Container
+# (Host-Bind aus docker-compose.yml; Laufzeit-Zustand, nie versioniert)
+doclocal_exchange/

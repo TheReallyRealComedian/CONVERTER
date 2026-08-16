@@ -35,3 +35,5 @@ docs/
 # IDE / Editor specific configs
 .vscode/
 .idea/
+# DOC-LOCAL: Austausch-Verzeichnis (Host-Bind, Laufzeit-Zustand)
+doclocal_exchange/
