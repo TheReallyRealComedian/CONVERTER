@@ -418,3 +418,41 @@ Alles Weitere ist der ungekürzte Befund, pro Datei: erst was die Gegenprüfung 
 - Keine Listenabsätze im Bereich: weder Stil 'Listenabsatz' noch irgendein w:numPr kommt zwischen Body-Index 9 und 27 vor (die Listenabsätze des Dokuments beginnen erst bei Body-Index 89).
 - Kopf-/Fusszeilen (word/footer1.xml) gar nicht erst gelesen — Konvention 6.
 - Wortweise Verifikation: die Gold-Fassung wurde nach Entfernen aller Markdown-/HTML-Syntax gegen die Wortfolge aus document.xml + footnotes.xml diffed. 383 zu 383 Wörter, genau eine bewusste Abweichung ('Unternehmens-ressourcen' → 'Unternehmensressourcen').
+
+---
+
+# 03.md
+
+**Erstellt**: 2026-08-16 · **Verfahren**: **abgeleitet, nicht abgelesen.** Die Quelle ist nativ mit sauberer Textebene; die Fassung entsteht aus `get_text('words')` der Seiten 11+12, gruppiert nach y-Koordinate. Bidirektionaler Multiset-Vergleich gegen die Quelle: **234 zu 234 Token, 0 erfunden, 0 verloren.**
+
+⚠️ **Das ändert, was du prüfen musst.** Bei `01/07/08` war die Frage „hat das Modell etwas dazuerfunden". Hier ist sie beantwortet — maschinell, nicht durch Zusicherung. Offen sind **ausschließlich Konventionen**. Wenn du nichts davon ändern willst, ist die Datei fertig.
+
+## Was gemessen ist (keine Vermutung)
+
+| | Messung |
+|---|---|
+| Struktur | Gezeichnete Tabelle, 111 Zeichenobjekte: Rahmen `x=91…503`, Kopfband `y=114…149`, Sub-Kopfband `y=162…174` |
+| Ebenen | Haupt-Kopf `y=137` · Sub-Kopf `y=163` · Daten ab `y=175` · Fuß `y=796` |
+| Typografie | Haupt- **und** Sub-Kopf: Arial-BoldMT 9pt (**identisch**) · Daten: ArialMT 9pt · Fuß: Verdana 9pt |
+| Spalten | **einspaltig** — ein Angebot je Zeile, kein Gitter |
+| Fuß | liegt **außerhalb** des Rahmens (796 gegen Rahmenende 782) |
+| Sonderzeichen | alle Bindestriche ASCII `U+002D`; einziges Nicht-ASCII außer Umlauten ist `©` im Fuß |
+| Überlauf | `OMS` wiederholt sich S11→12→13→14, `Ströer Interactive` S16→17, `TOMORROW FOCUS` S17→18 |
+
+## Unsicherheiten des Autors (4)
+
+### [HOCH] Die Form ist eine Wahl, keine Wahrheit — sie braucht eine Bewertungsregel
+Die Fassung schreibt eine **einspaltige GFM-Tabelle**, deren Kopfzeile der Haupt-Kopf ist, mit dem Sub-Kopf als **fetter Datenzeile**. Gleich gut vertretbar wäre `## Übersicht…` + `### OMS` + Liste. Wer auf Zeichengleichheit prüft, misst dann die Zustimmung zu dieser Wahl statt die Fähigkeit des Werkzeugs — derselbe Fall wie Regel 1 bei `07.md`. **Vorschlag Regel 4** (unten formuliert, deine Entscheidung).
+
+### [HOCH] Die wiederholten Köpfe sind der Messgegenstand — nicht später „aufräumen"
+Auf Seite 12 stehen Haupt-Kopf **und** `OMS` erneut, weil sie im PDF erneut stehen (Olis Entscheidung 2026-08-16: „alles rein, 1:1 Kopie"). **Ein Werkzeug, das sie dedupliziert, muss hier Punkte verlieren** — genau das ist die Frage der Klasse: räumt die Engine still auf? Wer die Gold-Fassung später „schlanker" macht, löscht den Prüfgegenstand.
+
+### [MITTEL] Fett auf `OMS` trägt die Ebenenunterscheidung allein
+Haupt- und Sub-Kopf sind typografisch **identisch** (beide Arial Bold); im Markdown trägt der Haupt-Kopf seine Hervorhebung schon durch die Tabellen-Kopfzeile, der Sub-Kopf braucht dafür `**`. Lässt ein Werkzeug das Fett weg, ist `OMS` von einem Angebotsnamen nicht mehr zu unterscheiden. Ist das ein Fehler oder gleichwertig? → gehört in Regel 4.
+
+### [NIEDRIG] Textebene gegen Satzbild
+Die Fassung erbt, was die Textebene sagt. Native PDFs weichen selten ab, aber nicht nie. **Stichprobe, falls du magst** — vier Einträge mit erhöhtem Risiko: `all-in.de - Das Allgäu online!` · `HAO - der Onlinedienst des Hellweger Anzeigers Unna` · `Maerkische Allgemeine.de` (steht wirklich `ae`, während zwei Zeilen weiter `Märkische Oderzeitung Online` mit `ä` steht — **Quell-Eigenheit, nicht reparieren**) · `NEWS 89,4`.
+
+## Vorschlag: Bewertungsregel 4 — `03.md`, Ebenen statt Form
+
+Die Gold-Fassung schreibt einspaltige GFM-Tabelle + fetter Sub-Kopf. **Gleichwertig** ist jede Form, die **drei Dinge erhält**: (a) die Zuordnung Angebot→Vermarkter, (b) die Unterscheidung Haupt-Kopf / Sub-Kopf / Daten, (c) **beide Wiederholungen auf Seite 12**. **Nicht** gleichwertig ist das Einebnen der Ebenen (Sub-Kopf als gewöhnliche Datenzeile) und das Weglassen der Wiederholungen — dabei geht Information verloren, und im zweiten Fall genau die, um derentwillen die Klasse existiert.

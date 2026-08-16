@@ -50,6 +50,43 @@ def build_gold_pdf_01():
     print(f"OK: {out.name} (Seitenindizes {idx_text}, {idx_table})")
 
 
+def build_gold_pdf_03():
+    """Zwei aufeinanderfolgende Seiten, auf denen EINE Sub-Tabelle ueberlaeuft.
+
+    Inhaltlich verifiziert statt per Index: gesucht ist das erste Seitenpaar,
+    dessen Sub-Tabellen-Kopf (Kopf-Ebene x~93, unterhalb des Haupt-Kopfes)
+    auf BEIDEN Seiten identisch ist — genau dann laeuft dieselbe Liste ueber
+    die Grenze und der Kopf wird wiederholt (bei 2010-II: Seiten 11+12, OMS).
+    """
+    import fitz
+    src = input_path("03")
+    doc = fitz.open(str(src))
+
+    def sub_head(i):
+        heads = [(b[1], " ".join(b[4].split()))
+                 for b in doc[i].get_text("blocks")
+                 if 92 < b[0] < 95 and b[1] < 700 and b[4].strip()]
+        heads.sort()
+        # heads[0] ist der Haupt-Kopf ("Uebersicht der Angebote…"), heads[1]
+        # der Sub-Kopf. Fehlt einer, ist die Seite kein Kandidat.
+        return heads[1][1] if len(heads) > 1 else None
+
+    pair = None
+    for i in range(len(doc) - 1):
+        a, b = sub_head(i), sub_head(i + 1)
+        if a and a == b:
+            pair = (i, i + 1)
+            break
+    if pair is None:
+        raise RuntimeError("03: kein Seitenpaar mit wiederholtem Sub-Kopf gefunden")
+    doc.select(list(pair))
+    out = DERIVED / CLASSES["03"]["gold_input"]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(out))
+    doc.close()
+    print(f"OK: {out.name} (Seitenindizes {pair[0]}, {pair[1]})")
+
+
 def build_gold_pdf_07():
     import fitz
     src = input_path("07")
@@ -222,5 +259,6 @@ def build_references():
 
 if __name__ == "__main__":
     build_gold_pdf_01()
+    build_gold_pdf_03()
     build_gold_pdf_07()
     build_references()

@@ -40,6 +40,8 @@ CLASSES = {
         "file": "zuordnung_Angebot-Vermarkter_if2010_II.pdf",
         "format": "pdf",
         "title": "Tabelle ueber Seitengrenze (DE, 20 S.)",
+        "gold": "03.md",
+        "gold_input": "03_gold-seiten.pdf",  # Seiten 11+12, gebaut von refs.py
     },
     "04": {
         "dir": "04_verbundene-zellen",
