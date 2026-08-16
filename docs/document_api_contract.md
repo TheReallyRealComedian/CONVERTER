@@ -236,23 +236,37 @@ stabiler snake_case-Slug für Maschinen, `message` deutsch für Menschen,
 | `cloud_unavailable` | Modus `cloud` angefragt, aber kein Cloud-Backend konfiguriert (kein API-Key im Worker) — lokal konvertiert. |
 | `provenance_document_only` | Eine Engine weist Herkunft nicht je Seite aus; konservativ dokumentweit als `modell` markiert (§5a). **Seit DOC-ENGINE nicht mehr vergeben** (der Cloud-PDF-Pfad attribuiert echt je Seite); bleibt im Vokabular für künftige Backends ohne Einheiten-Trennung. |
 | `serializer` | Sammelcode für **alle Backend-Warnungen** des Konvertierwegs: der unstructured-Serializer musste Struktur aufgeben (deutsche Meldung, z.B. „Tabelle ohne text_as_html — als Fliesstext ausgegeben"), oder ein Werkzeug-Backend meldete etwas auf stderr. ⚠️ **Meldungsform bei Werkzeug-Warnungen**: deutscher Rahmen mit roh zitierter — meist englischer — Werkzeug-Ausgabe, z.B. `"pandoc meldete: [WARNING] Could not convert image …"` (bis 300 Zeichen Zitat; dieselbe Konvention wie das `error`-Feld, das rohe Traceback-Tails trägt). |
-| `backend_fallback` | Das für das Format gewählte Backend lieferte nichts Verwertbares und der Bestands-Pfad übernahm (heute ein Fall: trafilatura findet in einer HTML-Datei keinen Hauptinhalt → Element-Extraktion). Das Ergebnis ist `ready`, der Pfadwechsel steht hier. |
+| `backend_fallback` | Das für das Format gewählte Backend lieferte nichts Verwertbares und der Bestands-Pfad übernahm. Zwei Fälle: trafilatura findet in einer HTML-Datei keinen Hauptinhalt → Element-Extraktion; die lokale mineru-Engine fällt aus (GPU belegt, Container-Fehler, Zeitlimit — seit DOC-LOCAL) → PyMuPDF-Textebene für die betroffenen Seiten, `pages` benennt sie, die Meldung zitiert die Werkzeug-Ausgabe. Das Ergebnis ist `ready`, der Pfadwechsel steht hier. |
 
-Die Liste ist offen — neue Codes kommen mit DOC-LOCAL dazu; ein Konsument
+Die Liste ist offen — DOC-LOCAL kam ohne neuen Code aus
+(`backend_fallback` trägt auch den Engine-Ausfall); ein Konsument
 behandelt unbekannte Codes als informativ, nicht als Fehler.
 
 ## 8. Idempotenz
 
-Dedup-Schlüssel ist **(Besitzer, sha256 der Datei-Bytes, Modus)**. Eine
-wiederholte Einreichung derselben Bytes im selben Modus liefert **200** mit
-dem gespeicherten Stand (`deduped: true`, gleiche `id`) statt eines neuen
-Jobs — auch während der Erste noch `pending` ist. Der Dateiname ist egal.
+Dedup-Schlüssel ist **(Besitzer, sha256 der Datei-Bytes, Modus,
+Engine-Generation)**. Eine wiederholte Einreichung derselben Bytes im selben
+Modus liefert **200** mit dem gespeicherten Stand (`deduped: true`, gleiche
+`id`) statt eines neuen Jobs — auch während der Erste noch `pending` ist.
+Der Dateiname ist egal.
 
 ⚠️ **Der Modus gehört zum Schlüssel**: ein `lokal`-Ergebnis beantwortet keine
 `cloud`-Anfrage und umgekehrt — die beiden sind verschiedene
-Qualitätszusagen (deterministisch-mit-Lücken vs. modellgestützt-mit-Kosten),
-und ein Dedup über die Modusgrenze würde still das falsche Versprechen
-liefern.
+Qualitätszusagen (modellgestützt-ohne-Kosten vs. modellgestützt-mit-Kosten,
+s. §10), und ein Dedup über die Modusgrenze würde still das falsche
+Versprechen liefern.
+
+⚠️ **Die Engine-Generation gehört zum Schlüssel** (seit DOC-LOCAL):
+`DOC_CONVERT_ENGINE_GENERATION` in `services/document_conversions.py` wird
+beim Submit in die Metadaten gestempelt und mitverglichen. Ohne sie wäre
+Dedup **engine-blind** — live getroffen am 2026-08-16: eine `lokal`-Row aus
+der Legacy-Ära (Textebene, `deterministisch×280`) beantwortete dieselbe
+Datei dauerhaft, obwohl die mineru-Engine frisch deployt war, und es gab
+keinen Bedienweg daran vorbei. Alte Rows tragen keine Generation → zählen
+als 1 → matchen nie gegen die aktuelle; damit ist jeder Prä-DOC-LOCAL-Stand
+genau einmal entwertet, ohne Migration. Die Generation ist **global** (nicht
+je Format) und wird bei **jeder** Engine- oder Zusammensetzungs-Änderung
+gebumpt (Kommentar an der Konstante — DOC-ROUTE eingeschlossen).
 
 `failed`-Aufträge dedupen **nicht**: die erneute Einreichung derselben Datei
 ist der Retry-Weg dieser API (es gibt bewusst keinen separaten
@@ -268,7 +282,7 @@ Retry-Endpunkt).
 | 413 | Upload > 100 MB |
 | 503 | `DOC_CONVERT_TOKEN` nicht konfiguriert · kein Zielnutzer vorhanden |
 
-## 10. Die Engine hinter der Form (Stand DOC-ENGINE)
+## 10. Die Engine hinter der Form (Stand DOC-LOCAL)
 
 Der Dienst ist ein **Router**: Format rein, gemessenes Backend raus
 (Bake-off 2026-08-08, Entscheidungs-Doc). Die Form selbst — Felder, Werte,
@@ -276,8 +290,30 @@ Garantien — ist der Vertrag und bleibt bei jedem Backend-Tausch stehen.
 
 | Format | Backend | Herkunft in der Antwort |
 |---|---|---|
-| PDF, Modus `cloud` | gemini-nativ seitenweise (`services/pdf_cloud.py`, `media_resolution=medium`, Modell env-overridable via `PDF_VISION_MODEL`) | `page`, je Seite `modell` — bzw. `deterministisch` ab der Seite, an der der Deckel griff |
-| PDF, Modus `lokal` | Bestands-Engine ohne API-Key (`pdf_extraction`) — **bis DOC-LOCAL** (mineru); Scan-Seiten bleiben bis dahin leer | `page` (lesbare Seitenzahl) bzw. `document`, `deterministisch` |
+| PDF, Modus `cloud` | gemini-nativ seitenweise (`services/pdf_cloud.py`, `media_resolution=medium`, Modell env-overridable via `PDF_VISION_MODEL`) | `page`, je Seite `modell` — greift der Deckel, übernimmt ab dieser Seite die lokale mineru-Engine (weiter `modell`, der `budget_exceeded`-Eintrag benennt den Umsprung) |
+| PDF, Modus `lokal` | **mineru 3.4.4 VLM** im Geschwister-Container (`services/pdf_local.py`, seit DOC-LOCAL; ein memoisierter Lauf je gebrauchtem Seitenbereich, Seiten-Markdown aus der `content_list`); fällt die Engine aus → PyMuPDF-Textebene + `backend_fallback` | `page`, je Seite `modell` (0,00 €) — `deterministisch` nur im benannten Fallback |
+
+⚠️ **Bedeutungsänderung von `mode=lokal` (DOC-LOCAL)**: bis dahin hieß
+`lokal` *beweisbar deterministisch* (und Scan-Seiten kamen leer zurück);
+seither heißt es **lokales Modell, kein Geld** — die Herkunft je Seite ist
+ehrlich `modell`, die Kosten bleiben 0,00 €. Wer *Determinismus* braucht
+(nicht bloß Kostenfreiheit), hat mit `lokal` keine Zusage mehr; ein
+künftiger `mode=deterministisch` ist als Möglichkeit benannt, **nicht**
+zugesagt.
+
+⚠️ **Betriebsvoraussetzung Docker-Socket (root-äquivalent)**: der Worker
+mountet `/var/run/docker.sock` und startet mineru als
+**Geschwister-Container** auf dem Host-Daemon (GPU via `--gpus all`).
+Der Socket ist **root-äquivalent auf dem Host** — bewusste, gesperrte
+Entscheidung aus dem DOC-LOCAL-Sprint: die GPU ist nur während eines
+Auftrags belegt (ein Dauer-Sidecar hielte 6,5 von 12 GB dauerhaft gegen
+Olis ComfyUI/LoRA-Nutzung), und die Invokation bleibt wörtlich die
+gemessene. Preis, akzeptiert: ~61 s Modell-Start je Auftrag und die
+Socket-Vertrauensstellung. Das Image ist per Tag gepinnt
+(`mineru:3.4.4`, Image-ID `6cc9e57ff5bd`, kein Registry-Digest — lokal
+geladen); ein stiller `latest`-Rebuild trägt den Tag nicht und fällt
+kontrolliert auf die Textebene statt still eine ungemessene Engine zu
+fahren.
 | DOCX | pandoc `-f docx -t gfm --wrap=none` (Release-deb 3.10.1 im Image — die jammy-apt-Version 2.9 trug die Fußnoten-Kette nicht) | `document`, `deterministisch` |
 | PPTX | markitdown 0.1.7 (einziger Kandidat mit Sprechernotizen) | `document`, `deterministisch` |
 | HTML/HTM | trafilatura 2.2.0 + Metadaten-Kopf (`<title>`-Tag als `# `-Überschrift — TITLE-FIX greift; Autor/Datum aus `extract_metadata` als Kursivzeile); leere Extraktion → `backend_fallback` auf unstructured | `document`, `deterministisch` |
@@ -293,5 +329,6 @@ Teil dieses Kontrakts (er konvertiert weiterhin über unstructured).
 Implementierung: `app_pkg/document_api.py` ·
 `services/document_conversions.py` · `services/document_pipeline.py` ·
 `services/office_backends.py` · `services/pdf_cloud.py` ·
-`tasks.convert_document_task`. Tests: `tests/test_document_api.py` ·
-`tests/test_office_backends.py` · `tests/test_pdf_cloud.py`.
+`services/pdf_local.py` · `tasks.convert_document_task`.
+Tests: `tests/test_document_api.py` · `tests/test_office_backends.py` ·
+`tests/test_pdf_cloud.py` · `tests/test_pdf_local.py`.
