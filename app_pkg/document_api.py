@@ -67,6 +67,7 @@ from app_pkg.ingest import _bearer_token, _resolve_target_user
 from app_pkg.learn import write_settings_keys
 from models import Conversion, User, db
 from services.document_conversions import (
+    DOC_CONVERT_ENGINE_GENERATION,
     DOC_MODES,
     DOC_STATUS_FAILED,
     DOC_STATUS_PENDING,
@@ -187,7 +188,8 @@ def _resolve_mode(raw, target):
 
 
 def _find_duplicate(user_id, source_sha256, mode):
-    """Idempotency lookup (2.4): same user + content hash + mode → stored job.
+    """Idempotency lookup (2.4): same user + content hash + mode + engine
+    generation → stored job.
 
     Substring prefilter on the metadata JSON text, then exact confirmation —
     the ingest ``_find_by_source_id`` pattern (``contains(autoescape=True)``
@@ -196,7 +198,11 @@ def _find_duplicate(user_id, source_sha256, mode):
     model money on a result that exists or is in flight. ``failed`` rows do
     NOT dedup — re-submitting the file IS this API's retry path. The mode is
     part of the key: a lokal result must not answer a cloud request (different
-    quality claim), and vice versa.
+    quality claim), and vice versa. The ENGINE GENERATION is part of the key
+    too (DOC-LOCAL P3): dedup is otherwise engine-blind — a row converted by
+    a retired engine would answer for the current one forever (live-hit: the
+    legacy lokal row masked the freshly deployed mineru engine). Old rows
+    carry no generation and count as 1 → they never match the current one.
     """
     candidates = (Conversion.query
                   .filter_by(user_id=user_id,
@@ -208,6 +214,8 @@ def _find_duplicate(user_id, source_sha256, mode):
         metadata = doc_metadata(candidate)
         if (metadata.get('source_sha256') == source_sha256
                 and metadata.get('mode') == mode
+                and (metadata.get('engine_generation') or 1)
+                == DOC_CONVERT_ENGINE_GENERATION
                 and metadata.get('doc_status') in (DOC_STATUS_PENDING,
                                                    DOC_STATUS_READY)):
             return candidate

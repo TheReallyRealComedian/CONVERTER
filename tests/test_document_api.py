@@ -389,6 +389,38 @@ def test_dedup_serves_stored_ready_result(app, client, test_user, doc_token,
     assert mock_redis_queue['queue'].enqueue.call_count == 1
 
 
+def test_no_dedup_across_engine_generations(app, client, test_user, doc_token,
+                                            mock_redis_queue, doc_convert_dir):
+    """DOC-LOCAL P3: same file + same mode, but the stored row comes from an
+    OLDER engine generation (pre-generation rows carry no field → count as 1)
+    → NO dedup, a fresh job runs. Live-hit that motivated this: the legacy
+    lokal row (deterministisch×280) answered for the freshly deployed mineru
+    engine, with no user path around it."""
+    pdf = _pdf_bytes()
+    first = _post(client, data=pdf, headers=_auth())
+    assert first.status_code == 202
+    cid = first.get_json()['id']
+    # Age the row to a pre-DOC-LOCAL shape: no engine_generation at all.
+    with app.app_context():
+        row = db.session.get(Conversion, cid)
+        metadata = json.loads(row.metadata_json)
+        del metadata['engine_generation']
+        row.metadata_json = json.dumps(metadata)
+        db.session.commit()
+
+    second = _post(client, data=pdf, headers=_auth())
+    assert second.status_code == 202  # fresh job, not the stored answer
+    assert second.get_json()['id'] != cid
+    assert mock_redis_queue['queue'].enqueue.call_count == 2
+    # The new row carries the current generation → a THIRD submit dedups
+    # against it (the key still works within one generation).
+    mock_redis_queue['fetch'].return_value.is_failed = False
+    third = _post(client, data=pdf, headers=_auth())
+    assert third.status_code == 200
+    assert third.get_json()['deduped'] is True
+    assert third.get_json()['id'] == second.get_json()['id']
+
+
 def test_no_dedup_on_other_mode_or_failed(app, client, test_user, doc_token,
                                           mock_redis_queue, doc_convert_dir):
     pdf = _pdf_bytes()

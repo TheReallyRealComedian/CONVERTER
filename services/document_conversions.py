@@ -83,6 +83,23 @@ PROVENANCE_VALUES = (PROVENANCE_DETERMINISTIC, PROVENANCE_OCR, PROVENANCE_MODEL)
 UNIT_PAGE = 'page'
 UNIT_DOCUMENT = 'document'
 
+# Engine generation for the idempotency key (DOC-LOCAL P3). Dedup answers a
+# re-submit with a STORED result — that is only honest while the stored
+# result is what today's engines would produce. Live-hit 2026-08-16: the
+# DOC-QEMU-VERIFY lokal row (legacy text layer, deterministisch×280) masked
+# the freshly deployed mineru engine for the identical file, with no user
+# path around it. Rows written before this constant existed carry no
+# generation and count as 1 → they never match, so every pre-DOC-LOCAL
+# result is devalued exactly once, without a migration. ONE global counter,
+# deliberately not per format: over-caution is free at this volume, and a
+# per-format ledger is bookkeeping nobody maintains.
+#
+# ⚠️ BUMP THIS on EVERY change to an engine or to a result assembly
+# (backend swap, invocation change, serializer/assembly rule change —
+# DOC-ROUTE included): if a re-submit today would produce a different
+# result, stored rows must stop answering for it.
+DOC_CONVERT_ENGINE_GENERATION = 2
+
 # Namespace directory on the shared volume. Tests monkeypatch THIS module
 # global; every path function below reads it at call time.
 DOC_CONVERT_DIR = os.path.join(OUTPUT_DIR, 'doc_conversions')
@@ -209,10 +226,12 @@ def build_doc_metadata(*, status=DOC_STATUS_PENDING, mode=None, budget_eur=None,
 
     The result fields (provenance_unit / provenance / degradations / usage)
     are absent at submit time and merged in by the ready-reconcile from the
-    worker's result payload.
+    worker's result payload. ``engine_generation`` stamps the writer's
+    generation — part of the dedup key (see the constant above).
     """
     return {
         'doc_status': status,
+        'engine_generation': DOC_CONVERT_ENGINE_GENERATION,
         'mode': mode,
         'budget_eur': budget_eur,
         'source_format': source_format,
