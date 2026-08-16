@@ -1,0 +1,57 @@
+{
+ "text": {
+  "word_recall": 0.9926,
+  "word_precision": 0.9782,
+  "word_f1": 0.9853,
+  "words_ref": 271,
+  "words_out": 275,
+  "top_missing": [
+   "Logo×2"
+  ],
+  "top_invented": [
+   "×2",
+   "png×2",
+   "page1image1×1",
+   "page2image1×1"
+  ],
+  "cer": 0.0244
+ },
+ "cells": {
+  "cell_recall": 0.9608,
+  "cell_precision": 1.0,
+  "cells_gold": 102,
+  "cells_out": 98,
+  "top_missing_cells": [
+   "Übersicht der Angebote in der internet facts 2010-II×2",
+   "OMS×2"
+  ],
+  "top_invented_cells": [],
+  "shapes_gold": [
+   [
+    51,
+    1,
+    "pipe"
+   ],
+   [
+    51,
+    1,
+    "pipe"
+   ]
+  ],
+  "shapes_out": [
+   [
+    49,
+    1,
+    "pipe"
+   ],
+   [
+    49,
+    1,
+    "pipe"
+   ]
+  ]
+ },
+ "notes": [
+  "CER via difflib-Approximation (rapidfuzz nicht installiert)"
+ ]
+}

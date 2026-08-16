@@ -347,7 +347,7 @@ def score_against_gold(class_id: str, out_raw: str) -> dict:
     return scores
 
 
-GOLD_ROLE = {"01": "gold", "07": "gold", "08": "main"}
+GOLD_ROLE = {"01": "gold", "03": "gold", "07": "gold", "08": "main"}
 
 
 def main():

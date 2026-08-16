@@ -1,8 +1,13 @@
-![AGOF-Logo]()
+![](page1_image1.png)
 
-| Übersicht der Angebote in der internet facts 2010-II |
+# AGOF
+
+## Übersicht der Angebote in der internet facts 2010-II
+
+### OMS
+
+| |
 | --- |
-| **OMS** |
 | Aachener Nachrichten |
 | Aachener Zeitung |
 | Abendzeitung |
@@ -53,15 +58,20 @@
 | HAO - der Onlinedienst des Hellweger Anzeigers Unna |
 | harmony.fm |
 
-© AGOF e.V. September 2010    Seite 11
+© AGOF e.V. September 2010 Seite 11
 
 ---
 
-![AGOF-Logo]()
+![](page2_image1.png)
 
-| Übersicht der Angebote in der internet facts 2010-II |
+# AGOF
+
+## Übersicht der Angebote in der internet facts 2010-II
+
+### OMS
+
+| |
 | --- |
-| **OMS** |
 | Heilbronner Stimme online |
 | Hit Radio Antenne |
 | Hit Radio FFH |
@@ -112,4 +122,4 @@
 | NW-News (Neue Westfälische Zeitung) |
 | NWZ-Online |
 
-© AGOF e.V. September 2010    Seite 12
+© AGOF e.V. September 2010 Seite 12

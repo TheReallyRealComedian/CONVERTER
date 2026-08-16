@@ -1,0 +1,32 @@
+{
+ "candidate": "gemini-p2-seitenweise",
+ "class": "03",
+ "role": "gold",
+ "input": "derived/03_gold-seiten.pdf",
+ "input_bytes": 65165,
+ "started": "2026-08-16T13:50:35",
+ "host": "Mac.fritz.box",
+ "platform": "Darwin",
+ "runtime_s": 6.56,
+ "max_rss_mb": {
+  "self": 154.5,
+  "children": 0.0
+ },
+ "rss_baseline_mb": {
+  "self": 18.7,
+  "children": 0.0
+ },
+ "model_calls": 2,
+ "tokens_in": 1520,
+ "tokens_out": 881,
+ "cost_usd": 0.008887,
+ "warnings": [],
+ "adapter_meta": {
+  "model": "gemini-3.6-flash",
+  "media_resolution": "medium",
+  "chunks": 2,
+  "chunk_pages": 1,
+  "thinking": "thinking_level=low"
+ },
+ "output_chars": 2534
+}

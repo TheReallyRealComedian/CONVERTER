@@ -1,4 +1,6 @@
-![AGOF-Logo]()
+![](page1_image1.png)
+
+# AGOF
 
 | Übersicht der Angebote in der internet facts 2010-II |
 | --- |
@@ -53,11 +55,15 @@
 | HAO - der Onlinedienst des Hellweger Anzeigers Unna |
 | harmony.fm |
 
-© AGOF e.V. September 2010    Seite 11
+© AGOF e.V. September 2010
+
+Seite 11
 
 ---
 
-![AGOF-Logo]()
+![](page1_image1.png)
+
+# AGOF
 
 | Übersicht der Angebote in der internet facts 2010-II |
 | --- |
@@ -112,4 +118,4 @@
 | NW-News (Neue Westfälische Zeitung) |
 | NWZ-Online |
 
-© AGOF e.V. September 2010    Seite 12
+© AGOF e.V. September 2010 Seite 12
