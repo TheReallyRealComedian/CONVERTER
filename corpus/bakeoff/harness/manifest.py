@@ -131,6 +131,15 @@ CLASSES = {
         # nicht bestanden (siehe Klassen-README).
         "reference_note": "Referenz = die KAPUTTE Ebene; hoher Recall + 0 Umlaute = durchgereicht",
     },
+    "15": {
+        "dir": "15_tabelle-ohne-kopfwiederholung",
+        "file": "Tabelle_Seitenumbruch_ohne_Kopfwiederholung.pdf",
+        "format": "pdf",
+        "title": "Tabelle ueber Seitengrenze OHNE Kopfwiederholung (DE, 2 S.)",
+        "gold": "15.md",
+        # Kein gold_input: das Dokument IST zwei Seiten, der Gold-Umfang ist
+        # der ganze Output (role "main", kein Slicing).
+    },
 }
 
 

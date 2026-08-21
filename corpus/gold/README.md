@@ -1,6 +1,6 @@
 # gold — Soll-Fassungen
 
-Vier mal **zwei Seiten**, von Hand geschrieben — so, wie das Markdown aussehen *soll*,
+Fünf mal **zwei Seiten**, von Hand geschrieben — so, wie das Markdown aussehen *soll*,
 nicht wie ein Werkzeug es vermutlich liefert.
 
 | Datei | Quelle | Welche zwei Seiten |
@@ -9,6 +9,7 @@ nicht wie ein Werkzeug es vermutlich liefert.
 | `08.md` | `../08_docx-fussnoten/` | Die Seite, auf der Überschrift, Fußnote und Tabelle zusammentreffen |
 | `07.md` | `../07_formular-punktlinien/` | Seite 2 — Punkt-/Unterstrichlinien plus Tabelle mit verbundenem Kopf |
 | `03.md` | `../03_tabelle-seitengrenze/` | Seiten 11+12 — dieselbe Sub-Tabelle (`OMS`) läuft über die Grenze, beide Köpfe wiederholen sich |
+| `15.md` | `../15_tabelle-ohne-kopfwiederholung/` | Das ganze Dokument — dieselbe Tabelle läuft über die Grenze und der Spaltenkopf wird **nicht** wiederholt (Gegenstück zu `03.md`) |
 
 **`03.md` ist anders entstanden als die drei anderen.** Die Quelle ist nativ mit
 sauberer Textebene, die Fassung ist daraus **abgeleitet** statt abgelesen —

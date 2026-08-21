@@ -461,3 +461,35 @@ Die Gold-Fassung schreibt einspaltige GFM-Tabelle + fetter Sub-Kopf. **Gleichwer
 Beim ersten Messlauf gaben **beide** Kandidaten oben `![](pageN_imageN.png)` + `# AGOF` aus. Nachgemessen: auf beiden Seiten liegt ein **eingebettetes Bild** bei `(67,35)–(144,105)`, oberhalb des Tabellenrahmens — die AGOF-Bildmarke (vier Balken über der Wortmarke „AGOF"). Die Gold-Fassung kannte es nicht, weil sie aus `get_text('words')` stammt und eine Textebene ein Bild nicht enthält. **Der 234/234-Beleg galt also nur *innerhalb* der Textebene, nicht für die Seite.** Korrigiert: `![AGOF-Logo]()` steht jetzt auf beiden Seiten (Konvention wie `![Bild 1]()` in `08.md`).
 
 ⚠️ **Offen, deine Entscheidung**: beide Werkzeuge machen aus der Wortmarke zusätzlich eine Überschrift `# AGOF`. Ich halte das für eine Überbehauptung — das Wort steht *im Bild*, nicht als Seitentext, und `#` behauptet eine Dokument-Hierarchie, die die Seite nicht führt (DOC-FIX-Regel „nie mehr Struktur behaupten, als die Quelle hergibt"). Die Gold-Fassung markiert deshalb nur das Bild. Wenn du das anders siehst, gehört „Wortmarke als Überschrift zählt auch" in Regel 4. **Für den Vergleich ganz-gegen-seitenweise ist es folgenlos** — beide Varianten liefern hier dasselbe, die absolute Zahl ist für beide gleich gedrückt.
+
+---
+
+# 15.md
+
+**Erstellt**: 2026-08-21 · **Verfahren**: **abgeleitet, nicht abgelesen** — wie `03.md`. Die Quelle ist nativ mit sauberer Textebene und einer **gezeichneten** Tabelle; Spalten- und Zeilengrenzen kommen aus `get_drawings()` (Vertikale bei x = 57/85/136/315/357/420/479/539, Horizontale als Zeilenbänder), Wörter werden per x-Koordinate der Spalte zugeordnet. Bidirektionaler Multiset-Vergleich gegen beide Seiten: **672 Quell-Token gegen 669 im Gold**, und die **einzige** Differenz sind die drei getrennten Kopfzellen (unten, Punkt 1).
+
+**Warum diese Klasse existiert**: `03.md` deckt den Seitenumbruch mit **wiederholtem** Kopf ab — den gutartigen Fall. In den 14 gewachsenen Klassen wiederholt **jede** tabellentragende Quelle ihren Kopf (03, 04 und 02 nachgemessen); ordentlich gesetzte Dokumente tun das per Voreinstellung. Der harte Fall — Fortsetzung **ohne** Spaltenkopf — musste deshalb erzeugt werden.
+
+## Was gemessen ist (keine Vermutung)
+
+| | Messung |
+|---|---|
+| Umfang | 2 Seiten, 33 Positionen: **26 auf Seite 1, 7 auf Seite 2** |
+| Der harte Fall | Seite 2 trägt nach „Fortsetzung Tabelle 1" **direkt Position 27** — **kein Spaltenkopf** |
+| Verbundene Zellen | Die Linien bei x=315/357/420 enden bei **y=238**, genau wo die drei Summenzeilen beginnen → Spalten 3–6 dort zu **einer** verschmolzen |
+| Form daraus | Seite 1 = GFM (7 gleichförmige Spalten mit Kopf) · Seite 2 = **HTML `<table>` mit `colspan="4"`** (Bake-off-Prompt Regel 2) |
+
+## Unsicherheiten des Autors (3)
+
+### [MITTEL] Drei Kopfzellen sind entsilbt — nach dem Präzedenzfall aus `08.md`
+Die Quelle bricht drei Kopfzellen mit Trennstrich um: `Beleg-`/`datum`, `Kosten-`/`stelle`, `Einzel-`/`preis`. Die Gold-Fassung schreibt `Belegdatum`, `Kostenstelle`, `Einzelpreis`. Das ist **exakt** die Frage, die du bei `08.md` am 2026-08-02 entschieden hast („korrekt aufgelöst — steht am Zellenende, wird manuell gesetzt, um Trennungen in Tabellen zu erzwingen"). Ich habe den Präzedenzfall angewandt, statt neu zu fragen. **Die Differenz im Token-Vergleich besteht aus genau diesen sechs Wörtern und sonst nichts.**
+
+### [MITTEL] Seite 2 ist HTML, Seite 1 ist GFM — das ist keine Inkonsequenz
+Die Bake-off-Anweisung sagt „GFM-Pipe-Tabellen; bei verbundenen Zellen stattdessen rohes `<table>` mit colspan/rowspan". Seite 1 hat gleichförmige Spalten, Seite 2 hat die verbundenen Summenzeilen — also fällt die Entscheidung **je Tabelle**, nicht je Dokument. Nebeneffekt, der die Sache vereinfacht: HTML-Tabellen brauchen keine Kopfzeile, womit die sonst offene Frage „wie schreibt man in GFM eine Tabelle ohne Kopf" hier gar nicht entsteht.
+
+### [NIEDRIG] Der Fließtext ist zeilenweise übernommen, nicht zu Absätzen zusammengezogen
+Umbrüche im Erläuterungstext und in den Hinweisen stehen so, wie sie im Satz stehen. Das ist konsequent zur 1:1-Doktrin, kann aber gegenüber einem Werkzeug, das zu Absätzen zusammenzieht, als Differenz erscheinen. Falls du das anders willst, sag es — es ist ein Einzeiler im Generator.
+
+## Bewertungsregel 5 — `15.md`, der kopflose Fortsetzungsteil
+
+Der Prüfgegenstand dieser Klasse ist **nicht**, ob ein Werkzeug den Kopf von Seite 1 auf Seite 2 **ergänzt**. Ein Werkzeug, das das tut, hat Inhalt **erfunden** — die Seite trägt ihn nicht. Gemessen wird: (a) kommen alle 33 Positionen mit ihren sieben Werten an, (b) bleiben die drei Summenzeilen als **verbundene** Zellen erkennbar, (c) wird die Fortsetzung nicht als eigenständige, neu betitelte Tabelle behauptet. **Gleichwertig** ist jede Form, die (a)–(c) erhält. **Ein späterer Merge über die Seitengrenze (DOC-SPAN-MERGE) darf den Kopf von Seite 1 übernehmen** — das ist dann eine ausgewiesene Zusammenführung und keine Erfindung; die Gold-Fassung bildet den **ungemergten** Zustand ab, weil sie die Quelle abbildet.
