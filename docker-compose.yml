@@ -24,12 +24,25 @@ services:
       - podcast_data:/app/output_podcasts
       # Persistent database storage
       - app_data:/app/data
+      # DOC-WEB: the browser button runs the SAME PDF engines as the worker,
+      # synchronously — so the web container needs the identical mineru
+      # wiring (socket + exchange bind, see the worker's comments). ⚠️ This
+      # extends the ROOT-EQUIVALENT socket to the web container (LAN-only,
+      # login-protected); without it ``mode=lokal`` in the browser would
+      # silently serve the bare text layer.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./doclocal_exchange:/app/doclocal_exchange
     environment:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=${SECRET_KEY}
+      # DOC-WEB: mineru wiring, identical to the worker (comments there).
+      - DOC_LOCAL_EXCHANGE_DIR=/app/doclocal_exchange
+      - DOC_LOCAL_EXCHANGE_HOST_DIR=${PWD}/doclocal_exchange
+      - MINERU_IMAGE=mineru:3.4.4
+      - MINERU_MODELS_DIR=${MINERU_MODELS_DIR:-}
       - NOTION_MCP_URL=http://notion-mcp-server:3333
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
       - NOTION_TOKEN=${NOTION_TOKEN}

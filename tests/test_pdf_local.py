@@ -23,6 +23,7 @@ from services import pdf_local
 from services.pdf_local import (
     LocalPdfEngine,
     content_list_to_pages,
+    is_scanned_page,
     mineru_run_timeout_for,
     run_local_pdf,
 )
@@ -291,3 +292,54 @@ def test_exchange_job_dir_is_cleaned_up(fake_docker, tmp_path):
     fake_docker['rc'] = 1
     run_local_pdf(path, 2)
     assert list(fake_docker['exchange'].iterdir()) == []  # success AND failure
+
+
+# --- DOC-WEB 2.3: the surviving page classifier — scan pages are NAMED on
+# the text-layer fallback instead of silently served empty -------------------
+
+def _scan_plus_text_pdf(tmp_path):
+    """Page 1: a full-page image, no text (a scan). Page 2: text layer."""
+    pdf = fitz.open()
+    scan = pdf.new_page()
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 16, 16), False)
+    pix.clear_with(200)
+    scan.insert_image(scan.rect, stream=pix.tobytes('png'))
+    text_page = pdf.new_page()
+    text_page.insert_text((72, 100), 'Seite zwei Text.')
+    path = tmp_path / 'scan.pdf'
+    pdf.save(str(path))
+    pdf.close()
+    return str(path)
+
+
+def test_is_scanned_page_distinguishes_scan_from_text(tmp_path):
+    doc = fitz.open(_scan_plus_text_pdf(tmp_path))
+    try:
+        assert is_scanned_page(doc[0]) is True
+        assert is_scanned_page(doc[1]) is False
+    finally:
+        doc.close()
+
+
+def test_fallback_names_scan_pages_with_empty_text_layer(fake_docker, tmp_path):
+    """Engine fails → text-layer fallback; the scan page yields '' and the
+    payload SAYS so (one ``scan_text_layer_empty`` entry, pages 1-based),
+    the text page is not listed."""
+    fake_docker['rc'] = 1
+    fake_docker['stderr'] = 'GPU busy'
+    payload = run_local_pdf(_scan_plus_text_pdf(tmp_path), 2)
+    codes = [d['code'] for d in payload['degradations']]
+    assert codes == ['backend_fallback', 'scan_text_layer_empty']
+    scan_entry = payload['degradations'][1]
+    assert scan_entry['pages'] == [1]
+    assert scan_entry['message'].startswith('Seite 1 ist ein Scan')
+    assert payload['markdown'].strip() == 'Seite zwei Text.'
+
+
+def test_successful_run_never_emits_scan_entry(fake_docker, tmp_path):
+    fake_docker['content_list'] = [
+        {'type': 'text', 'text': 'OCR der Scan-Seite', 'page_idx': 0},
+        {'type': 'text', 'text': 'Seite zwei', 'page_idx': 1}]
+    payload = run_local_pdf(_scan_plus_text_pdf(tmp_path), 2)
+    assert payload['degradations'] == []
+    assert payload['provenance'] == ['modell', 'modell']

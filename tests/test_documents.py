@@ -8,14 +8,15 @@ as ``tests/test_office_backends.py``: backend functions on
 ``services.office_backends``, ``partition`` on the ``sys.modules`` stub
 (see ``conftest.py``) — so the REAL router routing runs in every test.
 
-PDF still goes through ``app.pdf_extraction_service`` (falls in P2).
+PDF (P2) runs the real engines through ``document_router.convert_pdf`` —
+mocked at ``services.pdf_cloud.run_cloud_pdf`` / ``services.pdf_local
+.run_local_pdf`` (the same seams as ``tests/test_document_api.py``); the
+page-count gate reads the REAL fixture PDF via fitz.
 """
 import sys
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
-
-import app as app_module
 
 from tests.test_unstructured_markdown import El
 
@@ -105,22 +106,75 @@ def test_transform_document_html_fallback_still_serves_markdown(
     assert b'Roher Seitentext.' in resp.data
 
 
-def test_transform_document_pdf_uses_pdf_extraction_service(authenticated_client, fixtures_dir):
-    """PDF uploads bypass the router and go through ``pdf_extraction_service``."""
-    mock_pdf_svc = MagicMock()
-    mock_pdf_svc.extract_markdown.return_value = '# Extracted PDF\n\nbody text'
-    original = app_module.pdf_extraction_service
-    app_module.pdf_extraction_service = mock_pdf_svc
-    try:
-        with open(fixtures_dir / 'sample.pdf', 'rb') as fh:
-            resp = _post_document(authenticated_client, 'sample.pdf',
-                                  payload=fh.read())
-    finally:
-        app_module.pdf_extraction_service = original
+def _cloud_payload(markdown, degradations=None):
+    from services.document_conversions import build_result_payload
+    return build_result_payload(
+        markdown, provenance_unit='page', provenance=['modell'],
+        degradations=degradations or [],
+        usage={'model_calls': 1, 'cost_eur': 0.015})
+
+
+def test_transform_document_pdf_runs_cloud_engine_with_service_budget(
+        authenticated_client, fixtures_dir, monkeypatch):
+    """PDF in the browser = the API's cloud engine (settings default
+    ``cloud``), under the API's budget cap — no legacy service anymore."""
+    monkeypatch.setenv('GEMINI_API_KEY', 'k-web')
+    calls = {}
+
+    def fake_run_cloud_pdf(source_path, api_key, budget_eur, model_name=None):
+        calls['args'] = (api_key, budget_eur)
+        return _cloud_payload('# Cloud-Seite\n\nInhalt.')
+
+    monkeypatch.setattr('services.pdf_cloud.run_cloud_pdf', fake_run_cloud_pdf)
+    with open(fixtures_dir / 'sample.pdf', 'rb') as fh:
+        resp = _post_document(authenticated_client, 'sample.pdf', payload=fh.read())
     assert resp.status_code == 200
     assert resp.mimetype == 'text/markdown'
-    assert b'Extracted PDF' in resp.data
-    mock_pdf_svc.extract_markdown.assert_called_once()
+    assert b'# Cloud-Seite' in resp.data
+    from app_pkg.config import DOC_CONVERT_BUDGET_EUR
+    assert calls['args'] == ('k-web', DOC_CONVERT_BUDGET_EUR)
+
+
+def test_transform_document_pdf_honours_lokal_setting(
+        authenticated_client, fixtures_dir, monkeypatch):
+    """Oli's service setting drives the browser too (no second switch)."""
+    monkeypatch.setenv('GEMINI_API_KEY', 'k-web')
+    monkeypatch.setattr('app_pkg.documents._default_pdf_mode',
+                        lambda user: 'lokal')
+    calls = []
+
+    def fake_run_local_pdf(source_path, page_count):
+        calls.append(page_count)
+        return _cloud_payload('# Lokal')
+
+    monkeypatch.setattr('services.pdf_local.run_local_pdf', fake_run_local_pdf)
+    cloud = MagicMock()
+    monkeypatch.setattr('services.pdf_cloud.run_cloud_pdf', cloud)
+    with open(fixtures_dir / 'sample.pdf', 'rb') as fh:
+        resp = _post_document(authenticated_client, 'sample.pdf', payload=fh.read())
+    assert resp.status_code == 200
+    assert b'# Lokal' in resp.data
+    assert calls and calls[0] >= 1  # real page count from fitz
+    cloud.assert_not_called()
+
+
+def test_transform_document_pdf_over_sync_limit_is_a_named_413(
+        authenticated_client, fixtures_dir, monkeypatch):
+    """Above ``MAX_SYNC_PDF_PAGES`` the route answers BEFORE any engine runs:
+    a named limit with the service as the way out, not a gunicorn timeout."""
+    monkeypatch.setattr('app_pkg.documents.MAX_SYNC_PDF_PAGES', 0)
+    cloud = MagicMock()
+    monkeypatch.setattr('services.pdf_cloud.run_cloud_pdf', cloud)
+    local = MagicMock()
+    monkeypatch.setattr('services.pdf_local.run_local_pdf', local)
+    with open(fixtures_dir / 'sample.pdf', 'rb') as fh:
+        resp = _post_document(authenticated_client, 'sample.pdf', payload=fh.read())
+    assert resp.status_code == 413
+    body = resp.get_json()
+    assert 'Seiten' in body['error']
+    assert '/api/document-conversions' in body['error']
+    cloud.assert_not_called()
+    local.assert_not_called()
 
 
 def test_transform_document_missing_file_returns_400(authenticated_client):

@@ -195,6 +195,10 @@ DEGRADATION_PROVENANCE_DOCUMENT_ONLY = 'provenance_document_only'
 # legacy path took over (e.g. trafilatura found no main content in an HTML
 # file) — the result is still ready, the switch is named here.
 DEGRADATION_BACKEND_FALLBACK = 'backend_fallback'
+# DOC-WEB 2.3: on the text-layer fallback a page is a scan — the layer is
+# empty there BY NATURE, not by defect; the entry names the pages so the
+# empty stretch is explained instead of silently served.
+DEGRADATION_SCAN_TEXT_LAYER_EMPTY = 'scan_text_layer_empty'
 
 
 def build_result_payload(markdown, *, provenance_unit, provenance,

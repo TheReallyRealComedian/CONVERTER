@@ -66,7 +66,7 @@ _LIST_INDENT = '  '
 
 # Der Seitentrenner, auf den drei unabhaengige Bestandsimplementierungen
 # gekommen sind (docs/doc_convert_bestand_2026-07-30.md) und den auch der
-# PDF-Pfad in services/pdf_extraction/service.py schon fuehrt.
+# PDF-Cloud-Pfad (services/pdf_cloud.py, Prompt-Regel 6) ebenfalls setzt.
 _PAGE_SEPARATOR = '---'
 
 # Kategorien, die ohne Struktur-Verlust ein Absatz sind — hier entsteht keine

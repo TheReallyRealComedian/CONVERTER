@@ -39,77 +39,6 @@ def update_job_stage(stage, **extras):
         logger.warning(f"update_job_stage failed for stage={stage}: {e}")
 
 
-def _convert_pdf(source_path, mode, budget_eur, page_count):
-    """PDF branch: cloud = page-wise gemini, local = mineru (DOC-LOCAL).
-
-    * **Cloud run** (mode ``cloud``, key present, pre-flight passes):
-      ``services.pdf_cloud.run_cloud_pdf`` — one call per page, per-page
-      ``modell`` provenance, costs booked from ``usage_metadata``, and the
-      REAL mid-flight cap: if actual costs exhaust the budget mid-document,
-      the remaining pages come from the local page function with one named
-      ``budget_exceeded`` entry (DOC-ENGINE P2; the mid-flight target is the
-      mineru engine too since DOC-LOCAL).
-    * **Local run** (mode ``lokal``, or a cloud job degraded here):
-      ``services.pdf_local.run_local_pdf`` — the mineru VLM in a sibling
-      container (DOC-LOCAL replaced the legacy PyMuPDF-text-layer engine that
-      returned scans EMPTY). Per-page provenance ``modell`` at cost 0.00 €;
-      if the engine itself fails, pages fall back to the text layer with a
-      named ``backend_fallback`` entry. The engine needs a real page count —
-      unknown at submit → re-derived here via fitz (an unreadable PDF raises,
-      exactly as the legacy engine's own fitz.open did).
-
-    Cloud degrades to local — never aborts — when the key is missing
-    (``cloud_unavailable``) or the pre-flight estimate ``page_count × cent``
-    exceeds the job's frozen budget (``budget_exceeded``): if the ESTIMATE
-    already says the budget cannot carry the document, not a single call is
-    spent on a result that would be mostly local anyway. The mid-flight cap
-    covers the complementary case: the estimate passed, but real per-page
-    costs (token-dense pages) exhaust the budget during the run. Pre-flight
-    degradation entries are PREPENDED to the local run's own list, so a
-    ``backend_fallback`` never hides why the job went local at all.
-    """
-    from app_pkg.config import DOC_CONVERT_CLOUD_CENT_PER_PAGE
-    from services.document_conversions import (
-        DEGRADATION_BUDGET_EXCEEDED,
-        DEGRADATION_CLOUD_UNAVAILABLE,
-        MODE_CLOUD,
-        degradation,
-    )
-
-    degradations = []
-    cloud = mode == MODE_CLOUD
-    if cloud:
-        api_key = os.environ.get('GEMINI_API_KEY')
-        if not api_key:
-            cloud = False
-            degradations.append(degradation(
-                DEGRADATION_CLOUD_UNAVAILABLE,
-                'Cloud-Pfad nicht konfiguriert (kein API-Key im Worker). '
-                'Lokal konvertiert.'))
-        elif budget_eur is not None:
-            estimated_eur = (page_count or 1) * DOC_CONVERT_CLOUD_CENT_PER_PAGE / 100
-            if estimated_eur > budget_eur:
-                cloud = False
-                degradations.append(degradation(
-                    DEGRADATION_BUDGET_EXCEEDED,
-                    f'Erwartete Cloud-Kosten {estimated_eur:.2f} € über dem '
-                    f'Kostendeckel {budget_eur:.2f} €. Lokal konvertiert.'))
-
-    if cloud:
-        from services.pdf_cloud import run_cloud_pdf
-        return run_cloud_pdf(source_path, api_key, budget_eur)
-
-    from services.pdf_local import run_local_pdf
-
-    if not (isinstance(page_count, int) and page_count > 0):
-        import fitz
-        with fitz.open(source_path) as doc:
-            page_count = doc.page_count
-    payload = run_local_pdf(source_path, page_count)
-    payload['degradations'] = degradations + payload['degradations']
-    return payload
-
-
 def _deterministic_document_payload(markdown, degradations):
     """The shared non-PDF result shape: document-level, deterministic.
 
@@ -170,11 +99,11 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
         logger.info(f"conversion_id={conversion_id} ext={source_ext} "
                     f"mode={mode} budget_eur={budget_eur} pages={page_count}")
 
-        if source_ext == 'pdf':
-            payload = _convert_pdf(source_path, mode, budget_eur, page_count)
-        else:
-            from services.document_router import convert_non_pdf
+        from services.document_router import convert_non_pdf, convert_pdf
 
+        if source_ext == 'pdf':
+            payload = convert_pdf(source_path, mode, budget_eur, page_count)
+        else:
             payload = _deterministic_document_payload(
                 *convert_non_pdf(source_path, source_ext))
 

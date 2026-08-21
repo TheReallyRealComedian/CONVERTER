@@ -595,28 +595,7 @@ def _plant_source(cid, ext, data=b'x'):
     return path
 
 
-@pytest.fixture
-def fake_pdf_service(monkeypatch):
-    """Replace PDFExtractionService, recording the api_key of each build.
-
-    The task late-imports ``from services import PDFExtractionService``, so
-    patching the ``services`` attribute reaches it at call time.
-    """
-    keys = []
-
-    class FakeSvc:
-        def __init__(self, api_key):
-            keys.append(api_key)
-
-        def extract_markdown(self, path):
-            return '# Konvertiert'
-
-    monkeypatch.setattr('services.PDFExtractionService', FakeSvc)
-    return keys
-
-
-def test_task_cloud_routes_to_paged_backend(monkeypatch, doc_convert_dir,
-                                            fake_pdf_service):
+def test_task_cloud_routes_to_paged_backend(monkeypatch, doc_convert_dir):
     """Cloud + key + pre-flight ok → the page-wise gemini backend runs with
     the job's key and frozen budget; the legacy engine is never touched
     (DOC-ENGINE P2 — replaced the blackbox branch and its provenance
@@ -634,7 +613,6 @@ def test_task_cloud_routes_to_paged_backend(monkeypatch, doc_convert_dir,
     _plant_source(901, 'pdf')
     convert_document_task(901, 'pdf', 'cloud', 5.0, 3)
     payload = doc_lib.read_result_file(901)
-    assert fake_pdf_service == []  # legacy engine untouched on this path
     assert calls['args'] == ('k-123', 5.0)
     assert payload['provenance_unit'] == 'page'
     assert payload['provenance'] == ['modell'] * 3
@@ -662,7 +640,6 @@ def fake_local_run(monkeypatch):
 
 
 def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,
-                                                 fake_pdf_service,
                                                  fake_local_run):
     # 3 pages × 1.48 ct ≈ 0.044 € > cap 0.01 € → the key is NEVER used, the
     # run goes to the mineru engine (DOC-LOCAL: provenance ``modell``, 0 €)
@@ -671,7 +648,6 @@ def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,
     _plant_source(902, 'pdf')
     convert_document_task(902, 'pdf', 'cloud', 0.01, 3)
     payload = doc_lib.read_result_file(902)
-    assert fake_pdf_service == []  # legacy engine untouched (DOC-LOCAL)
     assert fake_local_run == [(doc_lib.doc_source_path(902, 'pdf'), 3)]
     assert payload['provenance_unit'] == 'page'
     assert payload['provenance'] == ['modell'] * 3
@@ -681,28 +657,25 @@ def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,
 
 
 def test_task_cloud_without_key_degrades(monkeypatch, doc_convert_dir,
-                                         fake_pdf_service, fake_local_run):
+                                         fake_local_run):
     monkeypatch.delenv('GEMINI_API_KEY', raising=False)
     _plant_source(903, 'pdf')
     convert_document_task(903, 'pdf', 'cloud', 5.0, 2)
     payload = doc_lib.read_result_file(903)
-    assert fake_pdf_service == []
     assert fake_local_run == [(doc_lib.doc_source_path(903, 'pdf'), 2)]
     assert payload['provenance'] == ['modell'] * 2
     assert [d['code'] for d in payload['degradations']] == ['cloud_unavailable']
 
 
 def test_task_local_mode_never_touches_the_key(monkeypatch, doc_convert_dir,
-                                               fake_pdf_service,
                                                fake_local_run):
     """mode=lokal routes straight to the mineru engine — whose call signature
-    carries no API key at all (key-free by construction), and neither the
-    legacy engine nor the cloud backend is ever built."""
+    carries no API key at all (key-free by construction), and the cloud
+    backend is never built."""
     monkeypatch.setenv('GEMINI_API_KEY', 'k-123')
     _plant_source(904, 'pdf')
     convert_document_task(904, 'pdf', 'lokal', 5.0, 2)
     payload = doc_lib.read_result_file(904)
-    assert fake_pdf_service == []
     assert fake_local_run == [(doc_lib.doc_source_path(904, 'pdf'), 2)]
     assert payload['provenance_unit'] == 'page'
     assert payload['provenance'] == ['modell'] * 2

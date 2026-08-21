@@ -79,6 +79,7 @@ from pathlib import Path
 
 from services.document_conversions import (
     DEGRADATION_BACKEND_FALLBACK,
+    DEGRADATION_SCAN_TEXT_LAYER_EMPTY,
     PROVENANCE_DETERMINISTIC,
     PROVENANCE_MODEL,
     build_result_payload,
@@ -102,6 +103,38 @@ MINERU_BACKEND = 'vlm-engine'
 # interrupt a wedged docker-CLI child — subprocess.run(timeout=) does.
 MINERU_TIMEOUT_BASE_SECONDS = 300
 MINERU_TIMEOUT_PER_PAGE_SECONDS = 10
+
+
+# Scan detection thresholds — the ONE surviving use of the retired
+# ``services/pdf_extraction`` page classifier (DOC-WEB 2.3, locked decision
+# 5): not a router anymore (both engines read every page type), only the
+# ability to SAY on the text-layer fallback that a page is a scan and "empty"
+# is expected there. Values verbatim from the retired ``_classify_page``
+# (image coverage > 0.7 of the page area AND text density < 0.5 chars per
+# 1000 pt²); the ``mixed`` class fell with the router.
+SCAN_IMAGE_COVERAGE_MIN = 0.7
+SCAN_TEXT_DENSITY_MAX = 0.5
+
+
+def is_scanned_page(page):
+    """True when a fitz page is (almost) all image and (almost) no text —
+    i.e. a scan without a usable text layer. Never raises: an unreadable
+    image rect counts as no image (conservative: not-a-scan)."""
+    text = page.get_text('text').strip()
+    page_area = page.rect.width * page.rect.height
+    if page_area <= 0:
+        return False
+    total_image_area = 0.0
+    for img in page.get_images(full=True):
+        try:
+            for rect in page.get_image_rects(img[0]):
+                total_image_area += rect.width * rect.height
+        except Exception:
+            pass
+    image_coverage = total_image_area / page_area
+    text_density = len(text) / (page_area / 1000)
+    return (image_coverage > SCAN_IMAGE_COVERAGE_MIN
+            and text_density < SCAN_TEXT_DENSITY_MAX)
 
 
 def mineru_run_timeout_for(page_count):
@@ -239,7 +272,11 @@ class LocalPdfEngine:
 
     On run failure every page from the start falls back to the PyMuPDF text
     layer; ``degradations`` then carries exactly one named
-    ``backend_fallback`` entry the caller attaches to its payload.
+    ``backend_fallback`` entry the caller attaches to its payload — plus,
+    if fallback pages are scans with an empty text layer, ONE
+    ``scan_text_layer_empty`` entry naming those pages (DOC-WEB 2.3: the
+    answer says "empty is expected here" instead of silently serving
+    nothing).
 
     Owns a lazy fitz handle (sub-PDF cutting + text-layer fallback) —
     ``close()`` releases it; ``run_local_pdf`` wraps this in try/finally.
@@ -253,6 +290,7 @@ class LocalPdfEngine:
         self._start = None
         self._pages = None   # {absolute_index: markdown} on success
         self._failed = False
+        self._scan_entry = None  # the one scan_text_layer_empty entry, lazy
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -342,9 +380,30 @@ class LocalPdfEngine:
             return {'markdown': self._pages.get(index, ''),
                     'origin': PROVENANCE_MODEL,
                     'cost_eur': 0.0}
-        return {'markdown': self._fitz_doc()[index].get_text('text').strip(),
+        page = self._fitz_doc()[index]
+        text = page.get_text('text').strip()
+        if not text and is_scanned_page(page):
+            self._note_scan_page(index)
+        return {'markdown': text,
                 'origin': PROVENANCE_DETERMINISTIC,
                 'cost_eur': 0.0}
+
+    def _note_scan_page(self, index):
+        """Accumulate scan pages into ONE degradation entry (pages 1-based).
+        The entry is appended on the first hit and MUTATED afterwards — the
+        caller reads ``self.degradations`` after the page loop, so the list
+        is complete by then."""
+        if self._scan_entry is None:
+            self._scan_entry = degradation(
+                DEGRADATION_SCAN_TEXT_LAYER_EMPTY, '', pages=[])
+            self.degradations.append(self._scan_entry)
+        self._scan_entry['pages'].append(index + 1)
+        pages = self._scan_entry['pages']
+        label = (f'Seite {pages[0]} ist ein Scan' if len(pages) == 1
+                 else f'Seiten {", ".join(str(p) for p in pages)} sind Scans')
+        self._scan_entry['message'] = (
+            f'{label}, die Textebene ist dort leer. Ohne lokale Engine '
+            f'bleibt der Inhalt leer.')
 
 
 def run_local_pdf(source_path, page_count):

@@ -16,6 +16,7 @@ import fitz
 
 from services import pdf_cloud
 from services.pdf_cloud import (
+    _strip_fence,
     cost_eur_from_usage,
     price_per_m,
     run_cloud_pdf,
@@ -217,3 +218,34 @@ def test_pricing_table_and_conservative_default():
     # 1M in + 1M out at 3.6-flash prices, converted with the documented rate.
     eur = cost_eur_from_usage('gemini-3.6-flash', 1_000_000, 1_000_000)
     assert eur == pytest.approx((1.50 + 7.50) / 1.10, abs=1e-9)
+
+
+# --- the wrapper fence at the source (ported from the retired
+# services/pdf_extraction suite, DOC-WEB P2 — the DOC-FIX lesson must not
+# fall with the package: only a WHOLE-answer wrap is removed, a page that is
+# itself a single code block keeps its fence) -------------------------------
+
+def test_strip_fence_removes_a_full_wrap():
+    assert _strip_fence('```markdown\n# A\n\nB\n```') == '# A\n\nB'
+
+
+def test_strip_fence_removes_unknown_language_tag():
+    """The pre-DOC-FIX sweep left the language tag standing as text."""
+    assert _strip_fence('```md\n# A\n```') == '# A'
+    assert _strip_fence('```html\n# A\n```') == '# A'
+
+
+def test_strip_fence_leaves_unwrapped_text_alone():
+    assert _strip_fence('# A\n\nB') == '# A\n\nB'
+
+
+def test_strip_fence_does_not_cut_a_trailing_code_block():
+    """The old sweep cut the closing ``` here and tore the block."""
+    text = '# A\n\n```python\ncode\n```'
+    assert _strip_fence(text) == text
+
+
+def test_strip_fence_keeps_inner_blocks_when_ambiguous():
+    """Wrap AND inner block: conservatively nothing is cut at the end."""
+    out = _strip_fence('```markdown\n# A\n\n```python\ncode\n```\n```')
+    assert '```python\ncode\n```' in out

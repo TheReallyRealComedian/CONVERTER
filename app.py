@@ -9,7 +9,7 @@ Uvicorn.
 Several names are kept at module level on purpose because the Stage 6
 characterization tests patch them by attribute on this module:
 ``deepgram_service``, ``gemini_service``, ``google_tts_service``,
-``pdf_extraction_service``, ``task_queue``, ``Job``, ``async_playwright``,
+``task_queue``, ``Job``, ``async_playwright``,
 ``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``.
 The blueprints look these up via ``import app as _app_module`` so the
 patches reach the route handlers at call time.
@@ -41,7 +41,7 @@ from app_pkg import mobile_auth as mobile_auth_module
 from app_pkg import narration as narration_module
 from app_pkg import tags as tags_module
 from app_pkg.integrations import notion as notion_module
-from services import DeepgramService, GeminiService, GoogleTTSService, PDFExtractionService
+from services import DeepgramService, GeminiService, GoogleTTSService
 
 
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
@@ -58,7 +58,6 @@ csrf = app.extensions['csrf']
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
 gemini_service = GeminiService(GEMINI_API_KEY) if GEMINI_API_KEY else None
 google_tts_service = GoogleTTSService(GOOGLE_CREDENTIALS_PATH) if GOOGLE_CREDENTIALS_PATH else None
-pdf_extraction_service = PDFExtractionService(GEMINI_API_KEY)
 
 # Redis Queue setup
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')

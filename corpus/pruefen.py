@@ -5,9 +5,10 @@
 
 Prüft nicht Inhalte, sondern die Eigenschaften, auf die es beim Bake-off
 ankommt: liegt überhaupt eine Quelldatei da, und lösen die Scan-Klassen
-CONVERTERs Klassifikator wirklich aus. Die Schwellen unten sind aus
-services/pdf_extraction/service.py übernommen — läuft der Klassifikator dort
-je auseinander, muss diese Datei nachgezogen werden.
+CONVERTERs Klassifikator wirklich aus. Die Schwellen unten sind aus dem
+(mit DOC-WEB abgerissenen) services/pdf_extraction/service.py übernommen;
+der überlebende Rest lebt als ``is_scanned_page`` in services/pdf_local.py —
+läuft er je auseinander, muss diese Datei nachgezogen werden.
 """
 import os
 import sys
@@ -21,7 +22,7 @@ HIER = os.path.dirname(os.path.abspath(__file__))
 # aus. Deshalb prüft dieses Skript beide Seiten gegeneinander.
 NEXTCLOUD = os.path.expanduser('~/Nextcloud/00 Inbox/Benchmarkfiles')
 
-# Schwellen aus services/pdf_extraction/service.py
+# Schwellen: services/pdf_local.py (SCAN_*), ``mixed`` nur noch hier
 SCANNED = lambda cov, dens: cov > 0.7 and dens < 0.5
 MIXED = lambda cov, dens: cov > 0.3 and dens < 2.0
 
