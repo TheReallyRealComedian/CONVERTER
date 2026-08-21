@@ -1,7 +1,7 @@
 # CONVERTER — Multimedia Converter & Narration
 
 ## What is this?
-Flask web app for multimedia conversion: Markdown-to-PDF, document-to-Markdown, audio transcription (Deepgram), and faithful document narration (Google Cloud TTS with Gemini-TTS voices). Runs in Docker with Redis/RQ for background jobs. Single-User-App (nur Oliver), LAN-only, login-protected.
+Flask web app for multimedia conversion: Markdown-to-PDF, document-to-Markdown, audio transcription (Deepgram), and faithful document narration (Google Cloud TTS with Gemini-TTS voices). Runs in Docker with Redis/RQ for background jobs. Single-User-App (nur Oliver), login-protected. ⚠️ **Nicht LAN-only** (Korrektur 2026-08-21): die Instanz ist unter `converter.smallpieces.de` **aus dem Internet erreichbar** — verifiziert, alle Pfade springen ohne Cookie auf `/login`, der Flask-Login-Zaun steht also auch von außen. Die frühere Angabe „LAN-only" war falsch und hat mehrere Sicherheitsabwägungen getragen, die damit neu zu bewerten sind (allen voran der root-äquivalente Docker-Socket am **Web**-Container seit DOC-WEB → Backlog `DOC-WEB-ASYNC`).
 
 ## Tech Stack
 - **Backend**: Flask (async), SQLAlchemy (SQLite), Flask-Login
