@@ -183,20 +183,33 @@ nicht trennen kann.)*
 
 `mode` ist ein Multipart-Formularfeld neben `file`:
 
-- **fehlt** → es greift der Default aus der CONVERTER-Einstellung (s.u.).
+- **fehlt** → es greift der Default aus der CONVERTER-Einstellung (s.u.);
+  ohne gespeicherte Einstellung ist das seit **DOC-WEB `lokal`** (vorher
+  `cloud`). ⚠️ Für Aufrufer, die nie ein `mode` mitgeben, hat sich damit
+  das Ergebnis geändert: lokales Modell, 0 €, Herkunft `modell` — wer Cloud
+  will, sagt `mode=cloud`. Grund (Oli-Entscheidung): derselbe Default
+  treibt seit DOC-WEB auch den Browser-Knopf, und ein Code-Default `cloud`
+  hätte den für einen Nutzer, der nie gewählt hat, still kostenpflichtig
+  gemacht (~1,5 ct/Seite); mineru misst 0,9551 gegen 0,9809 Wort-F1 auf
+  `01.gold` bei 0 € und ist ab ~2 Seiten schneller.
 - **`cloud`** → beste verfügbare Qualität, Modell-Calls erlaubt, kostet Geld,
   unterliegt dem Kostendeckel (§7).
-- **`lokal`** → garantiert ohne Modell-Calls; Ergebnis ist beweisbar
-  `deterministisch`. Preis heute: gescannte Seiten bleiben leer (kein lokales
-  OCR bis DOC-LOCAL).
+- **`lokal`** → keine Cloud-Calls, 0 €; seit DOC-LOCAL das lokale
+  mineru-Modell (Herkunft `modell`, s. §10 — nicht mehr *beweisbar
+  deterministisch*), Scans werden gelesen.
 - **alles andere** → `400 {"error": "Ungültiger Modus. Erlaubt: 'cloud' oder
   'lokal'."}` — strikt gelesen, nur der exakte Wert schaltet; auch `""`,
   `"Cloud"` oder `" lokal"` sind 400.
 
 Default-Einstellung (Session-Fläche, nichts für Service-Caller):
 
-    GET /api/document-conversions/settings   → {"default_mode": "cloud"}
-    PUT /api/document-conversions/settings   {"default_mode": "lokal"}
+    GET /api/document-conversions/settings   → {"default_mode": "lokal"}
+    PUT /api/document-conversions/settings   {"default_mode": "cloud"}
+
+⚠️ **Eine Einstellung, zwei Eingänge** (DOC-WEB): derselbe Default
+entscheidet auch, mit welcher Engine der Browser-Knopf
+(`POST /transform-document`) ein PDF konvertiert. Es gibt bewusst keinen
+zweiten Schalter.
 
 Strict write (unbekannter Key / ungültiger Wert → 400, nichts geschrieben),
 lenient read. Liegt im geteilten `User.settings_json` unter dem Namespace-Key
@@ -237,10 +250,12 @@ stabiler snake_case-Slug für Maschinen, `message` deutsch für Menschen,
 | `provenance_document_only` | Eine Engine weist Herkunft nicht je Seite aus; konservativ dokumentweit als `modell` markiert (§5a). **Seit DOC-ENGINE nicht mehr vergeben** (der Cloud-PDF-Pfad attribuiert echt je Seite); bleibt im Vokabular für künftige Backends ohne Einheiten-Trennung. |
 | `serializer` | Sammelcode für **alle Backend-Warnungen** des Konvertierwegs: der unstructured-Serializer musste Struktur aufgeben (deutsche Meldung, z.B. „Tabelle ohne text_as_html — als Fliesstext ausgegeben"), oder ein Werkzeug-Backend meldete etwas auf stderr. ⚠️ **Meldungsform bei Werkzeug-Warnungen**: deutscher Rahmen mit roh zitierter — meist englischer — Werkzeug-Ausgabe, z.B. `"pandoc meldete: [WARNING] Could not convert image …"` (bis 300 Zeichen Zitat; dieselbe Konvention wie das `error`-Feld, das rohe Traceback-Tails trägt). |
 | `backend_fallback` | Das für das Format gewählte Backend lieferte nichts Verwertbares und der Bestands-Pfad übernahm. Zwei Fälle: trafilatura findet in einer HTML-Datei keinen Hauptinhalt → Element-Extraktion; die lokale mineru-Engine fällt aus (GPU belegt, Container-Fehler, Zeitlimit — seit DOC-LOCAL) → PyMuPDF-Textebene für die betroffenen Seiten, `pages` benennt sie, die Meldung zitiert die Werkzeug-Ausgabe. Das Ergebnis ist `ready`, der Pfadwechsel steht hier. |
+| `scan_text_layer_empty` | **Seit DOC-WEB.** Begleitet einen `backend_fallback` der lokalen Engine: unter den auf die Textebene zurückgefallenen Seiten sind **Scans** — dort ist die Textebene *von Natur aus* leer, nicht durch Defekt. `pages` benennt genau diese Seiten (1-basiert), die Meldung sagt es („Seite 7 ist ein Scan, die Textebene ist dort leer."). Ein leerer Abschnitt im Markdown ist damit erklärt statt still serviert. Erkennung: Bildabdeckung > 70 % der Seitenfläche **und** Textdichte < 0,5 Zeichen/1000 pt² (`services/pdf_local.is_scanned_page`, der überlebende Rest des abgerissenen Seiten-Klassifikators). Tritt nie ohne einen `backend_fallback` auf. |
 
 Die Liste ist offen — DOC-LOCAL kam ohne neuen Code aus
-(`backend_fallback` trägt auch den Engine-Ausfall); ein Konsument
-behandelt unbekannte Codes als informativ, nicht als Fehler.
+(`backend_fallback` trägt auch den Engine-Ausfall), DOC-WEB fügte
+`scan_text_layer_empty` additiv hinzu; ein Konsument behandelt unbekannte
+Codes als informativ, nicht als Fehler.
 
 ## 8. Idempotenz
 
@@ -282,11 +297,24 @@ Retry-Endpunkt).
 | 413 | Upload > 100 MB |
 | 503 | `DOC_CONVERT_TOKEN` nicht konfiguriert · kein Zielnutzer vorhanden |
 
-## 10. Die Engine hinter der Form (Stand DOC-LOCAL)
+## 10. Die Engine hinter der Form (Stand DOC-WEB)
 
 Der Dienst ist ein **Router**: Format rein, gemessenes Backend raus
 (Bake-off 2026-08-08, Entscheidungs-Doc). Die Form selbst — Felder, Werte,
 Garantien — ist der Vertrag und bleibt bei jedem Backend-Tausch stehen.
+
+**Ein Router, zwei Eingänge (DOC-WEB, 2026-08-21):** derselbe Router
+(`services/document_router.py` — `convert_non_pdf` / `convert_pdf`) treibt
+diesen Dienst **und** den Browser-Knopf `POST /transform-document`. Für
+dieselbe Datei gibt es nur noch *eine* Qualität; das ist strukturell
+garantiert (ein Aufruf, zwei Aufrufer, kein Nachformatieren) und wurde je
+Format byte-identisch belegt. Der Browser unterscheidet sich allein im
+Job-Modell: synchron auf dem einzigen gunicorn-Worker, deshalb mit einer
+benannten Seitengrenze für PDFs (`MAX_SYNC_PDF_PAGES`, gemessen 12 —
+Cloud ≈ 14,7 s/Seite, lokal ≈ 61 s + 2,5 s/Seite) und Verweis auf diesen
+Dienst darüber. Der Browser-Pfad bleibt **kein** Teil dieses Kontrakts
+(JSON `{markdown, filename, degradations}` für die eigene UI, keine
+Herkunft, kein Job).
 
 | Format | Backend | Herkunft in der Antwort |
 |---|---|---|
@@ -323,12 +351,22 @@ fahren.
 Alle Office-/Web-Backends sind modellfrei — `deterministisch` ist dort per
 Konstruktion garantiert, `usage` ein sicheres 0/0.
 
-Der bestehende Web-Pfad `POST /transform-document` ist unberührt und kein
-Teil dieses Kontrakts (er konvertiert weiterhin über unstructured).
+Was mit DOC-WEB **weggefallen** ist (der Eigenbau `services/pdf_extraction/`
+— fünf Tabellen-Detektoren, Ensemble, Multi-Page-Merge — war zuletzt nur
+noch der Motor des Browser-Knopfs, gemessen wertlos: auf `01.gold`
+identisch mit roher Textextraktion bei Tabellenzellen 0,0, auf Klasse 02
+die halbe Wortmenge verloren): Seitentyp-Routing (`native`/`mixed`/
+`scanned` entschied, ob eine Seite einen Vision-Call wert ist — beide
+Engines lesen heute jeden Seitentyp), die seitentyp-abhängige Auflösung
+LOW/HIGH (jetzt einheitlich MEDIUM, der Bake-off-Messwert), der
+Tabellen-Merge über Seitengrenzen (geometrisch, nicht auf Markdown hebbar —
+Backlog DOC-SPAN-MERGE) und eine kosmetische Markdown-Nachbereitung.
 
-Implementierung: `app_pkg/document_api.py` ·
-`services/document_conversions.py` · `services/document_pipeline.py` ·
-`services/office_backends.py` · `services/pdf_cloud.py` ·
-`services/pdf_local.py` · `tasks.convert_document_task`.
-Tests: `tests/test_document_api.py` · `tests/test_office_backends.py` ·
-`tests/test_pdf_cloud.py` · `tests/test_pdf_local.py`.
+Implementierung: `app_pkg/document_api.py` · `app_pkg/documents.py` (Web) ·
+`services/document_router.py` · `services/document_conversions.py` ·
+`services/document_pipeline.py` · `services/office_backends.py` ·
+`services/pdf_cloud.py` · `services/pdf_local.py` ·
+`tasks.convert_document_task`.
+Tests: `tests/test_document_api.py` · `tests/test_documents.py` ·
+`tests/test_office_backends.py` · `tests/test_pdf_cloud.py` ·
+`tests/test_pdf_local.py`.

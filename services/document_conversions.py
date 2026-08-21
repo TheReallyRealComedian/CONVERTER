@@ -98,7 +98,10 @@ UNIT_DOCUMENT = 'document'
 # (backend swap, invocation change, serializer/assembly rule change —
 # DOC-ROUTE included): if a re-submit today would produce a different
 # result, stored rows must stop answering for it.
-DOC_CONVERT_ENGINE_GENERATION = 2
+# Bumps: 2 = DOC-LOCAL (mineru replaces the text layer) · 3 = DOC-WEB (one
+# router for both entrances; scan pages named on the fallback; default mode
+# ``lokal`` — results of mode-less submits change for every PDF).
+DOC_CONVERT_ENGINE_GENERATION = 3
 
 # Namespace directory on the shared volume. Tests monkeypatch THIS module
 # global; every path function below reads it at call time.

@@ -10,10 +10,9 @@ worker, hence the named page limit ``MAX_SYNC_PDF_PAGES``.
 """
 import os
 import tempfile
-from io import BytesIO
 from pathlib import Path
 
-from flask import jsonify, render_template, request, send_file
+from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
@@ -115,19 +114,15 @@ def register(app):
                     "Konvertierung (%s) [%s]: %s",
                     original_filename, entry['code'], entry['message'])
 
-            output_path_obj = Path(original_filename)
-            output_filename = f"{output_path_obj.stem}.md"
-
-            buffer = BytesIO()
-            buffer.write(output_markdown.encode('utf-8'))
-            buffer.seek(0)
-
-            return send_file(
-                buffer,
-                as_attachment=True,
-                download_name=output_filename,
-                mimetype='text/markdown'
-            )
+            # JSON instead of a file download (DOC-WEB P3): the degradations
+            # reach the user, not only the log. The page already built the
+            # download client-side from the response text (Blob), so the
+            # attachment semantics were never used by the UI.
+            return jsonify({
+                'markdown': output_markdown,
+                'filename': f"{Path(original_filename).stem}.md",
+                'degradations': degradations,
+            })
 
         except Exception as e:
             app.logger.error(f"Document conversion failed: {e}", exc_info=True)

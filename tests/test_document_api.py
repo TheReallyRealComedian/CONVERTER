@@ -205,7 +205,7 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
     assert resp.status_code == 202
     body = resp.get_json()
     assert body['status'] == 'pending'
-    assert body['mode'] == 'cloud'  # default without a stored setting
+    assert body['mode'] == 'lokal'  # default without a stored setting (DOC-WEB)
     assert body['job_id'] == 'test-job-123'
     cid = body['id']
 
@@ -220,7 +220,7 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
         assert row.lifecycle_status == 'archive'
         metadata = json.loads(row.metadata_json)
     assert metadata['doc_status'] == 'pending'
-    assert metadata['mode'] == 'cloud'
+    assert metadata['mode'] == 'lokal'
     assert metadata['budget_eur'] == DOC_CONVERT_BUDGET_EUR
     assert metadata['source_format'] == 'pdf'
     assert metadata['page_count'] == 1
@@ -236,9 +236,9 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
     # Enqueue carried the task, the resolved job args and the page-scaled
     # envelope.
     args, kwargs = mock_redis_queue['queue'].enqueue.call_args
-    assert args == (convert_document_task, cid, 'pdf', 'cloud',
+    assert args == (convert_document_task, cid, 'pdf', 'lokal',
                     DOC_CONVERT_BUDGET_EUR, 1)
-    assert kwargs['job_timeout'] == doc_convert_job_timeout_for(1)
+    assert kwargs['job_timeout'] == doc_convert_job_timeout_for(1, 'lokal')
     assert kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': cid}
 
 
@@ -291,18 +291,18 @@ def test_mode_strict_read(app, client, test_user, doc_token,
 def test_mode_default_from_settings(app, authenticated_client, monkeypatch,
                                     mock_redis_queue, doc_convert_dir):
     monkeypatch.delenv('DOC_CONVERT_TOKEN', raising=False)
-    # No stored setting → cloud.
+    # No stored setting → lokal (DOC-WEB default: no money without a choice).
     r1 = _post(authenticated_client, data=_pdf_bytes('Erstes Dokument.'))
-    assert r1.get_json()['mode'] == 'cloud'
+    assert r1.get_json()['mode'] == 'lokal'
     # Stored default flips the resolution for mode-less submits.
-    put = authenticated_client.put(SETTINGS_URL, json={'default_mode': 'lokal'})
+    put = authenticated_client.put(SETTINGS_URL, json={'default_mode': 'cloud'})
     assert put.status_code == 200
     r2 = _post(authenticated_client, data=_pdf_bytes('Zweites Dokument.'))
-    assert r2.get_json()['mode'] == 'lokal'
+    assert r2.get_json()['mode'] == 'cloud'
     # An explicit mode still wins over the default.
     r3 = _post(authenticated_client, data=_pdf_bytes('Drittes Dokument.'),
-               mode='cloud')
-    assert r3.get_json()['mode'] == 'cloud'
+               mode='lokal')
+    assert r3.get_json()['mode'] == 'lokal'
 
 
 # --- P2: settings (own namespace in the shared blob) -----------------------------
@@ -310,7 +310,7 @@ def test_mode_default_from_settings(app, authenticated_client, monkeypatch,
 def test_settings_roundtrip_strict_and_auth(app, authenticated_client,
                                             test_user):
     assert authenticated_client.get(SETTINGS_URL).get_json() == {
-        'default_mode': 'cloud'}
+        'default_mode': 'lokal'}
     # Strict write: unknown key / invalid value / non-object → 400.
     assert authenticated_client.put(
         SETTINGS_URL, json={'default_mode': 'auto'}).status_code == 400
@@ -481,7 +481,7 @@ def test_get_ready_reads_structured_result(app, client, test_user, doc_token,
     assert body['degradations'] == [
         {'code': 'serializer', 'message': 'Tabelle degradiert', 'pages': None}]
     assert body['usage'] == {'model_calls': 0, 'cost_eur': 0.0}
-    assert body['mode'] == 'cloud'
+    assert body['mode'] == 'lokal'  # mode-less submit → DOC-WEB default
     assert body['budget_eur'] == DOC_CONVERT_BUDGET_EUR
     assert body['error'] is None
     assert body['source']['filename'] == 'Bericht.pdf'

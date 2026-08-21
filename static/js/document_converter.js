@@ -169,7 +169,8 @@ document.getElementById('convert-form').addEventListener('submit', async functio
             throw new Error(errData.error || `Conversion failed (${response.status})`);
         }
 
-        const text = await response.text();
+        const data = await response.json();
+        const text = data.markdown || '';
         lastResult = {
             content: text,
             filename: file.name,
@@ -178,6 +179,7 @@ document.getElementById('convert-form').addEventListener('submit', async functio
         };
 
         document.getElementById('result-content').textContent = text;
+        renderDegradations(data.degradations || []);
         resultArea.classList.remove('hidden');
         resultArea.scrollIntoView({behavior: 'smooth', block: 'start'});
     } catch (err) {
@@ -188,6 +190,26 @@ document.getElementById('convert-form').addEventListener('submit', async functio
         dropZone.classList.remove('c-drop-zone--loading');
     }
 });
+
+// Degradation notes from the server (DOC-WEB: what could not be converted
+// cleanly reaches the user, not only the log). DOM nodes, no innerHTML —
+// the messages quote raw tool output.
+function renderDegradations(entries) {
+    const box = document.getElementById('degradation-box');
+    const list = document.getElementById('degradation-list');
+    if (!box || !list) return;
+    list.textContent = '';
+    if (!entries.length) {
+        box.classList.add('hidden');
+        return;
+    }
+    entries.forEach((entry) => {
+        const li = document.createElement('li');
+        li.textContent = entry.message || entry.code || '';
+        list.appendChild(li);
+    });
+    box.classList.remove('hidden');
+}
 
 function downloadResult() {
     if (!lastResult) return;

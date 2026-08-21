@@ -6,14 +6,16 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Install system dependencies required by unstructured.io
+# Install system dependencies required by unstructured.io.
+# ghostscript left with DOC-WEB: camelot was its only user (verified in the
+# container — libreoffice/poppler-data merely *Suggest* it, no python package
+# references the binary).
 RUN apt-get update && apt-get install -y \
     libmagic-dev \
     poppler-utils \
     tesseract-ocr \
     libreoffice \
     ffmpeg \
-    ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 # pandoc from the official release deb, NOT jammy's apt (2.9.2.1): the DOCX

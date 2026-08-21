@@ -74,6 +74,7 @@ from services.document_conversions import (
     DOC_STATUS_READY,
     DOCUMENT_CONVERSION_TYPE,
     MODE_CLOUD,
+    MODE_LOCAL,
     build_doc_metadata,
     discard_job_files,
     doc_metadata,
@@ -97,7 +98,17 @@ logger = logging.getLogger(__name__)
 # is strict, and every write goes through learn.write_settings_keys so neither
 # feature's save can drop the other's keys.
 DOC_API_SETTINGS_NAMESPACE = 'document_api'
-DOC_API_SETTINGS_DEFAULTS = {'default_mode': MODE_CLOUD}
+# Default mode when the user stored no setting — ONE default for BOTH
+# entrances (the API's mode-less submits AND the browser button, DOC-WEB).
+# ``lokal`` since DOC-WEB (Oli's decision on the P2 cost finding): the
+# legacy web path made zero model calls on native text pages, the shared
+# router calls gemini on EVERY page in ``cloud`` — a code default of
+# ``cloud`` would have made the browser button silently cost ~1.5 ct/page
+# for a user who never chose anything. mineru measures 0.9551 against
+# gemini's 0.9809 word-f1 on 01.gold, at 0 € instead of ~1.5 ct/page, and
+# is faster above ~2 pages (61 s + 2.5 s/page vs ~14.7 s/page). Callers who
+# want cloud say so (``mode=cloud``) or store it via PUT …/settings.
+DOC_API_SETTINGS_DEFAULTS = {'default_mode': MODE_LOCAL}
 
 
 def get_doc_api_settings(user):
