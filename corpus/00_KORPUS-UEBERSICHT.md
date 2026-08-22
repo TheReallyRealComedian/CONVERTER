@@ -58,11 +58,23 @@ Damit war die Lage: von den drei Dokumenten für den Scan-/OCR-Pfad (#05, #06, #
 Deshalb liegt in **#05** jetzt eine textebenen-freie Fassung (300 dpi bilevel, aus dem
 600-dpi-Original gerendert; Textebene 0 Zeichen, Bildabdeckung 1,00 → **SCANNED**), und das
 Original bildet als **#14** eine eigene Klasse: *erkennt der Konverter, dass eine vorhandene
-Textebene unbrauchbar ist?* Kein Kandidat des Bestands beantwortet das, und der Fall ist in
-Firmenablagen die Regel.
+Textebene beschädigt ist — oder meldet er es wenigstens?* Kein Kandidat des Bestands
+beantwortet das, und der Fall ist in Firmenablagen die Regel.
+
+⚠️ **Korrektur (DOC-BAKE §2.5, nachgemessen KLEINKRAM 2026-08-22):** die ursprüngliche
+Prämisse „mit englischem Modell erzeugt, jeden Umlaut verloren" ist falsch. Die eingebackene
+Ebene trägt **549 korrekte Umlaute** (`für` 17/0, `über` 14/3, `Ästhetik` 30×) und ist zu
+~98 % richtig; systematisch fehlt nur das **Großbuchstaben-Ü** (1× in der Ebene gegen 12
+„Über…"-Wörter im Bild: `Uberlieferung` S. 3, `ffberwältigung` S. 6, `tfberltgenheit` S. 11 …),
+dazu 2× `Asthetik` im Titelschnitt (S. 2 Titelzeile, S. 14 Kolumnentitel), 1× `Bsthetik` (S. 8),
+die Zitatstelle `8.167` statt `S. 157` (S. 15, am Bild geprüft) und ~100 Einzelbrüche
+(`rn`→`m`, Leerzeichen im Wort, Dreher). **Messungen gegen #14 nutzen die Bruchstellen-Anker
+aus der README der Klasse, nicht eine Umlaut-Quote** — die bescheinigt der Ebene fälschlich
+Gesundheit.
 
 Gegengemessen am selben Bild: `tesseract -l deu` → `Ästhetik` ✅, `-l eng` → `Asthetik` ✗.
-Der Raster ist also gut genug; wer hier scheitert, scheitert am Sprachmodell.
+Das belegt, dass der **Raster** gut genug ist — nicht, dass die Ebene mit einem englischen
+Modell entstand (dagegen sprechen die 549 Umlaute).
 
 ## B — Betrieblicher Satz
 
