@@ -1946,6 +1946,18 @@ body.reader-active .sidebar-toggle-floater--global {
     color: var(--nm-text-muted);
 }
 .review-scope__select { max-width: 100%; }
+/* LEARN-HINT-WEB (KLEINKRAM, 2026-08-22): was der gewaehlte Modus tut, als
+   sichtbare Zeile unter der Reihe (flex-basis: 100% bricht sie aus der
+   Flex-Reihe heraus) statt als title-Tooltip, den Touch nie zeigt. Auf
+   --nm-text-secondary, nicht muted: erklaerender Text darf nicht der
+   schlechtest lesbare der Seite sein (LEARN-RATE, gemessen 2,4:1 vs 4,14:1). */
+.review-order-hint {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    color: var(--nm-text-secondary);
+}
 .review-scope-list {
     display: inline-flex;
     flex-wrap: wrap;

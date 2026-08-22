@@ -596,6 +596,16 @@
             if (typeof data.daily_new_limit === 'number') limitNewInput.value = data.daily_new_limit;
             if (typeof data.daily_review_limit === 'number') limitReviewsInput.value = data.daily_review_limit;
         } catch (e) { /* non-fatal */ }
+        renderOrderHint();  // whatever the select ended up showing, explain it
+    }
+
+    // LEARN-HINT-WEB: the explanation of the selected ordering mode lives in
+    // the template (both texts, verbatim from iOS); this only toggles which
+    // one is visible. No title tooltip — touch has no hover.
+    function renderOrderHint() {
+        document.querySelectorAll('[data-order-hint]').forEach((el) => {
+            el.classList.toggle('hidden', el.dataset.orderHint !== orderSelect.value);
+        });
     }
 
     async function putLearnSetting(patch, errorText) {
@@ -617,6 +627,7 @@
     }
 
     function onOrderChange() {
+        renderOrderHint();
         putLearnSetting({ ordering_mode: orderSelect.value },
             'Reihenfolge konnte nicht gespeichert werden.');
     }

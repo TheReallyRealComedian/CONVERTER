@@ -26,10 +26,19 @@
             </div>
             <label for="review-order-select" class="review-scope__label">Reihenfolge</label>
             <select id="review-order-select" class="c-input review-scope__select"
-                    title="Smart: Wackligste zuerst, Neues eingestreut. Zufällig: alles gemischt.">
+                    aria-describedby="review-order-hint">
                 <option value="smart">Wackligste zuerst</option>
                 <option value="random">Zufällig</option>
             </select>
+            <!-- LEARN-HINT-WEB (KLEINKRAM): was der Modus tut, SICHTBAR — kein
+                 title-Tooltip (auf Touch unsichtbar; genau diese Stille hat Olis
+                 ordering_mode=random monatelang verborgen). Beide Texte sind die
+                 iOS-Texte (LearnSettings.swift), woertlich — ein Schalter, eine
+                 Erklaerung auf beiden Geraeten. review.js blendet den passenden ein. -->
+            <p id="review-order-hint" class="review-order-hint" aria-live="polite">
+                <span data-order-hint="smart">Gelernte Karten nach Dringlichkeit — die wackligsten zuerst. Neue Karten kommen in der Reihenfolge dran, in der sie angelegt wurden.</span>
+                <span data-order-hint="random" class="hidden">Mischt beide Töpfe vollständig. Auch neue Karten kommen dann in zufälliger Reihenfolge statt in der, in der sie angelegt wurden.</span>
+            </p>
         </div>
 
         <!-- Tageslimits (LEARN-UP P3) + Nach-Cap-Zähler. Berlin-Lokaltag. -->
