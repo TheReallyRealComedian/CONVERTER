@@ -140,8 +140,9 @@ def _parse_owned(raw, model):
 # writers on ONE card at the same instant — every conflict costs one more
 # round-trip, the last of N needs up to N attempts). Sized at the 8 writers
 # of the measurement rig (= WEB_SYNC_THREADS, more simultaneous writers than
-# one process can hold); P2 burst: 3,200 ratings from 8 writers over 40
-# cards, 0 × 409.
+# one process can hold). Measured, P2 (scripts/verify_concurrency.py, 2 runs
+# × 3,200 ratings from 8 writers over 40 cards, 2 processes × 8 threads):
+# 425 conflicts — 375 resolved on attempt 2, 44 on 3, 6 on 4; 0 × 409.
 REVIEW_WRITE_ATTEMPTS = 8
 
 
