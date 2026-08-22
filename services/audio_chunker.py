@@ -45,6 +45,12 @@ class AudioChunker:
         self.chunk_duration_ms = chunk_duration_seconds * 1000
         self.overlap_ms = overlap_seconds * 1000
         self.max_file_size_bytes = max_file_size_mb * 1024 * 1024
+        # The probe copy needs_splitting() may hand over to split_audio().
+        # Non-None ONLY between a needs_splitting() that said "split" and the
+        # split_audio() that consumes (and deletes) it — see AUDIO-TMP-LEAK.
+        self._tmp_path: Optional[str] = None
+        self._tmp_owned = False
+        self._total_duration_ms = 0
 
     def _get_audio_metadata(self, file_path: str) -> dict:
         """Get audio metadata using ffprobe (no RAM overhead)."""
@@ -112,10 +118,21 @@ class AudioChunker:
             else:
                 logger.info(f"Audio within limits, no splitting needed: {metadata}")
 
-            # Store temp path and duration for split_audio to reuse
-            self._tmp_path = tmp_path
-            self._total_duration_ms = duration_ms
-            self._tmp_owned = True  # We own the temp file
+            if needs_split:
+                # Hand the probe copy over to split_audio(), which reads it as
+                # ffmpeg input and deletes it in its own ``finally``.
+                self._tmp_path = tmp_path
+                self._total_duration_ms = duration_ms
+                self._tmp_owned = True  # We own the temp file
+            else:
+                # AUDIO-TMP-LEAK: nothing reads this copy again — split_audio()
+                # only runs on the split path. Delete it HERE, at the place that
+                # created it; retaining it unconditionally leaked one
+                # /tmp/tmp*.audio (22–91 MB) per ≤ 90-min transcription, i.e.
+                # per normal job, until the next container restart.
+                os.unlink(tmp_path)
+                self._tmp_path = None
+                self._tmp_owned = False
 
             return needs_split, metadata
 
@@ -135,10 +152,10 @@ class AudioChunker:
             List[AudioChunk]: Liste der Audio-Chunks
         """
         # Use cached temp file from needs_splitting if available
-        if hasattr(self, '_tmp_path') and self._tmp_path and os.path.exists(self._tmp_path):
+        if self._tmp_path and os.path.exists(self._tmp_path):
             input_path = self._tmp_path
             total_duration_ms = self._total_duration_ms
-            owns_file = getattr(self, '_tmp_owned', False)
+            owns_file = self._tmp_owned
         else:
             # Fallback: write to temp file
             tmp_fd, input_path = tempfile.mkstemp(suffix='.audio')
