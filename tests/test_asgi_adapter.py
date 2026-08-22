@@ -11,6 +11,8 @@ the keep-alive leak (next request started from inside the previous request's
 raises. Both behaviours are shown against the stock adapter as the contrast.
 """
 import asyncio
+import re
+import threading
 import time
 
 import pytest
@@ -108,10 +110,31 @@ def test_stock_adapter_serialises_the_same_views():
     assert wall >= 0.85, f'stock adapter overlapped ({wall:.2f} s)?'
 
 
-def _run_keep_alive_pair(adapter):
+# TEST-HANG-KEEPALIVE (KLEINKRAM, 2026-08-22): the stock adapter's leak has
+# TWO manifestations — the 500 ('would deadlock' / 'CurrentThreadExecutor …')
+# and a follow-up request that is never answered (SYNC-FREEZE measured both
+# on the live instance). The sentinel below used to know only the first: in
+# the container it hit the hang in 3 of 4 runs and blocked the whole suite,
+# on Python 3.10 and 3.12 alike. A hanging test is worse than a failing one,
+# so the pair runs under a deadline and its expiry COUNTS as the leak.
+KEEP_ALIVE_DEADLINE_SECONDS = 5.0
+
+
+class KeepAliveHang(Exception):
+    """The keep-alive pair did not return within the deadline — the silent
+    manifestation of the leak."""
+
+
+def _run_keep_alive_pair(adapter, deadline=None):
     """Request 2 is created as a task from inside request 1's final send —
     the position uvicorn's ``on_response_complete`` starts the next cycle
-    of a keep-alive connection from (pipelined / fast-follow request)."""
+    of a keep-alive connection from (pipelined / fast-follow request).
+
+    With ``deadline`` the pair runs on a daemon thread and is abandoned
+    there if it does not return in time (``KeepAliveHang``). A thread join
+    is the only timeout that covers both shapes of a hang: an in-loop
+    ``asyncio.wait_for`` never fires when the loop itself is the thing
+    that is stuck."""
     async def pair():
         second = []
 
@@ -121,7 +144,25 @@ def _run_keep_alive_pair(adapter):
         first = await _request(adapter, on_complete=start_second)
         return _status(first), await second[0]
 
-    return asyncio.run(pair())
+    if deadline is None:
+        return asyncio.run(pair())
+
+    outcome = {}
+
+    def run():
+        try:
+            outcome['result'] = asyncio.run(pair())
+        except BaseException as exc:  # re-raised on the caller's thread below
+            outcome['error'] = exc
+
+    worker = threading.Thread(target=run, name='keep-alive-pair', daemon=True)
+    worker.start()
+    worker.join(deadline)
+    if worker.is_alive():
+        raise KeepAliveHang(f'keep-alive pair still running after {deadline:g} s')
+    if 'error' in outcome:
+        raise outcome['error']
+    return outcome['result']
 
 
 def test_keep_alive_follow_up_request_survives_on_the_pool():
@@ -132,8 +173,21 @@ def test_keep_alive_follow_up_request_survives_on_the_pool():
 
 
 def test_stock_adapter_leaks_its_context_into_the_follow_up_request():
-    """The defect, reproduced without a server: asgiref 3.8.1 raises
-    'Single thread executor already being used, would deadlock'."""
+    """The defect, reproduced without a server, in BOTH of its shapes: asgiref
+    3.8.1 either raises 'Single thread executor already being used, would
+    deadlock' (3.12.1: 'CurrentThreadExecutor already quit or is broken') or
+    never answers the follow-up request at all — which shape you get is a
+    race (the Mac always raises, the container mostly hangs). A clean pass
+    is the failure here: it would mean the leak is gone and the sentinel —
+    and the pool adapter's reason to exist — must be re-examined."""
     adapter = WsgiToAsgi(_tiny_app(0.0))
-    with pytest.raises(RuntimeError, match='deadlock|CurrentThreadExecutor'):
-        _run_keep_alive_pair(adapter)
+    try:
+        _run_keep_alive_pair(adapter, deadline=KEEP_ALIVE_DEADLINE_SECONDS)
+    except RuntimeError as exc:
+        assert re.search('deadlock|CurrentThreadExecutor', str(exc)), exc
+        print('leak manifestation: RuntimeError (the 500)')   # visible via -rP
+    except KeepAliveHang as exc:
+        print(f'leak manifestation: hang ({exc})')             # visible via -rP
+    else:
+        pytest.fail('stock adapter served the keep-alive follow-up cleanly — '
+                    'leak gone? re-measure before touching the pool adapter')
