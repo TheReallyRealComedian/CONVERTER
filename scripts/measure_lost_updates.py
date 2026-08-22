@@ -226,6 +226,7 @@ def measure_section(base, card_token, conversion_id, rounds, writers):
     content_url = f'{base}/api/conversions/{conversion_id}/content'
     section_url = f'{base}/api/conversions/{conversion_id}/section'
     statuses, latencies, lost = {}, [], []
+    refused_total = 0
     t_start = time.monotonic()
     for r in range(rounds):
         reset = requests.patch(content_url, json={'content': base_doc}, headers=headers,
@@ -243,14 +244,20 @@ def measure_section(base, card_token, conversion_id, rounds, writers):
                     headers=headers, timeout=TIMEOUT).status_code
             return lambda: timed(go)
 
-        for status, secs in fire_together([writer(n) for n in names]):
+        outcomes = fire_together([writer(n) for n in names])
+        for status, secs in outcomes:
             tally(statuses, status)
             latencies.append(secs)
         # sequential read-back through the sentinel section (token surface has no GET)
         read = requests.patch(section_url, json={'heading': 'Z', 'content': f'## Z\nread {r}'},
                               headers=headers, timeout=TIMEOUT)
         content = read.json().get('content', '') if read.status_code == 200 else ''
-        missing = [n for n in names if f'round {r} writer {n}' not in content]
+        # A write is LOST when the server said 200 and the marker is gone. A
+        # 409 (LOST-UPDATE P3: the bounded retry gave up) is an honest refusal,
+        # counted separately — the agent was told, nothing vanished.
+        missing = [n for (status, _s), n in zip(outcomes, names)
+                   if status == 200 and f'round {r} writer {n}' not in content]
+        refused_total += sum(1 for status, _s in outcomes if status == 409)
         if missing:
             lost.append({'round': r, 'missing': missing})
     wall = time.monotonic() - t_start
@@ -260,15 +267,16 @@ def measure_section(base, card_token, conversion_id, rounds, writers):
           f'sections at once, {wall:.1f} s')
     print(f'  statuses={statuses}  latency {latency_line(latencies)}')
     print(f'  rounds with a lost section: {len(lost)} of {rounds} — '
-          f'{total_missing} of {rounds * writers} section writes lost')
+          f'{total_missing} of {rounds * writers} section writes lost (200 but gone), '
+          f'{refused_total} refused honestly (409)')
     if lost:
         per_round = [len(e['missing']) for e in lost]
         print(f'    sections lost per affected round: min {min(per_round)} · '
               f'median {statistics.median(per_round)} · max {max(per_round)}')
     return {'rounds': rounds, 'writers': writers, 'statuses': statuses,
             'wall_s': round(wall, 1), 'lost_rounds': len(lost),
-            'lost_writes': total_missing, 'lost': lost, 'latencies': latencies,
-            'conversion_id': conversion_id}
+            'lost_writes': total_missing, 'refused': refused_total, 'lost': lost,
+            'latencies': latencies, 'conversion_id': conversion_id}
 
 
 # --- main ---------------------------------------------------------------------

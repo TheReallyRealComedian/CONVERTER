@@ -277,6 +277,15 @@ def _run_pending_migrations(app):
             # starts with an empty list. Idempotent via the column guard above.
             db.session.commit()
             app.logger.info("R2-D: conversion.queue_position added via ALTER TABLE")
+        if 'content_version' not in cols:
+            # LOST-UPDATE: content-bound optimistic-locking counter
+            # (models.Conversion.content_version). NOT NULL needs the DEFAULT
+            # so SQLite backfills every legacy row with 1 — the INSERT value;
+            # NULL would make the conditional section UPDATE miss forever.
+            db.session.execute(text(
+                'ALTER TABLE conversion ADD COLUMN content_version INTEGER NOT NULL DEFAULT 1'))
+            db.session.commit()
+            app.logger.info("LOST-UPDATE: conversion.content_version column added via ALTER TABLE")
     if 'user' in inspector.get_table_names():
         cols = {c['name'] for c in inspector.get_columns('user')}
         if 'settings_json' not in cols:
@@ -452,6 +461,12 @@ def _register_cli_commands(app):
         """Setzt die bewerteten Karten EINER Sammlung auf "neu" zurueck.
 
         COLLECTION ist der Name ODER die id der Sammlung.
+
+        LOST-UPDATE: die Review-Zeilen sind versioniert (``Review.version``).
+        Landet waehrend des Laufs eine Bewertung auf einer der Karten, bricht
+        ``--apply`` mit ``StaleDataError`` ab — nichts ist geschrieben (EIN
+        Commit), Lauf wiederholen. Gewollt: kein Retry fuer ein einmaliges
+        Werkzeug.
 
         LEARN-BACK: einmalige Korrektur vergifteter Scheduling-Daten, KEIN
         wiederkehrendes Werkzeug (deshalb CLI und kein Endpoint/kein Knopf).

@@ -548,7 +548,8 @@ def register(app):
         if 'title' in data:
             conversion.title = str(data['title'])[:255]
         if 'content' in data:
-            conversion.content = data['content']
+            # LOST-UPDATE: every content writer bumps content_version.
+            conversion.set_content(data['content'])
         if 'is_favorite' in data:
             conversion.is_favorite = bool(data['is_favorite'])
         if 'lifecycle_status' in data:

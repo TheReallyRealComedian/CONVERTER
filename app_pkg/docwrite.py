@@ -18,8 +18,19 @@ is 404 (never leak existence, never 403/400). Both views are CSRF-exempt
 (session-less Bearer writes carry no CSRF token). The session/CSRF-protected
 ``PUT /api/conversions/<id>`` (the UI/editor path) is deliberately untouched —
 these are separate sub-paths so there's no method+path clash.
+
+LOST-UPDATE: the section replace is the one read-modify-write over
+``content`` (the new section is spliced into the text that was READ). It
+writes through a conditional UPDATE on ``Conversion.content_version`` — the
+counter every content writer bumps via ``Conversion.set_content`` — and on a
+miss re-reads and re-splices into the other writer's text (bounded, then an
+honest 409). Measured in P1 without it: 8 agents on their own sections of
+one document lost 660 of 800 writes at 800 × HTTP 200.
 """
+import logging
+
 from flask import jsonify, request
+from sqlalchemy import update
 
 from models import Conversion, db
 from services.markdown_sections import (
@@ -32,6 +43,16 @@ from services.markdown_sections import (
 # INGEST_USER target) and the non-blank-string check — single source of truth,
 # no churn on cards.py. The alias reads neutrally at the use site.
 from .cards import _authorize_card_write as _authorize_agent_write, _nonblank
+
+logger = logging.getLogger(__name__)
+
+# LOST-UPDATE: attempts the section replace makes before it reports a content
+# conflict as 409 — same rationale and size as cards.REVIEW_WRITE_ATTEMPTS:
+# one agent edits one document at a time, the bound is for the pathological
+# burst (N writers on ONE document at the same instant need up to N attempts
+# for the last one). Measured, P3 (scripts/measure_lost_updates.py --section,
+# 100 rounds × 8 writers on one document): see the sprint report.
+CONTENT_WRITE_ATTEMPTS = 8
 
 
 def register(app):
@@ -56,7 +77,10 @@ def register(app):
         if not _nonblank(content):
             return jsonify({'error': 'Feld content (nicht-leerer Text) erwartet.'}), 400
 
-        conv.content = content
+        # A full replacement overwrites by intent — no condition, but it bumps
+        # the content version so a section replace that read the OLD text
+        # cannot splice into it and resurrect it.
+        conv.set_content(content)
         db.session.commit()  # updated_at bumps via the column onupdate
         return jsonify(conv.to_dict())
 
@@ -79,16 +103,42 @@ def register(app):
         if not _nonblank(heading) or not _nonblank(content):
             return jsonify({'error': 'Felder heading und content (nicht-leerer Text) erwartet.'}), 400
 
-        try:
-            new_text = replace_section(conv.content, heading, content)
-        except SectionNotFound:
-            return jsonify({'error': 'Abschnitt nicht gefunden.'}), 404
-        except SectionAmbiguous:
-            return jsonify({'error': 'Abschnitt mehrdeutig (mehrere Headings gleichen Texts).'}), 409
+        # LOST-UPDATE: splice into the text we READ, write only if nobody
+        # changed the content in between (content_version unchanged since the
+        # read); otherwise re-read and splice into the OTHER writer's text.
+        # A Core UPDATE with the condition in its WHERE — not a mapper-wide
+        # version on Conversion, which would make progress/place/reconcile
+        # writes of the same row collide with content edits.
+        tbl = Conversion.__table__
+        for attempt in range(1, CONTENT_WRITE_ATTEMPTS + 1):
+            if attempt > 1:
+                db.session.rollback()  # forget the stale row; the re-query reads fresh
+                conv = Conversion.query.filter_by(id=conversion_id, user_id=target.id).first()
+                if conv is None:
+                    return jsonify({'error': 'Nicht gefunden.'}), 404
+            try:
+                new_text = replace_section(conv.content, heading, content)
+            except SectionNotFound:
+                return jsonify({'error': 'Abschnitt nicht gefunden.'}), 404
+            except SectionAmbiguous:
+                return jsonify({'error': 'Abschnitt mehrdeutig (mehrere Headings gleichen Texts).'}), 409
 
-        conv.content = new_text
-        db.session.commit()
-        return jsonify(conv.to_dict())
+            loaded = conv.content_version
+            matched = db.session.execute(
+                update(tbl)
+                .where(tbl.c.id == conv.id, tbl.c.content_version == loaded)
+                .values(content=new_text, content_version=loaded + 1)
+            ).rowcount
+            if matched == 1:
+                db.session.commit()  # expires conv → to_dict reloads the written row
+                return jsonify(conv.to_dict())
+            logger.info('Content write conflict on conversion %s (attempt %d of %d)',
+                        conversion_id, attempt, CONTENT_WRITE_ATTEMPTS)
+        db.session.rollback()
+        logger.warning('Content write on conversion %s gave up after %d conflicts',
+                       conversion_id, CONTENT_WRITE_ATTEMPTS)
+        return jsonify({'error': 'Das Dokument wurde gerade gleichzeitig geändert. '
+                                 'Bitte noch einmal schreiben.'}), 409
 
     # Token-authed, session-less writes carry no CSRF cookie → waive CSRF for
     # these two views only (the session PUT stays under the global CSRFProtect).

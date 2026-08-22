@@ -318,7 +318,15 @@
                 body: JSON.stringify({ rating }),
             });
             const updated = await safeJSON(resp);
-            if (!resp.ok) throw new Error('rate failed');
+            if (!resp.ok) {
+                // LOST-UPDATE: a 409 ("gerade gleichzeitig bewertet … noch
+                // einmal bewerten") is our own status with a precise server
+                // sentence — carry it to the alert. Every other failure keeps
+                // the generic line in the catch below.
+                const err = new Error('rate failed');
+                err.serverMessage = (updated && typeof updated.error === 'string') ? updated.error : '';
+                throw err;
+            }
             // Load-bearing (LEARN-COUNT): the response is the updated card,
             // incl. the NEW review.due. A card leaves the pool only when that
             // due lies beyond TODAY'S day end — the counters mean "what's
@@ -334,7 +342,7 @@
             if (!stillDue) decrementPoolCounts(card);
             advance();
         } catch (e) {
-            showAlert(alertContainer(), 'danger',
+            showAlert(alertContainer(), 'danger', e.serverMessage ||
                 'Bewertung fehlgeschlagen. Verbindung prüfen und erneut versuchen.');
         } finally {
             busy = false;
@@ -392,8 +400,15 @@
             // DELETE rides the global fetch wrapper for X-CSRFToken (state-changing);
             // a raw fetch would 400. Owner-scoped server-side (404 on foreign/missing).
             const resp = await fetch(`/api/cards/${card.id}`, { method: 'DELETE' });
-            await safeJSON(resp);
-            if (!resp.ok) throw new Error();
+            const body = await safeJSON(resp);
+            if (!resp.ok) {
+                // LOST-UPDATE: the 409 ("gerade bewertet … noch einmal
+                // löschen") carries its own sentence — show it, not the
+                // generic toast.
+                const err = new Error('delete failed');
+                err.serverMessage = (body && typeof body.error === 'string') ? body.error : '';
+                throw err;
+            }
             // The card is GONE (not rated) — drop it from the queue and the due
             // counter, keeping `index` so the next card shifts into this slot.
             // A deleted due card left the pool too → same pill/cap decrements
@@ -411,7 +426,8 @@
                 renderCard(currentCard());
             }
         } catch (e) {
-            showToast('Karte konnte nicht gelöscht werden. Erneut versuchen.', { level: 'danger' });
+            showToast(e.serverMessage || 'Karte konnte nicht gelöscht werden. Erneut versuchen.',
+                      { level: 'danger' });
         } finally {
             busy = false;
         }

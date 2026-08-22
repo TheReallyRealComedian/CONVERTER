@@ -102,11 +102,28 @@ class Conversion(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
+    # LOST-UPDATE: content-bound optimistic-locking counter — bumped by EVERY
+    # writer of ``content`` (set_content) and checked by the one
+    # read-modify-write over it (docwrite section replace, conditional UPDATE).
+    # Deliberately NOT a mapper-wide version_id_col: progress, /place, tags and
+    # the job reconciles write OTHER columns of this row and must not collide
+    # with a content edit — under a row-wide version they would.
+    content_version = db.Column(db.Integer, nullable=False, default=1, server_default='1')
 
     highlights = db.relationship('Highlight', backref='conversion',
                                  cascade='all, delete-orphan', lazy='dynamic')
     tag_refs = db.relationship('Tag', secondary=conversion_tags, lazy='joined',
                                backref=db.backref('conversions', lazy='dynamic'))
+
+    def set_content(self, text):
+        """Replace ``content`` and bump ``content_version`` IN THE DATABASE
+        (``content_version + 1`` as a SQL expression, never loaded+1 — two
+        writers bumping at once must not both produce the same number and
+        hide each other from the conditional section UPDATE). Every content
+        writer goes through here; persistent rows only (new rows start at 1
+        via the column default)."""
+        self.content = text
+        self.content_version = Conversion.content_version + 1
 
     def to_dict(self):
         return {

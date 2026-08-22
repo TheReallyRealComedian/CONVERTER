@@ -324,7 +324,8 @@ def reconcile_document_conversion(conversion):
             # unparseable result is a defect; keep the file for diagnosis.
             _fail_document_conversion(conversion, metadata, 'Ergebnisdatei unlesbar.')
             return
-        conversion.content = payload.get('markdown') or ''
+        # LOST-UPDATE: content writers bump content_version.
+        conversion.set_content(payload.get('markdown') or '')
         metadata['doc_status'] = DOC_STATUS_READY
         # Result fields from the worker's build_result_payload shape; lightly
         # type-guarded (the payload is our own task's, not user input).

@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 
 from flask import jsonify, request
 from flask_login import current_user, login_required
+from sqlalchemy import text
 
 from models import Card, Review, User, db
 from services.scheduler import _parse_retention
@@ -89,24 +90,42 @@ def local_day_end(now=None, days_ahead=0):
 
 
 def write_settings_keys(user, updates):
-    """Merge ``updates`` into the user's raw settings blob, preserving the rest.
+    """Merge ``updates`` into the user's raw settings blob ATOMICALLY, preserving
+    the rest.
 
     ``User.settings_json`` is shared by features with disjoint key spaces
     (learn keys flat, DOC-API under the ``document_api`` namespace key). Every
     writer must go through this merge: a plain ``json.dumps(own_keys)`` would
-    silently drop the other feature's settings on each save. Lenient on a
-    missing/corrupt blob (starts fresh), does NOT commit — the caller owns the
-    transaction.
+    silently drop the other feature's settings on each save.
+
+    LOST-UPDATE: the merge is ONE UPDATE with SQLite's ``json_patch`` (RFC
+    7396) — it happens in the database under its write lock, so two writers
+    of different namespaces cannot overwrite each other (the former in-memory
+    ``dict.update`` over the loaded row lost a write in 125 of 200 concurrent
+    rounds and VANISHED a whole namespace in 30 of 30 first writes). No read,
+    no version, no retry. Two semantic differences to ``dict.update``,
+    deliberate and documented:
+
+    * a ``None`` value DELETES its key (RFC 7396 null) instead of storing
+      null — observably the same for every reader (stored null = "invalid →
+      default", absent = "absent → default"); no caller passes None today.
+    * objects merge RECURSIVELY: ``{'document_api': {...}}`` overlays the
+      stored namespace instead of replacing it, so sub-keys not in the update
+      survive. Both callers write their FULL key set, so the known keys end
+      up identical; only unknown sub-keys now persist where they were wiped
+      (readers drop unknown keys anyway).
+
+    Lenient on a missing/corrupt/non-object blob (starts fresh, as before).
+    ``user`` must be a session-attached User (the in-memory attribute is
+    expired so it re-reads the merged blob). Does NOT commit — the caller
+    owns the transaction.
     """
-    raw = getattr(user, 'settings_json', None)
-    try:
-        stored = json.loads(raw) if raw else {}
-    except (ValueError, TypeError):
-        stored = {}
-    if not isinstance(stored, dict):
-        stored = {}
-    stored.update(updates)
-    user.settings_json = json.dumps(stored)
+    db.session.execute(
+        text('UPDATE "user" SET settings_json = json_patch('
+             "CASE WHEN json_valid(settings_json) AND json_type(settings_json) = 'object' "
+             "THEN settings_json ELSE '{}' END, :updates) WHERE id = :uid"),
+        {'updates': json.dumps(updates), 'uid': user.id})
+    db.session.expire(user, ['settings_json'])
 
 
 def get_user_settings(user):

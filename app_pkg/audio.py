@@ -152,7 +152,7 @@ def reconcile_transcription(conversion):
             _fail_transcription(conversion, metadata, 'Ergebnisdatei unlesbar.')
             return
         transcript = payload.get('transcript') or ''
-        conversion.content = transcript
+        conversion.set_content(transcript)  # LOST-UPDATE: content writers bump content_version
         metadata['transcription_status'] = STATUS_READY
         metadata['transcript_length'] = len(transcript)
         if payload.get('file_size_mb') is not None:
