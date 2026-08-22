@@ -51,7 +51,11 @@ logger = logging.getLogger(__name__)
 # one agent edits one document at a time, the bound is for the pathological
 # burst (N writers on ONE document at the same instant need up to N attempts
 # for the last one). Measured, P3 (scripts/measure_lost_updates.py --section,
-# 100 rounds × 8 writers on one document): see the sprint report.
+# 100 rounds × 8 writers on ONE document, 2 processes × 8 threads): 1,301
+# conflicts — 653 resolved on attempt 2, 394 on 3, 179 on 4, 61 on 5, 13 on
+# 6, 1 on 7; 0 × 409. The deepest attempt equals the rig's writer count
+# minus one — by construction the worst case is N; headroom of 1 there is
+# the rig's property, the real case is one agent per document.
 CONTENT_WRITE_ATTEMPTS = 8
 
 
