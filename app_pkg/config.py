@@ -153,23 +153,3 @@ DOC_CONVERT_BUDGET_EUR = _env_positive_float('DOC_CONVERT_BUDGET_EUR', 1.0)
 # price change never needs a code change.
 DOC_CONVERT_CLOUD_CENT_PER_PAGE = _env_positive_float(
     'DOC_CONVERT_CLOUD_CENT_PER_PAGE', 1.48)
-
-
-# --- DOC-WEB: the synchronous page limit of the browser button ---------------
-#
-# ``/transform-document`` runs the PDF engines INLINE in the request — on the
-# one gunicorn worker (``--workers 1 --timeout 1800``), so every other
-# request (library, review, iOS app) waits behind it. The limit is a NAMED
-# page count with a clear message pointing to the async service, not a
-# timeout that tears the result at 1800 s.
-#
-# MEASURED on the Mintbox through the web route (DOC-WEB P2, 2026-08-21):
-#   cloud (gemini, sequential 1-page calls): 2 pages 26.9 s · 12 pages 177 s
-#                                            → 13.5–14.7 s/page
-#   lokal (mineru sibling container):        2 pages 66 s · 15-page scan 86 s
-#                                            → ~61 s start + ~2.5 s/page
-# 12 pages is the largest measured run (cloud ≈ 3 min of a frozen worker);
-# 20 pages would already mean ≈ 5 min. The value bounds the cloud mode
-# (lokal is cheaper per page above ~2 pages and stays under 2 min). The
-# service (``POST /api/document-conversions``) has no such limit.
-MAX_SYNC_PDF_PAGES = int(os.environ.get('MAX_SYNC_PDF_PAGES') or 12)

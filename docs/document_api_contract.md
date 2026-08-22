@@ -303,18 +303,26 @@ Der Dienst ist ein **Router**: Format rein, gemessenes Backend raus
 (Bake-off 2026-08-08, Entscheidungs-Doc). Die Form selbst — Felder, Werte,
 Garantien — ist der Vertrag und bleibt bei jedem Backend-Tausch stehen.
 
-**Ein Router, zwei Eingänge (DOC-WEB, 2026-08-21):** derselbe Router
-(`services/document_router.py` — `convert_non_pdf` / `convert_pdf`) treibt
-diesen Dienst **und** den Browser-Knopf `POST /transform-document`. Für
-dieselbe Datei gibt es nur noch *eine* Qualität; das ist strukturell
-garantiert (ein Aufruf, zwei Aufrufer, kein Nachformatieren) und wurde je
-Format byte-identisch belegt. Der Browser unterscheidet sich allein im
-Job-Modell: synchron auf dem einzigen gunicorn-Worker, deshalb mit einer
-benannten Seitengrenze für PDFs (`MAX_SYNC_PDF_PAGES`, gemessen 12 —
-Cloud ≈ 14,7 s/Seite, lokal ≈ 61 s + 2,5 s/Seite) und Verweis auf diesen
-Dienst darüber. Der Browser-Pfad bleibt **kein** Teil dieses Kontrakts
-(JSON `{markdown, filename, degradations}` für die eigene UI, keine
-Herkunft, kein Job).
+**Ein Router, zwei Eingänge (DOC-WEB, 2026-08-21; Job-Modell seit
+DOC-WEB-ASYNC, 2026-08-22):** derselbe Router (`services/document_router.py`
+— `convert_non_pdf` / `convert_pdf`) treibt diesen Dienst **und** den
+Browser. Für dieselbe Datei gibt es nur noch *eine* Qualität; das ist
+strukturell garantiert (ein Aufruf, zwei Aufrufer, kein Nachformatieren)
+und wurde je Format byte-identisch belegt. **Browser-PDFs sind seit
+DOC-WEB-ASYNC Aufträge dieses Dienstes**: die Seite reicht sie
+session-authentifiziert (Cookie + CSRF-Header) an
+`POST /api/document-conversions` ein und pollt `GET …/<id>` — ohne
+`mode`-Feld, der Default aus §6 gilt; `deduped`, `degradations` und `error`
+aus der Antwort werden dort angezeigt. Eine Seitengrenze gibt es **nicht**
+mehr (die frühere `MAX_SYNC_PDF_PAGES=12` schützte den einzigen
+gunicorn-Worker vor einer synchronen Konvertierung; Messung 2026-08-21: er
+bediente währenddessen *nichts* — nur der Auftrag gibt ihn frei). Nur die
+Nicht-PDF-Formate laufen weiter synchron über `POST /transform-document`
+(Sekunden, kein Container); dieser Sync-Pfad bleibt **kein** Teil dieses
+Kontrakts (JSON `{markdown, filename, degradations}` für die eigene UI,
+keine Herkunft, kein Job). Folge für die Library: jede Browser-PDF-
+Umwandlung ist eine `document_conversion`-Zeile (Archiv, wie jeder
+Dienst-Auftrag).
 
 | Format | Backend | Herkunft in der Antwort |
 |---|---|---|
@@ -341,7 +349,12 @@ Socket-Vertrauensstellung. Das Image ist per Tag gepinnt
 (`mineru:3.4.4`, Image-ID `6cc9e57ff5bd`, kein Registry-Digest — lokal
 geladen); ein stiller `latest`-Rebuild trägt den Tag nicht und fällt
 kontrolliert auf die Textebene statt still eine ungemessene Engine zu
-fahren.
+fahren. ⚠️ **Nur der Worker hält den Socket** (DOC-WEB-ASYNC, 2026-08-22):
+der aus dem Internet erreichbare Web-Container mountet weder Socket noch
+Exchange-Bind und trägt keine `MINERU_*`/`DOC_LOCAL_*`-Verdrahtung —
+Browser-PDFs erreichen die Engine ausschließlich als Auftrag über Redis.
+`docker exec markdown-converter-web ls /var/run/docker.sock` muss
+fehlschlagen; das ist der Abnahme-Beleg des Sprints.
 | DOCX | pandoc `-f docx -t gfm --wrap=none` (Release-deb 3.10.1 im Image — die jammy-apt-Version 2.9 trug die Fußnoten-Kette nicht) | `document`, `deterministisch` |
 | PPTX | markitdown 0.1.7 (einziger Kandidat mit Sprechernotizen) | `document`, `deterministisch` |
 | HTML/HTM | trafilatura 2.2.0 + Metadaten-Kopf (`<title>`-Tag als `# `-Überschrift — TITLE-FIX greift; Autor/Datum aus `extract_metadata` als Kursivzeile); leere Extraktion → `backend_fallback` auf unstructured | `document`, `deterministisch` |

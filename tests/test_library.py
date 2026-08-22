@@ -396,3 +396,28 @@ def test_api_get_conversion_404_for_other_users_conversion(app, authenticated_cl
         other_id = other.id
     cid = _make_conversion(app, other_id, title="Frank's secret")
     assert authenticated_client.get(f'/api/conversions/{cid}').status_code == 404
+
+
+def test_library_dokument_filter_covers_service_rows(app, authenticated_client, test_user):
+    """DOC-WEB-ASYNC: the web list's "Dokument" filter shows BOTH document
+    types — every browser PDF is now a service ``document_conversion`` row,
+    a filter on ``document_to_markdown`` alone would hide exactly those.
+    The finder semantics stay: archive rows are out, as for every type."""
+    _make_conversion(app, test_user['id'], title='Saved doc',
+                     conversion_type='document_to_markdown', lifecycle_status='inbox')
+    _make_conversion(app, test_user['id'], title='Service doc',
+                     conversion_type='document_conversion', lifecycle_status='inbox')
+    _make_conversion(app, test_user['id'], title='Archived service doc',
+                     conversion_type='document_conversion', lifecycle_status='archive')
+    _make_conversion(app, test_user['id'], title='Some audio',
+                     conversion_type='audio_transcription', lifecycle_status='inbox')
+
+    html = authenticated_client.get('/library?type=document_to_markdown').get_data(as_text=True)
+    assert 'Saved doc' in html
+    assert 'Service doc' in html
+    assert 'Archived service doc' not in html
+    assert 'Some audio' not in html
+
+    # The JSON API stays exact — a service asking for one type gets that type.
+    data = authenticated_client.get('/api/conversions?type=document_to_markdown').get_json()
+    assert [it['title'] for it in data['items']] == ['Saved doc']

@@ -101,6 +101,9 @@ UNIT_DOCUMENT = 'document'
 # Bumps: 2 = DOC-LOCAL (mineru replaces the text layer) · 3 = DOC-WEB (one
 # router for both entrances; scan pages named on the fallback; default mode
 # ``lokal`` — results of mode-less submits change for every PDF).
+# NOT bumped by DOC-WEB-ASYNC (2026-08-22): the browser's PDF path moved from
+# the sync route onto this job — a transport change, not an engine change;
+# the 12-page scan came back byte-identical (32,307 chars) over both paths.
 DOC_CONVERT_ENGINE_GENERATION = 3
 
 # Namespace directory on the shared volume. Tests monkeypatch THIS module

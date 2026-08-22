@@ -239,7 +239,18 @@ def register(app):
         query = Conversion.query.filter_by(user_id=current_user.id)
 
         if type_active:
-            query = query.filter_by(conversion_type=conversion_type)
+            if conversion_type == 'document_to_markdown':
+                # The dropdown's "Dokument" covers BOTH document types: the
+                # browser-saved ``document_to_markdown`` rows and the
+                # service's ``document_conversion`` rows — since DOC-WEB-ASYNC
+                # every browser PDF is the latter, so a filter on the former
+                # alone would hide exactly the rows Oli now creates. Web list
+                # only: ``/api/conversions?type=`` stays exact (a service
+                # asking for one type gets that type).
+                query = query.filter(Conversion.conversion_type.in_(
+                    ('document_to_markdown', 'document_conversion')))
+            else:
+                query = query.filter_by(conversion_type=conversion_type)
         if tag:
             # R2-B: exact-match tag filter over the conversion_tags junction —
             # the same Conversion.tag_refs.any(...) path the R2-A search branch
