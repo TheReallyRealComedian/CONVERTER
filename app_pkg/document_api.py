@@ -1,9 +1,14 @@
 """Document-conversion service API (DOC-API) — the conversion becomes a service.
 
-Additive to ``POST /transform-document`` (untouched, the web UI hangs on it):
-this module is the **service-facing** surface — JSON in/out, token- or
+This module is the **service-facing** surface — JSON in/out, token- or
 session-authed, async via the Option-B job mechanic (NARR-3), so another
-service can submit a document and poll for structured Markdown.
+service can submit a document and poll for structured Markdown. Since
+DOC-WEB-ASYNC it is ALSO the browser's PDF path: ``static/js/
+document_converter.js`` submits PDFs here (session + CSRF) and polls, while
+the synchronous ``POST /transform-document`` keeps only the non-PDF formats
+— the web container holds no Docker socket, the PDF engines run on the
+worker, and a synchronous conversion would stall the single gunicorn worker
+for everyone (measured 2026-08-21).
 
 Endpoints
 ---------

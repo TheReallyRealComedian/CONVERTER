@@ -56,6 +56,7 @@
                         <button type="button" class="save-library-btn" id="save-btn" onclick="saveToLibrary()">In Library speichern</button>
                     </div>
                 </div>
+                <p id="result-note" class="hidden text-sm text-neo-muted mb-3" role="status"></p>
                 <div id="degradation-box" class="c-alert c-alert--warning hidden mb-3" role="status">
                     <span class="font-semibold">Hinweise zur Umwandlung:</span>
                     <ul id="degradation-list" class="mt-1 ml-4 list-disc text-sm"></ul>
@@ -75,6 +76,7 @@
 <script>
     window.PageData = {
         transformDocumentUrl: '{{ url_for("transform_document") }}',
+        documentConversionsUrl: '{{ url_for("api_create_document_conversion") }}',
         acceptedExtensions: {{ accepted_extensions|tojson }},
     };
 </script>

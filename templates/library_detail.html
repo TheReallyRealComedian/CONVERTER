@@ -17,7 +17,7 @@
                 <input type="text" class="text-xl font-semibold text-neo-text bg-transparent flex-1 py-1 c-input"
                        id="detail-title" value="{{ conversion.title }}" onchange="updateField('title', this.value)" title="Titel" placeholder="Ohne Titel">
                 <span class="type-badge type-{{ conversion.conversion_type }}">
-                    {% if conversion.conversion_type == 'document_to_markdown' %}Dokument
+                    {% if conversion.conversion_type in ('document_to_markdown', 'document_conversion') %}Dokument
                     {% elif conversion.conversion_type == 'audio_transcription' %}Audio
                     {% elif conversion.conversion_type == 'audio_narration' %}Vertonung
                     {% elif conversion.conversion_type == 'dialogue_formatting' %}Dialog

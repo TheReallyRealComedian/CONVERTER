@@ -33,7 +33,7 @@
     <div class="flex justify-between items-center px-4 pt-3">
         <div class="flex items-center gap-1.5 flex-wrap min-w-0">
             <span class="type-badge type-{{ conv.conversion_type }}">
-                {% if conv.conversion_type == 'document_to_markdown' %}Dokument
+                {% if conv.conversion_type in ('document_to_markdown', 'document_conversion') %}Dokument
                 {% elif conv.conversion_type == 'audio_transcription' %}Audio
                 {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
                 {% elif conv.conversion_type == 'markdown_input' %}Markdown

@@ -7,8 +7,10 @@ imports this logic came from in ``tasks.py``). Both callers share it:
 * ``tasks.convert_document_task`` (the API job, async via RQ) wraps
   ``convert_non_pdf`` into the document-level deterministic result payload
   and writes ``convert_pdf``'s payload as is;
-* ``app_pkg/documents.py::transform_document`` (the browser button, sync)
-  takes ``markdown`` + ``degradations`` from the same two functions.
+* ``app_pkg/documents.py::transform_document`` (the browser button, sync —
+  non-PDF only since DOC-WEB-ASYNC; a browser PDF arrives as an API job and
+  runs through the task above) takes ``markdown`` + ``degradations`` from
+  ``convert_non_pdf``.
 
 ONE place knows which backend serves which format — the web button and the
 API can no longer drift into two qualities for the same file (P1: non-PDF;
