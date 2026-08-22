@@ -559,7 +559,14 @@ def _hist(*entries):
 
 def test_true_retention_first_per_day_intro_excluded(app, test_user):
     uid = test_user['id']
-    now = datetime.now(timezone.utc)
+    # LEARN-TEST-CLOCK: ``now`` ist GEPINNT (12:00 UTC = 14:00 Berlin), nicht
+    # die Wanduhr. Karte A setzt ihre zweite Bewertung auf ``now - 3 d + 2 h``
+    # und verlangt, dass beide im selben Berliner Tag liegen — mit der echten
+    # Uhr rutschte das ``+2 h`` zwischen 22:00 und 24:00 Berlin in den
+    # nächsten Lokaltag, beide zählten als Erstbewertung des Tages, und der
+    # Test fiel genau in diesem Fenster (reproduziert 2026-08-22, 22:18 CEST).
+    # ``true_retention`` rechnet sein 30-Tage-Fenster aus demselben ``now``.
+    now = datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc)
     # Karte A: Intro vor 10d (zählt NICHT), vor 5d gewusst, vor 3d erst
     # vergessen + später am selben Tag gewusst (erste Bewertung zählt = fail).
     _make_review_row(app, uid, due=now + timedelta(days=9), last_reviewed=now,
