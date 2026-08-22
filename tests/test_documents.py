@@ -116,10 +116,11 @@ def test_transform_document_pdf_is_pointed_to_the_service(
         authenticated_client, fixtures_dir, monkeypatch):
     """DOC-WEB-ASYNC: the synchronous route runs NO PDF engine. The web
     container holds no Docker socket anymore (``lokal`` would silently serve
-    the bare text layer) and a synchronous conversion stalls the single
-    gunicorn worker for every other request (measured 78 s). A PDF here is
-    a caller on the wrong route: named 400 with the service, engines
-    untouched."""
+    the bare text layer), and at the time a synchronous conversion stalled
+    the then-single request thread for every other request (measured 78 s;
+    SYNC-FREEZE has since put sync views on a thread pool — the engine
+    argument stands on its own). A PDF here is a caller on the wrong route:
+    named 400 with the service, engines untouched."""
     cloud = MagicMock()
     monkeypatch.setattr('services.pdf_cloud.run_cloud_pdf', cloud)
     local = MagicMock()

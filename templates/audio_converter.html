@@ -98,6 +98,9 @@
             <div id="transcription-result-container" class="c-surface--flat p-4 min-h-[150px] whitespace-pre-wrap break-words text-sm text-neo-muted">
                 <span class="text-neo-faint" data-placeholder="true">Transkription erscheint hier nach der Verarbeitung.</span>
             </div>
+            <!-- SYNC-FREEZE P3: idempotency note — the same file + language is
+                 answered from the stored result instead of a second job. -->
+            <p id="transcription-dedup-note" class="hidden text-xs text-neo-faint mt-2">Diese Datei war schon umgewandelt – das gespeicherte Ergebnis wurde geladen.</p>
             <div class="c-btn-row mt-2">
                 <button type="button" class="c-btn text-xs py-1.5 px-3 inline-flex items-center gap-1.5" id="copy-file-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -120,7 +123,8 @@
     window.PageData = {
         deepgramApiKeySet: {{ 'true' if deepgram_api_key_set else 'false' }},
         acceptedAudioExtensions: {{ accepted_audio_extensions|tojson }},
-        maxAudioFileSizeMb: {{ max_audio_file_size_mb }}
+        maxAudioFileSizeMb: {{ max_audio_file_size_mb }},
+        transcriptionsUrl: '{{ url_for("api_create_transcription") }}'
     };
 </script>
 <script src="{{ url_for('static', filename='js/audio_converter.js') }}"></script>

@@ -155,6 +155,65 @@ DOC_CONVERT_CLOUD_CENT_PER_PAGE = _env_positive_float(
     'DOC_CONVERT_CLOUD_CENT_PER_PAGE', 1.48)
 
 
+# --- SYNC-FREEZE P3: RQ envelope for a transcription job ------------------------
+#
+# The transcription runs as a job on the worker (``tasks.transcribe_audio_task``).
+# Its work set is the Deepgram request count, which the chunking thresholds of
+# ``services.deepgram_service.DeepgramService`` decide — MIRRORED here because
+# config must stay SDK-free (tests/test_transcriptions.py pins the mirror to
+# the service's class attributes, so a threshold change cannot drift):
+#   <= 90 min  → ONE request (consistent speakers across the meeting, DIARIZE)
+#   >  90 min  → 30-min chunks overlapping by 5 s, each with up to 2 retries
+#               and exponential backoff (2 s + 4 s) — the chunk path has the
+#               retries, the single request has none; the envelope uses the
+#               worst case of a chunk for both (never false-kill a live job).
+AUDIO_SINGLE_REQUEST_MAX_SECONDS = 5400
+AUDIO_CHUNK_SECONDS = 1800
+AUDIO_CHUNK_OVERLAP_SECONDS = 5
+_AUDIO_MAX_RETRIES = 2
+_AUDIO_RETRY_BACKOFF_TOTAL = 2 + 4
+
+# BASE covers what is not a Deepgram call: reading a file of up to 500 MB
+# from the volume, ffprobe + ffmpeg chunk extraction (streams, seconds), the
+# result write. PER_CHUNK = (retries + 1) × the per-request SDK deadline +
+# backoff = 3606 s; a genuinely progressing chunk is never killed mid-flight.
+# Measured reality is far below (31.7 min ≈ 25–100 s, upload-bound). Named
+# property: chunking starts at FOUR chunks (just above 90 min → 5401/1795),
+# and 300 + 4 × 3606 already exceeds the shared 4-h HARD_CAP — so every
+# single-request file gets 3906 s and every chunked file rides the cap.
+TIMEOUT_AUDIO_JOB_BASE_SECONDS = 300
+TIMEOUT_AUDIO_JOB_PER_CHUNK_SECONDS = math.ceil(
+    (_AUDIO_MAX_RETRIES + 1) * TIMEOUT_DEEPGRAM_SECONDS + _AUDIO_RETRY_BACKOFF_TOTAL)
+
+
+def audio_chunk_count(duration_seconds):
+    """Deepgram requests a recording of ``duration_seconds`` will take.
+
+    Mirrors ``AudioChunker.needs_splitting``'s estimate: one request up to the
+    single-request maximum, else ``ceil(duration / (chunk − overlap))``.
+    ``None`` / non-numeric / <= 0 (unreadable file) → 1.
+    """
+    try:
+        duration = float(duration_seconds)
+    except (TypeError, ValueError):
+        return 1
+    if duration <= 0 or duration <= AUDIO_SINGLE_REQUEST_MAX_SECONDS:
+        return 1
+    step = AUDIO_CHUNK_SECONDS - AUDIO_CHUNK_OVERLAP_SECONDS
+    return max(1, math.ceil(duration / step))
+
+
+def transcribe_job_timeout_for(duration_seconds):
+    """RQ ``job_timeout`` (seconds) for transcribing ``duration_seconds`` of audio.
+
+    ``min(BASE + PER_CHUNK * chunks, HARD_CAP)`` — the shape of
+    ``rq_job_timeout_for`` / ``doc_convert_job_timeout_for``.
+    """
+    scaled = (TIMEOUT_AUDIO_JOB_BASE_SECONDS
+              + TIMEOUT_AUDIO_JOB_PER_CHUNK_SECONDS * audio_chunk_count(duration_seconds))
+    return min(scaled, TIMEOUT_RQ_JOB_HARD_CAP)
+
+
 # --- SYNC-FREEZE: SQLite under several gunicorn processes ---------------------
 #
 # Since SYNC-FREEZE the web app runs as N gunicorn worker PROCESSES (Dockerfile

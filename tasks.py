@@ -9,7 +9,7 @@ import logging
 from rq import get_current_job
 
 from app_pkg.config import OUTPUT_DIR
-from services import GoogleTTSService
+from services import DeepgramService, GoogleTTSService
 from services.narration_library import narration_audio_path
 
 logger = logging.getLogger(__name__)
@@ -121,6 +121,68 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
         # Source is scratch once the task ends either way (success has the
         # result on the volume, failure has exc_info in RQ); never let cleanup
         # mask the actual outcome.
+        try:
+            if os.path.exists(source_path):
+                os.remove(source_path)
+        except OSError:
+            logger.warning(f"Could not remove source file: {source_path}")
+
+
+def transcribe_audio_task(conversion_id, source_ext, language):
+    """Transcribe an uploaded audio file → ``result_<id>.json`` (SYNC-FREEZE P3).
+
+    **DB-free worker task (Option B, like the document conversion).** Reads
+    the source from the id-derived path on the shared volume, runs the
+    UNCHANGED ``DeepgramService.transcribe_file`` (diarization on a single
+    request, the chunk path above 90 min — both live in the service, they
+    moved, they were not rebuilt) and writes a structured result atomically.
+    It never touches the Conversion row; the web side reconciles on poll.
+
+    One ``DeepgramService`` per job, built here: the worker has its own
+    ``DEEPGRAM_API_KEY`` (docker-compose), and a fresh instance means the
+    ``AudioChunker`` state a job leaves on the service never meets another
+    job — one job at a time on this worker, one service per job.
+
+    On failure it logs and re-raises so RQ marks the job ``failed`` (reconcile
+    surfaces the ``exc_info`` tail). The source file is scratch: deleted in
+    ``finally`` either way — repeatability is re-submitting the file, which
+    the web side answers from the stored result while one exists.
+    """
+    from services.transcription_jobs import (transcription_source_path,
+                                             write_result_file)
+
+    source_path = transcription_source_path(conversion_id, source_ext)
+    try:
+        logger.info("=== TRANSCRIPTION TASK START ===")
+        logger.info(f"conversion_id={conversion_id} ext={source_ext} language={language}")
+
+        api_key = os.environ.get('DEEPGRAM_API_KEY')
+        if not api_key:
+            raise ValueError("DEEPGRAM_API_KEY not set in worker environment")
+
+        with open(source_path, 'rb') as f:
+            audio_data = f.read()
+
+        service = DeepgramService(api_key)
+        transcript = service.transcribe_file(audio_data, language)
+
+        payload = {
+            'transcript': transcript,
+            'transcript_length': len(transcript),
+            'file_size_mb': round(len(audio_data) / (1024 * 1024), 2),
+            'language': language,
+        }
+        result_path = write_result_file(conversion_id, payload)
+
+        logger.info("=== TRANSCRIPTION TASK SUCCESS ===")
+        logger.info(f"Result written to: {result_path} ({len(transcript)} chars)")
+        return result_path
+
+    except Exception as e:
+        logger.error("=== TRANSCRIPTION TASK FAILED ===")
+        logger.error(f"Error: {type(e).__name__}: {str(e)}")
+        raise
+    finally:
         try:
             if os.path.exists(source_path):
                 os.remove(source_path)

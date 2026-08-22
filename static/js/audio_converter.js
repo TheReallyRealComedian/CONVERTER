@@ -472,6 +472,70 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // SYNC-FREEZE P3: the file transcription is a JOB on the worker —
+    // submitted to /api/transcriptions and polled from here (the document
+    // converter's migration, copied). Not against the freeze (since P2 a
+    // synchronous request parks nobody) but for progress (an elapsed counter
+    // instead of a silent request), a closed tab (the worker finishes, the
+    // library row shows the text on its next read) and repeatability (the
+    // same file is answered from the stored result).
+    const transcriptionsUrl = PageData.transcriptionsUrl || '/api/transcriptions';
+    const dedupNote = document.getElementById('transcription-dedup-note');
+    // Bumped per submit and per "clear": a poll that outlives its run must
+    // never render a stale result over a newer state of the page.
+    let activeRun = 0;
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function formatElapsed(ms) {
+        const total = Math.floor(ms / 1000);
+        return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+    }
+
+    // The server stores an RQ traceback TAIL as the error — its last line is
+    // the exception itself, the only line a user can do anything with.
+    function lastLine(text) {
+        const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+        return lines.length ? lines[lines.length - 1] : '';
+    }
+
+    async function readJobError(response) {
+        const errData = await safeJSON(response);
+        return new Error(errData.error || `Transkription fehlgeschlagen (${response.status})`);
+    }
+
+    // Submit, then poll until ready or failed. Returns null when the run was
+    // cleared meanwhile.
+    async function transcribeViaService(formData, runId) {
+        const submit = await fetch(transcriptionsUrl, { method: 'POST', body: formData });
+        if (!submit.ok) throw await readJobError(submit);
+        let data = await submit.json();
+        const deduped = data.deduped === true;
+        const pollUrl = transcriptionsUrl + '/' + data.id;
+        const startedAt = Date.now();
+        while (data.status !== 'ready') {
+            if (data.status === 'failed') {
+                const detail = lastLine(data.error).slice(0, 200);
+                throw new Error('Transkription fehlgeschlagen.' + (detail ? ' ' + detail : ''));
+            }
+            // 2 s while the run is young, 5 s once it is clearly a long one
+            // (a 30-min dictation takes ~25-100 s, upload-bound).
+            await sleep(Date.now() - startedAt < 60000 ? 2000 : 5000);
+            if (runId !== activeRun) return null;
+            const poll = await fetch(pollUrl);
+            if (!poll.ok) throw await readJobError(poll);
+            data = await poll.json();
+        }
+        return {
+            transcript: data.transcript || '',
+            metadata: data.metadata || {},
+            conversionId: data.id,
+            deduped
+        };
+    }
+
     if (uploadForm) {
         uploadForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -501,16 +565,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const formData = new FormData();
-            formData.append('audio_file', fileInput.files[0]);
+            formData.append('audio_file', selectedFile);
             formData.append('language', selectedLanguage);
+            // MCP1: epoch-ms recording timestamp from the upload — the server
+            // normalises it to metadata.recorded_at (source 'client') when the
+            // filename carries no date (filename date wins).
+            if (selectedFile.lastModified) {
+                formData.append('recorded_at', String(selectedFile.lastModified));
+            }
 
+            const runId = ++activeRun;
+            const startedAt = Date.now();
             transcribeBtn.disabled = true;
-            transcribeBtn.textContent = 'Wird umgewandelt …';
+            transcribeBtn.textContent = 'Wird umgewandelt … 0:00';
+            // A job takes up to minutes — an elapsed counter on the button
+            // says "still running" where a static label could mean anything.
+            const ticker = setInterval(() => {
+                transcribeBtn.textContent = 'Wird umgewandelt … ' + formatElapsed(Date.now() - startedAt);
+            }, 1000);
             resultContainer.innerHTML = '';
             const processingSpan = document.createElement('span');
             processingSpan.className = 'text-neo-faint';
             processingSpan.textContent = 'Audio-Datei wird verarbeitet …';
             resultContainer.appendChild(processingSpan);
+            if (dedupNote) dedupNote.classList.add('hidden');
 
             const saveBtn = document.getElementById('save-transcription-btn');
             if (saveBtn) {
@@ -519,43 +597,31 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             try {
-                const response = await fetch('/transcribe-audio-file', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const result = await safeJSON(response);
-                    throw new Error(result.error || `Transkription fehlgeschlagen (${response.status})`);
-                }
-
-                const result = await safeJSON(response);
+                const result = await transcribeViaService(formData, runId);
+                if (!result || runId !== activeRun) return;  // cleared meanwhile
                 resultContainer.textContent = result.transcript || 'Es wurde kein Transkript zurückgegeben.';
+                if (dedupNote) dedupNote.classList.toggle('hidden', !result.deduped);
 
                 if (saveBtn) {
                     saveBtn.classList.remove('hidden');
                     resetSaveBtn(saveBtn);
-                    saveBtn._transcriptionData = {
-                        content: result.transcript,
-                        filename: fileInput.files[0].name,
-                        mimetype: fileInput.files[0].type,
-                        size: fileInput.files[0].size,
-                        // MCP1: epoch-ms recording timestamp from the upload —
-                        // the backend (POST /api/conversions) normalises this to
-                        // metadata.recorded_at with recorded_at_source='client'.
-                        lastModified: fileInput.files[0].lastModified,
-                        metadata: result.metadata || {}
-                    };
+                    // The job row already IS a library row (archive);
+                    // "Speichern" moves it into the inbox (see the save handler).
+                    saveBtn._transcriptionData = { conversionId: result.conversionId };
                 }
 
             } catch (error) {
                 console.error('Transcription error:', error);
+                if (runId !== activeRun) return;
                 resetFileResultArea();
                 showAlert(fileAlertContainer, 'danger',
-                    'Transkription fehlgeschlagen. Datei prüfen und erneut versuchen.');
+                    error.message || 'Transkription fehlgeschlagen. Datei prüfen und erneut versuchen.');
             } finally {
-                transcribeBtn.disabled = !deepgramAvailable;
-                transcribeBtn.textContent = 'Datei umwandeln';
+                clearInterval(ticker);
+                if (runId === activeRun) {
+                    transcribeBtn.disabled = !deepgramAvailable;
+                    transcribeBtn.textContent = 'Datei umwandeln';
+                }
             }
         });
     }
@@ -592,6 +658,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Transkriptions-Ergebnis wirklich leeren? Der Text geht verloren.')) {
                 return;
             }
+            activeRun += 1;  // a job still polling for this file stops rendering
+            transcribeBtn.disabled = !deepgramAvailable;
+            transcribeBtn.textContent = 'Datei umwandeln';
+            if (dedupNote) dedupNote.classList.add('hidden');
             resetFileResultArea();
             if (fileInput) fileInput.value = '';
             if (fileUploadText) fileUploadText.textContent = fileDefaultText;
@@ -660,23 +730,15 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.textContent = 'Speichert …';
 
             try {
-                const stem = data.filename.replace(/\.[^.]+$/, '');
-                const response = await fetch('/api/conversions', {
+                // SYNC-FREEZE P3: the job-backed transcript already IS a
+                // library row (the service shelves it in the archive, with
+                // recorded_at captured at submit). "Speichern" moves that row
+                // into the inbox — the place a saved transcript always landed —
+                // instead of creating a second row with the same text.
+                const response = await fetch(`/api/conversions/${data.conversionId}/place`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        conversion_type: 'audio_transcription',
-                        title: stem,
-                        content: data.content,
-                        source_filename: data.filename,
-                        source_mimetype: data.mimetype,
-                        source_size_bytes: data.size,
-                        // MCP1: epoch-ms; backend writes metadata.recorded_at
-                        // (source='client'). Omitted from JSON if undefined →
-                        // backend falls back to the filename parser.
-                        recorded_at: data.lastModified,
-                        metadata: data.metadata
-                    })
+                    body: JSON.stringify({ place: 'inbox' })
                 });
                 if (response.ok) {
                     btn.textContent = '✓ Gespeichert';

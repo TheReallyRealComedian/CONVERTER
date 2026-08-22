@@ -76,6 +76,20 @@
                     </div>
                 </div>
                 {% endif %}
+                {% if conversion.conversion_type == 'audio_transcription' and metadata.get('transcription_status') in ('pending', 'failed') %}
+                <!-- SYNC-FREEZE P3: a transcription JOB whose tab was closed lands here
+                     still pending. JS (initTranscriptionStatus) polls /api/transcriptions/<id>
+                     — the GET reconciles server-side — and reloads once the text is in. -->
+                <div class="c-surface narration-player library-reader-hide" id="transcription-status" aria-label="Transkription">
+                    <div class="narration-player__pending" id="transcription-status-pending" {% if metadata.get('transcription_status') != 'pending' %}hidden{% endif %}>
+                        <span class="narration-player__spinner" aria-hidden="true"></span>
+                        <span class="narration-player__pending-text">Wird transkribiert …</span>
+                    </div>
+                    <div class="narration-player__failed" id="transcription-status-failed" {% if metadata.get('transcription_status') != 'failed' %}hidden{% endif %}>
+                        <p class="narration-player__error" id="transcription-status-error">{{ ((metadata.get('error') or 'Transkription fehlgeschlagen.').strip().splitlines() or ['Transkription fehlgeschlagen.'])[-1][:300] }}</p>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="c-surface relative" id="content-body">
                     <div class="reading-progress reading-progress--hidden" aria-hidden="true">
                         <div class="reading-progress__fill" id="reading-progress-fill"></div>
@@ -273,7 +287,9 @@
         conversionType: '{{ conversion.conversion_type }}',
         {# NARR-5: slim narration seed (no transcript — that's already in content_html)
            so the player renders the right initial state before its first poll. #}
-        narration: {% if conversion.conversion_type == 'audio_narration' %}{{ {'narration_status': metadata.get('narration_status'), 'duration_seconds': metadata.get('duration_seconds'), 'speakers': metadata.get('speakers'), 'error': metadata.get('error')} | tojson }}{% else %}null{% endif %}
+        narration: {% if conversion.conversion_type == 'audio_narration' %}{{ {'narration_status': metadata.get('narration_status'), 'duration_seconds': metadata.get('duration_seconds'), 'speakers': metadata.get('speakers'), 'error': metadata.get('error')} | tojson }}{% else %}null{% endif %},
+        {# SYNC-FREEZE P3: job state of a transcription row (null for legacy rows = ready). #}
+        transcription: {% if conversion.conversion_type == 'audio_transcription' %}{{ {'transcription_status': metadata.get('transcription_status'), 'error': metadata.get('error')} | tojson }}{% else %}null{% endif %}
     };
 </script>
 <!-- MATH-RENDER: vendored KaTeX-JS vor library_detail.js (renderMath() braucht das katex-Global). -->

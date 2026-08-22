@@ -1751,6 +1751,45 @@ async function narrationRetry() {
     restore();
 }
 
+// --- SYNC-FREEZE P3: Transkriptions-Auftrag in der Library ---
+// Ein per Job erzeugter Transkript-Eintrag kann hier noch pending sein (Tab
+// während des Auftrags geschlossen). Pollt /api/transcriptions/<id> — der GET
+// rekonziliert server-seitig — und lädt die Seite neu, sobald der Text da ist
+// (der Reader rendert server-seitig). Legacy-Zeilen ohne Status gelten als
+// fertig, der Block existiert dann gar nicht.
+const TRANSCRIPTION_POLL_MS = 3000;
+
+function initTranscriptionStatus() {
+    const seed = window.PageData && window.PageData.transcription;
+    if (!seed || seed.transcription_status !== 'pending') return;
+    const showFailed = (error) => {
+        const pending = document.getElementById('transcription-status-pending');
+        const failed = document.getElementById('transcription-status-failed');
+        const errEl = document.getElementById('transcription-status-error');
+        if (pending) pending.hidden = true;
+        if (failed) failed.hidden = false;
+        if (errEl) {
+            const lines = String(error || '').split('\n').map(l => l.trim()).filter(Boolean);
+            errEl.textContent = (lines[lines.length - 1] || 'Transkription fehlgeschlagen.').slice(0, 300);
+        }
+    };
+    const poll = async () => {
+        let data;
+        try {
+            const resp = await fetch(`/api/transcriptions/${CONVERSION_ID}`);
+            if (!resp.ok) { setTimeout(poll, TRANSCRIPTION_POLL_MS); return; }
+            data = await resp.json();
+        } catch (_) {
+            setTimeout(poll, TRANSCRIPTION_POLL_MS);  // Netzwerk-Blip — weiter pollen
+            return;
+        }
+        if (data.status === 'ready') { location.reload(); return; }
+        if (data.status === 'failed') { showFailed(data.error); return; }
+        setTimeout(poll, TRANSCRIPTION_POLL_MS);
+    };
+    setTimeout(poll, TRANSCRIPTION_POLL_MS);
+}
+
 function initNarrationPlayer() {
     if (window.PageData.conversionType !== 'audio_narration') return;
     if (!document.getElementById('narration-player')) return;
@@ -1771,6 +1810,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initFinishBackLink();
     initLibraryReader();
     initNarrationPlayer();
+    initTranscriptionStatus();
 });
 
 window.updateField = updateField;
