@@ -50,9 +50,17 @@ def _convert_unstructured(source_path, source_ext):
     target for an empty trafilatura extraction)."""
     from unstructured.partition.auto import partition
 
+    from services.text_paragraphs import group_paragraphs
     from services.unstructured_markdown import elements_to_markdown
 
-    elements = partition(filename=source_path, strategy="fast")
+    # TXT-BINDESTRICH: unstructured's default paragraph grouper treats a bare
+    # ``-``/``–`` ANYWHERE in a line as a bullet boundary and tore
+    # ``SYNC-FREEZE multi-process RQ check`` into three paragraphs (short
+    # lines and bullet items; measured on 0.18.32 — see the module docstring
+    # of services/text_paragraphs.py). Same heuristics, bullets anchored at
+    # the line start. partition_email forwards the kwarg to partition_text.
+    elements = partition(filename=source_path, strategy="fast",
+                         paragraph_grouper=group_paragraphs)
     markdown, warnings = elements_to_markdown(elements, source_ext=source_ext)
     return markdown, _serializer_degradations(warnings)
 

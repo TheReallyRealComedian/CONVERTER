@@ -104,7 +104,12 @@ UNIT_DOCUMENT = 'document'
 # NOT bumped by DOC-WEB-ASYNC (2026-08-22): the browser's PDF path moved from
 # the sync route onto this job — a transport change, not an engine change;
 # the 12-page scan came back byte-identical (32,307 chars) over both paths.
-DOC_CONVERT_ENGINE_GENERATION = 3
+# 4 = KLEINKRAM/TXT-BINDESTRICH (2026-08-22): hyphen-safe paragraph grouper on
+# the unstructured branch (TXT/EML/MD + HTML fallback) — every short line or
+# bullet item that carried a ``-``/``–`` now comes back whole instead of torn;
+# stored rows at generation 3: none (all four stored PDF results were already
+# devalued by generations 2 and 3).
+DOC_CONVERT_ENGINE_GENERATION = 4
 
 # Namespace directory on the shared volume. Tests monkeypatch THIS module
 # global; every path function below reads it at call time.

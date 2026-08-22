@@ -24,6 +24,7 @@ import pytest
 
 from services import document_conversions as doc_lib
 from services import office_backends as ob
+from services.text_paragraphs import group_paragraphs
 from tasks import convert_document_task
 
 
@@ -258,7 +259,7 @@ def test_task_html_empty_extraction_falls_back_named(monkeypatch,
                         lambda path: (None, []))
     monkeypatch.setattr(
         sys.modules['unstructured.partition.auto'], 'partition',
-        lambda filename=None, strategy=None: [SimpleNamespace(
+        lambda filename=None, strategy=None, paragraph_grouper=None: [SimpleNamespace(
             category='NarrativeText', text='Roher Seitentext.',
             metadata=SimpleNamespace(category_depth=None, page_number=None,
                                      text_as_html=None))])
@@ -276,8 +277,8 @@ def test_task_eml_stays_on_unstructured(monkeypatch, doc_convert_dir):
     without competition) — partition IS the backend here."""
     calls = []
 
-    def fake_partition(filename=None, strategy=None):
-        calls.append(strategy)
+    def fake_partition(filename=None, strategy=None, paragraph_grouper=None):
+        calls.append((strategy, paragraph_grouper))
         return [SimpleNamespace(
             category='NarrativeText', text='Mailtext.',
             metadata=SimpleNamespace(category_depth=None, page_number=None,
@@ -288,7 +289,10 @@ def test_task_eml_stays_on_unstructured(monkeypatch, doc_convert_dir):
     _plant_source(806, 'eml')
     convert_document_task(806, 'eml', 'cloud', 1.0, None)
     payload = doc_lib.read_result_file(806)
-    assert calls == ['fast']
+    # TXT-BINDESTRICH: the invocation hands unstructured OUR paragraph grouper
+    # (bullets anchored at the line start) — without it, short lines and
+    # bullet items are torn at every ``-``/``–``.
+    assert calls == [('fast', group_paragraphs)]
     assert payload['markdown'] == 'Mailtext.'
     assert payload['provenance'] == ['deterministisch']
 

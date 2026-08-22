@@ -791,7 +791,7 @@ def test_eml_end_to_end_with_real_serializer(app, client, test_user, doc_token,
     ready (not failed) result — partial success is a 200 with a list, never a
     500.
     """
-    def fake_partition(filename=None, strategy=None):
+    def fake_partition(filename=None, strategy=None, paragraph_grouper=None):
         def el(category, text='', depth=None, html=None):
             return SimpleNamespace(
                 category=category, text=text,
@@ -830,7 +830,7 @@ def test_task_failure_leaves_no_result_and_consumes_source(app, client,
                                                            mock_redis_queue,
                                                            doc_convert_dir,
                                                            monkeypatch):
-    def boom(filename=None, strategy=None):
+    def boom(filename=None, strategy=None, paragraph_grouper=None):
         raise RuntimeError('partition explodiert')
 
     monkeypatch.setattr(sys.modules['unstructured.partition.auto'],
