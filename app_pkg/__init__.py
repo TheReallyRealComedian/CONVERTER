@@ -305,6 +305,18 @@ def _run_pending_migrations(app):
             # guards above.
             db.session.commit()
             app.logger.info("CARD-SVG: card.back_svg column added via ALTER TABLE")
+    if 'review' in inspector.get_table_names():
+        cols = {c['name'] for c in inspector.get_columns('review')}
+        if 'version' not in cols:
+            # LOST-UPDATE: optimistic-locking counter (models.Review.version,
+            # the mapper's version_id_col). NOT NULL needs the DEFAULT so
+            # SQLite backfills every legacy row with 1 — the value SQLAlchemy
+            # assigns on INSERT; a NULL here would make the conditional UPDATE
+            # miss forever. Idempotent via the column guard above.
+            db.session.execute(text(
+                'ALTER TABLE review ADD COLUMN version INTEGER NOT NULL DEFAULT 1'))
+            db.session.commit()
+            app.logger.info("LOST-UPDATE: review.version column added via ALTER TABLE")
     _migrate_conversion_tags_csv_to_junction(app)
 
 

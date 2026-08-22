@@ -32,6 +32,7 @@ from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 from sqlalchemy import func, or_
 from sqlalchemy.orm import contains_eager, joinedload
+from sqlalchemy.orm.exc import StaleDataError
 
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
 from services.scheduler import RATINGS, get_scheduler
@@ -132,6 +133,65 @@ def _parse_owned(raw, model):
 
 
 # --- card write helpers ------------------------------------------------------
+
+# LOST-UPDATE: attempts the rate endpoint makes before it reports a version
+# conflict as 409. One human rates one card at a time, so a conflict is
+# already the exception; the bound exists for the pathological burst (N
+# writers on ONE card at the same instant — every conflict costs one more
+# round-trip, the last of N needs up to N attempts). Sized at the 8 writers
+# of the measurement rig (= WEB_SYNC_THREADS, more simultaneous writers than
+# one process can hold); P2 burst: 3,200 ratings from 8 writers over 40
+# cards, 0 × 409.
+REVIEW_WRITE_ATTEMPTS = 8
+
+
+def _apply_rating(card, rating, scheduler):
+    """Advance ``card.review`` by one rating on the state AS LOADED: the
+    scheduler math, the scalar fields, the ``rating_history`` append and the
+    'wackelt' flag. In-memory only — the caller commits, and re-runs this on a
+    fresh read when the commit hits a version conflict (LOST-UPDATE)."""
+    review = card.review
+    if review is None:
+        # Defensive: POST /api/cards always creates the row, but never assume.
+        review = Review(card_id=card.id)
+        db.session.add(review)
+        current_state = scheduler.new_card_state()
+    else:
+        current_state = {
+            'due': review.due,
+            'stability': review.stability,
+            'difficulty': review.difficulty,
+            'last_reviewed': review.last_reviewed,
+            'reps': review.reps or 0,
+            'lapses': review.lapses or 0,
+        }
+
+    new_state = scheduler.apply_rating(current_state, rating)
+    review.due = _naive_utc(new_state['due'])
+    review.stability = new_state['stability']
+    review.difficulty = new_state['difficulty']
+    review.last_reviewed = _naive_utc(new_state['last_reviewed'])
+    review.reps = new_state['reps']
+    review.lapses = new_state['lapses']
+
+    # Append to the rating history log (JSON list on the Review row).
+    history = []
+    if review.rating_history:
+        try:
+            parsed = json.loads(review.rating_history)
+            if isinstance(parsed, list):
+                history = parsed
+        except (ValueError, TypeError):
+            history = []
+    history.append({'rating': rating,
+                    'reviewed_at': new_state['last_reviewed'].isoformat()})
+    review.rating_history = json.dumps(history)
+
+    # Generative card + weak rating optionally flags it shaky — the entry
+    # point into the agent dialogue-recall ("Vertiefen", Phase 4).
+    if card.type == 'generative' and rating in ('again', 'hard'):
+        card.state = 'wackelt'
+
 
 def _authorize_card_write():
     """Shared token-auth gate for the card write endpoints (POST + PATCH).
@@ -681,50 +741,32 @@ def register(app):
             return jsonify({'error': "Feld 'rating' muss again|hard|good|easy sein."}), 400
 
         scheduler = get_scheduler()
-        review = card.review
-        if review is None:
-            # Defensive: POST /api/cards always creates the row, but never assume.
-            review = Review(card_id=card.id)
-            db.session.add(review)
-            current_state = scheduler.new_card_state()
-        else:
-            current_state = {
-                'due': review.due,
-                'stability': review.stability,
-                'difficulty': review.difficulty,
-                'last_reviewed': review.last_reviewed,
-                'reps': review.reps or 0,
-                'lapses': review.lapses or 0,
-            }
-
-        new_state = scheduler.apply_rating(current_state, rating)
-        review.due = _naive_utc(new_state['due'])
-        review.stability = new_state['stability']
-        review.difficulty = new_state['difficulty']
-        review.last_reviewed = _naive_utc(new_state['last_reviewed'])
-        review.reps = new_state['reps']
-        review.lapses = new_state['lapses']
-
-        # Append to the rating history log (JSON list on the Review row).
-        history = []
-        if review.rating_history:
+        # LOST-UPDATE: optimistic locking. Review.version is the mapper's
+        # version_id_col, so the UPDATE at commit is conditional on the version
+        # we loaded; a rating of the SAME card that landed in between makes the
+        # commit raise StaleDataError instead of silently overwriting it (the
+        # measured 12 % loss of P1). Then: forget the stale row, re-read, and
+        # apply the rating to the OTHER writer's result — FSRS is deterministic
+        # for (state, rating), so that IS the sequential outcome, not a
+        # workaround. Bounded; after the last attempt the user gets an honest
+        # 409 and rates again — never a silent loss.
+        for attempt in range(1, REVIEW_WRITE_ATTEMPTS + 1):
+            if attempt > 1:
+                db.session.rollback()  # drops the stale state; the re-query reads fresh
+                card = Card.query.filter_by(id=card_id, user_id=current_user.id).first_or_404()
+            _apply_rating(card, rating, scheduler)
             try:
-                parsed = json.loads(review.rating_history)
-                if isinstance(parsed, list):
-                    history = parsed
-            except (ValueError, TypeError):
-                history = []
-        history.append({'rating': rating,
-                        'reviewed_at': new_state['last_reviewed'].isoformat()})
-        review.rating_history = json.dumps(history)
-
-        # Generative card + weak rating optionally flags it shaky — the entry
-        # point into the agent dialogue-recall ("Vertiefen", Phase 4).
-        if card.type == 'generative' and rating in ('again', 'hard'):
-            card.state = 'wackelt'
-
-        db.session.commit()
-        return jsonify(card.to_dict())
+                db.session.commit()
+            except StaleDataError:
+                logger.info('Review write conflict on card %s (attempt %d of %d)',
+                            card_id, attempt, REVIEW_WRITE_ATTEMPTS)
+                continue
+            return jsonify(card.to_dict())
+        db.session.rollback()
+        logger.warning('Review write on card %s gave up after %d conflicts',
+                       card_id, REVIEW_WRITE_ATTEMPTS)
+        return jsonify({'error': 'Die Karte wurde gerade gleichzeitig bewertet. '
+                                 'Bitte noch einmal bewerten.'}), 409
 
     @app.route('/api/cards/<int:card_id>/annotate', methods=['POST'])
     @login_required
@@ -768,10 +810,21 @@ def register(app):
         # relationship — a bare DELETE FROM card would orphan both (no
         # PRAGMA foreign_keys=ON). Session-write → stays under the global CSRF
         # protection (the base.html fetch wrapper sends X-CSRFToken); NOT exempt.
-        card = Card.query.filter_by(id=card_id, user_id=current_user.id).first_or_404()
-        db.session.delete(card)
-        db.session.commit()
-        return jsonify({'success': True})
+        # LOST-UPDATE: the cascade-deleted Review row is versioned, so a rating
+        # that lands between our load and the DELETE makes the cascade miss its
+        # row (StaleDataError, not a silent half-delete). Deleting is idempotent
+        # in intent — re-read and delete again, bounded like the rate endpoint.
+        for _attempt in range(REVIEW_WRITE_ATTEMPTS):
+            card = Card.query.filter_by(id=card_id, user_id=current_user.id).first_or_404()
+            db.session.delete(card)
+            try:
+                db.session.commit()
+            except StaleDataError:
+                db.session.rollback()
+                continue
+            return jsonify({'success': True})
+        return jsonify({'error': 'Die Karte wurde gerade bewertet. '
+                                 'Bitte noch einmal löschen.'}), 409
 
     # Token-authed, session-less writes carry no CSRF cookie → waive CSRF for
     # THESE TWO views only (the reads stay protected by the global CSRFProtect).
