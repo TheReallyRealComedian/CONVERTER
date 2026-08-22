@@ -9,18 +9,22 @@ Service singletons (``deepgram_service``, ``gemini_service`` etc.) live in
 ``app.py`` so the existing test suite, which patches them at
 ``app.<name>``, continues to work without changes.
 """
+import fcntl
 import logging
 import os
 import re
 import sys
+from contextlib import contextmanager
 
 import click
 from flask import Flask, flash, jsonify, redirect, request, url_for
 from flask_login import LoginManager, login_required, login_url
 from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
-from sqlalchemy import inspect, text
+from sqlalchemy import event, inspect, text
+from sqlalchemy.engine import make_url
 
+from app_pkg.config import SQLITE_BUSY_TIMEOUT_SECONDS
 from models import Card, Collection, Review, User, db
 from services.scheduler.base import initial_review_state
 
@@ -56,6 +60,7 @@ def create_app(import_name='app'):
     csrf = CSRFProtect(app)
     _register_csrf_inversion(app, csrf)
     db.init_app(app)
+    _register_sqlite_pragmas(app)
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -111,10 +116,88 @@ def create_app(import_name='app'):
 
     with app.app_context():
         os.makedirs('/app/data', exist_ok=True)
-        db.create_all()
-        _run_pending_migrations(app)
+        with _startup_lock(app.config['SQLALCHEMY_DATABASE_URI']):
+            db.create_all()
+            _run_pending_migrations(app)
 
     return app
+
+
+def _register_sqlite_pragmas(app):
+    """SYNC-FREEZE: WAL + an explicit ``busy_timeout`` on every SQLite connection.
+
+    The app runs as several gunicorn processes on ONE SQLite file. In the
+    rollback-journal mode the file was in (``PRAGMA journal_mode`` = ``delete``,
+    never configured — ``SQLALCHEMY_ENGINE_OPTIONS`` was empty) a single
+    writer locks the whole database against every reader; with one process
+    that never showed, with N it would have turned a freeze into
+    ``database is locked``. Hence WAL *before* workers (locked decision 1).
+
+    Connection-level pragmas, so the SQLAlchemy ``connect`` event is the one
+    place that reaches every pooled connection of every process. Values and
+    reasoning: ``app_pkg.config.SQLITE_BUSY_TIMEOUT_SECONDS``.
+    """
+    with app.app_context():
+        engine = db.engine
+    if engine.dialect.name != 'sqlite':
+        return
+
+    @event.listens_for(engine, 'connect')
+    def _set_sqlite_pragmas(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            # busy_timeout FIRST: should the WAL switch itself have to wait
+            # for a lock (first boot on a rollback-journal file while another
+            # connection reads), it waits instead of failing.
+            cursor.execute(
+                f'PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_SECONDS * 1000}')
+            cursor.execute('PRAGMA journal_mode=WAL')
+        finally:
+            cursor.close()
+
+
+def _startup_lock_path(uri):
+    """Lock file beside a file-based SQLite database, ``None`` otherwise."""
+    try:
+        url = make_url(uri)
+    except Exception:
+        return None
+    if not url.drivername.startswith('sqlite'):
+        return None
+    database = url.database or ''
+    if database in ('', ':memory:') or url.query.get('mode') == 'memory':
+        return None
+    return f'{database}.startup.lock'
+
+
+@contextmanager
+def _startup_lock(uri):
+    """SYNC-FREEZE: serialise the schema bootstrap across worker processes.
+
+    Every gunicorn worker runs ``create_app()`` — and with it
+    ``db.create_all()`` and ``_run_pending_migrations`` — on its own. No
+    ``--preload``: the SDK clients built at import time (a gRPC channel in
+    ``GoogleTTSService``, the Deepgram/genai HTTP clients) are not fork-safe,
+    and the per-process import is the model the app has always run under.
+    Both bootstrap steps are idempotent on a settled schema, but on the first
+    boot after a schema change N processes would race check-then-ALTER: the
+    loser dies on ``duplicate column`` / ``table already exists``, and
+    gunicorn treats a worker that fails to boot as fatal for the whole server
+    (``Arbiter.reap_workers`` → ``HaltServer``). An ``flock`` beside the
+    database file makes the bootstrap strictly sequential — the first process
+    migrates, the others find the schema complete. Databases without a file
+    (in-memory) need no lock.
+    """
+    path = _startup_lock_path(uri)
+    if path is None:
+        yield
+        return
+    with open(path, 'a+') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _register_csrf_inversion(app, csrf):

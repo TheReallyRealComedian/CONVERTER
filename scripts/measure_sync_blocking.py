@@ -2,19 +2,29 @@
 """Does a long synchronous conversion block the app? (DOC-WEB-ASYNC P1)
 
 Measures, through the real HTTP surface, whether other requests are served
-WHILE ``POST /transform-document`` runs a long PDF conversion on the single
-gunicorn worker. Three probes (``/login`` unauthenticated, ``/library`` and
-``/api/collections`` with a session) are fired on a fixed timer — each in
-its own thread, so a blocked probe never delays the next one — first at
-idle (baseline), then during one conversion, then during ``--concurrent``
-conversions started at the same instant.
+WHILE one long synchronous request runs on a gunicorn worker. Three probes
+(``/login`` unauthenticated, ``/library`` and ``/api/collections`` with a
+session) are fired on a fixed timer — each in its own thread, so a blocked
+probe never delays the next one — first at idle (baseline), then during one
+long request, then during ``--concurrent`` long requests started at the
+same instant.
+
+The long request is one of (exactly one):
+
+* ``--pdf``   → ``POST /transform-document`` (the DOC-WEB-ASYNC P1 vector;
+  since P2 a PDF there is a 400, so this only measures on a pre-P2 build)
+* ``--audio`` → ``POST /transcribe-audio-file`` (SYNC-FREEZE P1: the Deepgram
+  transcription runs synchronously in the web process — the longest sync
+  path of the app; costs Deepgram money per run, ~32 min audio ≈ cents)
+
+The probes are identical in both cases, so the numbers stay comparable.
 
 Run it on the host next to the app (``http://localhost:5656``) with a
 throwaway user (the web path needs a session):
 
     python3 scripts/measure_sync_blocking.py \
         --base-url http://localhost:5656 --user zz_smoke --password ... \
-        --pdf corpus/05_scan-sauber/dahlhaus_beethoven-kritik_gerastert-300dpi.pdf \
+        --audio ~/narration_99.wav --language de \
         --out /tmp/measure.json
 
 Needs only ``requests``. Prints a summary table and writes every sample to
@@ -140,31 +150,55 @@ class ProbeScheduler:
 
 # --- conversions --------------------------------------------------------------
 
-def run_conversion(base_url, session, token, pdf_path, label, results):
-    """POST /transform-document, timed; appends a result dict."""
+def run_conversion(base_url, session, token, path, label, results, kind='pdf',
+                   language='de'):
+    """One long synchronous request (``kind`` = ``pdf`` | ``audio``), timed;
+    appends a result dict."""
     started_at = time.time()
     t0 = time.monotonic()
-    entry = {'label': label, 'started_at': started_at}
+    entry = {'label': label, 'kind': kind, 'started_at': started_at}
+    name = path.rsplit('/', 1)[-1]
     try:
-        with open(pdf_path, 'rb') as f:
-            resp = session.post(
-                f'{base_url}/transform-document',
-                files={'document_file': (pdf_path.rsplit('/', 1)[-1], f, 'application/pdf')},
-                headers={'X-CSRFToken': token},
-                timeout=PROBE_TIMEOUT_SECONDS * 2)
+        with open(path, 'rb') as f:
+            if kind == 'audio':
+                resp = session.post(
+                    f'{base_url}/transcribe-audio-file',
+                    files={'audio_file': (name, f, 'application/octet-stream')},
+                    data={'language': language},
+                    headers={'X-CSRFToken': token},
+                    timeout=PROBE_TIMEOUT_SECONDS * 2)
+            else:
+                resp = session.post(
+                    f'{base_url}/transform-document',
+                    files={'document_file': (name, f, 'application/pdf')},
+                    headers={'X-CSRFToken': token},
+                    timeout=PROBE_TIMEOUT_SECONDS * 2)
         entry['status'] = resp.status_code
         try:
             body = resp.json()
         except ValueError:
             body = {}
-        entry['markdown_chars'] = len(body.get('markdown') or '')
-        entry['degradations'] = [d.get('code') for d in body.get('degradations') or []]
+        if kind == 'audio':
+            entry['transcript_chars'] = len(body.get('transcript') or '')
+        else:
+            entry['markdown_chars'] = len(body.get('markdown') or '')
+            entry['degradations'] = [d.get('code') for d in body.get('degradations') or []]
         entry['error'] = body.get('error')
     except Exception as e:
         entry['status'] = f'ERR {type(e).__name__}'
     entry['duration_s'] = round(time.monotonic() - t0, 1)
     entry['ended_at'] = time.time()
     results.append(entry)
+
+
+def describe(entry):
+    """One-line result summary for either kind."""
+    if entry.get('kind') == 'audio':
+        return (f'status={entry["status"]} duration={entry["duration_s"]} s '
+                f'transcript_chars={entry.get("transcript_chars")}')
+    return (f'status={entry["status"]} duration={entry["duration_s"]} s '
+            f'markdown_chars={entry.get("markdown_chars")} '
+            f'degradations={entry.get("degradations")}')
 
 
 # --- reporting ----------------------------------------------------------------
@@ -211,13 +245,21 @@ def main():
     ap.add_argument('--base-url', default='http://localhost:5656')
     ap.add_argument('--user', required=True)
     ap.add_argument('--password', required=True)
-    ap.add_argument('--pdf', required=True, help='a PDF that converts for ~1 min or more')
+    ap.add_argument('--pdf', help='a PDF that converts for ~1 min or more '
+                    '(POST /transform-document)')
+    ap.add_argument('--audio', help='an audio file that transcribes for ~1 min or more '
+                    '(POST /transcribe-audio-file; SYNC-FREEZE)')
+    ap.add_argument('--language', default='de', help='transcription language for --audio')
     ap.add_argument('--probe-interval', type=float, default=5.0)
     ap.add_argument('--baseline-seconds', type=float, default=20.0)
     ap.add_argument('--concurrent', type=int, default=2,
                     help='conversions started at the same instant in the last phase (0 = skip)')
     ap.add_argument('--out', default=None, help='write all samples as JSON')
     args = ap.parse_args()
+    if bool(args.pdf) == bool(args.audio):
+        ap.error('exactly one of --pdf / --audio is required')
+    kind = 'audio' if args.audio else 'pdf'
+    path = args.audio or args.pdf
 
     session = login(args.base_url, args.user, args.password)
     token = csrf_token(session, args.base_url)
@@ -225,8 +267,8 @@ def main():
                            timeout=60).json()
     print(f'logged in as {args.user}; default_mode={settings.get("default_mode")}')
 
-    report = {'base_url': args.base_url, 'pdf': args.pdf, 'settings': settings,
-              'probe_interval_s': args.probe_interval}
+    report = {'base_url': args.base_url, 'kind': kind, 'path': path,
+              'settings': settings, 'probe_interval_s': args.probe_interval}
 
     # Phase A — baseline at idle.
     sched = ProbeScheduler(args.base_url, session, args.probe_interval)
@@ -242,7 +284,8 @@ def main():
     sched.start()
     time.sleep(args.probe_interval)  # one probe round before the upload
     worker = threading.Thread(target=run_conversion, args=(
-        args.base_url, clone_session(session), token, args.pdf, 'single', results))
+        args.base_url, clone_session(session), token, path, 'single', results,
+        kind, args.language))
     worker.start()
     worker.join()
     time.sleep(args.probe_interval * 2)  # a couple of rounds after it ended
@@ -250,14 +293,14 @@ def main():
     conv = results[0]
     stats = summarize(during, t_ref=conv['started_at'])
     report['single'] = {'conversion': conv, 'samples': during, 'stats': stats}
-    print(f'\nB. One conversion: status={conv["status"]} duration={conv["duration_s"]} s '
-          f'markdown_chars={conv.get("markdown_chars")} degradations={conv.get("degradations")}')
+    print(f'\nB. One {kind} request: {describe(conv)}')
     if conv['status'] != 200:
-        # A rejected upload (413 above MAX_SYNC_PDF_PAGES, 400, ...) never ran
-        # an engine — the probe table below would read as "no blocking"
-        # while nothing was measured. Fail loudly instead.
-        sys.exit(f'conversion did not run (status {conv["status"]}: '
-                 f'{conv.get("error")}) — pick a PDF the web path accepts')
+        # A rejected upload (400 for a PDF on the sync route since
+        # DOC-WEB-ASYNC P2, 413, ...) never ran an engine — the probe table
+        # below would read as "no blocking" while nothing was measured.
+        # Fail loudly instead.
+        sys.exit(f'long request did not run (status {conv["status"]}: '
+                 f'{conv.get("error")}) — pick an input the route accepts')
     print_table('   probes during/around it', stats)
     print_timeline(during)
 
@@ -268,7 +311,8 @@ def main():
         sched.start()
         time.sleep(args.probe_interval)
         threads = [threading.Thread(target=run_conversion, args=(
-            args.base_url, clone_session(session), token, args.pdf, f'c{i + 1}', results))
+            args.base_url, clone_session(session), token, path, f'c{i + 1}', results,
+            kind, args.language))
             for i in range(args.concurrent)]
         t_launch = time.time()
         for t in threads:
@@ -284,13 +328,11 @@ def main():
         report['concurrent'] = {'launched_at': t_launch, 'conversions': results,
                                 'wall_s': round(wall, 1), 'sum_durations_s': round(total, 1),
                                 'samples': during_c, 'stats': stats_c}
-        print(f'\nC. {args.concurrent} conversions launched together: wall={wall:.1f} s, '
+        print(f'\nC. {args.concurrent} {kind} requests launched together: wall={wall:.1f} s, '
               f'sum of durations={total:.1f} s')
         for r in results:
             print(f'   {r["label"]}: start+{r["started_at"] - t_launch:.1f}s '
-                  f'end+{r["ended_at"] - t_launch:.1f}s duration={r["duration_s"]} s '
-                  f'status={r["status"]} chars={r.get("markdown_chars")} '
-                  f'degradations={r.get("degradations")}')
+                  f'end+{r["ended_at"] - t_launch:.1f}s {describe(r)}')
         print_table('   probes during/around them', stats_c)
         print_timeline(during_c)
 

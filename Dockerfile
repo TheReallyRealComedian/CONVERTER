@@ -96,4 +96,18 @@ RUN arch="$(uname -m)" \
 
 COPY . .
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "1800","--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]
+# SYNC-FREEZE: 4 worker PROCESSES. asgiref's WsgiToAsgi runs every WSGI call
+# of a process on ONE thread (bare @sync_to_async → thread_sensitive=True →
+# single_thread_executor, asgiref 3.8.1 wsgi.py:134), so --threads cannot
+# help — only processes do. Measured with scripts/measure_sync_blocking.py:
+# with one process a long request (transcription, PDF) parked EVERY other
+# request until it ended. N=4: RAM is no constraint (121 MB RSS per process),
+# the sync paths left after SYNC-FREEZE P2 are seconds long, and a single
+# user plus the iOS app plus agents never hold three long requests at once —
+# so four keeps the instance responsive while one, two or three run; the
+# fifth waits. NO --preload: each process builds its own app (the SDK clients
+# created at import are not fork-safe); the schema bootstrap is serialised
+# by the startup lock in app_pkg/__init__.py, and SQLite runs in WAL mode
+# with an explicit busy_timeout (same module) so N writers don't trade the
+# freeze for 'database is locked'.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "1800", "--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]

@@ -56,8 +56,12 @@ _install_module_stubs()
 # --- Env required by `import app` ---
 
 _TEST_DB_FILE = Path(tempfile.gettempdir()) / 'converter-test.db'
-if _TEST_DB_FILE.exists():
-    _TEST_DB_FILE.unlink()
+# SYNC-FREEZE: the app switches SQLite to WAL, which keeps '-wal'/'-shm'
+# side files next to the database — drop them with it so a previous run's
+# journal can never be replayed into a fresh test database.
+for _stale in (_TEST_DB_FILE, Path(f'{_TEST_DB_FILE}-wal'), Path(f'{_TEST_DB_FILE}-shm')):
+    if _stale.exists():
+        _stale.unlink()
 
 os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 os.environ.setdefault('DATABASE_URL', f'sqlite:///{_TEST_DB_FILE}')

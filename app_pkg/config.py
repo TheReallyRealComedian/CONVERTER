@@ -153,3 +153,27 @@ DOC_CONVERT_BUDGET_EUR = _env_positive_float('DOC_CONVERT_BUDGET_EUR', 1.0)
 # price change never needs a code change.
 DOC_CONVERT_CLOUD_CENT_PER_PAGE = _env_positive_float(
     'DOC_CONVERT_CLOUD_CENT_PER_PAGE', 1.48)
+
+
+# --- SYNC-FREEZE: SQLite under several gunicorn processes ---------------------
+#
+# Since SYNC-FREEZE the web app runs as N gunicorn worker PROCESSES (Dockerfile
+# CMD) that all open the same SQLite file. Two connection-level settings make
+# that safe; both are applied to every new connection by
+# ``app_pkg._register_sqlite_pragmas``:
+#
+# * ``journal_mode=WAL`` — readers never block a writer and a writer never
+#   blocks readers; only writers serialise among themselves. The previous
+#   state was the rollback journal (``delete``), where one writer locks the
+#   whole file against every reader. WAL is persisted IN the database file,
+#   so the switch survives restarts; re-issuing the pragma on a file that is
+#   already WAL is a read transaction, not a lock.
+# * ``busy_timeout`` — how long a connection waits for a lock before raising
+#   ``database is locked``. pysqlite's default is 5 s and had never been set
+#   explicitly. 10 s: every write transaction of this app is milliseconds (a
+#   rating, a highlight, a settings blob; the startup migration is the longest
+#   and still sub-second), so 10 s absorbs any burst of N processes writing at
+#   once — and a lock held LONGER than that is a bug (a transaction left open
+#   around an external call) that should surface as an error in the log
+#   rather than park a worker's single request thread even longer.
+SQLITE_BUSY_TIMEOUT_SECONDS = 10
