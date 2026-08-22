@@ -96,18 +96,23 @@ RUN arch="$(uname -m)" \
 
 COPY . .
 
-# SYNC-FREEZE: 4 worker PROCESSES. asgiref's WsgiToAsgi runs every WSGI call
-# of a process on ONE thread (bare @sync_to_async → thread_sensitive=True →
-# single_thread_executor, asgiref 3.8.1 wsgi.py:134), so --threads cannot
-# help — only processes do. Measured with scripts/measure_sync_blocking.py:
-# with one process a long request (transcription, PDF) parked EVERY other
-# request until it ended. N=4: RAM is no constraint (121 MB RSS per process),
-# the sync paths left after SYNC-FREEZE P2 are seconds long, and a single
-# user plus the iOS app plus agents never hold three long requests at once —
-# so four keeps the instance responsive while one, two or three run; the
-# fifth waits. NO --preload: each process builds its own app (the SDK clients
-# created at import are not fork-safe); the schema bootstrap is serialised
-# by the startup lock in app_pkg/__init__.py, and SQLite runs in WAL mode
-# with an explicit busy_timeout (same module) so N writers don't trade the
-# freeze for 'database is locked'.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "1800", "--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]
+# SYNC-FREEZE: 2 worker PROCESSES, each serving sync views on a thread pool
+# of WEB_SYNC_THREADS (app_pkg/asgi.py). Responsiveness no longer depends on
+# the process count: since P2 every WSGI call runs on a per-process pool, and
+# ONE process answered probes in 6-9 ms while two transcriptions and two PDF
+# renders ran inside it (measured: scripts/measure_sync_blocking.py +
+# scripts/verify_concurrency.py). Processes are now for two things only:
+# (a) surviving a worker restart - gunicorn respawns a crashed or timed-out
+# worker, the other process keeps serving meanwhile; (b) the GIL - CPU-bound
+# views (Markdown->HTML of a long document, an EPUB build, a 200-card
+# review-state JSON) run truly parallel on two cores instead of time-slicing
+# one. Four bought nothing beyond that at 2x the memory (200-290 MB RSS per
+# process after large uploads). Under P1's single-thread adapter the process
+# count was the only lever - that is why it was 4 for one commit; --threads
+# never helped because the serialisation sat in asgiref, per process.
+# NO --preload: each process builds its own app (the SDK clients created at
+# import - a gRPC channel in GoogleTTSService - are not fork-safe); the
+# schema bootstrap is serialised by the startup lock in app_pkg/__init__.py,
+# and SQLite runs in WAL mode with an explicit busy_timeout (same module) so
+# N writers don't trade the freeze for 'database is locked'.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "1800", "--worker-class", "uvicorn.workers.UvicornWorker", "app:asgi_app"]

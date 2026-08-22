@@ -177,3 +177,18 @@ DOC_CONVERT_CLOUD_CENT_PER_PAGE = _env_positive_float(
 #   around an external call) that should surface as an error in the log
 #   rather than park a worker's single request thread even longer.
 SQLITE_BUSY_TIMEOUT_SECONDS = 10
+
+
+# --- SYNC-FREEZE P2: sync views on a thread pool, per process -----------------
+#
+# ``app_pkg.asgi`` runs every WSGI call on a dedicated ThreadPoolExecutor of
+# this size (per gunicorn process) instead of asgiref's single thread. The
+# bound is deliberate: each running view may hold one SQLAlchemy connection,
+# and the engine's default pool allows 15 per process (pool_size 5 +
+# max_overflow 10; a 16th waiter would hit pool_timeout after 30 s) — eight
+# threads stay well inside that. Eight is also far more than one user, the
+# iOS app and an agent ever have in flight at once (a transcription, two PDF
+# renders, a burst of ratings and the pollers fit side by side); beyond it,
+# requests queue in the executor instead of failing. Process count
+# (Dockerfile CMD) multiplies this.
+WEB_SYNC_THREADS = 8

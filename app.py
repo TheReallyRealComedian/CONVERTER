@@ -16,7 +16,6 @@ patches reach the route handlers at call time.
 """
 import os
 
-from asgiref.wsgi import WsgiToAsgi
 from playwright.async_api import async_playwright
 from redis import Redis
 from rq import Queue
@@ -40,6 +39,7 @@ from app_pkg import mermaid as mermaid_module
 from app_pkg import mobile_auth as mobile_auth_module
 from app_pkg import narration as narration_module
 from app_pkg import tags as tags_module
+from app_pkg.asgi import ThreadPoolWsgiToAsgi
 from app_pkg.integrations import notion as notion_module
 from services import DeepgramService, GeminiService, GoogleTTSService
 
@@ -84,7 +84,9 @@ notion_module.register(app)
 narration_module.register(app)
 
 
-asgi_app = WsgiToAsgi(app)
+# SYNC-FREEZE P2: WSGI calls on a per-process thread pool instead of
+# asgiref's single thread — see app_pkg/asgi.py for the measured why.
+asgi_app = ThreadPoolWsgiToAsgi(app)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
