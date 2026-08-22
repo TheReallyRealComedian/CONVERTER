@@ -95,9 +95,9 @@ UNIT_DOCUMENT = 'document'
 # per-format ledger is bookkeeping nobody maintains.
 #
 # ⚠️ BUMP THIS on EVERY change to an engine or to a result assembly
-# (backend swap, invocation change, serializer/assembly rule change —
-# DOC-ROUTE included): if a re-submit today would produce a different
-# result, stored rows must stop answering for it.
+# (backend swap, invocation change — a paragraph grouper counts —,
+# serializer/assembly rule change): if a re-submit today would produce a
+# different result, stored rows must stop answering for it.
 # Bumps: 2 = DOC-LOCAL (mineru replaces the text layer) · 3 = DOC-WEB (one
 # router for both entrances; scan pages named on the fallback; default mode
 # ``lokal`` — results of mode-less submits change for every PDF).
