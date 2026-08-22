@@ -1,5 +1,9 @@
-# Use the official Playwright Python image that has browsers pre-installed
-FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
+# Use the official Playwright Python image that has browsers pre-installed.
+# OKTOBER (2026-08-22): noble (Ubuntu 24.04) = Python 3.12 — jammy's 3.10
+# reaches EOL 2026-10-04, after which the Google client libraries (texttospeech,
+# api_core) ship no further releases for it. The image pins Playwright AND its
+# browsers; requirements.txt must carry the SAME playwright version.
+FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
 
 WORKDIR /app
 
@@ -36,14 +40,20 @@ RUN arch="$(dpkg --print-architecture)" \
 # Gemini). Pinning the +cpu build BEFORE the requirements install means unstructured finds
 # torch already satisfied and never pulls the CUDA variant. Use +cpu explicitly with
 # --extra-index-url (not --index-url, which would drop torch's runtime deps from PyPI).
+# OKTOBER: constraints.txt freezes ten unpinned transitive packages at their
+# last-3.10-build versions (see the file's header) — passed to BOTH installs so
+# the torch layer never pulls a networkx/filelock the requirements layer would
+# then have to downgrade.
+COPY constraints.txt .
 RUN pip install --no-cache-dir --timeout=600 --retries=5 \
     torch==2.12.1+cpu torchvision==0.27.1+cpu \
-    --extra-index-url https://download.pytorch.org/whl/cpu
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -c constraints.txt
 
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir --timeout=600 --retries=5 -r requirements.txt
+RUN pip install --no-cache-dir --timeout=600 --retries=5 -r requirements.txt -c constraints.txt
 
 # Download NLTK assets
 RUN python - <<'PY'
