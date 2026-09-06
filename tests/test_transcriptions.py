@@ -104,6 +104,24 @@ def test_submit_creates_pending_job(app, authenticated_client, test_user,
     assert call.kwargs['meta']['conversion_id'] == body['id']
 
 
+def test_submit_without_language_defaults_to_german(app, authenticated_client,
+                                                    mock_deepgram, mock_redis_queue,
+                                                    transcription_dir):
+    """TRANS-DE-DEFAULT: a POST that carries no ``language`` field lands as
+    ``de``. Oli dictates in German; the server default must agree with the
+    module default in audio_converter.js and the ``lang-active`` button —
+    this pins the server side, the browser side is a live-smoke check."""
+    fields = {'audio_file': (io.BytesIO(b'RIFF....fake audio'), '260521_0176.wav')}
+    resp = authenticated_client.post(URL, data=fields, content_type='multipart/form-data')
+    assert resp.status_code == 202
+    body = resp.get_json()
+    with app.app_context():
+        meta = json.loads(_row(body['id']).metadata_json)
+    assert meta['language'] == 'de'
+    call = mock_redis_queue['queue'].enqueue.call_args
+    assert call.args[1:] == (body['id'], 'wav', 'de')
+
+
 def test_submit_envelope_scales_with_the_duration(authenticated_client, mock_deepgram,
                                                   mock_redis_queue, transcription_dir,
                                                   monkeypatch):

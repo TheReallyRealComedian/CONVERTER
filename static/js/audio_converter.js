@@ -62,7 +62,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== LANGUAGE SELECTION =====
     // ==========================================================
     const languageButtons = document.querySelectorAll('.language-btn');
-    let selectedLanguage = 'en';
+    // TRANS-DE-DEFAULT: must agree with the server default in app_pkg/audio.py
+    // and the ``lang-active`` button in the template. Both the file upload
+    // and the live tab (Deepgram WS URL) read this one variable.
+    let selectedLanguage = 'de';
 
     languageButtons.forEach(button => {
         button.addEventListener('click', function() {

@@ -258,7 +258,10 @@ def register(app):
         if 'audio_file' not in request.files:
             return jsonify({"error": 'Kein Datei-Feld "audio_file" im Request.'}), 400
         upload = request.files['audio_file']
-        language = request.form.get('language', 'en')
+        # TRANS-DE-DEFAULT: Oli dictates in German. The default must agree with
+        # the module default in static/js/audio_converter.js and the button that
+        # carries ``lang-active`` in templates/audio_converter.html.
+        language = request.form.get('language', 'de')
         if not upload.filename:
             return jsonify({"error": "Keine Datei ausgewählt."}), 400
         if language not in ACCEPTED_TRANSCRIPTION_LANGUAGES:

@@ -95,7 +95,7 @@ class DeepgramService:
         )
         self.merger = TranscriptMerger()
     
-    def load_keyterms(self, language='en'):
+    def load_keyterms(self, language):
         """
         Load domain-specific keyterms for improved transcription accuracy.
         Returns a list of keyterms for the specified language.
@@ -121,13 +121,16 @@ class DeepgramService:
             logger.error(f"Error loading keyterms: {e}")
             return []
     
-    def transcribe_file(self, audio_data: bytes, language: str = 'en') -> str:
+    def transcribe_file(self, audio_data: bytes, language: str) -> str:
         """
         Transcribe audio file mit automatischem Splitting für lange Dateien.
 
         Args:
             audio_data: Audio file data (bytes)
-            language: Language code (e.g., 'en', 'de')
+            language: Language code (e.g., 'en', 'de'). Required on purpose —
+                the UI default lives in app_pkg/audio.py (TRANS-DE-DEFAULT);
+                a silent service-level default would be the class of
+                behaviour-setting library default CLAUDE.md warns about.
 
         Returns:
             str: Transcribed text
