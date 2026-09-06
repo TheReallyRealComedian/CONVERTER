@@ -15,7 +15,7 @@
      PANE HEADERS                – .pane-header
      RESIZER HANDLE              – split-pane drag handle
      READER MODE                 – .main-container.reader-mode + reader toolbar
-     DARK MODE (Reader only)     – data-theme="dark" overrides for reader
+     DARK MODE (Reader only)     – data-theme (reader pick); tokens live at .main-container.reader-mode
      READER MODE — TOGGLES       – sidebar-toggle-floater, layout/detail-grid, reading-progress, card-progress
      READER VIEW                 – .reader-view (library detail Markdown render)
      HIGHLIGHT                   – .highlight span, create-btn, action-popover, sidebar-card, flash
@@ -772,23 +772,61 @@ select.c-input option {
     display: none !important;
 }
 
-.reader-mode .main-container::before {
+/* READER-SCOPE (2026-09-06): the reader scope is a REAL scope.
+   `.reader-mode` sits ON .main-container, so the former
+   `.reader-mode .main-container::before` never matched (descendant selector
+   on the same element): the global surface card stayed under the reader, and
+   the container kept its global-token padding + background — that was the
+   standing rim in the foreign brightness, in both directions. Fixed by
+   scoping, not by !important:
+   – the container drops its padding and paints the reader token itself;
+   – --reader-bg is defined HERE, at the scope, for every state the JS knows.
+     The three rules mirror isDarkActive() in markdown_converter.js: an
+     explicit reader pick (data-theme on <html>) beats the global theme, no
+     pick follows the global theme. Order is load-bearing: the explicit-light
+     rule comes last so it wins the tie against global-dark at equal
+     specificity. Values mirror buildIframeDoc()'s baseBg (#1a1a2e / #fff).
+   Property this guarantees (measured by scripts/smoke_markdown_reader.py):
+   with reader-mode on, no element between <body> and the iframe document is
+   coloured from a global token; with reader-mode off, none of this applies. */
+.main-container.reader-mode {
+    --reader-bg: #ffffff;
+    padding: 0;
+    background: var(--reader-bg);
+}
+[data-global-theme="dark"] .main-container.reader-mode,
+[data-theme="dark"] .main-container.reader-mode {
+    --reader-bg: #1a1a2e;
+}
+[data-theme="light"] .main-container.reader-mode {
+    --reader-bg: #ffffff;
+}
+.main-container.reader-mode::before {
     display: none;
 }
 
 .reader-mode .preview-pane {
     flex-basis: 100% !important;
-    background: var(--reader-bg, #ffffff);
+    background: var(--reader-bg);
     box-shadow: none;
     border-radius: 0;
 }
 
-.reader-mode .preview-iframe {
+/* Anchored on the scope root (.main-container.reader-mode, 0,3,0) on purpose:
+   the global-dark `.preview-iframe` rule further down is (0,2,0) and later in
+   the file — as `.reader-mode .preview-iframe` this rule lost that tie in the
+   explicit-light reader under a dark global theme (caught by the smoke). */
+.main-container.reader-mode .preview-iframe {
     max-width: var(--reader-width, 800px);
     aspect-ratio: auto;
     height: calc(100vh - 80px);
     box-shadow: none;
     border-radius: 0;
+    /* The iframe ELEMENT is what shows while srcdoc is rebuilt (every
+       keystroke, every theme flip re-assigns it); with the base #fff that was
+       a white flash in the dark reader — measured 4–5 blank-white compositor
+       frames per 30 keystrokes. Paint the element in the reader tone. */
+    background: var(--reader-bg);
 }
 
 .reader-mode .preview-pane .pane-header {
@@ -796,7 +834,7 @@ select.c-input option {
 }
 
 .reader-mode .preview-container {
-    background: var(--reader-bg, #ffffff);
+    background: var(--reader-bg);
     padding: var(--nm-space-xl) var(--nm-space-md);
 }
 
@@ -957,11 +995,10 @@ body.library-reader .reader-view {
 }
 
 /* ===== DARK MODE (Reader only) ===== */
-[data-theme="dark"] {
-    --reader-bg: #1a1a2e;
-    --reader-text: #d4d4d8;
-}
-
+/* data-theme="dark"|"light" on <html> is the reader's explicit pick (set by
+   markdown_converter.js, removed on reader exit). The reader tokens it drives
+   live AT the reader scope — see `.main-container.reader-mode` in READER MODE
+   above (READER-SCOPE); a root-level token block here was no scope at all. */
 [data-theme="dark"] #sidebar {
     display: none !important;
 }
@@ -2522,10 +2559,17 @@ body.library-reader .library-reader-enter {
                 0 2px 0 rgba(0,0,0,0.3);
 }
 
-/* Dark: split-pane unified surface rides the dark --nm-surface-grad token (see dark :root) */
-[data-global-theme="dark"] .editor-pane,
-[data-global-theme="dark"] .preview-pane {
-    background: transparent;
+/* Dark: split-pane unified surface rides the dark --nm-surface-grad token (see
+   dark :root). Both panes are `background: transparent` in their base rules —
+   the former global-dark override here was a no-op outside the reader and,
+   at equal specificity but later in the file, beat `.reader-mode .preview-pane`
+   inside it (READER-SCOPE). Removed, not out-weighted. */
+
+/* Dark: outside the reader the preview document is rendered dark too
+   (isDarkActive() follows the global theme) — paint the iframe element in the
+   same tone so the srcdoc rebuild shows no white flash. Mirrors buildIframeDoc(). */
+[data-global-theme="dark"] .preview-iframe {
+    background: #1a1a2e;
 }
 
 /* Dark: type/status/view-switcher badges now ride the dark --nm-tone-* tokens
