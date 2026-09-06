@@ -13,7 +13,6 @@
      TAB & LANGUAGE TOGGLES      – .tab-active/.tab-inactive, .lang-*
      SPLIT-PANE LAYOUT           – .main-container, .editor-pane, .preview-pane
      PANE HEADERS                – .pane-header
-     PDF PAGE SIMULATION         – preview iframe styling
      RESIZER HANDLE              – split-pane drag handle
      READER MODE                 – .main-container.reader-mode + reader toolbar
      DARK MODE (Reader only)     – data-theme="dark" overrides for reader
@@ -64,10 +63,8 @@
     --eyebrow-size:    0.8rem;
     --eyebrow-spacing: 0.04em;
 
-    /* PDF Page Dimensions (unchanged) */
+    /* PDF page width — drives the A4 preview iframe's max-width */
     --page-width: 21cm;
-    --page-height: 29.7cm;
-    --page-margin: 2cm;
 
     /* Surface */
     --nm-bg: #e0e5ec;
@@ -164,9 +161,6 @@
     --nm-gap-control: 32px;
     --nm-gap-section: 48px;
 
-    /* Legacy aliases for components that reference old vars */
-    --bg-page: #ffffff;
-    --page-shadow: var(--nm-raised);
 }
 
 /* ===== GLOBAL ===== */
@@ -727,38 +721,6 @@ select.c-input option {
     align-items: center;
 }
 
-/* ===== PDF PAGE SIMULATION ===== */
-.preview-page {
-    background: var(--bg-page);
-    box-shadow: var(--nm-raised);
-    margin: 0 auto var(--nm-space-lg) auto;
-    position: relative;
-    width: var(--page-width);
-    min-height: var(--page-height);
-    max-width: 100%;
-    border: none;
-    border-radius: 4px;
-    outline: 1px solid transparent;
-}
-
-.preview-page::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    border: 1px dashed rgba(0, 0, 0, 0.15);
-    margin: var(--page-margin);
-    pointer-events: none;
-    z-index: 1;
-}
-
-.preview-content-area {
-    padding: var(--page-margin);
-    position: relative;
-    z-index: 2;
-    min-height: calc(var(--page-height) - calc(var(--page-margin) * 2));
-    color: #1a1a1a;
-}
-
 /* ===== RESIZER HANDLE ===== */
 .resizer {
     flex: 0 0 1px;
@@ -836,27 +798,6 @@ select.c-input option {
 .reader-mode .preview-container {
     background: var(--reader-bg, #ffffff);
     padding: var(--nm-space-xl) var(--nm-space-md);
-}
-
-.reader-mode .preview-page {
-    box-shadow: none;
-    border: none;
-    width: 100%;
-    max-width: var(--reader-width, 800px);
-    min-height: 0;
-    background: transparent;
-}
-
-.reader-mode .preview-page::before {
-    display: none;
-}
-
-.reader-mode .preview-content-area {
-    padding: var(--nm-space-lg) 0;
-    font-size: var(--reader-font-size, 18px);
-    line-height: 1.7;
-    color: var(--reader-text, #1a1a1a);
-    min-height: 0;
 }
 
 /* Reader mode hides sidebar */
@@ -1023,104 +964,6 @@ body.library-reader .reader-view {
 
 [data-theme="dark"] #sidebar {
     display: none !important;
-}
-
-[data-theme="dark"] .preview-content-area {
-    color: #d4d4d8 !important;
-}
-
-[data-theme="dark"] .preview-content-area h1,
-[data-theme="dark"] .preview-content-area h2 {
-    color: #f0f0f4 !important;
-    border-bottom-color: rgba(255, 255, 255, 0.15) !important;
-}
-
-[data-theme="dark"] .preview-content-area h3,
-[data-theme="dark"] .preview-content-area h4 {
-    color: #e8e8ee !important;
-}
-
-[data-theme="dark"] .preview-content-area h5,
-[data-theme="dark"] .preview-content-area h6 {
-    color: #b0b0be !important;
-}
-
-[data-theme="dark"] .preview-content-area strong,
-[data-theme="dark"] .preview-content-area b {
-    color: #ececf0 !important;
-}
-
-[data-theme="dark"] .preview-content-area em,
-[data-theme="dark"] .preview-content-area i {
-    color: #c8c8d4 !important;
-}
-
-[data-theme="dark"] .preview-content-area p,
-[data-theme="dark"] .preview-content-area li,
-[data-theme="dark"] .preview-content-area span {
-    color: #d4d4d8 !important;
-}
-
-[data-theme="dark"] .preview-content-area a {
-    color: #7aa2f7 !important;
-}
-
-[data-theme="dark"] .preview-content-area code {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: #e8b4b8 !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-[data-theme="dark"] .preview-content-area pre {
-    background: #16161e !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: none !important;
-}
-
-[data-theme="dark"] .preview-content-area pre code {
-    background: transparent !important;
-    color: #c9d1d9 !important;
-}
-
-[data-theme="dark"] .preview-content-area blockquote {
-    border-left-color: #7aa2f7 !important;
-    background: rgba(255, 255, 255, 0.04) !important;
-    color: #b0b0c0 !important;
-}
-
-[data-theme="dark"] .preview-content-area table {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow: none !important;
-}
-
-[data-theme="dark"] .preview-content-area thead {
-    background: rgba(255, 255, 255, 0.06) !important;
-}
-
-[data-theme="dark"] .preview-content-area th {
-    color: #e0e0e8 !important;
-    border-bottom-color: rgba(255, 255, 255, 0.15) !important;
-}
-
-[data-theme="dark"] .preview-content-area td {
-    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-[data-theme="dark"] .preview-content-area tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-}
-
-[data-theme="dark"] .preview-content-area tbody tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.02) !important;
-}
-
-[data-theme="dark"] .preview-content-area hr {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent) !important;
-}
-
-[data-theme="dark"] .preview-content-area img {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* ===== READER MODE — DISTRACTION-FREE TOGGLES =====
@@ -2694,11 +2537,6 @@ body.library-reader .library-reader-enter {
 [data-global-theme="dark"] select.c-input option {
     background: #2a2d3a;
     color: #e0e0e8;
-}
-
-/* Dark: Preview page stays white (PDF simulation) */
-[data-global-theme="dark"] .preview-page {
-    background: #ffffff;
 }
 
 /* Dark: Scrollbar */
