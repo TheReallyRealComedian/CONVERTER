@@ -4,8 +4,13 @@
    library reading view; wired by static/js/reader_settings.js.
 
    Per-consumer flags (set with {% set %} before the include):
-     reader_aa_dark — render the dark-mode toggle (markdown-converter only)
-     reader_aa_exit — render the "leave reader" button (default: on)
+     reader_aa_dark   — render the dark-mode toggle (markdown-converter only)
+     reader_aa_exit   — render the "leave reader" button (default: on)
+     reader_aa_styles — list of PDF style names → renders the style group
+                        (markdown-converter only, READER-STIL). Same source as
+                        the form's <select> (`themes` from app_pkg/markdown.py),
+                        never a hand-kept second list; the buttons drive that
+                        <select>, wired by opts.onStyle in reader_settings.js.
 
    The trigger shows only in reader-mode (body.reader-active); the popover is
    JS-toggled (.is-open) and dismisses on outside-click + Esc. #}
@@ -34,6 +39,16 @@
         <span class="reader-aa-group__label">Darstellung</span>
         <div class="reader-aa-row">
             <button type="button" class="reader-aa-btn" data-reader-dark id="dark-mode-btn" aria-label="Dunkelmodus umschalten" title="Dunkelmodus umschalten">&#127769;</button>
+        </div>
+    </div>
+    {% endif %}
+    {% if reader_aa_styles|default([]) %}
+    <div class="reader-aa-group">
+        <span class="reader-aa-group__label">Vorlage</span>
+        <div class="reader-aa-row reader-aa-row--stack">
+            {% for theme in reader_aa_styles %}
+            <button type="button" class="reader-aa-btn reader-aa-btn--style" data-reader-style="{{ theme }}">{{ theme.replace('_', ' ').title() }}</button>
+            {% endfor %}
         </div>
     </div>
     {% endif %}

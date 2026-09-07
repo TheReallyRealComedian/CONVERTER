@@ -927,6 +927,14 @@ body.reader-active .reader-aa-trigger {
     display: flex;
     gap: 0.375rem;
 }
+/* Style group (READER-STIL): the names are words, not glyphs — stacked, one
+   per row, so three or more fit the 220px popover without wrapping mid-name. */
+.reader-aa-row--stack {
+    flex-direction: column;
+}
+.reader-aa-btn--style {
+    text-align: left;
+}
 /* Nested inside a raised popover → flat at rest, pressed on hover/active
    (DS elevation-budget rule). */
 .reader-aa-btn {

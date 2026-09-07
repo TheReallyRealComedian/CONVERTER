@@ -29,7 +29,10 @@
        opts.popover  — the popover element (JS toggles the .is-open class)
        opts.onChange — called after a size change (markdown re-renders its iframe)
        opts.onDark   — optional; wires the [data-reader-dark] button if present
-       opts.onExit   — optional; wires the [data-reader-exit] button if present */
+       opts.onExit   — optional; wires the [data-reader-exit] button if present
+       opts.onStyle  — optional; wires the [data-reader-style] buttons (markdown
+                       converter: PDF style, READER-STIL); without it the group
+                       is removed (the library reader knows no styles) */
     function createReaderSettings(opts) {
         opts = opts || {};
         const target = opts.target || null;
@@ -38,12 +41,22 @@
         const onChange = typeof opts.onChange === 'function' ? opts.onChange : function () {};
         const onDark = typeof opts.onDark === 'function' ? opts.onDark : null;
         const onExit = typeof opts.onExit === 'function' ? opts.onExit : null;
+        const onStyle = typeof opts.onStyle === 'function' ? opts.onStyle : null;
 
         function updateWidthButtons(active) {
             if (!popover) return;
             WIDTH_KEYS.forEach(function (s) {
                 const btn = popover.querySelector('[data-reader-width="' + s + '"]');
                 if (btn) btn.classList.toggle('active', s === active);
+            });
+        }
+
+        /* Active marker on the style buttons — driven from the consumer's
+           <select> (source of truth), never from a state of its own. */
+        function updateStyleButtons(active) {
+            if (!popover) return;
+            popover.querySelectorAll('[data-reader-style]').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-reader-style') === active);
             });
         }
 
@@ -125,6 +138,19 @@
                 if (onDark) darkBtn.addEventListener('click', function () { onDark(darkBtn); });
                 else darkBtn.remove();
             }
+            const styleBtns = popover.querySelectorAll('[data-reader-style]');
+            if (styleBtns.length) {
+                if (onStyle) {
+                    styleBtns.forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            onStyle(btn.getAttribute('data-reader-style'));
+                        });
+                    });
+                } else {
+                    const group = styleBtns[0].closest('.reader-aa-group');
+                    if (group) group.remove();
+                }
+            }
             const exitBtn = popover.querySelector('[data-reader-exit]');
             if (exitBtn) {
                 if (onExit) exitBtn.addEventListener('click', function () { closePopover(); onExit(); });
@@ -146,6 +172,7 @@
             changeWidth: changeWidth,
             applyWidth: applyWidth,
             updateWidthButtons: updateWidthButtons,
+            updateStyleButtons: updateStyleButtons,
             applyPrefs: applyPrefs,
             openPopover: openPopover,
             closePopover: closePopover,

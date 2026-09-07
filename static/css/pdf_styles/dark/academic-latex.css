@@ -1,0 +1,22 @@
+/* academic-latex — DARK TWIN (READER-STIL, 2026-09-07). Preview-only, loaded
+   after academic-latex.css in the dark reader, never by generate_pdf; lives in
+   dark/ so the theme listing and the PDF style lookup never see it. Colour
+   and surface ONLY — typography is the light file's. LaTeX is ink on paper:
+   in the dark it becomes light ink on a neutral near-black, lines stay hard
+   (no transparency), no colour accents — that IS the style. The html/body
+   paper tone is read by the reader scope (--reader-bg) for the surfaces
+   around the document. */
+html, body { background: #131316; color: #d9d9d4; }
+.pdf-page { background: transparent; }
+
+h1, h2, h3, h4, h5, h6 { color: #f4f4ef; }
+a { color: #f4f4ef; }
+blockquote { color: #c4c4be; }
+
+pre { background: #1c1c20; border-color: #3d3d44; }
+
+table { border-top-color: #d9d9d4; border-bottom-color: #d9d9d4; }
+th { border-bottom-color: #d9d9d4; }
+
+figcaption { color: #b3b3ad; }
+hr { border-top-color: #d9d9d4; }

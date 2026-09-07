@@ -33,6 +33,9 @@ function toggleReaderMode() {
     } else {
         document.body.classList.remove('reader-active');
         document.documentElement.removeAttribute('data-theme');
+        // READER-STIL: the paper tone the reader pushed onto the scope (see
+        // syncReaderPaper) must not outlive the reader.
+        container.style.removeProperty('--reader-bg');
         if (readerSettings) readerSettings.closePopover();
     }
     prefs.modeOn = isActive;
@@ -201,6 +204,10 @@ window.addEventListener('load', function() {
     }
 
     let currentThemeCSS = '';
+    // READER-STIL: the style's own dark twin (static/css/pdf_styles/dark/<theme>.css),
+    // '' when the style has none — then the generic DARK_OVERRIDES_CSS below
+    // is the fallback (flat, but readable).
+    let currentDarkCSS = '';
 
     function isDarkActive() {
         const root = document.documentElement;
@@ -223,6 +230,9 @@ window.addEventListener('load', function() {
         return Number.isFinite(v) ? v : null;
     }
 
+    // Generic dark FALLBACK for a style without a dark twin (READER-STIL): it
+    // flattens every style to the same paper/lines/code colours — the twins in
+    // pdf_styles/dark/ exist precisely so the three shipped styles never hit it.
     const DARK_OVERRIDES_CSS = `
         html, body { background: #1a1a2e !important; color: #d4d4d8 !important; }
         .pdf-page { background: transparent !important; color: #d4d4d8 !important; }
@@ -258,7 +268,7 @@ window.addEventListener('load', function() {
         const fontCSS = (readerActive && fontSize)
             ? `html{font-size:${fontSize}px;}body{font-size:${fontSize}px;line-height:1.7;}`
             : '';
-        const darkCSS = dark ? DARK_OVERRIDES_CSS : '';
+        const darkCSS = dark ? (currentDarkCSS || DARK_OVERRIDES_CSS) : '';
         // MATH-RENDER: KaTeX-CSS als <link> (nicht inline), damit die @font-face
         // fonts/-URLs relativ zur CSS-Datei auflösen statt zur iframe-Base.
         const katexCss = window.PageData && window.PageData.katexCssUrl
@@ -284,6 +294,22 @@ window.addEventListener('load', function() {
     }
     window.renderIframe = renderIframe;
 
+    // READER-STIL: the paper tone is decided INSIDE the document (the style, or
+    // its dark twin); the scope around it (--reader-bg at .main-container.reader-mode,
+    // READER-SCOPE) must follow it, or the rim Phase 2 closed comes back from the
+    // other side. Read the rendered document's html background after every
+    // srcdoc load and hand it outward; the CSS token rules stay the first-paint
+    // fallback. Removed again on reader exit (toggleReaderMode).
+    function syncReaderPaper() {
+        const container = document.querySelector('.main-container.reader-mode');
+        if (!container) return;
+        const doc = previewIframe.contentDocument;
+        if (!doc || !doc.documentElement) return;
+        const paper = getComputedStyle(doc.documentElement).backgroundColor;
+        if (paper && paper !== 'rgba(0, 0, 0, 0)') container.style.setProperty('--reader-bg', paper);
+    }
+    previewIframe.addEventListener('load', syncReaderPaper);
+
     const themeObserver = new MutationObserver(renderIframe);
     themeObserver.observe(document.documentElement, {
         attributes: true,
@@ -297,15 +323,25 @@ window.addEventListener('load', function() {
             renderIframe();
             return;
         }
+        // The dark twin is optional: a 404 is a style without one (→ generic
+        // fallback), not an error worth an alert.
+        const darkTwin = fetch(`/static/css/pdf_styles/dark/${theme}.css`)
+            .then(r => (r.ok ? r.text() : ''))
+            .catch(() => '');
         fetch(`/static/css/pdf_styles/${theme}.css`)
             .then(r => {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.text();
             })
-            .then(css => { currentThemeCSS = css; renderIframe(); })
+            .then(css => darkTwin.then(dark => {
+                currentThemeCSS = css;
+                currentDarkCSS = dark;
+                renderIframe();
+            }))
             .catch(err => {
                 console.error('Error loading theme CSS:', err);
                 currentThemeCSS = '';
+                currentDarkCSS = '';
                 renderIframe();
                 const themeLabel = theme.replace(/_/g, ' ');
                 showAlert(getMarkdownAlertContainer(), 'warning',
@@ -375,6 +411,21 @@ window.addEventListener('load', function() {
         onChange: function () { if (typeof window.renderIframe === 'function') window.renderIframe(); },
         onDark: function () { toggleDarkMode(); },
         onExit: function () { toggleReaderMode(); },
+        // READER-STIL: the popover's style buttons DRIVE the form's <select> —
+        // it is the field the PDF POST sends (app_pkg/markdown.py reads
+        // style_theme) and the one updateStyle() renders from. A popover state
+        // of its own would let the reader show Bodoni and the PDF come out
+        // default. Not persisted in readerPrefs: the style belongs to the
+        // document being produced, not to reading comfort, and readerPrefs is
+        // shared with the library reader, which knows no styles.
+        onStyle: function (theme) {
+            styleSelector.value = theme;
+            styleSelector.dispatchEvent(new Event('change'));
+        },
+    });
+    readerSettings.updateStyleButtons(styleSelector.value);
+    styleSelector.addEventListener('change', function () {
+        readerSettings.updateStyleButtons(styleSelector.value);
     });
 
     // Rehydrate reader-mode state from localStorage. Width-buttons get their

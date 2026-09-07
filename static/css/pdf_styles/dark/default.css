@@ -1,0 +1,40 @@
+/* default — DARK TWIN (READER-STIL, 2026-09-07). Preview-only: loaded by the
+   markdown converter's reader after default.css when the reader is dark, never
+   by generate_pdf (the PDF stays a light artefact). Lives in dark/ so the
+   theme listing (STYLE_DIR.glob('*.css')) and the PDF style lookup never see
+   it. Colour and surface ONLY — typography is the light file's; the goal is
+   that the style stays itself in the dark (GitHub-dark palette for a
+   GitHub-flavoured default), instead of the flat generic override.
+   The paper tone set on html/body is read by the reader scope (--reader-bg),
+   so the surfaces around the document follow it — no rim.
+   No .highlight palette: the preview has no highlighter (markdown-it without
+   `highlight`), Pygments classes exist only in the PDF path, which is light. */
+html, body { background: #0d1117; color: #e6edf3; }
+.pdf-page { background: transparent; }
+
+h1, h2, h3, h4, h5, h6 { color: #f0f6fc; }
+h1 { border-bottom-color: #1f6feb; }
+h2 { border-bottom-color: #30363d; }
+h3, h4 { color: #e6edf3; }
+h5, h6 { color: #8b949e; }
+
+strong, b, em, i { color: #f0f6fc; }
+a { color: #58a6ff; }
+a:hover { border-bottom-color: #58a6ff; }
+
+code { background: #161b22; border-color: #30363d; color: #ff7b72; }
+pre { background: #161b22; border-color: #30363d; box-shadow: none; }
+pre code { color: #e6edf3; }
+
+blockquote { color: #8b949e; border-left-color: #1f6feb; background: #161b22; }
+
+table { background: #0d1117; border-color: #30363d; box-shadow: none; }
+thead { background: #161b22; }
+th { color: #f0f6fc; border-bottom-color: #30363d; }
+td { border-bottom-color: #21262d; }
+tbody tr:hover { background-color: #161b22; }
+tbody tr:nth-child(even) { background-color: #10151c; }
+
+hr { background: linear-gradient(90deg, transparent, #30363d, transparent); }
+img { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.highlight { background: #161b22; }
