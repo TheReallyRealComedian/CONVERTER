@@ -92,9 +92,22 @@
             <div id="review-question" class="review-question"></div>
             <p id="review-generative-hint" class="review-hint hidden">Erklär es laut oder auf Papier, bevor du aufdeckst.</p>
 
-            <!-- Reveal -->
+            <!-- Reveal + Überspringen (LEARN-SKIP). Aufdecken bleibt der Primär-
+                 knopf; Überspringen legt die Karte OHNE Wertung ans Ende der
+                 Session (kein Request, kein rating_history-Eintrag) und gibt es
+                 nur, solange die Karte unaufgedeckt ist — wer die Lösung gesehen
+                 hat, bewertete sie Minuten später auf ein geprimtes Gedächtnis
+                 hin. Bedeutung + Taste sitzen IM Knopf wie bei LEARN-RATE (kein
+                 Tooltip — Touch kennt kein Hover). Die letzte verbleibende Karte
+                 ist nicht überspringbar (review.js setzt disabled). -->
             <div class="review-reveal-row">
-                <button type="button" id="review-reveal-btn" class="c-btn c-btn--primary w-full">Aufdecken</button>
+                <button type="button" id="review-reveal-btn" class="c-btn c-btn--primary review-reveal-btn">Aufdecken</button>
+                <button type="button" id="review-skip-btn" class="c-btn review-skip-btn"
+                        aria-label="Überspringen: ohne Wertung ans Ende der Session. Taste 0">
+                    <span class="review-rate-btn__label">Überspringen</span>
+                    <span class="review-rate-btn__meaning">ohne Wertung</span>
+                    <span class="review-rate-btn__key" aria-hidden="true">0</span>
+                </button>
             </div>
 
             <!-- Answer side (hidden until revealed). Back-Figur (Erklär-Figur zur

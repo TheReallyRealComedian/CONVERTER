@@ -70,6 +70,7 @@
     const figureBackEl = el('review-figure-back');
     const genHintEl = el('review-generative-hint');
     const revealBtn = el('review-reveal-btn');
+    const skipBtn = el('review-skip-btn');
     const answerWrap = el('review-answer-wrap');
     const answerLabel = el('review-answer-label');
     const answerEl = el('review-answer');
@@ -168,6 +169,13 @@
         renderFigure(figureBackEl, null);
 
         show(revealBtn);
+        show(skipBtn);
+        // LEARN-SKIP: the LAST remaining card cannot be skipped — putting it
+        // at the end would put it where it already is. Read from the queue,
+        // never from totalDue (the session denominator, not the queue length).
+        // Queue condition only — NOT canSkip(): deleteCard renders the next
+        // card while `busy` is still true, and the button must not stay dim.
+        skipBtn.disabled = !hasCardsBehind();
         hide(answerWrap);
         hide(ratingEl);
         hide(noteWrap);
@@ -195,6 +203,7 @@
         renderFigure(figureBackEl, card.back_svg);
         revealed = true;
         hide(revealBtn);
+        hide(skipBtn);   // LEARN-SKIP: not after the reveal (see skipCard)
         show(answerWrap);
         show(ratingEl);
     }
@@ -237,6 +246,34 @@
             reviewCount = Math.max(0, reviewCount - 1);
         }
         renderCapInfo();
+    }
+
+    // --- Überspringen (LEARN-SKIP) -------------------------------------------
+    // Session-local reorder, nothing else: the card moves from `index` to the
+    // END of `queue`, `index` stays (the next card shifts into this slot —
+    // the deleteCard mechanic without the server), and the returned card
+    // renders through renderCard like any other, so it starts unrevealed.
+    // No request, no rating, no rating_history entry, no decrementPoolCounts —
+    // the card is still due, the pool has not changed. A load() (reload,
+    // scope change, "Mehr lernen", "Neu laden") restores the server order.
+    // Only BEFORE the reveal: whoever has seen the answer would rate the
+    // card minutes later against a freshly primed memory — the class of
+    // invented stability LEARN-RATE and LEARN-BACK removed. The last
+    // remaining card is not skippable (queue.length − index, not totalDue).
+    function hasCardsBehind() {
+        return (queue.length - index) > 1;
+    }
+
+    function canSkip() {
+        return !revealed && !busy && hasCardsBehind();
+    }
+
+    function skipCard() {
+        if (!canSkip()) return;
+        const [card] = queue.splice(index, 1);
+        queue.push(card);
+        showToast('Zurückgestellt – kommt am Ende der Session.');
+        renderCard(currentCard());
     }
 
     function advance() {
@@ -854,6 +891,7 @@
     collectionAdd.addEventListener('click', addToCollection);
 
     revealBtn.addEventListener('click', revealAnswer);
+    skipBtn.addEventListener('click', skipCard);
     ratingEl.addEventListener('click', (e) => {
         const btn = e.target.closest('.review-rate-btn');
         if (btn && !btn.disabled) rate(btn.dataset.rating);
@@ -871,13 +909,17 @@
     el('review-reload').addEventListener('click', load);
     moreBtn.addEventListener('click', onMoreClick);
 
-    // Keyboard: Space/Enter reveals, 1–4 rate. Ignore while typing a note.
+    // Keyboard: Space/Enter reveals, 0 skips (LEARN-SKIP — the digit next to
+    // the rating keys, "keine Wertung"; on every layout, inert on a focused
+    // <select>, unlike a letter or an arrow), 1–4 rate. Ignore while typing.
     document.addEventListener('keydown', (e) => {
         if (cardEl.classList.contains('hidden')) return;
         if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
         if (!revealed && (e.code === 'Space' || e.key === 'Enter')) {
             e.preventDefault();
             revealAnswer();
+        } else if (!revealed && e.key === '0') {
+            skipCard();
         } else if (revealed && ['1', '2', '3', '4'].includes(e.key)) {
             rate({ '1': 'again', '2': 'hard', '3': 'good', '4': 'easy' }[e.key]);
         }

@@ -2005,7 +2005,37 @@ body.reader-active .sidebar-toggle-floater--global {
     color: var(--nm-text-muted);
 }
 
-.review-reveal-row { margin-top: var(--nm-space-lg); }
+/* LEARN-SKIP — Aufdecken + Überspringen in EINER Zeile. Aufdecken behält das
+   Gewicht (Primärknopf, nimmt die Restbreite), Überspringen ist ein sekundärer
+   .c-btn mit dem gestapelten Label/Bedeutung/Taste-Aufbau der Bewertungsknöpfe
+   (dieselben __label/__meaning/__key-Spans — eine Typografie für alle Knöpfe,
+   die eine Taste tragen). align-items: stretch, damit der einzeilige
+   Primärknopf die Höhe des dreizeiligen Nachbarn annimmt statt daneben zu
+   kleben. Bei 375 px bleiben Aufdecken ≈ 160 px, Überspringen ≈ 130 px — beide
+   einzeilig, deshalb kein Umbruch-Breakpoint. */
+.review-reveal-row {
+    margin-top: var(--nm-space-lg);
+    display: flex;
+    align-items: stretch;
+    gap: var(--nm-space-lg);
+}
+.review-reveal-btn { flex: 1 1 auto; min-width: 0; }
+.review-skip-btn {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding-left: var(--nm-space-md);
+    padding-right: var(--nm-space-md);
+    line-height: var(--leading-tight);
+    text-align: center;
+}
+/* Deaktiviert = letzte verbleibende Karte: ans Ende legen hieße, sie an
+   dieselbe Stelle zu legen. .c-btn:disabled dimmt; der Hover-Lift darf dann
+   nicht mehr greifen. */
+.review-skip-btn:disabled:hover { transform: none; box-shadow: var(--nm-raised-sm); }
 
 .review-answer {
     margin-top: var(--nm-space-lg);
