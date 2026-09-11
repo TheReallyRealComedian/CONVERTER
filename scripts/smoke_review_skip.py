@@ -48,7 +48,8 @@ How to run (Mintbox, ~1 min):
     #    row via the ORM filtered by that user_id, then rm /tmp/smoke_skip*.
 
 Env: BASE_URL (default http://localhost:5000), SMOKE_USER, SMOKE_PASSWORD,
-SMOKE_OUT (/tmp/smoke_skip). Exit 0 = every check passed; every measured
+SMOKE_OUT (/tmp/smoke_skip), SMOKE_APP_ROOT (default: cwd = /app in the
+container — where ``app.py`` lives). Exit 0 = every check passed; every measured
 value is printed so a failure is diagnosable from the output alone.
 """
 import json
@@ -76,6 +77,9 @@ def check(ok, what):
 
 
 # --- test data through the ORM (same container, same DB) -------------------
+# The script is copied to /tmp; the app lives in the container's WORKDIR
+# (/app) — docker exec starts there, so the cwd is the app root.
+sys.path.insert(0, os.environ.get('SMOKE_APP_ROOT', os.getcwd()))
 from app import app  # noqa: E402  (bootstrap shim; the CLI imports it the same way)
 from models import Card, Review, User, db  # noqa: E402
 
