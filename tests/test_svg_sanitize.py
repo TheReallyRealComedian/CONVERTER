@@ -12,7 +12,15 @@ Doctrine note: dangerous constructs are dropped because they are ABSENT from
 the allow-list, not by special-casing — if one of the "falls" tests ever goes
 red, someone widened the list.
 """
-from services.svg_sanitize import MAX_CARD_SVG_BYTES, sanitize_card_svg
+from services.svg_sanitize import (
+    MAX_CARD_SVG_BYTES,
+    SVG_ALLOWED_ATTRIBUTES,
+    SVG_ALLOWED_TAGS,
+    ensure_viewbox,
+    sanitize_card_svg,
+    sanitize_svg,
+    svg_has_drawable,
+)
 
 
 # --- Preservation: camelCase survives nh3 (Probe 1-3) ----------------------
@@ -245,3 +253,132 @@ def test_class_attribute_is_stripped_from_svg_root():
     assert 'hidden' not in out
     assert 'viewBox="0 0 10 10"' in out  # SVG otherwise intact
     assert '<rect' in out
+
+
+# --- RICH-MEDIA 1.1: the policy is exported, one list for cards + documents --
+
+
+def test_policy_has_no_wildcard_and_no_style_or_class_anywhere():
+    """SENTINEL for the Wildcard-Falle. ``app_pkg/markdown_render`` consumes
+    this policy instead of merging SVG tags into the Markdown allow-list,
+    whose ``'*': {class, id, style}`` would hand every SVG element the very
+    attributes this doctrine bans. If a ``'*'`` key or a ``style``/``class``
+    ever shows up here, the back door is open for cards AND documents."""
+    assert '*' not in SVG_ALLOWED_ATTRIBUTES
+    for tag, attrs in SVG_ALLOWED_ATTRIBUTES.items():
+        assert 'style' not in attrs, tag
+        assert 'class' not in attrs, tag
+    assert set(SVG_ALLOWED_ATTRIBUTES) == SVG_ALLOWED_TAGS - {'defs', 'title', 'desc'}
+    for banned in ('script', 'style', 'foreignObject', 'use', 'image', 'a',
+                   'animate', 'set', 'iframe', 'mask', 'filter', 'feImage'):
+        assert banned not in SVG_ALLOWED_TAGS
+
+
+def test_clippath_with_local_reference_survives():
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10"><defs><clipPath id="half" clipPathUnits="userSpaceOnUse">'
+        '<rect x="0" y="0" width="5" height="10"/></clipPath></defs>'
+        '<circle cx="5" cy="5" r="4" clip-path="url(#half)" clip-rule="evenodd"/></svg>'
+    )
+    assert '<clipPath id="half" clipPathUnits="userSpaceOnUse">' in out
+    assert 'clip-path="url(#half)"' in out
+    assert 'clip-rule="evenodd"' in out
+
+
+def test_clip_path_with_external_reference_is_dropped():
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10">'
+        '<circle cx="5" cy="5" r="4" clip-path="url(https://evil.example/c.svg#c)"/></svg>'
+    )
+    assert 'evil.example' not in out
+    assert 'clip-path' not in out
+    assert '<circle' in out
+
+
+def test_mask_and_filter_fall_by_omission():
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10"><mask id="m"><rect width="10" height="10"/></mask>'
+        '<filter id="f"><feImage href="https://evil.example/t.png"/></filter>'
+        '<rect x="1" width="5" height="5" mask="url(#m)" filter="url(#f)"/></svg>'
+    )
+    assert '<mask' not in out
+    assert '<filter' not in out
+    assert 'feImage' not in out and 'evil.example' not in out
+    assert 'mask=' not in out and 'filter=' not in out
+
+
+def test_css_escaped_url_function_is_dropped():
+    # Presentation attributes are parsed as CSS: \75rl( IS url( after escape
+    # processing, and the literal url( scan cannot see it. A backslash in a
+    # reference-bearing value kills the attribute.
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10">'
+        '<rect x="1" fill="\\75rl(https://evil.example/p.svg#g)"/></svg>'
+    )
+    assert 'evil.example' not in out
+    assert 'fill' not in out
+    assert '<rect' in out
+
+
+def test_root_presentation_attributes_survive():
+    # Olis Probe #240 sets font-family/font-size on the root. Inherited
+    # defaults, no new capability (same attributes already work on a <g>).
+    out = sanitize_card_svg(
+        '<svg viewBox="0 0 10 10" font-family="sans-serif" font-size="18">'
+        '<text x="1" y="5">C</text></svg>'
+    )
+    assert 'font-family="sans-serif"' in out
+    assert 'font-size="18"' in out
+
+
+def test_sanitize_svg_without_cap_is_the_same_call_as_the_card_path():
+    raw = ('<svg viewBox="0 0 10 10" class="hidden"><script>alert(1)</script>'
+           '<rect x="1" width="5" height="5" style="fill:red"/></svg>')
+    assert sanitize_svg(raw) == sanitize_card_svg(raw)
+    # No cap on the document path: a figure over the card cap still renders.
+    big = '<svg viewBox="0 0 10 10">' + '<rect x="1"/>' * 9000 + '</svg>'
+    assert len(big.encode('utf-8')) > MAX_CARD_SVG_BYTES
+    assert sanitize_card_svg(big) == ''
+    assert sanitize_svg(big).startswith('<svg')
+
+
+def test_svg_has_drawable():
+    assert svg_has_drawable(sanitize_svg('<svg><text x="1" y="1">C</text></svg>'))
+    assert svg_has_drawable(sanitize_svg('<svg><g><path d="M0 0L1 1"/></g></svg>'))
+    # Root survives, ink does not: script/image/foreignObject all fall.
+    gutted = sanitize_svg(
+        '<svg viewBox="0 0 1 1"><script>x</script><image href="https://e.example/t.png"/></svg>')
+    assert gutted.startswith('<svg')
+    assert not svg_has_drawable(gutted)
+
+
+def test_ensure_viewbox_derives_from_plain_width_and_height():
+    out = ensure_viewbox(sanitize_svg('<svg width="260" height="150"><rect x="1"/></svg>'))
+    assert out.startswith('<svg width="260" height="150" viewBox="0 0 260 150">')
+    px = ensure_viewbox(sanitize_svg('<svg width="12.5px" height="7"><rect x="1"/></svg>'))
+    assert 'viewBox="0 0 12.5 7"' in px
+
+
+def test_ensure_viewbox_leaves_existing_and_relative_roots_alone():
+    has = sanitize_svg('<svg viewBox="0 0 1 1" width="5" height="5"><rect x="1"/></svg>')
+    assert ensure_viewbox(has) == has
+    relative = sanitize_svg('<svg width="50%" height="10"><rect x="1"/></svg>')
+    assert ensure_viewbox(relative) == relative
+    only_width = sanitize_svg('<svg width="50"><rect x="1"/></svg>')
+    assert ensure_viewbox(only_width) == only_width
+
+
+def test_ensure_viewbox_is_quote_aware():
+    """nh3 leaves ``>`` inside attribute values unescaped. A lazy root-tag scan
+    would stop inside ``font-family`` and the inserted viewBox would close
+    that attribute early — turning the rest of the value into live markup."""
+    cleaned = sanitize_svg(
+        '<svg width="10" height="10" font-family="a><img src=x onerror=alert(1)>">'
+        '<rect x="1"/></svg>')
+    out = ensure_viewbox(cleaned)
+    # The hostile value is still ONE intact quoted attribute …
+    assert 'font-family="a><img src=x onerror=alert(1)>"' in out
+    # … and the viewBox landed after it, at the end of the root tag.
+    assert out.startswith(
+        '<svg width="10" height="10" font-family="a><img src=x onerror=alert(1)>"'
+        ' viewBox="0 0 10 10">')
