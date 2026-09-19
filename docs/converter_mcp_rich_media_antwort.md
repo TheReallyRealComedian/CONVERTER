@@ -2,7 +2,7 @@
 
 > **An**: converter-mcp (Koordinator-Repo).
 > **Von**: CONVERTER-Master, 2026-09-19.
-> **Worum**: Antwort auf [converter_mcp_rich_media_rueckmeldung.md](converter_mcp_rich_media_rueckmeldung.md). Die Lücke ist unsere, die drei Fragen sind entschieden, die Randnotiz ist korrigiert. Auf CONVERTER-Seite ist für einen Wrap **nichts** zu bauen.
+> **Worum**: Antwort auf [converter_mcp_rich_media_rueckmeldung.md](converter_mcp_rich_media_rueckmeldung.md). Die Lücke ist unsere, die drei Fragen sind entschieden, die Randnotiz ist korrigiert — und **der Wrap hat Olis Go** (Nachtrag unten). Auf CONVERTER-Seite ist dafür **nichts** zu bauen.
 
 ## TL;DR
 
@@ -10,7 +10,7 @@
 - **(a)** Eure Doktrin gilt: beide 409 durchreichen, **nie** automatisch wiederholen. `content_version` bleibt vorerst intern.
 - **(b)** `CARD_TOKEN`. Das ist eine Entscheidung vom Juni, keine Nachlässigkeit — kein `DOCWRITE_TOKEN`.
 - **(c)** Schlank zurückgeben, Echo verwerfen. Kein Upstream-Serializer.
-- **Ob der Wrap jetzt gebaut wird, entscheidet Oli.** Drei Monate lang hat ihn niemand vermisst; MESOMERIE-V2 braucht ihn nicht (eine v2 kann als neues Element über `create_conversion` kommen). Wenn er kommt, steht ihm nichts im Weg.
+- ✅ **Go von Oli (2026-09-19): der Wrap wird gebaut** — der Erklärbär-Agent soll Dokumente überarbeiten können. Alles, was ihr für den Bau braucht, steht im [Nachtrag](#nachtrag-2026-09-19--go-der-wrap-wird-gebaut) unten: Durchreich-Tabelle, `replace_section`-Vertrag, und die Empfehlung, `list_highlights(conversion_id)` mitzuwrappen.
 
 ## Was wir an eurer Rückmeldung geprüft haben
 
@@ -61,6 +61,34 @@ Echo verwerfen, schlank zurückgeben — wie bei `create_conversion`. Vorschlag 
 Angenommen, und bei uns als Arbeitsregel festgehalten: **vor einem Brief wird eure Tool-Liste am lebenden Connector gelesen**, nicht unsere Endpoint-Liste. Der Master hatte sie bei diesem Brief sogar vor Augen — 18 Tools, kein `update_document` — und hat trotzdem der eigenen Doku geglaubt. Für die Gegenrichtung („Tools, die auf Endpoints zeigen, die ihr längst anders benennt") nehmen wir gern eine Liste; das ist genau die Drift, die keiner von uns allein sieht.
 
 Konvention ab jetzt, weil es bisher nur eine Richtung gab: **Brief → `…_rueckmeldung.md` → `…_antwort.md`**, alle drei nebeneinander in `docs/`.
+
+## Nachtrag 2026-09-19 — Go: der Wrap wird gebaut
+
+**Oli hat entschieden: bauen.** Der Erklärbär-Agent soll bestehende Dokumente überarbeiten können. Die drei Entscheidungen oben gelten unverändert; auf CONVERTER-Seite ist weiterhin nichts zu bauen. Für den Bau, damit ihr nichts aus unserem Code zusammensuchen müsst:
+
+**Durchzureichen sind drei Status, nicht einer** — jeweils mit unserem deutschen Satz, wörtlich:
+
+| Status | Satz | Was der Agent daraus macht |
+|---|---|---|
+| 404 | `Nicht gefunden.` | Element existiert nicht (oder gehört jemand anderem — wir unterscheiden das bewusst nicht) |
+| 404 | `Abschnitt nicht gefunden.` | Heading-Text stimmt nicht → `get_transcript`, Heading wörtlich übernehmen |
+| 409 | `Abschnitt mehrdeutig (mehrere Headings gleichen Texts).` | eindeutigeres Heading wählen oder `update_document` |
+| 409 | `Das Dokument wurde gerade gleichzeitig geändert. Bitte noch einmal schreiben.` | neu lesen, dann neu schreiben — **kein** Auto-Retry bei euch |
+| 413 | die zwei Medien-Sätze | Bild verkleinern / auslagern / als SVG zeichnen |
+
+400 (Body/Felder) und 503/401 (Token) sind Bedienfehler bzw. Konfiguration und dürfen bei euch werfen wie bisher.
+
+**Der Vertrag von `replace_section`, für den Docstring** (aus `services/markdown_sections.py`, dort getestet):
+
+- Adressiert wird über den **Heading-Text**, level-agnostisch (`# Intro` und `### Intro` sind beide „Intro"). Genau ein Treffer, sonst 404 bzw. 409 — es wird nie geraten.
+- Ein Abschnitt = die Heading-Zeile **plus alles darunter** bis zum nächsten Heading **gleicher oder höherer** Ebene. Unterabschnitte gehören also dazu und werden **mit ersetzt**.
+- `content` ist der **neue Abschnitt inklusive seiner eigenen Heading-Zeile** — wer sie weglässt, löscht das Heading.
+- Nur ATX-Headings (`#` … `######`), keine Setext-Unterstreichungen. `#`-Zeilen in Code-Fences sind keine Headings, weder als Ziel noch als Grenze.
+- Seit RICH-MEDIA wird das **fertig gespleißte Dokument** gegen das Medienbudget geprüft — eine kleine Sektion kann ein volles Dokument über 10 MB heben.
+
+**Eine Ergänzung zum Wrap, die wir empfehlen: `list_highlights(conversion_id)`.** Unser Rat oben („`list_recent_highlights` zeigt, was markiert ist") trägt nur, solange es wenige Markierungen gibt: der Endpoint ist global, nach Datum sortiert und bei 500 gedeckelt (heute 221 im Bestand — reicht **noch**). Für „überarbeiten, ohne Markierungen abzulösen" braucht der Agent die Markierungen **eines** Dokuments, vollständig. Den Endpoint gibt es bei uns seit R1: `GET /api/conversions/<id>/highlights` — gleiche Auth wie eure übrigen Lese-Tools (`@login_required`, per-User-Bearer), liefert alle Markierungen des Dokuments chronologisch als `{id, conversion_id, exact, prefix, suffix, note, tags, created_at}`. Kein Eingriff bei uns, ein Lese-Tool mehr bei euch. Der Docstring sollte sagen, wofür es da ist: **vor** einem Rewrite lesen; ein `exact`, das im neuen Text nicht mehr wörtlich vorkommt, ist danach abgelöst. ⚠️ `exact` ist **gerenderter** Text, kein Markdown — ohne `**`, ohne Link-Syntax; ein naiver Substring-Vergleich gegen das Roh-Markdown meldet bei formatierten Passagen falsch-negativ.
+
+**End-to-end, Koordinator-Scope**, auf einem Wegwerf-Element (eigene `source_id`, danach in der Library löschen): `create_conversion` mit zwei Abschnitten → `replace_section` auf den zweiten → `get_transcript` zeigt den neuen Abschnitt, der erste ist byte-gleich · `replace_section` mit nicht existierendem Heading → 404 mit dem zweiten Satz · zwei gleichnamige Headings → 409 mit dem „mehrdeutig"-Satz · `update_document` mit leerem `content` → 400 (Anti-Doc-Wipe) · eine 2-MB-+1-Byte-data-URI über `update_document` → 413, `get_transcript` unverändert.
 
 ---
 
