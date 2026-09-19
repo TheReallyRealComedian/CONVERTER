@@ -39,8 +39,20 @@ states a person can reach, MEASURING instead of looking:
    the typography, not a font name). The reader's look proves nothing; the
    artefact does.
 6. The library reader shows no style group (it has no PDF styles).
+7. Scroll bar in the preview iframe (READER-SCROLLBAR) — in Chromium AND
+   WebKit, eight states (dark × three styles + the twin-less fallback, global
+   light × reader dark, light, explicit light under a dark global theme,
+   reader off): computed ``color-scheme`` + ``scrollbar-width`` at the iframe's
+   <html>, the bar's width, and one pixel column down the bar, run-length
+   encoded — the track must BE the paper, the thumb must stand against it
+   within a named contrast band. Before the fix: 15 px, track rgb(252,252,252)
+   in every state (Chromium); in WebKit under a dark global theme the app's
+   own ::-webkit-scrollbar rule styled the frame's bar through the OWNER
+   <iframe> element (8 px, --nm-bg track on the paper) and beat the framed
+   document's standard properties — hence ``:not(iframe)`` in style.css.
+   Playwright's Firefox forces ``scrollbar-width: none``; not measurable here.
 
-How to run (Mintbox, ~2 min):
+How to run (Mintbox, ~4 min):
 
     # 1. throwaway user — NEVER Oli's account
     docker exec markdown-converter-web flask --app app create-user zz_smoke --password '<random>'
@@ -53,7 +65,7 @@ How to run (Mintbox, ~2 min):
 
 Env: BASE_URL (default http://localhost:5000), SMOKE_USER, SMOKE_PASSWORD,
 SMOKE_OUT (/tmp/smoke_reader), SMOKE_LIBRARY_ID (optional: a conversion id
-of the throwaway user for step 6). Exit 0 = every check passed; every
+of the throwaway user for step 6), SMOKE_ONLY=scrollbar (step 7 alone). Exit 0 = every check passed; every
 measured value is printed so a failure is diagnosable from the output alone.
 """
 import base64
@@ -237,7 +249,173 @@ def flash_probe(page, label, keystrokes=30):
     check(blank == 0, f'{label}: no blank-white frame while srcdoc is rebuilt')
 
 
+# --- 7. scroll bar (READER-SCROLLBAR) ---------------------------------------
+# The preview iframe is its OWN document: the app's `color-scheme: dark` and
+# its `::-webkit-scrollbar` rules stop at the iframe border, so the browser
+# drew its light default bar (15 px, white track) into a dark paper — and in
+# the reader the iframe itself scrolls, so that bar stands at the right edge
+# of the TEXT COLUMN, not at the window. Headless Chromium draws classic
+# (space-taking) bars, so this is measurable, not just visible.
+MAX_SCROLLBAR_PX = 12      # a `thin` classic bar; the default measured 15
+MIN_THUMB_CONTRAST = 3.0   # WCAG 1.4.11 non-text: the thumb must stay findable
+MAX_THUMB_CONTRAST = 4.5   # … and must not shout (the old white track: > 15:1)
+LONG_DOC = '# Scroll-Probe\n\n' + '\n\n'.join(
+    f'Absatz {i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do '
+    'eiusmod tempor incididunt ut labore et dolore magna aliqua.' for i in range(1, 121))
+
+# (global theme, readerPrefs.dark, toggle dark once, style, kill the dark twin, reader on, label, kind)
+SCROLL_STATES = [
+    ('dark', True, False, 'default', False, True, 'dunkel_default', 'dark'),
+    ('dark', True, False, 'academic-latex', False, True, 'dunkel_academic-latex', 'dark'),
+    ('dark', True, False, 'newspaper-bodoni', False, True, 'dunkel_newspaper-bodoni', 'dark'),
+    ('dark', True, False, 'default', True, True, 'dunkel_fallback-ohne-zwilling', 'dark'),
+    ('light', True, False, 'default', False, True, 'G-hell_R-dunkel', 'dark'),
+    ('light', False, False, 'default', False, True, 'hell_default', 'light'),
+    ('dark', True, True, 'default', False, True, 'G-dunkel_R-hell-explizit', 'light'),
+    ('dark', False, False, 'default', False, False, 'reader-aus_G-dunkel', 'dark'),
+]
+
+MEASURE_SCROLLBAR = """() => {
+  const ifr = document.querySelector('#preview-iframe');
+  const w = ifr.contentWindow, html = ifr.contentDocument.documentElement;
+  const cs = w.getComputedStyle(html);
+  const r = ifr.getBoundingClientRect();
+  return {
+    color_scheme: cs.colorScheme,
+    scrollbar_width: cs.scrollbarWidth === undefined ? 'unsupported' : cs.scrollbarWidth,
+    scrollbar_color: cs.scrollbarColor === undefined ? 'unsupported' : cs.scrollbarColor,
+    supports_width: w.CSS.supports('scrollbar-width', 'thin'),
+    supports_color: w.CSS.supports('scrollbar-color', 'red blue'),
+    bar_px: w.innerWidth - html.clientWidth,
+    scroll_h: html.scrollHeight, client_h: html.clientHeight,
+    paper: cs.backgroundColor,
+    iframe_el: getComputedStyle(ifr).backgroundColor,
+    host_rule_on_body: getComputedStyle(document.body, '::-webkit-scrollbar').width,
+    host_rule_on_iframe: getComputedStyle(ifr, '::-webkit-scrollbar').width,
+    box: [r.x, r.y, r.width, r.height],
+  };
+}"""
+
+
+def contrast(a, b):
+    def rel(css):
+        ch = []
+        for v in (int(x) for x in re.findall(r'\d+', css)[:3]):
+            c = v / 255
+            ch.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+    hi, lo = sorted((rel(a), rel(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def bar_strip(png_bytes, m, out_path):
+    """The measurement: one pixel column down the middle of the bar, run-length
+    encoded top to bottom — track, thumb and (if the engine draws them) arrow
+    buttons all show up as runs. Also saves a 60-px crop of the iframe's right
+    edge for the eye."""
+    im = Image.open(io.BytesIO(png_bytes)).convert('RGB')
+    x0, y0, w, h = m['box']
+    right = int(round(x0 + w))
+    x = right - max(m['bar_px'], 8) // 2  # an overlay bar (0 px) would sit in the last 8
+    top, bottom = max(int(y0) + 1, 0), min(int(y0 + h) - 1, im.size[1])
+    im.crop((right - 60, top, min(right + 20, im.size[0]), bottom)).save(out_path)
+    runs = []
+    for y in range(top, bottom):
+        px = rgb(im.getpixel((x, y)))
+        if runs and runs[-1][0] == px:
+            runs[-1][1] += 1
+        else:
+            runs.append([px, 1])
+    return runs
+
+
+def scrollbar_section(p):
+    print('=== 7. scroll bar in the preview iframe: own document, own rules (READER-SCROLLBAR) ===')
+    for engine in ('chromium', 'webkit'):
+        # Playwright starts headless Chromium with --hide-scrollbars: no bar is
+        # drawn and none takes space — every check below would pass on air.
+        browser = getattr(p, engine).launch(
+            **({'ignore_default_args': ['--hide-scrollbars']} if engine == 'chromium' else {}))
+        page = browser.new_page(viewport={'width': 1200, 'height': 900})
+        page.goto(f'{BASE}/login')
+        page.fill('#username', USER)
+        page.fill('#password', PASSWORD)
+        page.click('button[type=submit]')
+        page.wait_for_url(lambda url: '/login' not in url)
+        for g, d, click_dark, theme, kill_twin, reader_on, label, kind in SCROLL_STATES:
+            label = f'{engine} {label}'
+            twin_url = f'**/static/css/pdf_styles/dark/{theme}.css'
+            if kill_twin:
+                page.route(twin_url, lambda route: route.fulfill(status=404, body=''))
+            load(page, g, reader_on, d)
+            if click_dark:
+                page.evaluate("() => toggleDarkMode()")
+                page.wait_for_timeout(600)
+            if theme != 'default':
+                pick_style_in_popover(page, theme)
+                page.keyboard.press('Escape')
+            page.evaluate("""(t) => { const el = document.getElementById('markdown_text');
+                el.value = t; el.dispatchEvent(new Event('input')); }""", LONG_DOC)
+            page.wait_for_timeout(1200)
+            m = page.evaluate(MEASURE_SCROLLBAR)
+            shot = page.screenshot()
+            runs = bar_strip(shot, m, f'{OUT}_bar_{label.replace(" ", "_")}.png')
+            if kill_twin:
+                page.unroute(twin_url)
+            paper = m['paper']
+            long_runs = sorted(runs, key=lambda r: -r[1])
+            track = long_runs[0][0]
+            others = [r for r in long_runs if r[0] != track and r[1] >= 8]
+            thumb = others[0] if others else None
+            print(f'[bar {label}] ' + json.dumps(m))
+            print(f'[bar {label}] column runs (colour × px, top→bottom): '
+                  + ' | '.join(f'{c}×{n}' for c, n in runs if n >= 3))
+            check(m['scroll_h'] > m['client_h'] * 3, f'{label}: document scrolls ({m["scroll_h"]} > 3×{m["client_h"]})')
+            check(m['color_scheme'] == kind, f'{label}: iframe html color-scheme is {kind} ({m["color_scheme"]})')
+            if m['supports_width']:
+                check(m['scrollbar_width'] == 'thin', f'{label}: iframe html scrollbar-width is thin ({m["scrollbar_width"]})')
+            else:
+                print(f'  NOTE {label}: engine has no scrollbar-width — the ::-webkit-scrollbar fallback carries it')
+            check(m['bar_px'] <= MAX_SCROLLBAR_PX, f'{label}: bar is {m["bar_px"]} px wide (≤ {MAX_SCROLLBAR_PX})')
+            check(track == paper, f'{label}: track pixel {track} == paper {paper}')
+            if g == 'dark':
+                check(m['host_rule_on_body'] == '8px' and m['host_rule_on_iframe'] != '8px',
+                      f'{label}: the app\'s dark ::-webkit-scrollbar rule still reaches <body> '
+                      f'({m["host_rule_on_body"]}) and no longer the <iframe> element ({m["host_rule_on_iframe"]})')
+            if m['bar_px'] == 0 and thumb is None:
+                # Overlay bar (WebKit on Linux): takes no space, shows only while
+                # scrolling — wheel once and look again before it fades.
+                x0, y0, w, h = m['box']
+                page.mouse.move(x0 + w / 2, y0 + h / 2)
+                page.mouse.wheel(0, 600)
+                page.wait_for_timeout(120)
+                moving = [r for r in bar_strip(page.screenshot(), m, f'{OUT}_bar_{label.replace(" ", "_")}_scrolling.png')
+                          if r[0] != paper and r[1] >= 8]
+                print(f'  NOTE {label}: overlay bar, nothing drawn at rest; while scrolling: '
+                      + (' | '.join(f'{c}×{n}' for c, n in moving) or 'no run caught'))
+            else:
+                ratio = contrast(thumb[0], paper) if thumb else 0
+                check(thumb is not None and MIN_THUMB_CONTRAST <= ratio <= MAX_THUMB_CONTRAST,
+                      f'{label}: thumb {thumb[0] if thumb else None} × {thumb[1] if thumb else 0} px stands '
+                      f'{ratio:.2f}:1 against the paper ({MIN_THUMB_CONTRAST} ≤ x ≤ {MAX_THUMB_CONTRAST})')
+        browser.close()
+
+
+def finish():
+    print()
+    if failures:
+        print(f'{len(failures)} FAILED:')
+        for f in failures:
+            print('  -', f)
+        sys.exit(1)
+    print('ALL PASSED')
+    sys.exit(0)
+
+
 with sync_playwright() as p:
+    if os.environ.get('SMOKE_ONLY') == 'scrollbar':
+        scrollbar_section(p)
+        finish()
     browser = p.chromium.launch()
     page = browser.new_page(viewport={'width': 1200, 'height': 900}, accept_downloads=True)
     page.goto(f'{BASE}/login')
@@ -337,11 +515,6 @@ with sync_playwright() as p:
         check(n == 0, f'library reader popover has no style buttons ({n})')
 
     browser.close()
+    scrollbar_section(p)
 
-print()
-if failures:
-    print(f'{len(failures)} FAILED:')
-    for f in failures:
-        print('  -', f)
-    sys.exit(1)
-print('ALL PASSED')
+finish()
