@@ -850,6 +850,9 @@ function scrollToHighlight(id) {
         );
         return;
     }
+    // RICH-MEDIA: a highlight inside a rendered Mermaid fence sits in a hidden
+    // <pre> (the source stays in the DOM for the anchors) — open it first.
+    if (window.ReaderFigures) window.ReaderFigures.revealSourceContaining(span);
     span.scrollIntoView({ behavior: 'smooth', block: 'center' });
     span.classList.add('highlight-flash');
     setTimeout(() => span.classList.remove('highlight-flash'), 1000);

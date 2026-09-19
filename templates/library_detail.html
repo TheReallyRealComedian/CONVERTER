@@ -295,5 +295,8 @@
 <!-- MATH-RENDER: vendored KaTeX-JS vor library_detail.js (renderMath() braucht das katex-Global). -->
 <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/reader_settings.js') }}"></script>
+<!-- RICH-MEDIA: Mermaid-Fences im Reader (Quelle bleibt im DOM, Diagramm im Shadow-Root);
+     vor library_detail.js, das ReaderFigures in scrollToHighlight nutzt. -->
+<script src="{{ url_for('static', filename='js/reader_figures.js') }}"></script>
 <script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>
 {% endblock %}

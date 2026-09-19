@@ -1260,6 +1260,35 @@ body.reader-active .sidebar-toggle-floater--global {
     height: auto;
     border-radius: var(--nm-radius-sm);
 }
+/* RICH-MEDIA — Figuren im Dokument. Scoping nach Hausregel (Tag innerhalb
+   .reader-view, Präzedenz READER-TABLE). Inline-SVG skaliert wie ein Bild; der
+   Server leitet dafür eine viewBox aus width/height ab (ohne sie würde
+   max-width BESCHNEIDEN statt skalieren). `color` erbt vom Reader-Text, damit
+   `currentColor` in Dark greift — bewusst KEIN erzwungener Hintergrund: ein
+   SVG mit hartem fill="#fff" ist in Dark eine helle Fläche, wie eine
+   Karten-Figur. */
+.reader-view svg {
+    max-width: 100%;
+    height: auto;
+}
+/* Sichtbarer, markierbarer Platzhalter für ein SVG, das nicht darstellbar ist
+   (markdown_render._placeholder) — Text, keine Box. */
+.reader-view span.media-placeholder {
+    color: var(--nm-text-muted);
+    font-style: italic;
+}
+/* Mermaid (static/js/reader_figures.js): die Fence-Quelle bleibt im DOM — ihre
+   Text-Knoten sind Teil des Highlight-Koordinatensystems — und wird nur
+   versteckt; das Diagramm sitzt im Shadow-Root des leeren Hosts daneben. */
+.reader-view pre.mermaid-source--hidden {
+    display: none;
+}
+/* Die versteckte Quelle trägt eine Markierung → die Figur zeigt es an. */
+.reader-view div.reader-mermaid--marked {
+    box-shadow: -4px 0 0 0 var(--nm-tint-highlight);
+    background-color: var(--nm-tint-highlight);
+    border-radius: 2px;
+}
 .reader-view hr {
     border: none;
     border-top: 1px solid var(--nm-text-muted);
