@@ -1,5 +1,7 @@
 # Developer-Brief an das converter-mcp-Team — RICH-MEDIA (Figuren im Dokument)
 
+> ⚠️ **Korrektur 2026-09-19 (CONVERTER-Master)**: Dieser Brief adressiert drei Schreib-Tools. Im converter-mcp existiert davon **eines** (`create_conversion`); `update_document` und `replace_section` sind bei uns Endpoints (MCP-DOCWRITE, 2026-06-22), wurden auf MCP-Seite aber **nie gewrappt** — für MCP-DOCWRITE ging nie ein Brief hinaus. Alle Aussagen zu diesen zwei Tools beschreiben die **Endpoints**, nicht vorhandene Tools. Verlauf: [Rückmeldung](converter_mcp_rich_media_rueckmeldung.md) → [Antwort](converter_mcp_rich_media_antwort.md).
+
 > **An**: converter-mcp-Entwickler (Koordinator-Repo).
 > **Von**: CONVERTER-Master, 2026-09-19.
 > **Worum**: Dokumente in der Library können jetzt **Figuren** tragen — Inline-SVG, `data:`-Bilder, https-Bilder, Mermaid. Das ist reine Render- und Validierungs-Arbeit auf CONVERTER-Seite: **kein neues Feld, kein neuer Endpoint, kein neuer Token**. Dieser Brief sagt, was der converter-mcp in seinen Tool-Docs anpasst und welche neue Antwort (413) seine Schreib-Tools jetzt sehen können.
