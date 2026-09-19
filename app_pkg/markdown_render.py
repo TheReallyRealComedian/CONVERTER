@@ -300,22 +300,44 @@ _BR_RE = re.compile(r'<br\s*/?>', re.IGNORECASE)
 _PARAGRAPH_EDGE_RE = re.compile(r'</?p[\s>]', re.IGNORECASE)
 
 
-def _render_svg_island(island: str) -> str:
+def _render_svg_island(island: str):
+    """``(html, ok)`` for one closed ``<svg>…</svg>`` run: the sanitized figure,
+    or — ``ok`` False — a placeholder naming why there is none."""
     if _PARAGRAPH_EDGE_RE.search(island):
         # A blank line inside a figure the block rule could not take (mid-line
         # ``<svg``, or wrapped in a Typ-6 block like ``<figure>``): markdown-it
         # has cut it into paragraphs, the parser would drop out of the SVG at
-        # the first ``<p>`` and scatter the labels. Say so instead.
-        return _placeholder(_BLANK_LINE)
+        # the first ``<p>``. No figure to be had — say so.
+        return _placeholder(_BLANK_LINE), False
     cleaned = sanitize_svg(_BR_RE.sub('', island))
     if not cleaned or not svg_has_drawable(cleaned):
-        return _placeholder(_NO_INK)
-    return ensure_viewbox(cleaned)
+        return _placeholder(_NO_INK), False
+    return ensure_viewbox(cleaned), True
 
 
 def _cut_svg_islands(rendered: str, nonce: str):
-    """Swap every ``<svg>`` in the rendered HTML for a slot element and return
-    ``(html_with_slots, replacements)``.
+    """Put a slot element where every ``<svg>`` of the rendered HTML stands and
+    return ``(html_with_slots, replacements)``. A figure that renders is CUT
+    OUT (its slot takes its place); a figure that does not is LEFT IN, its slot
+    — the placeholder — goes in front of it.
+
+    ⚠️ Ein Figur-Fehler kostet die Figur, nie den Text um sie herum. The first
+    version replaced a failed island whole, and an "island" is whatever lies
+    between an ``<svg`` and the next ``</svg>`` — in a text ABOUT SVG ("Das Tag
+    <svg> öffnet …", two paragraphs later "… und </svg> schließt") that is
+    prose, and it vanished behind the placeholder where the old renderer had
+    merely stripped two tags. Left in, the run meets the main pass, where
+    ``svg`` is not allowed: the tags fall, the prose stays. Safety is untouched
+    — nothing that is left in is exempt from the main pass.
+
+    Why LEFT IN and not "edge tags removed": without its ``<svg`` the run's
+    children are orphans in HTML context, where ``<rect …/>`` does not
+    self-close and swallows the rest of the document — which nh3 0.3.x then
+    drops WITH contents (unknown SVG-named element). With the tag the parser is
+    in foreign content, ``<rect/>`` closes, the next ``<p>``/``<h2>`` breaks
+    out, and the document goes on — on 0.2.18 and 0.3.x alike. (What 0.3.x
+    drops is the text INSIDE the svg element up to that break-out; the pin
+    keeps it as loose text, as the old renderer did.)
 
     The slot is an ELEMENT whose serialization contains a ``"`` and a per-call
     nonce. After the main nh3 pass its exact string can only exist where nh3
@@ -334,18 +356,11 @@ def _cut_svg_islands(rendered: str, nonce: str):
         parts.append(rendered[cursor:start])
         parts.append(f'<span class="svgslot-{nonce}-{len(replacements)}"></span>')
         if closed:
-            replacements.append(_render_svg_island(rendered[start:end]))
-            cursor = end
+            html, ok = _render_svg_island(rendered[start:end])
         else:
-            # The placeholder goes IN FRONT of the unclosed tag; the tag itself
-            # stays for the main pass. Taken out, its children would be orphans
-            # in HTML context, where ``<rect …/>`` does not self-close and
-            # swallows the rest of the document — which nh3 0.3.x then drops
-            # WITH contents (unknown SVG-named element). Left in, the parser is
-            # in foreign content, ``<rect/>`` closes, the next ``<h2>``/``<p>``
-            # breaks out, and the document goes on — on 0.2.18 and 0.3.x alike.
-            replacements.append(_placeholder(_NOT_CLOSED))
-            cursor = start
+            html, ok = _placeholder(_NOT_CLOSED), False
+        replacements.append(html)
+        cursor = end if ok else start
     parts.append(rendered[cursor:])
     return ''.join(parts), replacements
 

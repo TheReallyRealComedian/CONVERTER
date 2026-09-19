@@ -424,16 +424,88 @@ def test_midline_multiline_svg_survives_the_br_of_breaks_true():
     assert '<br' not in svg
 
 
-def test_midline_svg_with_a_blank_line_is_explained_not_scattered():
-    """The one blank-line case the block rule cannot take. A placeholder with
-    the reason is a legitimate result; a ``<p>`` of orphaned labels is not."""
+# nh3 0.3.x drops a disallowed SVG-named element WITH its text; the repo pin
+# (0.2.18) strips the tag and keeps the text, as the pre-sprint renderer did.
+# Probed, not version-compared.
+_NH3_KEEPS_STRIPPED_SVG_TEXT = 'x' in nh3.clean('<p><text>x</text></p>', tags={'p'})
+
+
+def test_midline_svg_with_a_blank_line_is_explained_and_costs_no_text():
+    """The one blank-line case the block rule cannot take: markdown-it has cut
+    the figure into paragraphs. There is no figure to be had — the placeholder
+    says why, and the run stays for the main pass, where the tags fall."""
     html = render_markdown_to_html(
         'Skizze: <svg viewBox="0 0 10 10">\n<rect x="1" width="5" height="5"/>\n\n'
         '<text x="1" y="9">Verwaistes Label</text>\n</svg>\n\nDanach.')
     assert 'das SVG enthält eine Leerzeile, die Markdown als Absatzgrenze liest.' in html
-    assert 'Verwaistes Label' not in html
-    assert '<svg' not in html
+    assert html.index('Skizze:') < html.index('media-placeholder')
+    assert '<svg' not in html and '<rect' not in html
     assert '<p>Danach.</p>' in html
+    if _NH3_KEEPS_STRIPPED_SVG_TEXT:
+        assert 'Verwaistes Label' in html  # loose text, exactly as before the sprint
+
+
+# --- ein Figur-Fehler kostet die Figur, nie den Text um sie herum ------------
+
+
+def test_prose_between_an_svg_tag_and_its_closer_is_not_hidden():
+    """REGRESSION (Master, nach Phase 2). An "island" is whatever lies between
+    an ``<svg`` and the next ``</svg>`` — in a text ABOUT SVG that is prose.
+    The first version replaced the failed island whole: the middle paragraph
+    vanished behind the placeholder, where the old renderer had merely
+    stripped two tags. Backticks in the authoring convention do not replace
+    this: the next document about SVG will forget them."""
+    html = render_markdown_to_html(
+        'Das Tag <svg> öffnet die Figur.\n\n'
+        'WICHTIGER ABSATZ dazwischen.\n\n'
+        'Und </svg> schließt sie. Ende.')
+    assert '<p>WICHTIGER ABSATZ dazwischen.</p>' in html
+    assert 'öffnet die Figur.' in html
+    assert 'schließt sie. Ende.' in html
+    assert html.count('media-placeholder') == 1  # and it still says what happened
+    assert html.index('Das Tag') < html.index('media-placeholder') < html.index('öffnet die Figur.')
+    assert '<svg' not in html
+
+
+def test_prose_after_an_unclosed_svg_tag_is_not_hidden():
+    html = render_markdown_to_html(
+        'Das Tag <svg> öffnet die Figur.\n\n'
+        'WICHTIGER ABSATZ dazwischen.\n\n'
+        'Ende ohne Schließer.')
+    assert 'das SVG ist nicht geschlossen' in html
+    for prose in ('öffnet die Figur.', '<p>WICHTIGER ABSATZ dazwischen.</p>',
+                  '<p>Ende ohne Schließer.</p>'):
+        assert prose in html, prose
+    assert '<svg' not in html
+
+
+def test_prose_inside_an_inkless_one_line_svg_is_not_hidden():
+    # Both tags on one line: a closed island without a drawable element. The
+    # words between the tags are the author's text, not the figure's ink.
+    html = render_markdown_to_html(
+        'Das Tag <svg> öffnet und </svg> schließt die Figur.\n\n'
+        'WICHTIGER ABSATZ danach.')
+    assert 'bleibt kein zeichenbares Element übrig.' in html
+    for prose in ('öffnet und', 'schließt die Figur.', '<p>WICHTIGER ABSATZ danach.</p>'):
+        assert prose in html, prose
+    assert '<svg' not in html
+
+
+def test_a_failed_figure_left_in_is_still_sanitized_by_the_main_pass():
+    # "Left in" is not "let through": the run meets the Markdown allow-list.
+    html = render_markdown_to_html(
+        'Davor.\n\n<svg viewBox="0 0 1 1" onload="alert(1)"><script>alert(2)</script>'
+        '<image href="https://evil.example/t.png"/>'
+        '<a href="javascript:alert(3)">Linktext bleibt</a></svg>\n\nDanach.')
+    walked = _walk(html)
+    assert 'media-placeholder' in html
+    if _NH3_KEEPS_STRIPPED_SVG_TEXT:
+        assert 'Linktext bleibt' in html  # the <a> falls, its text stays
+    assert not [a for a in walked.attrs if a[1].startswith('on') or a[1] == 'href']
+    for tag in ('svg', 'script', 'image', 'img'):
+        assert tag not in walked.tags, tag
+    assert 'evil.example' not in html and 'alert' not in html
+    assert '<p>Davor.</p>' in html and '<p>Danach.</p>' in html
 
 
 def test_svg_shown_as_code_stays_code():
