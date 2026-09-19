@@ -30,9 +30,11 @@ How to run (Mintbox; user recipe as in scripts/smoke_reader_media.py):
     docker cp markdown-converter-web:/tmp/anchors_133_before.json .
 
 Env: BASE_URL (default http://localhost:5000), SMOKE_USER, SMOKE_PASSWORD,
-SOURCE_ID, ANCHOR_OUT (default /tmp/anchors_<id>.json), SMOKE_APP_ROOT. The
-JSON carries offsets, lengths and hashes — no document text. Exit 1 if the
-copy could not be measured or not removed.
+SOURCE_ID, ANCHOR_OUT (default /tmp/anchors_<id>.json), SMOKE_APP_ROOT;
+optional ANCHOR_SHOT (path → a full-page screenshot of the measured page, for
+the "and what does it look like" half of a live acceptance) and ANCHOR_THEME
+(light|dark, default light). The JSON carries offsets, lengths and hashes — no
+document text. Exit 1 if the copy could not be measured or not removed.
 """
 import hashlib
 import json
@@ -46,6 +48,8 @@ USER = os.environ.get('SMOKE_USER') or sys.exit('SMOKE_USER missing')
 PASSWORD = os.environ.get('SMOKE_PASSWORD') or sys.exit('SMOKE_PASSWORD missing')
 SOURCE_ID = int(os.environ.get('SOURCE_ID') or sys.exit('SOURCE_ID missing'))
 OUT = os.environ.get('ANCHOR_OUT', f'/tmp/anchors_{SOURCE_ID}.json')
+SHOT = os.environ.get('ANCHOR_SHOT')
+THEME = os.environ.get('ANCHOR_THEME', 'light')
 
 sys.path.insert(0, os.environ.get('SMOKE_APP_ROOT', os.getcwd()))
 from app import app  # noqa: E402
@@ -123,6 +127,7 @@ try:
         page.fill('input[name=password]', PASSWORD)
         page.click('button[type=submit]')
         page.wait_for_url(lambda url: '/login' not in url)
+        page.evaluate("t => localStorage.setItem('globalTheme', t)", THEME)
         page.goto(f'{BASE}/library/{copy_id}', wait_until='domcontentloaded')
         page.wait_for_selector('.reader-view')
         # Stand with Mermaid rendering: bring every fence into view, wait for all.
@@ -140,6 +145,8 @@ try:
                 timeout=60000)
         page.wait_for_timeout(2500)  # highlights load async after DOMContentLoaded
         result = page.evaluate(MEASURE)
+        if SHOT:
+            page.screenshot(path=SHOT, full_page=True)
         browser.close()
 finally:
     left = remove_copy(copy_id, user_id)
