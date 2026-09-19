@@ -73,15 +73,15 @@ Die Figur sitzt wie eine Lehrbuch-Abbildung auf Papier: **weißer Hintergrund, u
 
 **Externe Referenzen werden still entfernt.** Keine `<image>`, keine `<use>`, keine Web-Fonts, keine externen Paint-Server (`fill="url(https://…)"`). Für Schrift nur generische Familien: `font-family="sans-serif"`.
 
-Lokale Referenzen innerhalb derselben Figur funktionieren: `fill="url(#meinGradient)"`, `marker-end="url(#pfeil)"` — sofern das Ziel im selben SVG als `<marker>`/`<linearGradient>`/`<radialGradient>` mit `id` definiert ist.
+Lokale Referenzen innerhalb derselben Figur funktionieren: `fill="url(#meinGradient)"`, `marker-end="url(#pfeil)"`, `clip-path="url(#halb)"` — sofern das Ziel im selben SVG als `<marker>`/`<linearGradient>`/`<radialGradient>`/`<clipPath>` mit `id` definiert ist. Ein Backslash in einem solchen Wert kippt das Attribut (`\75rl(` **ist** `url(` nach CSS-Escape-Verarbeitung).
 
 ## Erlaubte Tags und Attribute
 
-Die Allow-List ist bewusst eng. Was nicht drinsteht, wird **still entfernt** (der Sanitizer arbeitet über Weglassen, nicht über Sonderregeln).
+Die Allow-List ist bewusst eng. Was nicht drinsteht, wird **still entfernt** (der Sanitizer arbeitet über Weglassen, nicht über Sonderregeln). Seit RICH-MEDIA (2026-09-19) ist sie **die eine SVG-Policy** — dieselbe Liste gilt für Figuren in Dokumenten ([docs/doc_figures_authoring.md](doc_figures_authoring.md)); damals dazugekommen: `clipPath` samt `clip-path`/`clip-rule` und das Präsentations-Set an der `svg`-Wurzel.
 
 | Tag | Erlaubte Attribute |
 |---|---|
-| `svg` | `viewBox`, `width`, `height`, `xmlns`, `preserveAspectRatio` |
+| `svg` | `viewBox`, `width`, `height`, `xmlns`, `preserveAspectRatio` + Präsentation* (vererbte Defaults wie `font-family`, `font-size`) |
 | `g` | Präsentation* |
 | `defs`, `title`, `desc` | — |
 | `path` | `d` + Präsentation* |
@@ -95,10 +95,11 @@ Die Allow-List ist bewusst eng. Was nicht drinsteht, wird **still entfernt** (de
 | `linearGradient` | `id`, `x1`, `y1`, `x2`, `y2`, `gradientUnits`, `gradientTransform` |
 | `radialGradient` | `id`, `cx`, `cy`, `r`, `fx`, `fy`, `gradientUnits`, `gradientTransform` |
 | `stop` | `offset`, `stop-color`, `stop-opacity` |
+| `clipPath` | `id`, `clipPathUnits`, `transform` |
 
-\* **Präsentations-Attribute**: `fill`, `stroke`, `stroke-width`, `stroke-linecap`, `stroke-dasharray`, `opacity`, `transform`, `font-size`, `font-family`, `font-weight`, `text-anchor`, `dominant-baseline`, `marker-start`, `marker-mid`, `marker-end`.
+\* **Präsentations-Attribute**: `fill`, `stroke`, `stroke-width`, `stroke-linecap`, `stroke-dasharray`, `opacity`, `transform`, `font-size`, `font-family`, `font-weight`, `text-anchor`, `dominant-baseline`, `marker-start`, `marker-mid`, `marker-end`, `clip-path`, `clip-rule`.
 
-**Nicht erlaubt** (und nie erlaubt werdend): `<script>`, `<style>` (Tag **und** `style`-Attribut), `<foreignObject>`, `<use>`, `<image>`, `<a>`, `<animate>`/`<set>`, `<iframe>`/`<audio>`/`<video>`, alle `on*`-Handler.
+**Nicht erlaubt** (und nie erlaubt werdend): `<script>`, `<style>` (Tag **und** `style`-Attribut), `<foreignObject>`, `<use>`, `<image>`, `<a>`, `<animate>`/`<set>`, `<iframe>`/`<audio>`/`<video>`, `<mask>`, `<filter>` samt `fe*`, alle `on*`-Handler.
 
 **Auch nicht erlaubt: `class`.** Es gewährt nichts (CSS lässt sich ohnehin nicht mitliefern), kollidiert aber mit den App-Klassen — ein `class="hidden"` träfe genau die Klasse, mit der die Review-Oberfläche Figuren versteckt: unsichtbare Abbildung ohne auffindbare Ursache.
 
