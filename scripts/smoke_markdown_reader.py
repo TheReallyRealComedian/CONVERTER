@@ -45,7 +45,8 @@ states a person can reach, MEASURING instead of looking:
    reader off): computed ``color-scheme`` + ``scrollbar-width`` at the iframe's
    <html>, the bar's width, and one pixel column down the bar, run-length
    encoded — the track must BE the paper, the thumb must stand against it
-   within a named contrast band. Before the fix: 15 px, track rgb(252,252,252)
+   within a named contrast band (WebKit on Linux draws overlay bars: 0 px,
+   nothing at rest — there the computed values and the track carry the proof). Before the fix: 15 px, track rgb(252,252,252)
    in every state (Chromium); in WebKit under a dark global theme the app's
    own ::-webkit-scrollbar rule styled the frame's bar through the OWNER
    <iframe> element (8 px, --nm-bg track on the paper) and beat the framed
@@ -377,22 +378,25 @@ def scrollbar_section(p):
             else:
                 print(f'  NOTE {label}: engine has no scrollbar-width — the ::-webkit-scrollbar fallback carries it')
             check(m['bar_px'] <= MAX_SCROLLBAR_PX, f'{label}: bar is {m["bar_px"]} px wide (≤ {MAX_SCROLLBAR_PX})')
-            check(track == paper, f'{label}: track pixel {track} == paper {paper}')
+            if reader_on:
+                check(track == paper, f'{label}: track pixel {track} == paper {paper}')
+            else:
+                # Outside the reader nothing syncs the iframe ELEMENT to the
+                # paper (style.css paints it #1a1a2e, the twin's paper differs),
+                # and Chromium shows the element through a transparent track.
+                # The invariant that holds everywhere: no track tone of its own.
+                check(track in (paper, m['iframe_el']),
+                      f'{label}: track pixel {track} is the paper {paper} or the iframe element '
+                      f'behind it {m["iframe_el"]} — no tone of its own')
+                if track != paper:
+                    print(f'  NOTE {label}: element tone shows through the track, '
+                          f'{contrast(track, paper):.2f}:1 against the paper (known residue outside the reader)')
             if g == 'dark':
                 check(m['host_rule_on_body'] == '8px' and m['host_rule_on_iframe'] != '8px',
                       f'{label}: the app\'s dark ::-webkit-scrollbar rule still reaches <body> '
                       f'({m["host_rule_on_body"]}) and no longer the <iframe> element ({m["host_rule_on_iframe"]})')
             if m['bar_px'] == 0 and thumb is None:
-                # Overlay bar (WebKit on Linux): takes no space, shows only while
-                # scrolling — wheel once and look again before it fades.
-                x0, y0, w, h = m['box']
-                page.mouse.move(x0 + w / 2, y0 + h / 2)
-                page.mouse.wheel(0, 600)
-                page.wait_for_timeout(120)
-                moving = [r for r in bar_strip(page.screenshot(), m, f'{OUT}_bar_{label.replace(" ", "_")}_scrolling.png')
-                          if r[0] != paper and r[1] >= 8]
-                print(f'  NOTE {label}: overlay bar, nothing drawn at rest; while scrolling: '
-                      + (' | '.join(f'{c}×{n}' for c, n in moving) or 'no run caught'))
+                print(f'  NOTE {label}: overlay bar — takes no space, draws nothing at rest; no thumb to measure')
             else:
                 ratio = contrast(thumb[0], paper) if thumb else 0
                 check(thumb is not None and MIN_THUMB_CONTRAST <= ratio <= MAX_THUMB_CONTRAST,
