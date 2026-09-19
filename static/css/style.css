@@ -1283,11 +1283,15 @@ body.reader-active .sidebar-toggle-floater--global {
 .reader-view pre.mermaid-source--hidden {
     display: none;
 }
-/* Die versteckte Quelle trägt eine Markierung → die Figur zeigt es an. */
+/* Die versteckte Quelle trägt eine Markierung → die Figur zeigt es an: ein
+   schmaler Balken links, KEINE Fläche (Olis Wahl 2026-09-19) — eine gelbe
+   Fläche kämpft mit den Farben des Diagramms und wird in Dark zur hellen
+   Platte. Der Tint ist für Flächen hinter Text gemischt (40 % Alpha); zwei
+   Lagen machen den 4-px-Balken in beiden Themes lesbar. */
 .reader-view div.reader-mermaid--marked {
-    box-shadow: -4px 0 0 0 var(--nm-tint-highlight);
-    background-color: var(--nm-tint-highlight);
-    border-radius: 2px;
+    box-shadow: inset 4px 0 0 0 var(--nm-tint-highlight),
+                inset 4px 0 0 0 var(--nm-tint-highlight);
+    padding-left: 0.875em;
 }
 .reader-view hr {
     border: none;

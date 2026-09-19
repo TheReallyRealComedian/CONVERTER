@@ -30,7 +30,9 @@ them:
    executable left in the reader DOM.
 3. Mermaid syntax error: source visible, hint shown, the valid fence next to
    it and the rest of the document rendered, no "Syntax error" graphic parked
-   in ``<body>``.
+   in ``<body>``. 3b: a text ABOUT svg (``<svg>`` … two paragraphs … ``</svg>``,
+   no backticks) keeps every paragraph — a figure error costs the figure,
+   never the text around it.
 4. Pathological input (4 000 lines of never-closed ``<svg ``; 4 000 lines of
    ``<svg><svg></svg>``): the reader page and the library list answer in
    finite time — the browser half of the time-boxed pytest.
@@ -173,6 +175,17 @@ flowchart LR
 ```
 
 Absatz nach beiden Diagrammen ist gerendert.
+'''
+
+# A text ABOUT SVG, without backticks: everything between the <svg and the
+# </svg> is prose. A figure error costs the figure, never the text around it.
+PROSE_DOC = '''# Smoke: Text ueber SVG
+
+Das Tag <svg> öffnet die Figur.
+
+WICHTIGER ABSATZ dazwischen.
+
+Und </svg> schließt sie. Ende.
 '''
 
 PATHOLOGICAL = {
@@ -371,6 +384,7 @@ docs = {
     'plain': ('Smoke RICH-MEDIA Baseline', PLAIN_DOC),
     'malicious': ('Smoke RICH-MEDIA Malicious', MALICIOUS_DOC),
     'broken': ('Smoke RICH-MEDIA Mermaid-Fehler', BROKEN_MERMAID_DOC),
+    'prose': ('Smoke RICH-MEDIA Text ueber SVG', PROSE_DOC),
 }
 for label, content in PATHOLOGICAL.items():
     docs[f'patho:{label}'] = (f'Smoke RICH-MEDIA pathologisch {label}', content)
@@ -573,6 +587,18 @@ try:
             parked: document.querySelectorAll('body > [id^="dreader-mermaid"], body > svg').length })""")
         check(rest['last'], 'the paragraph after both diagrams is rendered')
         check(rest['parked'] == 0, f'no Mermaid error graphic parked in <body> ({rest["parked"]})')
+
+        print('=== 3b. a text ABOUT svg: the failed "figure" hides no prose ===')
+        open_doc(page, ids['prose'])
+        prose = page.evaluate("""() => { const r = highlightReaderEl(); return {
+            text: r.innerText, placeholders: r.querySelectorAll('.media-placeholder').length,
+            svgs: r.querySelectorAll('svg').length }; }""")
+        print(f'[prose] {prose}')
+        check(all(part in prose['text'] for part in ('öffnet die Figur.', 'WICHTIGER ABSATZ dazwischen.',
+                                                     'schließt sie. Ende.')),
+              'all three paragraphs of the text about svg are visible')
+        check(prose['placeholders'] == 1 and prose['svgs'] == 0,
+              'one placeholder says what happened, no figure')
 
         print('=== 4. pathological input: reader page and library list answer in finite time ===')
         for label in PATHOLOGICAL:
