@@ -8,6 +8,7 @@ from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from models import Conversion, Tag, conversion_tags, db
+from services.doc_media import check_media_limits, strip_media_for_preview
 from services.markdown_sections import derive_title, _is_degenerate_title
 from services.narration_library import delete_narration_audio
 
@@ -83,7 +84,16 @@ def _conversion_summary(conversion):
     full body and feeds the POST/PUT responses + frontend, so it stays
     untouched). Drops ``content`` in favour of ``content_length`` +
     ``content_preview``; ``tag_refs`` is the slim {id,name} pair, not the full
-    Tag.to_dict()."""
+    Tag.to_dict().
+
+    RICH-MEDIA: ``content_preview`` is cut from the MEDIA-FREE text (inline
+    SVG source, data URIs and Mermaid fences removed), so a document that
+    opens with a figure previews as prose. ``content_length`` stays RAW — the
+    length of the stored Markdown including every embedded byte; with figures
+    in a document it is no longer a proxy for "how much text". The library
+    search stays what it is, a LIKE over the raw content: a search term can
+    hit inside SVG source or a base64 payload. Deliberate — there is no index
+    to strip."""
     metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
     content = conversion.content or ''
     return {
@@ -102,7 +112,7 @@ def _conversion_summary(conversion):
         'tag_refs': [{'id': t.id, 'name': t.name} for t in conversion.tag_refs],
         'metadata': metadata,
         'content_length': len(content),
-        'content_preview': content[:300],
+        'content_preview': strip_media_for_preview(content)[:300],
     }
 
 
@@ -465,6 +475,10 @@ def register(app):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
         if not data.get('content'):
             return jsonify({'error': 'Content is required'}), 400
+        # RICH-MEDIA: media budget, checked before the row exists.
+        media_error = check_media_limits(data['content'])
+        if media_error:
+            return jsonify({'error': media_error}), 413
 
         conversion_type = data.get('conversion_type', 'unknown')
         if conversion_type not in ALLOWED_CONVERSION_TYPES:
@@ -540,6 +554,13 @@ def register(app):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        # RICH-MEDIA: media budget first — a refused content must not leave a
+        # half-applied PUT behind (title/favorite/status of the same body).
+        if 'content' in data:
+            media_error = check_media_limits(data['content'])
+            if media_error:
+                return jsonify({'error': media_error}), 413
 
         # R2-A: the legacy CSV `tags` path on PUT is gone. The frontend now
         # uses /api/conversions/<id>/tags POST + DELETE for attach/detach

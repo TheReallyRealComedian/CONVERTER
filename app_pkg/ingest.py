@@ -47,6 +47,7 @@ from datetime import datetime
 from flask import jsonify, request
 
 from models import Conversion, Tag, User, db
+from services.doc_media import check_media_limits
 from services.markdown_sections import derive_title, _is_degenerate_title
 
 from .library import ALLOWED_CONVERSION_TYPES
@@ -149,6 +150,11 @@ def register(app):
         content = data.get('content')
         if not content:
             return jsonify({'error': 'Content is required'}), 400
+        # RICH-MEDIA: media budget (2 MB per data URI, 10 MB per document) —
+        # before dedup and before any row exists, so a refusal writes nothing.
+        media_error = check_media_limits(content)
+        if media_error:
+            return jsonify({'error': media_error}), 413
 
         # TITLE-FIX: same smart-derive as the session create route — a degenerate
         # posted title (blank / placeholder / leftover ``<!-- … -->`` marker) is

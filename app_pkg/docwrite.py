@@ -33,6 +33,7 @@ from flask import jsonify, request
 from sqlalchemy import update
 
 from models import Conversion, db
+from services.doc_media import check_media_limits
 from services.markdown_sections import (
     replace_section,
     SectionNotFound,
@@ -80,6 +81,10 @@ def register(app):
         # with an empty/missing/non-str content.
         if not _nonblank(content):
             return jsonify({'error': 'Feld content (nicht-leerer Text) erwartet.'}), 400
+        # RICH-MEDIA: media budget, checked before the write.
+        media_error = check_media_limits(content)
+        if media_error:
+            return jsonify({'error': media_error}), 413
 
         # A full replacement overwrites by intent — no condition, but it bumps
         # the content version so a section replace that read the OLD text
@@ -126,6 +131,12 @@ def register(app):
                 return jsonify({'error': 'Abschnitt nicht gefunden.'}), 404
             except SectionAmbiguous:
                 return jsonify({'error': 'Abschnitt mehrdeutig (mehrere Headings gleichen Texts).'}), 409
+            # RICH-MEDIA: the budget is per DOCUMENT, so it is the spliced
+            # result that gets checked — a small section can still tip a
+            # document over 10 MB. Nothing has been written at this point.
+            media_error = check_media_limits(new_text)
+            if media_error:
+                return jsonify({'error': media_error}), 413
 
             loaded = conv.content_version
             matched = db.session.execute(
