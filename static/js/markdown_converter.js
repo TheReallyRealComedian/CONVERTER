@@ -262,7 +262,18 @@ window.addEventListener('load', function() {
         const fontSize = getReaderFontSize();
         const baseBg = dark ? '#1a1a2e' : '#fff';
         const baseFg = dark ? '#d4d4d8' : 'inherit';
-        const wrapperCSS = `html,body{margin:0;background:${baseBg};color:${baseFg};}` +
+        // READER-SCROLLBAR: this iframe is its OWN document — the app's
+        // `color-scheme` and scrollbar rules stop at its border, so the browser
+        // drew its light default bar (15 px, white track) into a dark paper, and
+        // in the reader (where the iframe itself scrolls) at the edge of the
+        // text column. What shall hold in here is written here. The track is
+        // transparent and the thumb alpha-blended because the papers differ per
+        // style (three dark twins + the fallback): the bar reads the paper
+        // instead of guessing it — same lesson as syncReaderPaper. The thumb
+        // stands ~3.5:1 against every paper: quiet, but findable.
+        const barCSS = `html{color-scheme:${dark ? 'dark' : 'light'};scrollbar-width:thin;` +
+                       `scrollbar-color:${dark ? 'rgba(255,255,255,.38)' : 'rgba(0,0,0,.45)'} transparent;}`;
+        const wrapperCSS = `html,body{margin:0;background:${baseBg};color:${baseFg};}` + barCSS +
                            `.pdf-page{padding:2cm;min-height:calc(29.7cm - 4cm);box-sizing:border-box;}` +
                            `@media (max-width: 700px){.pdf-page{padding:1cm;}}`;
         const fontCSS = (readerActive && fontSize)

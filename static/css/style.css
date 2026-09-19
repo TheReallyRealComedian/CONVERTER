@@ -2654,10 +2654,17 @@ body.library-reader .library-reader-enter {
     color: #e0e0e8;
 }
 
-/* Dark: Scrollbar */
-[data-global-theme="dark"] ::-webkit-scrollbar       { width: 8px; }
-[data-global-theme="dark"] ::-webkit-scrollbar-track { background: var(--nm-bg); }
-[data-global-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--nm-shadow-light); border-radius: 4px; }
+/* Dark: Scrollbar
+   `:not(iframe)` on purpose (READER-SCROLLBAR): WebKit lets the OWNER <iframe>
+   element style its frame's scroll bar through ::-webkit-scrollbar — and that
+   beats the standard scrollbar-* properties inside the framed document. As a
+   bare universal selector this rule painted an --nm-bg track into the preview
+   document's paper (measured: 8 px, rgb(42,45,58) on rgb(13,17,23)). The
+   iframe is its own document and styles its own bar (buildIframeDoc).
+   Removed from the iframe, not out-weighted. */
+[data-global-theme="dark"] :not(iframe)::-webkit-scrollbar       { width: 8px; }
+[data-global-theme="dark"] :not(iframe)::-webkit-scrollbar-track { background: var(--nm-bg); }
+[data-global-theme="dark"] :not(iframe)::-webkit-scrollbar-thumb { background: var(--nm-shadow-light); border-radius: 4px; }
 
 /* Dark: Theme transition */
 html.theme-transitioning,
