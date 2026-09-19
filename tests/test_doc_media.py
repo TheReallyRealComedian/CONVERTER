@@ -7,6 +7,7 @@ docwrite full + section — answers an over-budget ``content`` with 413 and a
 German sentence, and has written nothing. The audio upload keeps its 500 MB.
 """
 import os
+import time
 
 import pytest
 
@@ -162,6 +163,59 @@ def test_preview_of_a_media_free_text_is_the_same_object():
                  'Das Wort mermaid und data: als Prosa.'):
         assert strip_media_for_preview(text) is text
     assert strip_media_for_preview(None) is None
+
+
+# --- runtime on pathological input (Pflicht-Nachtrag nach Phase 1) -----------
+
+# ``strip_media_for_preview`` runs for EVERY ROW of every library list and of
+# the MCP's list_conversions — one degenerate document would stall every list
+# it appears in. The first version: 4 000 lines of ``<svg `` → 946 ms, 8 000 →
+# 3.7 s (×4 per doubling); measured after the fix: ≤ 15 ms for every form at
+# 16 000 repeats. ``find_svg_spans`` is the same scan the renderer uses.
+_REPEATS = 16000
+_SCAN_BOUND_S = 1.0
+
+_SCAN_FORMS = {
+    'A_svg_never_closed': '<svg \n' * _REPEATS,
+    'B_openers_outnumber_closers': '<svg><svg></svg>\n' * _REPEATS,
+    'D_img_without_gt': '<img \n' * _REPEATS,
+    'E_md_image_without_bracket': '![ \n' * _REPEATS,
+    'E2_md_image_one_line': '![' * _REPEATS,
+    'F_md_data_image_one_token': '![x](data:image/png;base64,' * _REPEATS,
+    # Every "<b " walks to the one far quote, opens it, never closes it: the
+    # miss that the last-">" shortcut cannot see — the budget's case.
+    'M_every_tag_start_misses': '<b ' * _REPEATS + '" > <svg><rect/></svg>',
+    'Q_unclosed_quoted_data_uris': '"data:image/png;base64,AAAA\n' * _REPEATS,
+    'T_unclosed_mermaid_fences': '```mermaid\nflowchart LR\n' * (_REPEATS // 4),
+    'K_control_plain_text': 'Zeile mit Text.\n' * _REPEATS,
+}
+
+
+@pytest.mark.parametrize('form', sorted(_SCAN_FORMS))
+def test_scan_and_preview_time_is_bounded_on_pathological_input(form):
+    text = _SCAN_FORMS[form]
+    for fn in (find_svg_spans, strip_media_for_preview):
+        started = time.perf_counter()
+        fn(text)
+        elapsed = time.perf_counter() - started
+        assert elapsed < _SCAN_BOUND_S, f'{form} / {fn.__name__}: {elapsed:.2f}s'
+
+
+def test_scanner_stops_cutting_when_the_miss_budget_is_spent_not_before():
+    """The boundary itself: every ``<b `` walks to the one far quote and
+    misses. One miss UNDER the budget, the figure behind them is still found;
+    AT the budget the scan has stopped — fewer figures cut, by design."""
+    from services.doc_media import _MAX_TAG_END_MISSES
+    figure = '<svg><rect/></svg>'
+
+    def text(misses):
+        return '<b ' * misses + '" > ' + figure
+
+    under = text(_MAX_TAG_END_MISSES - 1)
+    assert [under[s:e] for s, e in find_svg_spans(under)[0]] == [figure]
+    assert find_svg_spans(text(_MAX_TAG_END_MISSES))[0] == []
+    # No ">" anywhere after the point: the exact stop, no budget involved.
+    assert find_svg_spans('<svg ' * 50) == ([], [])
 
 
 # --- the write paths: 413, nothing written -------------------------------------

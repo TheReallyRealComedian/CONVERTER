@@ -45,9 +45,40 @@ _MARKUP_RE = re.compile(r'<!--|<svg(?=[\s>/])|</svg\s*>|<(?=[a-zA-Z/])',
                         re.IGNORECASE)
 # From a tag's ``<`` to its closing ``>``, quote-aware: ``title="a>b"`` does
 # not end the tag. Unrolled loop, each alternative starts on a distinct
-# character → linear, also on a 2-MB ``src="data:…"``.
+# character → a match (or a miss) is linear, also on a 2-MB ``src="data:…"``.
 _TAG_END_RE = re.compile(
     r'<[^"\'>]*(?:"[^"]*"[^"\'>]*|\'[^\']*\'[^"\'>]*)*>')
+
+# ⚠️ A MISS of ``_TAG_END_RE`` reads to the end of the text, and a text can be
+# made of nothing but misses: 4 000 lines of ``<svg `` (no ``>`` anywhere) cost
+# the first version of this scanner 1 s, ×4 per doubling — and the scanner
+# runs for every row of every library list (preview). Two bounds make the
+# total linear: past the last ``>`` of the text no tag can end (exact — stop),
+# and the misses that remain possible before it (an opened quote that never
+# closes) are budgeted; when the budget is spent the scan stops. Stopping
+# early only ever means "cut fewer figures" — shown, not allowed.
+_MAX_TAG_END_MISSES = 16
+
+
+class _TagEnds:
+    """``end(start)`` → index past the ``>`` of the tag at ``start``, or None.
+    After a None, ``dead`` says whether scanning on is pointless."""
+
+    def __init__(self, text: str):
+        self._text = text
+        self._last_gt = text.rfind('>')
+        self._misses = 0
+        self.dead = False
+
+    def end(self, start: int):
+        if start > self._last_gt or self._misses >= _MAX_TAG_END_MISSES:
+            self.dead = True
+            return None
+        tag = _TAG_END_RE.match(self._text, start)
+        if tag is None:
+            self._misses += 1
+            return None
+        return tag.end()
 
 
 def find_svg_spans(text: str):
@@ -63,10 +94,12 @@ def find_svg_spans(text: str):
     Tag-aware: an ``<svg`` inside another tag's attribute value is not an edge
     — ``<img alt="<svg>…</svg>">`` and the common hand-written
     ``<img src="data:image/svg+xml;utf8,<svg …>">`` stay whole. Comments are
-    skipped. All returned spans are pairwise disjoint.
+    skipped. All returned spans are pairwise disjoint. Linear in ``len(text)``
+    (see ``_MAX_TAG_END_MISSES``).
     """
     stack = []  # (start, open_tag_end) of opens still waiting for a close
     pairs = []  # every balanced pair, any depth
+    ends = _TagEnds(text)
     pos = 0
     while True:
         hit = _MARKUP_RE.search(text, pos)
@@ -85,17 +118,19 @@ def find_svg_spans(text: str):
                 pairs.append((start, hit.end()))
             pos = hit.end()
             continue
-        tag = _TAG_END_RE.match(text, hit.start())
-        if tag is None:
+        tag_end = ends.end(hit.start())
+        if tag_end is None:
+            if ends.dead:
+                break
             pos = hit.start() + 1  # a lone "<", not a tag
             continue
-        pos = tag.end()
+        pos = tag_end
         if token == '<':
             continue  # some other tag — skipped whole
-        if text[tag.end() - 2] == '/':
-            pairs.append((hit.start(), tag.end()))  # <svg …/> — complete, empty
+        if text[tag_end - 2] == '/':
+            pairs.append((hit.start(), tag_end))  # <svg …/> — complete, empty
         else:
-            stack.append((hit.start(), tag.end()))
+            stack.append((hit.start(), tag_end))
 
     # Pairs are properly nested or disjoint, so after sorting by start a pair
     # is outermost exactly when it begins past the end of the last kept one.
@@ -175,9 +210,64 @@ _MERMAID_FENCE_RE = re.compile(
     re.IGNORECASE | re.DOTALL | re.MULTILINE,
 )
 _MEDIA_HINT_RE = re.compile(r'<svg|data:|mermaid', re.IGNORECASE)
-_IMG_TAG_WITH_DATA_RE = re.compile(r'<img\b[^>]*\bdata:[^>]*>', re.IGNORECASE)
-_MD_IMAGE_WITH_DATA_RE = re.compile(r'!\[(?P<alt>[^\]]*)\]\(\s*<?data:[^)]*\)',
-                                    re.IGNORECASE)
+_IMG_OPEN_RE = re.compile(r'<img(?=[\s/>])', re.IGNORECASE)
+_DATA_SCHEME_RE = re.compile(r'data:', re.IGNORECASE)
+# ``![alt](data:`` — the alt is BOUNDED and single-line on purpose: an
+# unbounded ``[^\]]*`` re-reads the rest of the text for every ``![`` that
+# never gets its ``]``.
+_MD_IMAGE_DATA_OPEN_RE = re.compile(
+    r'!\[(?P<alt>[^\]\n]{0,500})\]\([ \t]{0,8}<?data:', re.IGNORECASE)
+_MD_DESTINATION_STOP_RE = re.compile(r'[)\s]')
+
+
+def _cut(text: str, spans, replacements=None) -> str:
+    """``text`` without the (sorted, disjoint) ``spans``; ``replacements[i]``
+    goes where span ``i`` was."""
+    kept, cursor = [], 0
+    for i, (start, end) in enumerate(spans):
+        kept.append(text[cursor:start])
+        if replacements is not None:
+            kept.append(replacements[i])
+        cursor = end
+    kept.append(text[cursor:])
+    return ''.join(kept)
+
+
+def _img_tags_with_data(text: str):
+    """Spans of ``<img …>`` tags that carry a ``data:`` URI. Same linear
+    discipline as ``find_svg_spans`` (shared ``_TagEnds``)."""
+    spans, ends, done_until = [], _TagEnds(text), 0
+    for opener in _IMG_OPEN_RE.finditer(text):
+        if opener.start() < done_until:
+            continue
+        tag_end = ends.end(opener.start())
+        if tag_end is None:
+            if ends.dead:
+                break
+            continue
+        done_until = tag_end
+        if _DATA_SCHEME_RE.search(text, opener.end(), tag_end):
+            spans.append((opener.start(), tag_end))
+    return spans
+
+
+def _md_images_with_data(text: str):
+    """``(spans, alts)`` of ``![alt](data:…)`` images. A destination ends at
+    ``)`` — or fails at whitespace / the end of the text; every further opener
+    inside that same whitespace-free run would fail at the same spot, so it is
+    skipped unread (one long token of ``![x](data:`` repeats is linear)."""
+    spans, alts, done_until, dead_until = [], [], 0, -1
+    for opener in _MD_IMAGE_DATA_OPEN_RE.finditer(text):
+        if opener.start() < done_until or opener.end() <= dead_until:
+            continue
+        stop = _MD_DESTINATION_STOP_RE.search(text, opener.end())
+        if stop is None or stop.group(0) != ')':
+            dead_until = len(text) if stop is None else stop.start()
+            continue
+        spans.append((opener.start(), stop.end()))
+        alts.append(opener.group('alt'))
+        done_until = stop.end()
+    return spans, alts
 
 
 def strip_media_for_preview(content: str) -> str:
@@ -187,7 +277,10 @@ def strip_media_for_preview(content: str) -> str:
 
     A text without media comes back as the SAME string — previews of the
     existing library do not change. Preview-grade, not a parser: an ``<svg>``
-    shown as code inside a fence is dropped as well.
+    shown as code inside a fence is dropped as well. ⚠️ Runs for every row of
+    every library list (and the MCP's ``list_conversions``): every pass in
+    here is linear in ``len(content)`` and pinned by a time-boxed test on
+    pathological inputs.
     """
     if not content or not _MEDIA_HINT_RE.search(content):
         return content
@@ -198,23 +291,12 @@ def strip_media_for_preview(content: str) -> str:
     # often prose — a heading that says "inline `<svg>`" — than a broken figure.
     islands, _dangling = find_svg_spans(text)
     if islands:
-        kept = []
-        cursor = 0
-        for start, end in islands:
-            kept.append(text[cursor:start])
-            cursor = end
-        kept.append(text[cursor:])
-        text = ''.join(kept)
+        text = _cut(text, islands)
 
-    text = _IMG_TAG_WITH_DATA_RE.sub('', text)
-    text = _MD_IMAGE_WITH_DATA_RE.sub(lambda m: m.group('alt'), text)
-    kept = []
-    cursor = 0
-    for start, end in _data_uri_spans(text):
-        kept.append(text[cursor:start])
-        cursor = end
-    kept.append(text[cursor:])
-    text = ''.join(kept)
+    text = _cut(text, _img_tags_with_data(text))
+    spans, alts = _md_images_with_data(text)
+    text = _cut(text, spans, alts)
+    text = _cut(text, list(_data_uri_spans(text)))
 
     if text == content:
         return content

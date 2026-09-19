@@ -103,6 +103,60 @@ _md.add_render_rule('math_block', _render_math_display)
 
 _SVG_BLOCK_OPEN_RE = re.compile(r'<svg(?=[\s>/]|$)', re.IGNORECASE)
 
+# Inside a container (blockquote, list item) the figure's lines have to be
+# checked against the container's indent; that check is bounded by this many
+# lines, beyond it the rule declines and Stock-CommonMark takes the lines. At
+# the document root there is nothing to check and no bound.
+_SVG_BLOCK_MAX_NESTED_LINES = 2000
+_SVG_INDEX_KEY = '_svg_block_close_lines'
+
+
+def _svg_close_lines(state):
+    """``close[s]`` = the line at whose end an ``<svg`` opened on line ``s`` is
+    closed again (depth-matched), ``-1`` if it never is. Built ONCE per
+    document, in one pass, and kept in ``state.env``.
+
+    ⚠️ Why a table and not a scan from ``s``: the rule is a paragraph
+    terminator, so markdown-it asks it again for EVERY line of a paragraph. A
+    forward scan per ask made 4 000 lines of never-closed ``<svg`` cost 6 s and
+    8 000 lines over 20 s (×4 per doubling). "Remember the last ``</svg>``" is
+    no fix — ``<svg><svg></svg>`` per line has closers everywhere and still
+    never balances. With per-line net depth ``net`` and its prefix sums ``P``,
+    "closed at the end of line e" is ``P[e+1] <= P[s]``: the NEXT
+    SMALLER-OR-EQUAL element to the right, which one monotonic-stack pass
+    answers for all lines at once."""
+    cached = state.env.get(_SVG_INDEX_KEY)
+    if cached is not None and cached[0] is state.src:
+        return cached[1]
+    src = state.src
+    starts = [0]
+    find = src.find
+    at = find('\n')
+    while at >= 0:
+        starts.append(at + 1)
+        at = find('\n', at + 1)
+    n_lines = len(starts)
+
+    prefix = [0] * (n_lines + 1)  # first as per-line net (shifted by one) …
+    line = 0
+    for edge in SVG_EDGE_RE.finditer(src):
+        at = edge.start()
+        while line + 1 < n_lines and starts[line + 1] <= at:
+            line += 1
+        prefix[line + 1] += -1 if edge.group(0)[1] == '/' else 1
+    for i in range(n_lines):      # … then summed up in place
+        prefix[i + 1] += prefix[i]
+
+    close = [-1] * n_lines
+    waiting = []  # indices still without an answer; their prefix values rise
+    for j, value in enumerate(prefix):
+        while waiting and value <= prefix[waiting[-1]]:
+            close[waiting.pop()] = j - 1
+        if j < n_lines:
+            waiting.append(j)
+    state.env[_SVG_INDEX_KEY] = (src, close)
+    return close
+
 
 def _svg_block(state, startLine, endLine, silent):
     if state.is_code_block(startLine):
@@ -113,19 +167,17 @@ def _svg_block(state, startLine, endLine, silent):
     if not _SVG_BLOCK_OPEN_RE.match(state.src, pos, state.eMarks[startLine]):
         return False
 
-    depth = 0
-    lastLine = None
-    for line in range(startLine, endLine):
-        if line > startLine and state.sCount[line] < state.blkIndent:
-            break  # the enclosing container ended before the figure did
-        begin = state.bMarks[line] + state.tShift[line]
-        for edge in SVG_EDGE_RE.finditer(state.src, begin, state.eMarks[line]):
-            depth += -1 if edge.group(0)[1] == '/' else 1
-        if depth <= 0:
-            lastLine = line
-            break
-    if lastLine is None:
+    lastLine = _svg_close_lines(state)[startLine]
+    if lastLine < 0 or lastLine >= endLine:
         return False
+    # The enclosing container must not end before the figure does. At the root
+    # (level 0: blkIndent 0, no negative sCount ahead) that cannot happen —
+    # O(1) there. Nested, it is one C-level min over a bounded slice.
+    if state.level > 0 and lastLine > startLine:
+        if lastLine - startLine > _SVG_BLOCK_MAX_NESTED_LINES:
+            return False
+        if min(state.sCount[startLine + 1:lastLine + 1]) < state.blkIndent:
+            return False
     if silent:
         return True  # may terminate a paragraph, like the Typ-1 blocks
 

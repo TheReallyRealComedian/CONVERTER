@@ -14,6 +14,7 @@ card call — not by merging SVG tags into the Markdown allow-list, whose
 ``'*': {class, id, style}`` wildcard would hand them what the policy bans.
 """
 import os
+import time
 from html.parser import HTMLParser
 
 import nh3
@@ -442,6 +443,77 @@ def test_svg_shown_as_code_stays_code():
     html = render_markdown_to_html(text)
     assert html == _old_renderer(text)
     assert '<svg' not in html and 'media-placeholder' not in html
+
+
+# --- runtime on pathological input (Pflicht-Nachtrag nach Phase 1) -----------
+
+# The svg block rule is a paragraph TERMINATOR: markdown-it asks it again for
+# every line of a paragraph. Its first version scanned forward per ask —
+# 4 000 lines cost 5.7 s (form A) / 10.7 s (form B), ×4 per doubling, in a
+# synchronous WSGI thread on every reader open, PDF and EPUB alike. Measured
+# after the fix: 47 ms / 77 ms, the plain-text control 30 ms. The bound leaves
+# a slow machine ~20× headroom and a quadratic regression none.
+_RUNTIME_LINES = 4000
+_RUNTIME_BOUND_S = 1.5
+
+_PATHOLOGICAL = {
+    # A — never closed. A "remember the last </svg>" memo fixes THIS one …
+    'A_never_closed': '<svg \n' * _RUNTIME_LINES,
+    # B — … and not this: closers everywhere, the depth still never returns.
+    'B_openers_outnumber_closers': '<svg><svg></svg>\n' * _RUNTIME_LINES,
+    'C_tag_closed_element_open': '<svg>\n' * _RUNTIME_LINES,
+    # Containers take the bounded-slice path (state.level > 0).
+    'G_in_a_blockquote': '> <svg \n' * _RUNTIME_LINES,
+    'H_list_openers_then_closers': ('- x\n' + '  <svg>\n' * _RUNTIME_LINES
+                                    + '\n' + '</svg>\n' * _RUNTIME_LINES),
+    'K_control_plain_text': 'Zeile mit Text.\n' * _RUNTIME_LINES,
+}
+
+
+@pytest.mark.parametrize('form', sorted(_PATHOLOGICAL))
+def test_render_time_is_bounded_on_pathological_input(form):
+    started = time.perf_counter()
+    html = render_markdown_to_html(_PATHOLOGICAL[form])
+    elapsed = time.perf_counter() - started
+    assert elapsed < _RUNTIME_BOUND_S, f'{form}: {elapsed:.2f}s'
+    assert html  # it answered with something, not with nothing
+
+
+def test_figure_inside_containers_is_still_one_figure():
+    quoted = render_markdown_to_html(
+        '> Zitat davor.\n>\n> <svg viewBox="0 0 10 10">\n>\n'
+        '>   <rect x="1" width="5" height="5"/>\n> </svg>\n>\n> Zitat danach.')
+    assert _walk(quoted).tags.count('svg') == 1
+    assert '<rect x="1" width="5" height="5"></rect>' in quoted
+    assert 'media-placeholder' not in quoted
+
+    listed = render_markdown_to_html(
+        '- Punkt\n\n  <svg viewBox="0 0 10 10">\n\n'
+        '    <rect x="1" width="5" height="5"/>\n  </svg>\n\n- Nächster Punkt')
+    assert _walk(listed).tags.count('svg') == 1
+    assert '<rect x="1" width="5" height="5"></rect>' in listed
+    assert listed.count('<li>') == 2
+
+
+def test_block_rule_declines_when_the_container_ends_before_the_figure():
+    # The </svg> exists — but outside the list item. Taking the block would
+    # pull the following top-level lines into the item. Asserted on the
+    # markdown-it output: that is where the rule decides.
+    rendered = markdown_render._md.render(
+        '- Punkt\n  <svg viewBox="0 0 10 10">\n  <rect x="1" width="5" height="5"/>\n\n'
+        'Absatz außerhalb der Liste.\n\n</svg>\n\nEnde.')
+    assert rendered.index('</ul>') < rendered.index('<p>Absatz außerhalb der Liste.</p>')
+    assert '<p>Ende.</p>' in rendered
+
+
+def test_nested_figure_beyond_the_line_bound_falls_back_to_stock_commonmark():
+    # No blank line inside → Stock-CommonMark (Typ 7) still yields one raw
+    # block and the island logic renders it: the bound costs nothing here.
+    body = '> <rect x="1" width="5" height="5"/>\n' * (markdown_render._SVG_BLOCK_MAX_NESTED_LINES + 5)
+    html = render_markdown_to_html('> <svg viewBox="0 0 10 10">\n' + body + '> </svg>\n')
+    walked = _walk(html)
+    assert walked.tags.count('svg') == 1
+    assert walked.tags.count('rect') == markdown_render._SVG_BLOCK_MAX_NESTED_LINES + 5
 
 
 # --- the existing library does not move (pytest-sized Gate 6) ----------------
