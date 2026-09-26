@@ -349,3 +349,47 @@ services/document_router.py:62  partition(filename=source_path, strategy="fast",
 ---
 
 *Ende des Befunds. Nichts wurde auf der Mintbox oder im Repo verändert; alle Messungen waren read-only. Kein Wegwerf-User angelegt (die Befunde ließen sich statisch/read-only belegen — der im Sprint vorgesehene SSRF-Zeugentest wurde durch den eindeutigen Code-Trace ersetzt und steht als VERIFY-3 offen). Kein Token, kein Hash-Wert, kein Cookie-Wert im Dokument.*
+
+---
+
+## Phase 2 — umgesetzt (2026-09-26)
+
+Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 1 Skip**, zwei Deploys (nach Punkt 3 und nach Punkt 7). Jede Messung an der deployten Instanz; Wegwerf-User `zz_smoke` nach jedem Gate strikt per `user_id` gelöscht (besaß nichts), keine Reste in Container oder Host.
+
+| # | Punkt | Commit | Test (Gegenprobe) | Messung vorher → nachher |
+|---|---|---|---|---|
+| 1 | ProxyFix (`x_for/x_proto/x_host/x_port=1`) | `f250bcb` | `test_proxy_fix.py` 8 (ohne ProxyFix: 4 rot) | Log `Mobile login failed from 172.21.0.1` → `… from 94.x.x.3` (echte Client-IP, redigiert) |
+| 2 | Security-Header per `after_request` | `7ba617c` | `test_security_headers.py` 6 (ohne Hook: 6 rot) | keine → `nosniff`, `DENY`, `strict-origin-when-cross-origin`, `Permissions-Policy` auf HTML, 401-JSON, statischer Datei; Gate Reader-Smoke 155/155 |
+| 3 | Cookie-`Secure` — **Form geändert** (s. u.) | `b019f0f` | `test_cookie_secure.py` 5 inkl. MCP-Login mit echtem httpx (ohne Interface: 2 rot) | `session=…; HttpOnly; Path=/; SameSite=Lax` → `session=…; Secure; HttpOnly; Path=/; SameSite=Lax` |
+| 4 | Dummy-Hash am Web-Login, eine Definition (`User.authenticate`) | `dc27112` | `test_login_enumeration.py` 6, mock-basiert (alter Web-Login: 2 rot) | Timing lokal, Median/20: Web unbekannt vs. bekannt+falsch **0,4 vs. 47,6 ms → 47,7 vs. 47,3 ms** (Mobile unverändert 47,5/47,5) |
+| 5 | `REMEMBER_COOKIE_DURATION` 30 Tage | `fc9396b` | `test_remember_cookie.py` 2 (ohne: 2 rot) | Expires 365 → 30 Tage (Test liest das `Set-Cookie` eines echten Logins) |
+| 6 | Compose-Bind `127.0.0.1:5656:5000` | `e2dc172` | Sentinel in `test_proxy_fix.py` (alte Compose: rot) | `ss -tln`: `0.0.0.0:5656` + `[::]:5656` → nur `127.0.0.1:5656`; vom Mac im LAN: `Couldn't connect to server`, über nginx `200` |
+| 7 | SRI `markdown-it@14.1.0` + `mermaid@10.9.8` | `e26c699` | `test_cdn_sri.py` 2 (alte Templates: 2 rot) | Headless im Container: beide Bibliotheken laden, Diagramm rendert, **kein** Integrity-Fehler; Reader-Smoke 155/155 |
+
+**Benannte Abweichungen und Verhaltensänderungen:**
+
+- **Punkt 3 in anderer Form als freigegeben** (Olis Entscheidung in P2): Secure-by-default mit `ALLOW_INSECURE_COOKIES`-Opt-out hätte den `converter-mcp` gebrochen. Er meldet sich per Cookie-Session über plain http im Docker-Netz an (`http://markdown-converter-web:5000`), und httpx schickt `Secure`-Cookies über http nie zurück — schon sein Login-POST verlöre die Session und stürbe am CSRF (im Test mit echtem httpx belegt). Umgesetzt: `HttpsOnlySecureSessionInterface` — Session-Cookie `Secure` genau dann, wenn die Anfrage über HTTPS kam (hinter nginx jede Browser-Anfrage), Remember-Cookie immer. Kein Schalter, kein `.env`-Eintrag.
+- **ProxyFix schaltet Flask-WTFs SSL-strict-Zweig ein:** hinter nginx ist `is_secure` jetzt wahr, jede Cookie-Session-Mutation braucht einen Same-Origin-`Referer` (Browser senden ihn; die neue `Referrer-Policy` behält ihn). An der Kante belegt mit einer absichtlich fehlschlagenden Anmeldung (Fantasie-Username, gültiges CSRF-Token): mit Referer `200` (View erreicht), ohne `400`. Bearer-Writes und der plain-http-Form-Login des MCP sind unberührt (getestet).
+- **Grenze von Punkt 5:** der Remember-Cookie-Wert ist `user_id|digest` ohne Zeitstempel (an der installierten Flask-Login-Quelle belegt). Die 30 Tage begrenzen den ehrlichen Browser, nicht einen gestohlenen Wert — der Widerrufshebel ist die `SECRET_KEY`-Rotation. Weil `SECRET_KEY` bis heute world-readable in `.env` lag (F-1), gehört die Rotation zu Olis `chown`/`chmod`-Schritt.
+
+**Zwischen Phase 1 und 2 von Oli an nginx gesetzt** (Site-Config gelesen): `Strict-Transport-Security: max-age=86400` auf Server-Ebene, `limit_req` 10 r/min mit `burst=10` → `429` auf `location = /login` und `location = /api/auth/login`, die `proxy_set_header`-Zeilen auf Server-Ebene (von den Login-Locations geerbt — belegt durch die echte Client-IP im `/api/auth/login`-Log). Keine Header-Dubletten zur App. Das Rate-Limit ist per Config gelesen, nicht per Last gemessen.
+
+**Stand der Findings nach Phase 2:**
+
+| Finding | Stand |
+|---|---|
+| F-1 Geheimnisse world-readable | **offen** — Oli: `chown`, `chmod 600`, ACL; danach `SECRET_KEY` rotieren |
+| F-2 Security-Header | **geschlossen** (App-Header + HSTS an nginx) |
+| F-3 Login-Throttling | **geschlossen** an der Kante (nginx `limit_req`, Oli) |
+| F-4 Enumeration am Web-Login | **geschlossen** |
+| F-5 Cookie ohne `Secure` | **geschlossen** (Secure hinter HTTPS) |
+| F-6 Remember-Cookie 365 Tage | **teils** — 30 Tage; Widerruf nur per `SECRET_KEY`-Rotation |
+| F-6-SSRF Playwright-PDF | offen → Item SEC-SSRF |
+| F-7 Redis ohne Auth + Pickle | offen → Item SEC-REDIS-AUTH |
+| F-8 root-Container | offen → Item SEC-NONROOT |
+| F-9 `remote_addr` = Proxy | **geschlossen** (ProxyFix, gemessen) |
+| F-10 `0.0.0.0:5656` | **geschlossen** (Loopback-Bind, gemessen) |
+| F-11 Backups world-readable | offen — Oli / MINTBOX-BAK |
+| F-12 MCP-Port `0.0.0.0:3335` | offen — Brief an converter-mcp (Phase 3) |
+| F-13 Worker-docker.sock | offen → Item SEC-SOCKET |
+| DiD Supply-Chain SRI | **teils** — markdown-it + mermaid gepinnt; Tailwind-Play-CDN bleibt (CSP-BASELINE-Voraussetzung) |
