@@ -74,6 +74,10 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+{# SEC-AUDIT: the reader's pin (static/js/reader_figures.js MERMAID_SRC/MERMAID_SRI),
+   not the floating @10 — one mermaid version, one hash, both loaders. #}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js"
+        integrity="sha384-N3QqR/7q+xm3BGX+CBbNI8AUmRRqcsDzToy+0z1NLDI0QmTKW8zvwLvqulJgk3dP"
+        crossorigin="anonymous"></script>
 <script src="{{ url_for('static', filename='js/mermaid_converter.js') }}"></script>
 {% endblock %}

@@ -150,7 +150,10 @@ This is a blockquote to demonstrate styling.
             katexCssUrl: '{{ url_for('static', filename='vendor/katex/katex.min.css') }}',
         };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    {# SEC-AUDIT: SRI-pinned (sha384 over the jsdelivr file, byte-identical to unpkg). #}
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"
+            integrity="sha384-wLhprpjsmjc/XYIcF+LpMxd8yS1gss6jhevOp6F6zhiIoFK6AmHtm4bGKtehTani"
+            crossorigin="anonymous"></script>
     <!-- MATH-RENDER: vendored KaTeX (Engine für texmath.renderToString) + markdown-it-texmath. -->
     <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/markdown-it-texmath/texmath.js') }}"></script>
