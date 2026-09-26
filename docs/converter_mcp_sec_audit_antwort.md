@@ -42,7 +42,7 @@ Empfehlung an Oli, für den CONVERTER-Clone (die Mintbox-Runtime ist laut Hausre
 cd ~/CODE && setfacl -R -k CONVERTER && setfacl -R -x u:mintsamba,u:mintshare CONVERTER && getfacl -dp CONVERTER | grep -c ':' 
 ```
 
-(erwartet `0` — keine Default-Einträge mehr). Ob `~/CODE` als Ganzes die Default-ACL verlieren soll, entscheidet Oli — andere Projekte dort könnten über Samba bearbeitet werden. Als Baustein in MINTBOX-BAK notiert (Clone-Besitz ordnen, `chown -R oliver`, sudo).
+(erwartet `0` — keine Default-Einträge mehr). **Nachtrag 21:42:** so lief es nicht — `setfacl` scheitert ohne sudo an jeder fremd-eigenen Datei (1796 Einträge gehörten `mintshare`, 654 davon in `.git`), die Kette brach nach `-k` ab. Ausgeführt wurde stattdessen `sudo chown -R oliver:oliver CONVERTER && setfacl -R -b CONVERTER`; gemessen danach `fremd: 0  acl: 0`, `git fetch` und Container unberührt. Erst Besitz, dann ACL — die Reihenfolge ist die Lehre. Ob `~/CODE` als Ganzes die Default-ACL verlieren soll, entscheidet Oli — andere Projekte dort könnten über Samba bearbeitet werden. Als Baustein in MINTBOX-BAK notiert (Clone-Besitz ordnen, `chown -R oliver`, sudo).
 
 ## §4 — Halter je Env-Token (Stand nach eurer Rotation, für das nächste Fenster)
 
