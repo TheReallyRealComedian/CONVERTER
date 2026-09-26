@@ -23,6 +23,7 @@ from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import make_url
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app_pkg.config import SQLITE_BUSY_TIMEOUT_SECONDS
 from models import Card, Collection, Review, User, db
@@ -42,6 +43,22 @@ def create_app(import_name='app'):
     _configure_logging()
 
     app = Flask(import_name)
+
+    # SEC-AUDIT: the app sits behind exactly ONE trusted proxy hop (host nginx,
+    # which sets X-Forwarded-For/Proto/Host/Port). Without this, every request
+    # looked like it came from the Docker gateway (measured: remote_addr
+    # 172.21.0.1 for every client — logs blind, any rate-limit key on it one
+    # bucket for everybody) and request.is_secure was False behind TLS.
+    # Trusting one hop is only sound while nginx is the only way in from
+    # outside — hence the 127.0.0.1 port bind in docker-compose.yml; the
+    # containers on the Docker networks can still reach :5000 directly and
+    # are trusted peers. Consequence, deliberate: behind nginx is_secure is
+    # now True, so Flask-WTF's SSL-strict check applies to every cookie-
+    # session write — it needs a same-origin Referer (browsers send one for
+    # same-origin requests). X-Forwarded-Port 443 makes the Host "…:443";
+    # Werkzeug's get_host drops the default port for https, so the browser
+    # Referer still matches.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
     secret_key = os.environ.get('SECRET_KEY')
     if not secret_key:
