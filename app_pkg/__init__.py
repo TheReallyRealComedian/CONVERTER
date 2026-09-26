@@ -15,6 +15,7 @@ import os
 import re
 import sys
 from contextlib import contextmanager
+from datetime import timedelta
 
 import click
 from flask import Flask, flash, jsonify, redirect, request, url_for
@@ -93,6 +94,12 @@ def create_app(import_name='app'):
     # SEC-AUDIT: the remember cookie is always Secure; the session cookie
     # follows the request's scheme (HttpsOnlySecureSessionInterface).
     app.config['REMEMBER_COOKIE_SECURE'] = True
+    # SEC-AUDIT: 30 days instead of Flask-Login's 365 (the web login always
+    # sets remember=True) — Oli signs in in the browser about once a month.
+    # ⚠️ Limit: the cookie value is ``user_id|digest``, no timestamp; this
+    # sets only the browser's Expires. A STOLEN value stays valid until
+    # SECRET_KEY rotates — rotation is the revocation lever, not this knob.
+    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.session_interface = HttpsOnlySecureSessionInterface()
