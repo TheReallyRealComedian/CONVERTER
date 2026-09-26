@@ -127,6 +127,7 @@ def create_app(import_name='app'):
         return redirect(login_url(login_manager.login_view, request.url))
 
     _register_error_handlers(app)
+    _register_security_headers(app)
     _register_csrf_endpoint(app)
     _register_cli_commands(app)
     _register_template_filters(app)
@@ -400,6 +401,35 @@ def _register_error_handlers(app):
             '</body></html>'
         )
         return html, 400
+
+
+# SEC-AUDIT: baseline headers on EVERY response — pages, JSON, send_file
+# downloads, static files, error answers (after_request runs for all of
+# them). They travel with the app rather than living in nginx, so the answer
+# carries them however it is reached. setdefault: a view that sets its own
+# value wins. HSTS is NOT here — it belongs to the TLS terminator (nginx).
+#   * X-Frame-Options DENY — nothing frames the app: the markdown preview is
+#     an srcdoc iframe (no HTTP response to deny), Dashy links with _blank.
+#   * Referrer-Policy strict-origin-when-cross-origin — must keep the full
+#     same-origin Referer: since ProxyFix, Flask-WTF's SSL-strict check needs
+#     it on every cookie-session write behind nginx. A policy that drops
+#     same-origin referrers ('no-referrer') would break every web-UI write.
+#   * Permissions-Policy WITHOUT microphone — the audio converter's live
+#     transcription needs getUserMedia.
+SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), geolocation=(), payment=(), usb=()',
+}
+
+
+def _register_security_headers(app):
+    @app.after_request
+    def set_security_headers(response):
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
 
 
 def _register_csrf_endpoint(app):
