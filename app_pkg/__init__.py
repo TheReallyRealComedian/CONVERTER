@@ -15,7 +15,7 @@ import os
 import re
 import sys
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import click
 from flask import Flask, flash, jsonify, redirect, request, url_for
@@ -28,7 +28,7 @@ from sqlalchemy.engine import make_url
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app_pkg.config import SQLITE_BUSY_TIMEOUT_SECONDS
-from models import Card, Collection, Review, User, db
+from models import ApiToken, Card, Collection, Review, User, db
 from services.scheduler.base import initial_review_state
 
 
@@ -516,15 +516,25 @@ def _register_template_filters(app):
         return Markup(_SCRIPT_END_RE.sub(r'<\\/\1', str(value)))
 
 
+PASSWORD_MIN_LENGTH = 8
+
+
+def _check_password_rule(password):
+    """The ONE password rule — shared by ``create-user`` and ``set-password``
+    (SEC-SET-PASSWORD) so the two can never drift. A violation ends the
+    command with ``click.ClickException`` (exit code 1)."""
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise click.ClickException(
+            f'Passwort muss mindestens {PASSWORD_MIN_LENGTH} Zeichen haben.')
+
+
 def _register_cli_commands(app):
     @app.cli.command('create-user')
     @click.argument('username')
     @click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True)
     def create_user_cmd(username, password):
         """Create a new user account."""
-        if len(password) < 8:
-            click.echo('Error: Password must be at least 8 characters.')
-            return
+        _check_password_rule(password)
         if User.query.filter_by(username=username).first():
             click.echo(f'Error: User "{username}" already exists.')
             return
@@ -533,6 +543,88 @@ def _register_cli_commands(app):
         db.session.add(user)
         db.session.commit()
         click.echo(f'User "{username}" created successfully.')
+
+    @app.cli.command('set-password')
+    @click.argument('username')
+    @click.option('--revoke-tokens', is_flag=True,
+                  help='Loescht danach ALLE API-Tokens dieses Benutzers '
+                       '(iOS-App, converter-mcp) — sie muessen sich neu anmelden.')
+    def set_password_cmd(username, revoke_tokens):
+        """Setzt das Passwort EINES Benutzers neu (Operator-Werkzeug).
+
+        SEC-SET-PASSWORD: der einzige Wechselpfad. Bewusst CLI und kein
+        Endpoint, keine UI — wer das Kommando erreicht, hat Container-Zugriff
+        (``docker exec -it markdown-converter-web flask set-password <user>``).
+        Das Passwort wird abgefragt (verdeckt, mit Wiederholung), nie als
+        Argument uebergeben — nichts landet in Shell-History oder ``ps``.
+
+        Was das Kommando NICHT tut, sagt es am Ende selbst:
+
+        Browser-Sessions bleiben gueltig. Sie sind signierte Cookies ohne
+        Server-Zustand; der einzige Hebel ist die SECRET_KEY-Rotation.
+
+        API-Tokens bleiben gueltig — eigene Credentials mit eigenem Widerruf.
+        Ein stiller Massen-Widerruf traefe iOS-App und converter-mcp, ohne
+        dass der Operator es sieht; deshalb werden die Tokens des Benutzers
+        aufgelistet, und --revoke-tokens loescht sie nur auf Ansage — alle
+        dieses Benutzers, nicht einzeln (einzeln: POST /api/auth/logout mit
+        dem jeweiligen Token).
+
+        Passwort und Token-Widerruf gehen in EINEM Commit: entweder beides
+        oder nichts. (Docstring ohne RST-Markup: click rendert ihn als
+        --help-Text und bricht Absaetze neu um.)
+        """
+        user = User.query.filter_by(username=username).first()
+        if user is None:
+            raise click.ClickException(f'Benutzer "{username}" nicht gefunden.')
+        # Prompt AFTER the user check so a typo in the name fails before
+        # anyone types a password twice. On a mismatch click re-prompts; at
+        # EOF it aborts with exit code 1 — nothing is written either way.
+        password = click.prompt('Neues Passwort', hide_input=True,
+                                confirmation_prompt='Neues Passwort (Wiederholung)')
+        _check_password_rule(password)
+
+        tokens = user.api_tokens.order_by(ApiToken.id).all()
+        user.set_password(password)
+        if revoke_tokens:
+            for token in tokens:
+                db.session.delete(token)
+        db.session.commit()
+
+        click.echo(f'Passwort fuer "{user.username}" (id {user.id}) geaendert.')
+        if revoke_tokens:
+            if tokens:
+                counts = {}
+                for token in tokens:
+                    key = token.label or '(ohne Label)'
+                    counts[key] = counts.get(key, 0) + 1
+                detail = ', '.join(f'{label} x{n}' for label, n in sorted(counts.items()))
+                click.echo(f'{len(tokens)} API-Tokens widerrufen ({detail}) — '
+                           f'iOS-App und converter-mcp brauchen neue Tokens '
+                           f'(POST /api/auth/login).')
+            else:
+                click.echo('Keine API-Tokens vorhanden — nichts zu widerrufen.')
+        elif tokens:
+            click.echo(f'API-Tokens dieses Benutzers: {len(tokens)} — bleiben gueltig.')
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            width = max(len(token.label or '(ohne Label)') for token in tokens)
+            for token in tokens:
+                created = (token.created_at.strftime('%Y-%m-%d %H:%M UTC')
+                           if token.created_at else '?')
+                if token.expires_at is None:
+                    expiry = 'laeuft nie ab'
+                else:
+                    expiry = f"laeuft ab {token.expires_at.strftime('%Y-%m-%d %H:%M UTC')}"
+                    if token.expires_at <= now:
+                        expiry += ' (abgelaufen)'
+                label = (token.label or '(ohne Label)').ljust(width)
+                click.echo(f'  id {token.id:<3} {label}  erstellt {created}  {expiry}')
+            click.echo('Widerruf aller Tokens: dieses Kommando mit --revoke-tokens; '
+                       'einzeln: POST /api/auth/logout mit dem jeweiligen Token.')
+        else:
+            click.echo('API-Tokens dieses Benutzers: keine.')
+        click.echo('Browser-Sessions bleiben gueltig — sie enden nur mit einer '
+                   'SECRET_KEY-Rotation.')
 
     @app.cli.command('reset-collection')
     @click.argument('collection')
