@@ -17,7 +17,12 @@ services:
       - 8.8.8.8
       - 8.8.4.4
     ports:
-      - "5656:5000"
+      # SEC-AUDIT: loopback only. Host nginx (proxy_pass 127.0.0.1:5656) is
+      # the one way in from outside; the iOS app goes through nginx (https),
+      # converter-mcp through Docker DNS (:5000). 0.0.0.0 served the app to
+      # the LAN without TLS, past nginx's HSTS and login rate limit — and
+      # ProxyFix trusts the X-Forwarded-* headers of whoever connects here.
+      - "127.0.0.1:5656:5000"
     volumes:
       - ./google-credentials.json:/app/google-credentials.json
       # Shared volume for podcast files

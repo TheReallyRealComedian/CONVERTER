@@ -23,10 +23,13 @@ before ``csrf_enabled``.
 """
 import logging
 import re
+from pathlib import Path
 
 import pytest
 
 from models import Conversion, db
+
+REPO = Path(__file__).resolve().parent.parent
 
 # What host nginx sends upstream (proxy_set_header lines of the site config).
 NGINX_HEADERS = {
@@ -145,3 +148,21 @@ def test_plain_http_form_login_without_referer_still_works(app, test_user, clien
                                        'password': test_user['password'],
                                        'csrf_token': token})
     assert resp.status_code == 302
+
+
+# --- the premise of trusting one hop ------------------------------------------
+
+
+def test_web_port_is_bound_to_loopback_only():
+    """ProxyFix trusts the X-Forwarded-* headers of whoever connects to :5656.
+    That is sound only while host nginx is the sole outside client — so the
+    published port must stay on 127.0.0.1 (0.0.0.0 served the app to the LAN
+    without TLS, past nginx). Redis publishes nothing."""
+    compose_file = REPO / 'docker-compose.yml'
+    if not compose_file.exists():
+        pytest.skip('docker-compose.yml not shipped alongside the tests')
+    yaml = pytest.importorskip('yaml')
+    services = yaml.safe_load(compose_file.read_text())['services']
+    assert services['markdown-converter']['ports'] == ['127.0.0.1:5656:5000']
+    assert 'ports' not in services['redis']
+    assert 'ports' not in services['worker']
