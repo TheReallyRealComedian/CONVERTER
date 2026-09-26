@@ -1,5 +1,6 @@
 import json
 import re
+import secrets
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -9,6 +10,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from services.svg_sanitize import sanitize_card_svg
 
 db = SQLAlchemy()
+
+# Burned on login attempts for unknown usernames so both failure paths do the
+# same password-hash work — no timing split (anti-enumeration). Random input:
+# this hash must never accidentally match a real password. ONE definition for
+# both logins (web form + mobile JSON), via User.authenticate — SEC-AUDIT
+# measured the web login answering an unknown user in 0.4 ms against 47.6 ms
+# for a known one while the mobile login already burned its own copy.
+DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 
 
 class User(UserMixin, db.Model):
@@ -28,6 +37,18 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    @classmethod
+    def authenticate(cls, username, password):
+        """The user whose password matches, else None — with exactly ONE
+        password-hash check either way. An unknown (or empty) username burns
+        ``DUMMY_PASSWORD_HASH``, so the answer time never tells "no such
+        user" from "wrong password"."""
+        user = cls.query.filter_by(username=username).first() if username else None
+        if user is None:
+            check_password_hash(DUMMY_PASSWORD_HASH, password)
+            return None
+        return user if user.check_password(password) else None
 
 
 class ApiToken(db.Model):

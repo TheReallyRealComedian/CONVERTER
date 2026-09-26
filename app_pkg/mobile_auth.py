@@ -14,7 +14,8 @@ mirrors ``ingest.py``):
   A DB leak exposes no live tokens.
 * **Generic 401 on ANY login failure.** Unknown username burns a dummy
   ``check_password_hash`` so response timing does not separate "no such
-  user" from "wrong password" (anti-enumeration).
+  user" from "wrong password" (anti-enumeration) — ``User.authenticate``,
+  shared with the web login since SEC-AUDIT.
 * **Tokens never logged.** Auth failures log remote_addr and a coarse
   reason only; the success log carries the user id, never the token.
 * **Fail-closed expiry.** ``expires_at`` in the past == invalid token;
@@ -30,18 +31,12 @@ from datetime import datetime, timezone
 
 from flask import jsonify, request
 from flask_login import current_user, login_required
-from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import ApiToken, User, db
 
 logger = logging.getLogger(__name__)
 
 TOKEN_LABEL_MAX = 80
-
-# Burned on login attempts for unknown usernames so both failure paths do
-# the same password-hash work — no timing split (anti-enumeration). Random
-# input: this hash must never accidentally match a real password.
-_DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 
 
 def _hash_token(plaintext):
@@ -101,14 +96,8 @@ def register(app):
         username = username.strip() if isinstance(username, str) else ''
         password = password if isinstance(password, str) else ''
 
-        user = User.query.filter_by(username=username).first() if username else None
-        if user is not None:
-            authenticated = user.check_password(password)
-        else:
-            check_password_hash(_DUMMY_PASSWORD_HASH, password)
-            authenticated = False
-
-        if not authenticated:
+        user = User.authenticate(username, password)
+        if user is None:
             logger.warning('Mobile login failed from %s', request.remote_addr)
             return jsonify({'error': 'Nicht autorisiert.'}), 401
 

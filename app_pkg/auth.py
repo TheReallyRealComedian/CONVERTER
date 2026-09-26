@@ -21,8 +21,10 @@ def register(app):
         if request.method == 'POST':
             username = request.form.get('username', '').strip()
             password = request.form.get('password', '')
-            user = User.query.filter_by(username=username).first()
-            if user and user.check_password(password):
+            # SEC-AUDIT: one hash check whether or not the user exists — the
+            # same anti-enumeration path as the mobile login.
+            user = User.authenticate(username, password)
+            if user is not None:
                 login_user(user, remember=True)
                 next_page = request.args.get('next')
                 if next_page:
