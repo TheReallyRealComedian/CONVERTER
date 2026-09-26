@@ -13,10 +13,10 @@ Alle messbaren Befunde tragen Kommando **und** Ausgabe (redigiert wo nötig). Me
 | A01 Broken Access Control | 0 | — (geprüft, kein Finding) | — |
 | A02 Cryptographic Failures | 3 (F-1 Secrets-Modi, F-5 Cookie-Secure, F-11 Backups) | **High** | ja (F-5), teils (F-1/F-11 = Mintbox) |
 | A03 Injection | 0 | — (geprüft, kein Finding) | — |
-| A04 Insecure Design | 2 (F-3 Login-Throttling, F-6 Remember-Cookie) | **Medium** | ja (nginx für F-3) |
+| A04 Insecure Design | 3 (F-3 Login-Throttling, F-6 Remember-Cookie, F-14 Logout per GET) | **Medium** | ja (nginx für F-3) |
 | A05 Security Misconfiguration | 4 (F-2 Header, F-8 root-Container, F-10 :5656, F-12 MCP-Port) | **Medium** | ja (F-2, F-10) |
 | A06 Vulnerable Components | 0 laufzeit-erreichbar (CVE-Tabelle unten aufgelöst) | Low (DEPS-FLOAT) | — |
-| A07 Authentication Failures | 2 (F-3 Brute-Force, F-4 Enumeration) | **Medium** | ja (F-4) |
+| A07 Authentication Failures | 3 (F-3 Brute-Force, F-4 Enumeration, F-15 Bearer ohne Ablauf) | **Medium** | ja (F-4) |
 | A08 Data Integrity Failures | 1 (F-7 Redis-Auth + RQ-Pickle) | **Medium** | teils (Redis-Pw) |
 | A09 Logging & Monitoring | 1 (F-9 remote_addr = Proxy) | Low | ja (ProxyFix) |
 | A10 SSRF | 1 (F-6-SSRF Playwright-PDF) | **Medium** | nein (eigenes Item) |
@@ -43,9 +43,11 @@ Schweregrad-Konvention: **Critical** = Datendiebstahl/RCE ohne Vorbedingung · *
 | F-8 | A05 | `Dockerfile` (kein `USER`) | Web **und** Worker laufen als **root** (`uid=0`) | Jeder Code-Exec-Bug (Parser der Dokument-Engines auf angreifer-beeinflussten Dateien, F-7) läuft als root im Container statt als unprivilegierter Nutzer — größere Wirkung, leichteres Ausbrechen. | **Medium** (Defense-in-Depth) | Non-root `USER` im Dockerfile (Volume-Perms prüfen) | S/M (strukturell) |
 | F-9 | A09 | `app_pkg` (kein `ProxyFix`) | `request.remote_addr` ist für **jede** Anfrage `172.21.0.1` (Docker-Gateway), nie die Client-IP | Der einzige Auth-Fehler-Log (`Mobile login failed from 172.21.0.1`) ist blind für die Herkunft, und **jeder künftige Rate-Limit-Schlüssel auf `remote_addr` träfe alle Clients als einen** — Throttling wäre wirkungslos. | **Low** | `ProxyFix(x_for=1, x_proto=1, x_host=1, x_port=1)` (genau ein vertrauter Hop) | XS |
 | F-10 | A05 | `docker-compose.yml:19-20` | Web-Container hört auf `0.0.0.0:5656` (4 `docker-proxy`-Prozesse) | Im LAN ist die App **ohne TLS** an nginx vorbei erreichbar → Klartext-Session-Cookies (F-5) und der ganze Login umgeht HSTS/Header. iOS-App und MCP nutzen beide `https://…` bzw. internes DNS — niemand braucht `:5656` direkt. | **Low→Medium** | Compose-Bind `127.0.0.1:5656:5000` | XS |
-| F-11 | A02 | Mintbox `~/app_data_bak-2026-06-22/` (root, `r--r--r--`) + ~10 `~/converter.db.pre-*` (oliver, `r--r--`) | Vollständige DB-Kopien (Meeting-Transkripte, Passwort-Hash) world-readable in der Samba-exportierten Home | Ein Samba-/Local-Nutzer liest eine DB-Kopie → alle Transkripte + der scrypt-Hash zum Offline-Cracken. **DSGVO-relevant**. | **Low→Medium** | `chmod 600` / aus der Freigabe nehmen (Backlog MINTBOX-BAK) | XS (Mintbox) |
+| F-11 | A02 | Mintbox `~/app_data_bak-2026-06-22/` (root, `r--r--r--`) + neun `~/converter.db.pre-*` (oliver, `r--r--`) | Vollständige DB-Kopien (Meeting-Transkripte, Passwort-Hash) world-readable in der Samba-exportierten Home | Ein Samba-/Local-Nutzer liest eine DB-Kopie → alle Transkripte + der scrypt-Hash zum Offline-Cracken. **DSGVO-relevant**. | **Low→Medium** | `chmod 600` / aus der Freigabe nehmen (Backlog MINTBOX-BAK) | XS (Mintbox) |
 | F-12 | A05 | Mintbox `converter-mcp-server` Port `0.0.0.0:3335` | Der MCP-Server (hält `INGEST/CARD/NARRATION_TOKEN` + `CONVERTER_PASSWORD` in env, proxyt zur App) ist auf **allen** Interfaces veröffentlicht | Wer `:3335` erreicht (LAN sicher; extern = `VERIFY:` Router-Forwarding), spricht die Agent-Schreibfläche mit den dort hinterlegten Tokens an. | **Medium** | Bind `127.0.0.1:3335` (Fremd-Repo `notion-mcp-server`/MCP-Compose — Hinweis an Oli) | XS (Fremd-Config) |
 | F-13 | Hot-Spot (Blast-Radius) | `docker-compose.yml:69` | Worker mountet den Host-`/var/run/docker.sock` (**root-äquivalent**) und läuft als root | Nicht direkt aus dem Internet, aber **ein** Worker-Code-Exec (F-7, oder ein Engine-Parsing-Bug) wird zu voller Host-Root-Kontrolle über ~32 Container. Unter LAN-only (DOC-LOCAL) bewusst akzeptiert — unter Internet-Exposition neu zu bewerten. | **High** (Amplifier) | Stufenleiter s. u. (Socket-Proxy / rootless / eigener Nutzer) | L (strukturell) |
+| F-14 | A04 | `app_pkg/auth.py:36` (`/logout` ist `GET`) | Zustandsändernde Nutzer-Aktion per GET — die einzige der App (die Reconcile-GETs schreiben nur Job-Status fort; CSRF-Token schützen nur POST/PUT/PATCH/DELETE) | Eine Seite auf **irgendeiner** `*.smallpieces.de`-Subdomain (same-site: `SameSite=Lax` schickt dort das Cookie auch an Subressourcen) meldet Oli per `<img src="…/logout">` ab; von fremden Sites nur per Top-Level-Navigation. Nur Ärgernis, kein Datenzugriff. *(Nachtrag Phase 3)* | **Low** | `/logout` auf `POST` mit CSRF-Token umstellen | XS |
+| F-15 | A02/A07 | `models.ApiToken.expires_at` (bei allen 3 Tokens `NULL`) | Per-User-Bearer der iOS-App laufen nie ab; Widerruf nur per `POST /api/auth/logout` mit genau diesem Token oder Zeilen-Delete | Ein abgeflossener iOS-Token (Geräte-Backup, verlorenes Telefon) liest und schreibt alles, bis jemand merkt, welche Zeile zu löschen ist — es gibt keinen Ablauf und keine Übersicht. *(Nachtrag Phase 3)* | **Low** | `expires_at` beim Ausstellen setzen (App meldet sich bei 401 neu an) + Token-Übersicht mit Widerruf; Kontrakt MOBILE-AUTH | S |
 
 ---
 
@@ -158,7 +160,7 @@ Reproduktion der Master-Methode: `docker exec markdown-converter-web pip freeze`
 
 - [x] **Hat jedes Finding ein konkretes Exploit-Szenario?** Ja — jede Zeile der Findings-Tabelle trägt genau einen Satz.
 - [x] **Wurden Top-3-Risiken explizit ausgewiesen?** Ja (F-1, F-3, F-13+F-7).
-- [x] **Schweregrad-Verteilung plausibel?** Ja: 2× High (F-1, F-13), 6× Medium, 4× Low/Low→Medium — kein Critical (keine unauthentifizierte RCE / kein unauth. Datendiebstahl im Code; die schwersten Punkte brauchen einen lokalen/adjazenten Fuß oder eine Auth), nichts pauschal Low.
+- [x] **Schweregrad-Verteilung plausibel?** Ja: 2× High (F-1, F-13), 7× Medium, 5× Low/Low→Medium über **14** Einträge (F-1…F-13 plus F-6-SSRF — der Phase-1-Bericht sprach von „13 Findings", weil F-6-SSRF keine eigene Nummer trägt; korrigiert im Wrap), Phase 3 ergänzt F-14/F-15 (beide Low) — kein Critical (keine unauthentifizierte RCE / kein unauth. Datendiebstahl im Code; die schwersten Punkte brauchen einen lokalen/adjazenten Fuß oder eine Auth), nichts pauschal Low.
 - [x] **Defense-in-Depth-Lücken separat ausgewiesen?** Ja (eigene Sektion: Login-Fence, Redis, CSP/Play-CDN, SRI, mermaid loose).
 - [x] **Compliance-relevante Findings markiert?** Ja — F-5 und F-11 als **DSGVO-relevant** (Dritt-PII in Meeting-Transkripten).
 - [x] **VERIFY:-Prefix korrekt verwendet?** Ja — für Router-Forwarding, nginx-Config, EPUB-Egress, Samba-Reichweite (alles, was sudo/Router/aktives Zeugen-Testen braucht).
@@ -302,7 +304,7 @@ $ ls -ld /home/oliver → drwxrwxr-x+ …   # Home world-r-x
 ```
 $ ls -ld ~/app_data_bak-2026-06-22 → drwxr-xr-x+ root root …
 $   … / → -rw-r--r--+ root root converter.db  +  converter.db.bak-mcp1fix
-$ ls -l ~/converter.db.pre-* → ~10 Kopien, oliver, -rw-r--r--  (bis 10 MB, RICH-MEDIA)
+$ ls -l ~/converter.db.pre-* → 9 Kopien, oliver, -rw-r--r--  (bis 10 MB, RICH-MEDIA)
 ```
 
 **MCP-Port + Netz (F-12):**
@@ -372,15 +374,15 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 - **ProxyFix schaltet Flask-WTFs SSL-strict-Zweig ein:** hinter nginx ist `is_secure` jetzt wahr, jede Cookie-Session-Mutation braucht einen Same-Origin-`Referer` (Browser senden ihn; die neue `Referrer-Policy` behält ihn). An der Kante belegt mit einer absichtlich fehlschlagenden Anmeldung (Fantasie-Username, gültiges CSRF-Token): mit Referer `200` (View erreicht), ohne `400`. Bearer-Writes und der plain-http-Form-Login des MCP sind unberührt (getestet).
 - **Grenze von Punkt 5:** der Remember-Cookie-Wert ist `user_id|digest` ohne Zeitstempel (an der installierten Flask-Login-Quelle belegt). Die 30 Tage begrenzen den ehrlichen Browser, nicht einen gestohlenen Wert — der Widerrufshebel ist die `SECRET_KEY`-Rotation. Weil `SECRET_KEY` bis heute world-readable in `.env` lag (F-1), gehört die Rotation zu Olis `chown`/`chmod`-Schritt.
 
-**Zwischen Phase 1 und 2 von Oli an nginx gesetzt** (Site-Config gelesen): `Strict-Transport-Security: max-age=86400` auf Server-Ebene, `limit_req` 10 r/min mit `burst=10` → `429` auf `location = /login` und `location = /api/auth/login`, die `proxy_set_header`-Zeilen auf Server-Ebene (von den Login-Locations geerbt — belegt durch die echte Client-IP im `/api/auth/login`-Log). Keine Header-Dubletten zur App. Das Rate-Limit ist per Config gelesen, nicht per Last gemessen.
+**Zwischen Phase 1 und 2 von Oli an nginx gesetzt** (Site-Config gelesen): `Strict-Transport-Security: max-age=86400` auf Server-Ebene, `limit_req` 10 r/min mit `burst=10` → `429` auf `location = /login` und `location = /api/auth/login`, die `proxy_set_header`-Zeilen auf Server-Ebene (von den Login-Locations geerbt — belegt durch die echte Client-IP im `/api/auth/login`-Log). Keine Header-Dubletten zur App. **Gemessen von Oli** (von der Mintbox, 2026-09-26 15:24): HSTS `max-age=86400`, `/api/conversions` `302`, `POST /api/auth/login` zwölfmal → zehnmal `401`, dann zweimal `429`; vom Mac: HSTS da, Statics `200`, Login `401`.
 
 **Stand der Findings nach Phase 2:**
 
 | Finding | Stand |
 |---|---|
-| F-1 Geheimnisse world-readable | **offen** — Oli: `chown`, `chmod 600`, ACL; danach `SECRET_KEY` rotieren |
+| F-1 Geheimnisse world-readable | **geschlossen** — Oli 2026-09-26: `chown oliver:oliver` + `setfacl -b` + `chmod 600` (gemessen `-rw------- oliver oliver`, ACL leer, Deploy intakt) **und** `SECRET_KEY` rotiert (Nachtrag unten) |
 | F-2 Security-Header | **geschlossen** (App-Header + HSTS an nginx) |
-| F-3 Login-Throttling | **geschlossen** an der Kante (nginx `limit_req`, Oli) |
+| F-3 Login-Throttling | **geschlossen** an der Kante (nginx `limit_req`, Oli) — gemessen: 12× Mobile-Login → 10× `401`, 2× `429` |
 | F-4 Enumeration am Web-Login | **geschlossen** |
 | F-5 Cookie ohne `Secure` | **geschlossen** (Secure hinter HTTPS) |
 | F-6 Remember-Cookie 365 Tage | **teils** — 30 Tage; Widerruf nur per `SECRET_KEY`-Rotation |
@@ -389,7 +391,11 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 | F-8 root-Container | offen → Item SEC-NONROOT |
 | F-9 `remote_addr` = Proxy | **geschlossen** (ProxyFix, gemessen) |
 | F-10 `0.0.0.0:5656` | **geschlossen** (Loopback-Bind, gemessen) |
-| F-11 Backups world-readable | offen — Oli / MINTBOX-BAK |
+| F-11 Backups world-readable | **Modi geschlossen** (Oli: die drei Backup-Verzeichnisse — eins im Home, zwei im Clone — `drwx------ oliver`, die neun `converter.db.pre-*` `-rw-------`); Löschen offen → MINTBOX-BAK |
 | F-12 MCP-Port `0.0.0.0:3335` | offen — Brief an converter-mcp (Phase 3) |
 | F-13 Worker-docker.sock | offen → Item SEC-SOCKET |
+| F-14 Logout per GET | offen, Low → P3-Reminder |
+| F-15 Bearer ohne Ablauf | offen, Low → P3-Reminder (MOBILE-AUTH) |
 | DiD Supply-Chain SRI | **teils** — markdown-it + mermaid gepinnt; Tailwind-Play-CDN bleibt (CSP-BASELINE-Voraussetzung) |
+
+**Nachtrag Master 2026-09-26 16:15:** `SECRET_KEY` rotiert (Oli), Sicherung gelöscht, beide Container + converter-mcp neu gestartet, MCP-Aufruf und Kante danach gemessen — F-1 vollständig geschlossen.
