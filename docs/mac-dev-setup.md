@@ -33,6 +33,8 @@ Endlosschleife restartet.
 Erster Build dauert via Rosetta-Emulation ~5–10 min. App danach auf
 `http://localhost:5656`.
 
+Login über `http://localhost` braucht keinen Schalter: das Session-Cookie ist nur hinter HTTPS `Secure` (SEC-AUDIT, `HttpsOnlySecureSessionInterface` in `app_pkg/__init__.py`).
+
 ## Was funktioniert / was nicht
 
 Funktioniert: Markdown→PDF, Document→Markdown, Audio-Transkription, Library.

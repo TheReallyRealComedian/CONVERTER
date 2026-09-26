@@ -18,6 +18,7 @@ from contextlib import contextmanager
 
 import click
 from flask import Flask, flash, jsonify, redirect, request, url_for
+from flask.sessions import SecureCookieSessionInterface
 from flask_login import LoginManager, login_required, login_url
 from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
@@ -28,6 +29,28 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app_pkg.config import SQLITE_BUSY_TIMEOUT_SECONDS
 from models import Card, Collection, Review, User, db
 from services.scheduler.base import initial_review_state
+
+
+class HttpsOnlySecureSessionInterface(SecureCookieSessionInterface):
+    """SEC-AUDIT: the session cookie is ``Secure`` exactly when the request
+    itself arrived over HTTPS.
+
+    Behind nginx (ProxyFix, X-Forwarded-Proto) that is every browser request —
+    nginx 301s port 80 before proxying, so no browser session is ever issued
+    over plain http through the public name. A blanket ``SESSION_COOKIE_SECURE``
+    would break the clients that legitimately talk plain http: the
+    converter-mcp container logs in with a cookie session over the Docker
+    network (``http://markdown-converter-web:5000``) and httpx — like every
+    RFC-following client — never sends a Secure cookie over http, so its very
+    login POST would lose the session and die at CSRF. Same for Mac dev on
+    ``http://localhost:5656`` and the in-container browser smokes. So: Secure
+    wherever TLS is, and nowhere a flag has to be remembered. The remember
+    cookie stays Secure always (``REMEMBER_COOKIE_SECURE``) — the http clients
+    authenticate through the session and never need it.
+    """
+
+    def get_cookie_secure(self, app):
+        return request.is_secure
 
 
 def _configure_logging():
@@ -67,8 +90,12 @@ def create_app(import_name='app'):
     app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB (large audio files)
     app.config['REMEMBER_COOKIE_HTTPONLY'] = True
     app.config['REMEMBER_COOKIE_SAMESITE'] = 'Lax'
+    # SEC-AUDIT: the remember cookie is always Secure; the session cookie
+    # follows the request's scheme (HttpsOnlySecureSessionInterface).
+    app.config['REMEMBER_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.session_interface = HttpsOnlySecureSessionInterface()
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
         'DATABASE_URL', 'sqlite:////app/data/converter.db'
     )
