@@ -387,7 +387,7 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 | F-5 Cookie ohne `Secure` | **geschlossen** (Secure hinter HTTPS) |
 | F-6 Remember-Cookie 365 Tage | **teils** — 30 Tage; Widerruf nur per `SECRET_KEY`-Rotation |
 | F-6-SSRF Playwright-PDF | offen → Item SEC-SSRF |
-| F-7 Redis ohne Auth + Pickle | offen → Item SEC-REDIS-AUTH |
+| F-7 Redis ohne Auth + Pickle | **geschlossen** — SEC-REDIS-AUTH 2026-09-27 (`6af0ae8`): Redis mit Passwort aus `.env`, RQ mit JSON statt Pickle; gemessen `NOAUTH` ohne Passwort auch innerhalb `converter_default`, ein echter Job bis `ready` |
 | F-8 root-Container | offen → Item SEC-NONROOT |
 | F-9 `remote_addr` = Proxy | **geschlossen** (ProxyFix, gemessen) |
 | F-10 `0.0.0.0:5656` | **geschlossen** (Loopback-Bind, gemessen) |

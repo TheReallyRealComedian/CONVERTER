@@ -18,6 +18,8 @@ Beide Files sind gitignored und muessen aus dem Mintbox-Setup uebernommen werden
 
 Quelle kennt Oliver (1Password / Mintbox-scp).
 
+⚠️ Seit SEC-REDIS-AUTH (2026-09-27) braucht die lokale `.env` einen `REDIS_PASSWORD` — ohne ihn bricht `docker compose` mit „REDIS_PASSWORD fehlt in .env" ab (gewollt, fail-closed). Lokal reicht ein eigener Wert: `python3 -c 'import secrets; print("REDIS_PASSWORD=" + secrets.token_urlsafe(32))' >> .env`.
+
 ## Start
 
 ```
