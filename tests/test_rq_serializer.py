@@ -129,8 +129,10 @@ def test_compose_redis_requires_password():
         urls = [e for e in env if e.startswith('REDIS_URL=')]
         assert urls == ['REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}'
                         '@redis:6379/0'], name
-        assert services[name]['depends_on'] == {
-            'redis': {'condition': 'service_healthy'}}, name
+        # The worker additionally waits for the mineru launcher (SEC-SOCKET,
+        # pinned in test_mineru_launcher) — Redis is checked on its own.
+        assert services[name]['depends_on']['redis'] == {
+            'condition': 'service_healthy'}, name
 
 
 # --- what travels besides the enqueue args --------------------------------------

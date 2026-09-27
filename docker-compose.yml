@@ -85,13 +85,10 @@ services:
       # Shared volume for podcast files
       - podcast_data:/app/output_podcasts
       - ./google-credentials.json:/app/google-credentials.json
-      # DOC-LOCAL: Docker-Socket fuer den mineru-Geschwister-Container.
-      # ⚠️ Der Socket ist ROOT-AEQUIVALENT auf dem Host — bewusste
-      # Entscheidung (Sprint DOC-LOCAL, gesperrte Entscheidung 1): die GPU
-      # ist nur waehrend eines Auftrags belegt (kein Dauer-Sidecar, der
-      # 6,5 GB von 12 GB gegen ComfyUI/LoRA hielte), und die Invokation
-      # bleibt die gemessene. Details: docs/document_api_contract.md §10.
-      - /var/run/docker.sock:/var/run/docker.sock
+      # SEC-SOCKET: KEIN Docker-Socket mehr. Der Worker parst fremde
+      # Dokumente; Code-Ausfuehrung hier darf nicht zu Root ueber den Host
+      # werden. Den Socket haelt allein der mineru-launcher (unten), der
+      # Worker schickt ihm nur Daten (Job-Name, PDF-Name, Seitenzahl).
       # DOC-LOCAL: Austausch-Verzeichnis Worker ↔ Geschwister-Container als
       # HOST-Bind (kein Named Volume): der Geschwister-Container wird vom
       # HOST-Daemon gestartet, seine -v-Quellen muessen Host-Pfade sein —
@@ -103,28 +100,82 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       # SEC-REDIS-AUTH: token_urlsafe-Passwort, URL-sicher ohne Escaping.
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}@redis:6379/0
-      # DOC-LOCAL: dieselbe Austausch-Flaeche in beiden Sichten. HOST_DIR
-      # nutzt ${PWD} — Compose MUSS aus dem Projektverzeichnis aufgerufen
-      # werden (ist die dokumentierte Deploy-Praxis), sonst zeigen Worker-
-      # Sicht und Daemon-Sicht auf verschiedene Verzeichnisse.
+      # DOC-LOCAL: die Worker-Sicht der Austausch-Flaeche (legt die Eingabe
+      # ab, liest die Ausgabe). Die Host-Sicht kennt seit SEC-SOCKET nur
+      # noch der Launcher.
       - DOC_LOCAL_EXCHANGE_DIR=/app/doclocal_exchange
-      - DOC_LOCAL_EXCHANGE_HOST_DIR=${PWD}/doclocal_exchange
-      # DOC-LOCAL: Image-Pin per Tag. mineru:latest hat KEINEN
-      # Registry-Digest (lokal geladen, Image-ID 6cc9e57ff5bd, mineru 3.4.4,
-      # Modell-Snapshot bff20d4 eingebacken) — der Tag `mineru:3.4.4` wird
-      # beim Deploy einmalig gesetzt (docker tag mineru:latest mineru:3.4.4)
-      # und macht einen stillen latest-Rebuild sichtbar: neuer latest traegt
-      # den Tag nicht, der Worker faellt kontrolliert auf die Textebene
-      # (backend_fallback) statt still eine ungemessene Engine zu fahren.
-      - MINERU_IMAGE=mineru:3.4.4
-      # Host-Pfad des HF-Caches (Nachlade-Netz; die Gewichte selbst sind im
-      # Image eingebacken — gemessen 2026-08-16). Leer = kein Mount.
-      - MINERU_MODELS_DIR=${MINERU_MODELS_DIR:-}
+      - MINERU_LAUNCHER_URL=http://mineru-launcher:8765
     env_file:
       - .env
     depends_on:
       redis:
         condition: service_healthy
+      mineru-launcher:
+        condition: service_healthy
+    networks:
+      - default
+      - launch
+    restart: unless-stopped
+
+  # 4. mineru-Launcher (SEC-SOCKET) — der EINZIGE Halter des Docker-Sockets.
+  # ⚠️ Der Socket ist ROOT-AEQUIVALENT auf dem Host. Die DOC-LOCAL-
+  # Entscheidung bleibt (GPU nur waehrend eines Auftrags, kein Dauer-Sidecar,
+  # der 6,5 GB von 12 GB gegen ComfyUI hielte) — nur haelt den Socket jetzt
+  # ein Dienst, der genau eine Sache kann: den gemessenen mineru-Vektor
+  # (services/mineru_invocation.py) ueber ein Job-Verzeichnis fahren. Er baut
+  # die Kommandozeile selbst, nimmt vom Worker nur Daten, faehrt einen Lauf
+  # zur Zeit und entfernt einen Container, der seine Frist reisst. Ein
+  # Socket-Proxy haette nicht gereicht: er filtert Pfad und Methode, nie den
+  # Body — containers/create mit Binds ["/:/host"] ginge durch. Und er gibt
+  # dem Daemon nie einen Pfad unterhalb des Austauschs als -v-Quelle: der
+  # Daemon folgt Symlinks, ein vom Worker gebogenes out/ haette jeden
+  # Host-Pfad in einen root-Container gemountet (gemessen). mineru bekommt
+  # Volumes je Job; nur busybox-Helfer mounten die Austausch-WURZEL.
+  # Bewusst OHNE env_file: der Socket-Halter traegt keine App-Geheimnisse,
+  # kein Austausch-Mount (er reicht Host-Pfade durch, sieht keine Datei),
+  # kein Port, nur das Netz launch.
+  mineru-launcher:
+    image: converter-app:latest
+    container_name: mineru-launcher
+    command: python -m services.mineru_launcher
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Host-Sicht der Austausch-Flaeche. ${PWD} — Compose MUSS aus dem
+      # Projektverzeichnis aufgerufen werden (dokumentierte Deploy-Praxis),
+      # sonst zeigen Worker-Bind und Daemon-Sicht auf verschiedene
+      # Verzeichnisse und jeder Lauf faellt auf die Textebene.
+      - DOC_LOCAL_EXCHANGE_HOST_DIR=${PWD}/doclocal_exchange
+      # uid:gid des WORKERS — die Ausgabe wird als dieser Nutzer in das
+      # Job-Verzeichnis zurueckkopiert (Nachfolger des chown-Passes).
+      # Heute 0:0 (der Worker laeuft als root); SEC-NONROOT setzt es neu.
+      - EXCHANGE_OWNER=0:0
+      # DOC-LOCAL: Image-Pin per Tag. mineru:latest hat KEINEN
+      # Registry-Digest (lokal geladen, Image-ID 6cc9e57ff5bd, mineru 3.4.4,
+      # Modell-Snapshot bff20d4 eingebacken) — der Tag `mineru:3.4.4` macht
+      # einen stillen latest-Rebuild sichtbar: neuer latest traegt den Tag
+      # nicht, der Lauf faellt kontrolliert auf die Textebene
+      # (backend_fallback) statt still eine ungemessene Engine zu fahren.
+      - MINERU_IMAGE=mineru:3.4.4
+      # Host-Pfad des HF-Caches (Nachlade-Netz; die Gewichte selbst sind im
+      # Image eingebacken — gemessen 2026-08-16). Leer = kein Mount.
+      - MINERU_MODELS_DIR=${MINERU_MODELS_DIR:-}
+      # Nur VERKUERZBAR (Kill-Probe, SEC-SOCKET P2): leer = 300 s Basis.
+      # `MINERU_TIMEOUT_BASE_SECONDS=5 docker compose up -d mineru-launcher`
+      # fuer die Probe, danach ohne die Variable erneut.
+      - MINERU_TIMEOUT_BASE_SECONDS=${MINERU_TIMEOUT_BASE_SECONDS:-}
+    networks:
+      - launch
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 1s
+    # SIGTERM entfernt einen laufenden mineru-Container, bevor der Launcher
+    # endet (docker rm -f braucht Sekunden, nicht die 10 s Standard-Frist).
+    stop_grace_period: 30s
     restart: unless-stopped
 
 # Named volume for sharing podcast files between web and worker
@@ -135,3 +186,9 @@ volumes:
 networks:
   notion-mcp-net:
     external: true
+  # SEC-SOCKET: nur worker + mineru-launcher (Docker-Name converter_launch,
+  # Projekt converter). internal = kein Weg nach draussen; der Worker hat
+  # seinen Internetweg ueber default, der Launcher braucht keinen —
+  # docker run geht ueber den Socket.
+  launch:
+    internal: true
