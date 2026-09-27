@@ -37,6 +37,8 @@ Erster Build dauert via Rosetta-Emulation ~5–10 min. App danach auf
 
 Login über `http://localhost` braucht keinen Schalter: das Session-Cookie ist nur hinter HTTPS `Secure` (SEC-AUDIT, `HttpsOnlySecureSessionInterface` in `app_pkg/__init__.py`).
 
+Web und Worker laufen seit SEC-NONROOT als uid 1000 (`converter`): die Volumes eines frischen Stacks gehören 1000, weil das Image die Mount-Punkte so anlegt, und `docker exec` geht nie mit `-u 0` in diese Container — was root in `/app/data` oder `/app/output_podcasts` anlegt, kann der Prozess danach nicht mehr anfassen.
+
 ## Was funktioniert / was nicht
 
 Funktioniert: Markdown→PDF, Document→Markdown, Audio-Transkription, Library.

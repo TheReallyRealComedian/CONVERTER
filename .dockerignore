@@ -37,3 +37,9 @@ docs/
 .idea/
 # DOC-LOCAL: Austausch-Verzeichnis (Host-Bind, Laufzeit-Zustand)
 doclocal_exchange/
+# SEC-NONROOT: die zwei anderen Mount-Punkte ebenso — das Dockerfile legt alle
+# drei als 1000:1000 an, und `COPY . .` setzt ein gleichnamiges Verzeichnis
+# aus dem Kontext auf root zurueck (gemessen): ein frisches Volume gehoerte
+# dann wieder root, und der Prozess koennte nicht hineinschreiben.
+data/
+output_podcasts/

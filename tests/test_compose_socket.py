@@ -9,6 +9,12 @@ exchange mount, no port, and sits only on the internal ``launch`` network
 the socket and the host-path envs; the web container never had them since
 DOC-WEB-ASYNC. Text-level check first: a commented-out socket line would be
 one ``#`` away from coming back.
+
+SEC-NONROOT: the image runs as uid 1000 (Dockerfile ``USER``); the launcher
+alone is set back to root (``user: "0:0"``) — holding the socket is
+root-equivalent whatever uid carries it — and copies mineru's output back
+as the worker's ids, ``EXCHANGE_OWNER=1000:1000``. The Dockerfile side is
+pinned in tests/test_nonroot.py.
 """
 from pathlib import Path
 
@@ -34,6 +40,7 @@ def test_compose_socket_only_at_the_launcher():
     launcher = services['mineru-launcher']
     assert launcher['image'] == 'converter-app:latest'
     assert launcher['command'] == 'python -m services.mineru_launcher'
+    assert launcher['user'] == '0:0'  # the image's USER is 1000 (SEC-NONROOT)
     assert launcher['volumes'] == ['/var/run/docker.sock:/var/run/docker.sock']
     assert launcher['networks'] == ['launch']
     assert 'ports' not in launcher
@@ -41,7 +48,7 @@ def test_compose_socket_only_at_the_launcher():
     assert sorted(e.split('=', 1)[0] for e in launcher['environment']) == [
         'DOC_LOCAL_EXCHANGE_HOST_DIR', 'EXCHANGE_OWNER', 'MINERU_IMAGE',
         'MINERU_MODELS_DIR', 'MINERU_TIMEOUT_BASE_SECONDS']
-    assert 'EXCHANGE_OWNER=0:0' in launcher['environment']
+    assert 'EXCHANGE_OWNER=1000:1000' in launcher['environment']
     assert 'MINERU_IMAGE=mineru:3.4.4' in launcher['environment']
     assert '8765/health' in ' '.join(launcher['healthcheck']['test'])
 

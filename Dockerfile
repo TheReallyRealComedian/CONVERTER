@@ -56,9 +56,19 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --timeout=600 --retries=5 -r requirements.txt -c constraints.txt
 
 # Download NLTK assets
+# SEC-NONROOT: into a system directory of NLTK's default search path, NOT the
+# downloader's default ~/nltk_data — at build time that is /root/nltk_data,
+# and /root is 700: as uid 1000 every unstructured partition (TXT/EML/MD and
+# the HTML fallback) died on "Resource 'punkt_tab' not found" (measured in the
+# prod image; with network, unstructured would instead re-download into the
+# container's HOME at every start). The downloader writes its zips 0600, so
+# the tree is opened to read-for-all at the end — still root-owned.
 RUN python - <<'PY'
+import os
 import nltk
 import ssl
+
+NLTK_DIR = '/usr/local/share/nltk_data'
 
 # Handle SSL issues if they occur
 try:
@@ -83,10 +93,15 @@ resources_to_download = [
 print("Downloading NLTK resources...")
 for resource in resources_to_download:
     try:
-        nltk.download(resource, quiet=False)
+        nltk.download(resource, download_dir=NLTK_DIR, quiet=False)
         print(f"✓ Successfully downloaded {resource}")
     except Exception as e:
         print(f"⚠ Failed to download {resource}: {e}")
+for root, dirs, files in os.walk(NLTK_DIR):
+    for name in dirs:
+        os.chmod(os.path.join(root, name), 0o755)
+    for name in files:
+        os.chmod(os.path.join(root, name), 0o644)
 print("NLTK resource download complete.")
 PY
 
@@ -106,7 +121,36 @@ RUN arch="$(uname -m)" \
     && mv /tmp/docker/docker /usr/local/bin/docker \
     && rm -rf /tmp/docker.tgz /tmp/docker
 
+# SEC-NONROOT (F-8): web and worker run as uid:gid 1000:1000, not root.
+# Why 1000: what a container process can reach on the host is decided by its
+# MOUNTS, not its uid — and the only host paths web/worker see (the exchange
+# bind, google-credentials.json) belong to uid 1000 on the Mintbox (oliver)
+# and MUST stay reachable; any other uid would need a chown of Oli's files for
+# the same reach. The base image's uid 1000 ('ubuntu') is renamed, so exactly
+# one passwd entry carries it, and HOME is writable (Chromium wants one).
+# The order is load-bearing:
+#   1. mkdir + chown the three data mount points BEFORE `COPY . .` and
+#      before USER: a fresh named volume takes content AND owner only from a
+#      directory that exists in the image — a missing mount point is created
+#      root:root and uid 1000 could not write its own volume. (COPY would
+#      reset them to root if the build context carried same-named dirs —
+#      measured; .dockerignore keeps them out.)
+#   2. `COPY . .` without --chown: the code stays root-owned and read-only
+#      for the process — it cannot rewrite its own program.
+#   3. USER last, right before CMD. The mineru-launcher shares this image and
+#      is set back to root in docker-compose.yml: it holds the docker socket,
+#      which is root-equivalent whatever uid carries it.
+# Operators: `docker exec` into web/worker NEVER with `-u 0` — files root
+# leaves in the data directories are out of the process's reach.
+RUN usermod --login converter --home /home/converter --move-home ubuntu \
+    && groupmod --new-name converter ubuntu \
+    && mkdir -p /app/data /app/output_podcasts /app/doclocal_exchange \
+    && chown 1000:1000 /app/data /app/output_podcasts /app/doclocal_exchange
+ENV HOME=/home/converter
+
 COPY . .
+
+USER 1000:1000
 
 # SYNC-FREEZE: 2 worker PROCESSES, each serving sync views on a thread pool
 # of WEB_SYNC_THREADS (app_pkg/asgi.py). Responsiveness no longer depends on

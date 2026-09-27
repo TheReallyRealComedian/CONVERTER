@@ -138,6 +138,11 @@ services:
     image: converter-app:latest
     container_name: mineru-launcher
     command: python -m services.mineru_launcher
+    # SEC-NONROOT: das Image laeuft als uid 1000 (Dockerfile USER), der
+    # Launcher bewusst als root — wer den Socket haelt, ist root-aequivalent,
+    # egal unter welcher uid; ein USER hier waere Theater und braechte die
+    # host-spezifische docker-gid (996) in diese Datei.
+    user: "0:0"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -148,8 +153,8 @@ services:
       - DOC_LOCAL_EXCHANGE_HOST_DIR=${PWD}/doclocal_exchange
       # uid:gid des WORKERS — die Ausgabe wird als dieser Nutzer in das
       # Job-Verzeichnis zurueckkopiert (Nachfolger des chown-Passes).
-      # Heute 0:0 (der Worker laeuft als root); SEC-NONROOT setzt es neu.
-      - EXCHANGE_OWNER=0:0
+      # SEC-NONROOT: der Worker laeuft als 1000:1000 (Dockerfile USER).
+      - EXCHANGE_OWNER=1000:1000
       # DOC-LOCAL: Image-Pin per Tag. mineru:latest hat KEINEN
       # Registry-Digest (lokal geladen, Image-ID 6cc9e57ff5bd, mineru 3.4.4,
       # Modell-Snapshot bff20d4 eingebacken) — der Tag `mineru:3.4.4` macht
