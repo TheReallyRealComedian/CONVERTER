@@ -90,9 +90,11 @@ for resource in resources_to_download:
 print("NLTK resource download complete.")
 PY
 
-# docker CLI, client binary only (DOC-LOCAL): the worker starts the mineru
-# sibling container over the host's docker socket — it needs the CLI, never
-# a daemon. Static binary from download.docker.com (pinned, arch-aware:
+# docker CLI, client binary only (DOC-LOCAL): since SEC-SOCKET only the
+# mineru-launcher service uses it — the one container that mounts the host's
+# docker socket and starts the mineru sibling container; web and worker carry
+# the binary without a socket. It needs the CLI, never a daemon. Static
+# binary from download.docker.com (pinned, arch-aware:
 # x86_64 Mintbox / aarch64 local builds), ~40 MB instead of the docker.io
 # apt package's containerd stack. Placed late on purpose: the layer sits
 # BELOW the expensive pip layers, so a CLI bump never rebuilds them.

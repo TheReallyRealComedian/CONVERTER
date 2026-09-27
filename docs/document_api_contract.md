@@ -249,7 +249,7 @@ stabiler snake_case-Slug für Maschinen, `message` deutsch für Menschen,
 | `cloud_unavailable` | Modus `cloud` angefragt, aber kein Cloud-Backend konfiguriert (kein API-Key im Worker) — lokal konvertiert. |
 | `provenance_document_only` | Eine Engine weist Herkunft nicht je Seite aus; konservativ dokumentweit als `modell` markiert (§5a). **Seit DOC-ENGINE nicht mehr vergeben** (der Cloud-PDF-Pfad attribuiert echt je Seite); bleibt im Vokabular für künftige Backends ohne Einheiten-Trennung. |
 | `serializer` | Sammelcode für **alle Backend-Warnungen** des Konvertierwegs: der unstructured-Serializer musste Struktur aufgeben (deutsche Meldung, z.B. „Tabelle ohne text_as_html — als Fliesstext ausgegeben"), oder ein Werkzeug-Backend meldete etwas auf stderr. ⚠️ **Meldungsform bei Werkzeug-Warnungen**: deutscher Rahmen mit roh zitierter — meist englischer — Werkzeug-Ausgabe, z.B. `"pandoc meldete: [WARNING] Could not convert image …"` (bis 300 Zeichen Zitat; dieselbe Konvention wie das `error`-Feld, das rohe Traceback-Tails trägt). |
-| `backend_fallback` | Das für das Format gewählte Backend lieferte nichts Verwertbares und der Bestands-Pfad übernahm. Zwei Fälle: trafilatura findet in einer HTML-Datei keinen Hauptinhalt → Element-Extraktion; die lokale mineru-Engine fällt aus (GPU belegt, Container-Fehler, Zeitlimit — seit DOC-LOCAL) → PyMuPDF-Textebene für die betroffenen Seiten, `pages` benennt sie, die Meldung zitiert die Werkzeug-Ausgabe. Das Ergebnis ist `ready`, der Pfadwechsel steht hier. |
+| `backend_fallback` | Das für das Format gewählte Backend lieferte nichts Verwertbares und der Bestands-Pfad übernahm. Zwei Fälle: trafilatura findet in einer HTML-Datei keinen Hauptinhalt → Element-Extraktion; die lokale mineru-Engine fällt aus (GPU belegt, Container-Fehler, Zeitlimit — seit DOC-LOCAL; seit SEC-SOCKET auch: der `mineru-launcher` ist nicht erreichbar, belegt (`409`) oder lehnt ab, z.B. mehr als 1000 Seiten in einem Lauf) → PyMuPDF-Textebene für die betroffenen Seiten, `pages` benennt sie, die Meldung zitiert die Werkzeug- bzw. Launcher-Ausgabe (`… (Zeitlimit 450 s überschritten.)`, `… (mineru-Launcher antwortete 409: …)`). Das Ergebnis ist `ready`, der Pfadwechsel steht hier. |
 | `scan_text_layer_empty` | **Seit DOC-WEB.** Begleitet einen `backend_fallback` der lokalen Engine: unter den auf die Textebene zurückgefallenen Seiten sind **Scans** — dort ist die Textebene *von Natur aus* leer, nicht durch Defekt. `pages` benennt genau diese Seiten (1-basiert), die Meldung sagt es („Seite 7 ist ein Scan, die Textebene ist dort leer."). Ein leerer Abschnitt im Markdown ist damit erklärt statt still serviert. Erkennung: Bildabdeckung > 70 % der Seitenfläche **und** Textdichte < 0,5 Zeichen/1000 pt² (`services/pdf_local.is_scanned_page`, der überlebende Rest des abgerissenen Seiten-Klassifikators). Tritt nie ohne einen `backend_fallback` auf. |
 
 Die Liste ist offen — DOC-LOCAL kam ohne neuen Code aus
@@ -337,24 +337,30 @@ ehrlich `modell`, die Kosten bleiben 0,00 €. Wer *Determinismus* braucht
 künftiger `mode=deterministisch` ist als Möglichkeit benannt, **nicht**
 zugesagt.
 
-⚠️ **Betriebsvoraussetzung Docker-Socket (root-äquivalent)**: der Worker
-mountet `/var/run/docker.sock` und startet mineru als
-**Geschwister-Container** auf dem Host-Daemon (GPU via `--gpus all`).
-Der Socket ist **root-äquivalent auf dem Host** — bewusste, gesperrte
-Entscheidung aus dem DOC-LOCAL-Sprint: die GPU ist nur während eines
-Auftrags belegt (ein Dauer-Sidecar hielte 6,5 von 12 GB dauerhaft gegen
-Olis ComfyUI/LoRA-Nutzung), und die Invokation bleibt wörtlich die
-gemessene. Preis, akzeptiert: ~61 s Modell-Start je Auftrag und die
-Socket-Vertrauensstellung. Das Image ist per Tag gepinnt
-(`mineru:3.4.4`, Image-ID `6cc9e57ff5bd`, kein Registry-Digest — lokal
-geladen); ein stiller `latest`-Rebuild trägt den Tag nicht und fällt
-kontrolliert auf die Textebene statt still eine ungemessene Engine zu
-fahren. ⚠️ **Nur der Worker hält den Socket** (DOC-WEB-ASYNC, 2026-08-22):
-der aus dem Internet erreichbare Web-Container mountet weder Socket noch
-Exchange-Bind und trägt keine `MINERU_*`/`DOC_LOCAL_*`-Verdrahtung —
-Browser-PDFs erreichen die Engine ausschließlich als Auftrag über Redis.
-`docker exec markdown-converter-web ls /var/run/docker.sock` muss
-fehlschlagen; das ist der Abnahme-Beleg des Sprints.
+⚠️ **Betriebsvoraussetzung Docker-Socket (root-äquivalent) — nur beim
+`mineru-launcher`** (SEC-SOCKET, 2026-09-27): mineru läuft als
+**Geschwister-Container** auf dem Host-Daemon (GPU via `--gpus all`),
+gestartet von einem eigenen Compose-Dienst, der den Socket als **einziger**
+mountet. Der Worker hält ihn nicht mehr: er legt die Eingabe ins
+Austausch-Verzeichnis und bittet den Launcher per HTTP um den Lauf — mit
+Daten (Job-Name, Dateiname, Seitenzahl), nie mit Argumenten; die
+Kommandozeile baut der Launcher selbst. Der Socket ist **root-äquivalent
+auf dem Host** — bewusste, gesperrte Entscheidung aus dem DOC-LOCAL-Sprint:
+die GPU ist nur während eines Auftrags belegt (ein Dauer-Sidecar hielte 6,5
+von 12 GB dauerhaft gegen Olis ComfyUI/LoRA-Nutzung), und die Invokation
+bleibt wörtlich die gemessene; seit SEC-SOCKET liegt dieser Preis bei einem
+Dienst, der genau eine Sache kann (einen Lauf zur Zeit, Zeitlimit mit
+Container-Kill). mineru mountet dabei **Volumes je Auftrag**, nie einen Pfad
+im Austausch-Verzeichnis (der Daemon folgt Symlinks; gemessen). Preis,
+akzeptiert: ~61 s Modell-Start je Auftrag, ≈ 0,4 s für zwei
+Kopier-Container. Das Image ist per Tag gepinnt (`mineru:3.4.4`, Image-ID
+`6cc9e57ff5bd`, kein Registry-Digest — lokal geladen); ein stiller
+`latest`-Rebuild trägt den Tag nicht und fällt kontrolliert auf die
+Textebene statt still eine ungemessene Engine zu fahren. ⚠️ **Web und
+Worker halten keinen Socket** (Web seit DOC-WEB-ASYNC 2026-08-22, Worker
+seit SEC-SOCKET): `docker exec markdown-converter-web ls
+/var/run/docker.sock` und dasselbe am `markdown-converter-worker` müssen
+fehlschlagen — der Abnahme-Beleg beider Sprints.
 | DOCX | pandoc `-f docx -t gfm --wrap=none` (Release-deb 3.10.1 im Image — die jammy-apt-Version 2.9 trug die Fußnoten-Kette nicht) | `document`, `deterministisch` |
 | PPTX | markitdown 0.1.7 (einziger Kandidat mit Sprechernotizen) | `document`, `deterministisch` |
 | HTML/HTM | trafilatura 2.2.0 + Metadaten-Kopf (`<title>`-Tag als `# `-Überschrift — TITLE-FIX greift; Autor/Datum aus `extract_metadata` als Kursivzeile); leere Extraktion → `backend_fallback` auf unstructured | `document`, `deterministisch` |

@@ -376,7 +376,7 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 
 **Zwischen Phase 1 und 2 von Oli an nginx gesetzt** (Site-Config gelesen): `Strict-Transport-Security: max-age=86400` auf Server-Ebene, `limit_req` 10 r/min mit `burst=10` → `429` auf `location = /login` und `location = /api/auth/login`, die `proxy_set_header`-Zeilen auf Server-Ebene (von den Login-Locations geerbt — belegt durch die echte Client-IP im `/api/auth/login`-Log). Keine Header-Dubletten zur App. **Gemessen von Oli** (von der Mintbox, 2026-09-26 15:24): HSTS `max-age=86400`, `/api/conversions` `302`, `POST /api/auth/login` zwölfmal → zehnmal `401`, dann zweimal `429`; vom Mac: HSTS da, Statics `200`, Login `401`.
 
-**Stand der Findings nach Phase 2:**
+**Stand der Findings nach Phase 2** (fortgeschrieben: F-7 mit SEC-REDIS-AUTH, F-13 mit SEC-SOCKET, beide 2026-09-27):
 
 | Finding | Stand |
 |---|---|
@@ -393,7 +393,7 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 | F-10 `0.0.0.0:5656` | **geschlossen** (Loopback-Bind, gemessen) |
 | F-11 Backups world-readable | **Modi geschlossen** (Oli: die drei Backup-Verzeichnisse — eins im Home, zwei im Clone — `drwx------ oliver`, die neun `converter.db.pre-*` `-rw-------`); Löschen offen → MINTBOX-BAK |
 | F-12 MCP-Port `0.0.0.0:3335` | offen — Brief an converter-mcp (Phase 3) |
-| F-13 Worker-docker.sock | offen → Item SEC-SOCKET |
+| F-13 Worker-docker.sock | **geschlossen** — SEC-SOCKET 2026-09-27 (`3b887f6` · `aa6bf2d`): den Socket hält allein der Compose-Dienst `mineru-launcher` (kein App-Geheimnis, kein Austausch-Mount, kein Port, nur im internen Netz `converter_launch`); er kann genau eine Sache — den gemessenen mineru-Vektor über einen Auftrag im Austausch-Verzeichnis fahren, einen Lauf zur Zeit, Container-Kill bei Zeitüberschreitung — und nimmt vom Worker nur Daten, nie Argumente. Gemessen: Socket in Web **und** Worker weg, fünf 400-Gegenproben aus dem Worker starten nichts, der Kill greift vor der Antwort. Ein pfadbasierter Socket-Proxy (Stufe 1 oben) hätte nicht gereicht: er filtert Pfad und Methode, nie den Body. ⚠️ Die Symlink-Lücke des Sprint-Entwurfs (Worker liefert Pfade unter der Austausch-Wurzel, der Launcher reicht sie als `-v`-Quellen durch — der Daemon folgt Symlinks, `out → /etc` plus `chown -R` wäre wieder Host-Root gewesen) war ein **Fehler im Entwurf, kein Prod-Befund**: in P1 gemessen (Mac + Mintbox) und vor dem Deploy geschlossen — mineru mountet Volumes je Auftrag, nur busybox-Helfer sehen die feste Wurzel; gegen den Prod-Launcher dreifach gegengeprobt, das Host-Ziel blieb unberührt. |
 | F-14 Logout per GET | offen, Low → P3-Reminder |
 | F-15 Bearer ohne Ablauf | offen, Low → P3-Reminder (MOBILE-AUTH) |
 | DiD Supply-Chain SRI | **teils** — markdown-it + mermaid gepinnt; Tailwind-Play-CDN bleibt (CSP-BASELINE-Voraussetzung) |
