@@ -1,8 +1,26 @@
 services:
   # 1. Redis - Job Queue Database (internal only, no port exposed)
   redis:
-    image: redis:alpine
+    image: redis:8.4-alpine
     container_name: file-transformer-redis
+    # SEC-REDIS-AUTH (F-7): Redis verlangt ein Passwort aus .env — fail-closed,
+    # ohne REDIS_PASSWORD startet Compose nichts (auch nicht Web/Worker unten).
+    # Es reist per Env, nicht als Klartext im Compose. Der Umweg ueber
+    # docker-entrypoint.sh ist Pflicht: nur wenn dessen erstes Argument
+    # redis-server ist, dropt er auf den User redis und laedt die Module — ein
+    # nacktes `sh -c "exec redis-server …"` liefe als root (gemessen). Redis
+    # ueberschreibt seinen Prozesstitel, `ps` zeigt das Passwort nicht;
+    # `docker inspect` zeigt es in Env wie jedes andere Secret der Box.
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}
+    command: ["sh", "-c", "exec docker-entrypoint.sh redis-server --requirepass \"$$REDIS_PASSWORD\""]
+    # redis-cli endet auch bei NOAUTH/WRONGPASS mit Exit 0 — erst das grep
+    # macht aus der Antwort ein Urteil.
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   # 2. Web Container (Flask API)
@@ -39,7 +57,8 @@ services:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
-      - REDIS_URL=redis://redis:6379
+      # SEC-REDIS-AUTH: token_urlsafe-Passwort, URL-sicher ohne Escaping.
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}@redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - NOTION_MCP_URL=http://notion-mcp-server:3333
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
@@ -47,7 +66,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - default
       - notion-mcp-net
@@ -81,7 +101,8 @@ services:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
-      - REDIS_URL=redis://redis:6379
+      # SEC-REDIS-AUTH: token_urlsafe-Passwort, URL-sicher ohne Escaping.
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}@redis:6379/0
       # DOC-LOCAL: dieselbe Austausch-Flaeche in beiden Sichten. HOST_DIR
       # nutzt ${PWD} — Compose MUSS aus dem Projektverzeichnis aufgerufen
       # werden (ist die dokumentierte Deploy-Praxis), sonst zeigen Worker-
@@ -102,7 +123,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 # Named volume for sharing podcast files between web and worker

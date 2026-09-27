@@ -40,6 +40,7 @@ from app_pkg import mobile_auth as mobile_auth_module
 from app_pkg import narration as narration_module
 from app_pkg import tags as tags_module
 from app_pkg.asgi import ThreadPoolWsgiToAsgi
+from app_pkg.config import RQ_SERIALIZER
 from app_pkg.integrations import notion as notion_module
 from services import DeepgramService, GeminiService, GoogleTTSService
 
@@ -59,10 +60,21 @@ deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else No
 gemini_service = GeminiService(GEMINI_API_KEY) if GEMINI_API_KEY else None
 google_tts_service = GoogleTTSService(GOOGLE_CREDENTIALS_PATH) if GOOGLE_CREDENTIALS_PATH else None
 
-# Redis Queue setup
+# Redis Queue setup. SEC-REDIS-AUTH: in Compose REDIS_URL carries the
+# password; the localhost default is for tests and Mac-Dev without Compose.
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 redis_conn = Redis.from_url(REDIS_URL)
-task_queue = Queue(connection=redis_conn)
+task_queue = Queue(connection=redis_conn, serializer=RQ_SERIALIZER)
+
+
+def fetch_job(job_id):
+    """The one way the web side reads an RQ job (all three reconciles).
+
+    Fixes the serializer to ``RQ_SERIALIZER`` so no caller can pick its own.
+    Calls ``Job.fetch`` and reads ``redis_conn`` at call time, so the tests'
+    patches on ``app.Job.fetch`` / ``app.redis_conn`` still reach it.
+    """
+    return Job.fetch(job_id, connection=redis_conn, serializer=RQ_SERIALIZER)
 
 auth_module.register(app)
 mobile_auth_module.register(app)

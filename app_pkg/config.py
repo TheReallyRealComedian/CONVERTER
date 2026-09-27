@@ -6,10 +6,21 @@ can both import from here without pulling in Flask or service SDKs.
 import math
 import os
 
+from rq.serializers import JSONSerializer
+
 # Shared podcast output directory.
 # Must match the docker-compose ``podcast_data`` volume that is mounted
 # at the same path in both the web and worker containers.
 OUTPUT_DIR = '/app/output_podcasts'
+
+# SEC-REDIS-AUTH (F-7): the ONE serializer every RQ touch point uses — the
+# web Queue and ``app.fetch_job`` (app.py), the worker's Queue + Worker
+# (worker.py). RQ's default is pickle: whoever can write to Redis could hand
+# the worker a job that executes code on unpickling. JSON only carries data.
+# Never set a serializer anywhere else — a Queue or Worker left on the
+# default fails every job with ``DeserializationError`` (measured against
+# rq 2.8.0 + Redis 8.4, see the sprint doc).
+RQ_SERIALIZER = JSONSerializer
 
 # Upstream timeouts, centralised in one place. Two of them govern faithful
 # narration and are deliberately related:

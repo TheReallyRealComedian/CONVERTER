@@ -17,6 +17,7 @@ from app_pkg.config import TIMEOUT_RQ_JOB_SECONDS
 from models import Conversion, User, db
 from services.narration_render import DEFAULT_NARRATION_MODEL
 from tasks import generate_narration_task
+from tests.test_rq_serializer import assert_rq_json_roundtrip
 
 
 NARR_URL = '/api/narrations'
@@ -171,6 +172,16 @@ def test_create_enqueues_render_task_with_args(app, client, test_user, monkeypat
     # RQ job options
     assert call.kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': nid}
     assert call.kwargs['job_timeout'] == TIMEOUT_RQ_JOB_SECONDS
+
+
+def test_create_enqueue_survives_rq_json(app, client, test_user, monkeypatch, mock_redis_queue):
+    """SEC-REDIS-AUTH: turns/voices/style — the richest job args — reach the
+    worker unchanged through the JSON serializer."""
+    monkeypatch.setenv('NARRATION_TOKEN', NARRATION_TOKEN)
+    resp = client.post(NARR_URL, headers=_auth(),
+                       json=_payload(style_prompt='ruhig, „nah“ — mit Pausen'))
+    assert resp.status_code == 202
+    assert_rq_json_roundtrip(mock_redis_queue['queue'].enqueue.call_args)
 
 
 # --- NARR-FAIL: language normalization at the POST boundary ------------------

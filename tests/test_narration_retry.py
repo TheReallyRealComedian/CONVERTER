@@ -12,6 +12,7 @@ import json
 from models import Conversion, User, db
 from services.narration_render import DEFAULT_NARRATION_MODEL
 from tasks import generate_narration_task
+from tests.test_rq_serializer import assert_rq_json_roundtrip
 
 
 RETRY_URL = '/api/narrations/{}/retry'
@@ -95,6 +96,14 @@ def test_retry_failed_reenqueues_from_metadata(
     assert call.args[6] == 'de-DE'                 # language_code
     assert call.args[7] == 'gemini-2.5-flash-tts'  # tts_model
     assert call.kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': cid}
+
+
+def test_retry_enqueue_survives_rq_json(
+        authenticated_client, app, test_user, mock_redis_queue):
+    """SEC-REDIS-AUTH: the args rebuilt from stored metadata survive JSON."""
+    cid = _make_narration(app, test_user['id'], status='failed')
+    assert authenticated_client.post(RETRY_URL.format(cid)).status_code == 202
+    assert_rq_json_roundtrip(mock_redis_queue['queue'].enqueue.call_args)
 
 
 def test_retry_resets_metadata_to_pending(

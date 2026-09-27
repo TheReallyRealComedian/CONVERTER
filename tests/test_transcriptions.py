@@ -32,6 +32,7 @@ from app_pkg.config import (
     TIMEOUT_AUDIO_JOB_BASE_SECONDS,
     TIMEOUT_AUDIO_JOB_PER_CHUNK_SECONDS,
     TIMEOUT_DEEPGRAM_SECONDS,
+    RQ_SERIALIZER,
     TIMEOUT_RQ_JOB_HARD_CAP,
     audio_chunk_count,
     transcribe_job_timeout_for,
@@ -39,6 +40,7 @@ from app_pkg.config import (
 from models import Conversion, db
 from services import transcription_jobs as tj
 from services.deepgram_service import DeepgramService
+from tests.test_rq_serializer import assert_rq_json_roundtrip
 
 URL = '/api/transcriptions'
 
@@ -102,6 +104,13 @@ def test_submit_creates_pending_job(app, authenticated_client, test_user,
     assert call.args[1:] == (body['id'], 'wav', 'de')
     assert call.kwargs['job_timeout'] == transcribe_job_timeout_for(1901.1)
     assert call.kwargs['meta']['conversion_id'] == body['id']
+
+
+def test_submit_enqueue_survives_rq_json(authenticated_client, mock_deepgram,
+                                         mock_redis_queue, transcription_dir):
+    """SEC-REDIS-AUTH: the transcription job args survive the JSON serializer."""
+    assert _post(authenticated_client).status_code == 202
+    assert_rq_json_roundtrip(mock_redis_queue['queue'].enqueue.call_args)
 
 
 def test_submit_without_language_defaults_to_german(app, authenticated_client,
@@ -306,6 +315,17 @@ def test_poll_job_gone_fails(authenticated_client, mock_deepgram, mock_redis_que
     mock_redis_queue['fetch'].side_effect = NoSuchJobError('gone')
     body = authenticated_client.get(f'{URL}/{cid}').get_json()
     assert body['status'] == 'failed' and body['error'] == 'Job nicht mehr auffindbar.'
+
+
+def test_poll_reads_job_with_rq_serializer(authenticated_client, mock_deepgram,
+                                           mock_redis_queue, transcription_dir):
+    """SEC-REDIS-AUTH: the reconcile reads the job via app.fetch_job (JSON)."""
+    cid = _post(authenticated_client).get_json()['id']
+    mock_redis_queue['fetch'].return_value.is_failed = False
+    assert authenticated_client.get(f'{URL}/{cid}').get_json()['status'] == 'pending'
+    fetch = mock_redis_queue['fetch']
+    assert fetch.call_args.args == ('test-job-123',)
+    assert fetch.call_args.kwargs['serializer'] is RQ_SERIALIZER
 
 
 def test_poll_transient_redis_error_stays_pending(authenticated_client, mock_deepgram,

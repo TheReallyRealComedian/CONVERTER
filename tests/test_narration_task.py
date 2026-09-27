@@ -23,6 +23,7 @@ import pytest
 from rq.exceptions import NoSuchJobError
 
 import tasks
+from app_pkg.config import RQ_SERIALIZER
 from app_pkg.narration import reconcile_narration
 from models import Conversion, db
 from services.narration_library import build_narration_metadata
@@ -193,6 +194,22 @@ def test_reconcile_job_gone_flips_failed(app, test_user, tmp_path, monkeypatch, 
     meta = _meta(app, cid)
     assert meta['narration_status'] == 'failed'
     assert meta['error'] == 'Job nicht mehr auffindbar.'
+
+
+def test_reconcile_reads_job_with_rq_serializer(app, test_user, tmp_path, monkeypatch,
+                                                mock_redis_queue):
+    """SEC-REDIS-AUTH: the reconcile reads the job via app.fetch_job (JSON)."""
+    monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(tmp_path))
+    cid = _make_pending(app, test_user['id'], job_id='job-json')
+    mock_redis_queue['fetch'].return_value.is_failed = False
+
+    with app.app_context():
+        reconcile_narration(db.session.get(Conversion, cid))
+
+    assert _meta(app, cid)['narration_status'] == 'pending'
+    fetch = mock_redis_queue['fetch']
+    assert fetch.call_args.args == ('job-json',)
+    assert fetch.call_args.kwargs['serializer'] is RQ_SERIALIZER
 
 
 def test_reconcile_no_job_id_flips_failed(app, test_user, tmp_path, monkeypatch):

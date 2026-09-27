@@ -34,6 +34,7 @@ import fitz
 
 from app_pkg.config import (
     DOC_CONVERT_BUDGET_EUR,
+    RQ_SERIALIZER,
     TIMEOUT_DOC_JOB_BASE_SECONDS,
     TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS,
     TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS,
@@ -46,6 +47,7 @@ from services import document_conversions as doc_lib
 from services.document_conversions import build_result_payload, degradation
 from services.document_pipeline import run_paged_conversion
 from tasks import convert_document_task
+from tests.test_rq_serializer import assert_rq_json_roundtrip
 
 DOC_URL = '/api/document-conversions'
 SETTINGS_URL = '/api/document-conversions/settings'
@@ -240,6 +242,13 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
                     DOC_CONVERT_BUDGET_EUR, 1)
     assert kwargs['job_timeout'] == doc_convert_job_timeout_for(1, 'lokal')
     assert kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': cid}
+
+
+def test_post_enqueue_survives_rq_json(app, client, test_user, doc_token,
+                                       mock_redis_queue, doc_convert_dir):
+    """SEC-REDIS-AUTH: mode, the float budget and the page count survive JSON."""
+    _submit(client, app)
+    assert_rq_json_roundtrip(mock_redis_queue['queue'].enqueue.call_args)
 
 
 def test_doc_job_timeout_scales_from_pages():
@@ -529,6 +538,18 @@ def test_get_failed_when_job_gone(app, client, test_user, doc_token,
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'failed'
     assert body['error'] == 'Job nicht mehr auffindbar.'
+
+
+def test_get_reads_job_with_rq_serializer(app, client, test_user, doc_token,
+                                         mock_redis_queue, doc_convert_dir):
+    """SEC-REDIS-AUTH: the reconcile reads the job via app.fetch_job (JSON)."""
+    cid = _submit(client, app)
+    mock_redis_queue['fetch'].return_value.is_failed = False
+    body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
+    assert body['status'] == 'pending'
+    fetch = mock_redis_queue['fetch']
+    assert fetch.call_args.args == ('test-job-123',)
+    assert fetch.call_args.kwargs['serializer'] is RQ_SERIALIZER
 
 
 def test_get_stays_pending_on_transient_redis_error(app, client, test_user,

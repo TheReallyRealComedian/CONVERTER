@@ -155,7 +155,7 @@ def reconcile_narration(conversion):
         _fail_narration(conversion, metadata, 'Job nicht mehr auffindbar.')
         return
     try:
-        job = _app_module.Job.fetch(job_id, connection=_app_module.redis_conn)
+        job = _app_module.fetch_job(job_id)
     except NoSuchJobError:
         # Job expired/evicted from Redis and no file was produced → unrecoverable.
         _fail_narration(conversion, metadata, 'Job nicht mehr auffindbar.')

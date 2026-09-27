@@ -354,7 +354,7 @@ def reconcile_document_conversion(conversion):
         discard_job_files(conversion.id, source_ext=source_ext)
         return
     try:
-        job = _app_module.Job.fetch(job_id, connection=_app_module.redis_conn)
+        job = _app_module.fetch_job(job_id)
     except NoSuchJobError:
         _fail_document_conversion(conversion, metadata, 'Job nicht mehr auffindbar.')
         discard_job_files(conversion.id, source_ext=source_ext)
