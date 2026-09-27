@@ -263,22 +263,38 @@ def test_doc_job_timeout_scales_from_pages():
 
 def test_doc_job_timeout_lokal_rides_the_mineru_curve():
     """DOC-LOCAL: mode=lokal switches to the measured mineru envelope
-    (61 s + 2,5 s/Seite gemessen; Container-Deadline 300 + 10 s/Seite) —
-    and the envelope must stay ABOVE the module's container deadline for
-    every page count, or RQ could kill a run its own deadline still allows."""
-    from services.pdf_local import mineru_run_timeout_for
+    (61 s + 2,5 s/Seite gemessen; Container-Deadline 300 + 10 s/Seite).
+    SEC-SOCKET: the deadline has ONE source (services.mineru_invocation) and
+    the chain must hold for every page count the launcher accepts — RQ must
+    never kill a job while the worker still (rightly) waits for the
+    launcher, and the worker must never give up before the launcher's kill
+    + chown are through."""
+    from services.mineru_invocation import (
+        LAUNCHER_REPLY_MARGIN_SECONDS,
+        MINERU_MAX_PAGES,
+        launcher_reply_timeout_for,
+        mineru_run_timeout_for,
+    )
+    from app_pkg.config import TIMEOUT_DOC_JOB_LOCAL_MARGIN_SECONDS
 
     floor = (TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS
              + TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS)
     assert doc_convert_job_timeout_for(None, 'lokal') == floor
-    assert doc_convert_job_timeout_for(1, 'lokal') == floor
+    assert doc_convert_job_timeout_for(1, 'lokal') == floor == 610
     # 12_grosses-pdf, the sprint's named case: 280 pages → 3400 s (~57 min)
-    # envelope over a measured ~766 s run.
+    # envelope over a measured ~766 s run — values unchanged by SEC-SOCKET.
     assert doc_convert_job_timeout_for(280, 'lokal') == 3400
     assert doc_convert_job_timeout_for(10_000, 'lokal') == TIMEOUT_RQ_JOB_HARD_CAP
-    for n in (1, 12, 280, 1000):
-        assert (doc_convert_job_timeout_for(n, 'lokal')
-                > mineru_run_timeout_for(n))
+    # The margin after the deadline must fit the launcher's reply margin
+    # (kill + chown) AND leave time for the fallback pass + result write.
+    assert TIMEOUT_DOC_JOB_LOCAL_MARGIN_SECONDS > LAUNCHER_REPLY_MARGIN_SECONDS
+    for n in range(1, MINERU_MAX_PAGES + 1):
+        deadline = mineru_run_timeout_for(n)
+        worker_wait = launcher_reply_timeout_for(n)
+        envelope = doc_convert_job_timeout_for(n, 'lokal')
+        assert deadline < worker_wait < envelope, n
+        # Inside the accepted range the RQ hard cap never bites.
+        assert envelope < TIMEOUT_RQ_JOB_HARD_CAP, n
     # Cloud mode is byte-identical to the pre-DOC-LOCAL envelope:
     assert doc_convert_job_timeout_for(10, 'cloud') == doc_convert_job_timeout_for(10)
 
@@ -764,19 +780,14 @@ def test_pdf_end_to_end_local_engine_failure_degrades(app, client, test_user,
                                                       doc_token,
                                                       mock_redis_queue,
                                                       doc_convert_dir,
-                                                      monkeypatch, tmp_path):
+                                                      fake_launcher):
     """Submit (mode lokal) → worker task with an UNAVAILABLE mineru engine
-    (docker mocked to rc=1) → the REAL PyMuPDF text layer serves the pages,
-    the switch is a named backend_fallback on a ready result — DOC-LOCAL's
-    sprint-1.3 failure path, end to end through submit/task/reconcile."""
-    from types import SimpleNamespace as NS
-
-    import services.pdf_local as pdf_local_mod
-
-    monkeypatch.setenv('DOC_LOCAL_EXCHANGE_DIR', str(tmp_path))
-    monkeypatch.setattr(
-        pdf_local_mod.subprocess, 'run',
-        lambda *a, **k: NS(returncode=1, stdout='', stderr='kein docker'))
+    (the launcher's docker CLI answers rc=1) → the REAL PyMuPDF text layer
+    serves the pages, the switch is a named backend_fallback on a ready
+    result — DOC-LOCAL's sprint-1.3 failure path, end to end through
+    submit/task/launcher/reconcile."""
+    fake_launcher['rc'] = 1
+    fake_launcher['stderr'] = 'kein docker'
 
     cid = _submit(client, app, data=_pdf_bytes('Hallo Konvertierung.'),
                   filename='echt.pdf', mode='lokal')

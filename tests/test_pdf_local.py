@@ -1,25 +1,30 @@
-"""DOC-LOCAL P1 — the mineru sibling-container backend behind page_fn.
+"""DOC-LOCAL P1 — the mineru engine behind page_fn; since SEC-SOCKET the
+worker side of the launcher.
 
-Mocked at the subprocess boundary (the docker CLI is the module's only
-process seam). The PDFs are REAL two-page PyMuPDF documents with text
-layers, so the sub-PDF cutting and the text-layer fallback run for real —
-what the failure path serves is actual page text, not a placeholder.
+The worker holds no docker socket: it writes the run's input into the
+exchange and asks the launcher over HTTP. These tests drive the REAL
+launcher (``fake_launcher`` in conftest: stdlib server on a loopback port)
+with only the launcher's own process boundary faked — the docker CLI. So a
+test here exercises worker → HTTP → validation → argv from the launcher's
+env → (fake) daemon → content_list → page assembly, end to end. The PDFs
+are REAL two-page PyMuPDF documents with text layers, so the sub-PDF
+cutting and the text-layer fallback run for real — what the failure path
+serves is actual page text, not a placeholder.
 
-The invocation-vector test is a SENTINEL (locked decision 2 /
-``reference_measured_winner_version_gap``): the measurement only holds for
-the verbatim bake-off call — a deviating vector devalues it and must fail
-loudly here, like the pandoc vector sentinel in DOC-ENGINE.
+The pure vector sentinel lives in ``tests/test_mineru_invocation.py``
+(``build_run_argv``); here the same pairs are checked on the argv the
+daemon would receive for a worker request — the chain, not the builder.
 """
 import json
-import subprocess
+import socket
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 import fitz
 
-from services import pdf_local
+from services import mineru_launcher, pdf_local
+from services.mineru_invocation import MINERU_MAX_PAGES
 from services.pdf_local import (
     LocalPdfEngine,
     content_list_to_pages,
@@ -48,46 +53,8 @@ def _vol_source(cmd, container_suffix):
     return None
 
 
-@pytest.fixture
-def fake_docker(monkeypatch, tmp_path):
-    """Replace subprocess.run: records calls, writes a content_list into the
-    run's /out host dir like a real mineru run would (nested output tree)."""
-    state = {'calls': [], 'content_list': [], 'rc': 0,
-             'raise_timeout': False, 'write_output': True, 'stderr': '',
-             'input_pdfs': []}
-
-    def fake_run(cmd, capture_output=True, text=None, timeout=None, **kwargs):
-        state['calls'].append({'cmd': list(cmd), 'timeout': timeout})
-        if 'busybox' in cmd:
-            return SimpleNamespace(returncode=0, stdout='', stderr='')
-        # Snapshot the input NOW — the engine removes its job dir afterwards.
-        in_host = _vol_source(cmd, ':/in:ro')
-        if in_host and Path(in_host, 'doc.pdf').exists():
-            state['input_pdfs'].append(Path(in_host, 'doc.pdf').read_bytes())
-        if state['raise_timeout']:
-            raise subprocess.TimeoutExpired(cmd, timeout)
-        out_host = _vol_source(cmd, ':/out')
-        if state['rc'] == 0 and state['write_output'] and out_host:
-            nested = Path(out_host) / 'doc' / 'vlm'
-            nested.mkdir(parents=True, exist_ok=True)
-            (nested / 'doc_content_list.json').write_text(
-                json.dumps(state['content_list']), encoding='utf-8')
-        return SimpleNamespace(returncode=state['rc'], stdout='',
-                               stderr=state['stderr'])
-
-    monkeypatch.setattr(pdf_local.subprocess, 'run', fake_run)
-    # Isolated exchange dir per test, both views identical (bare metal).
-    exchange = tmp_path / 'exchange'
-    exchange.mkdir()
-    monkeypatch.setenv('DOC_LOCAL_EXCHANGE_DIR', str(exchange))
-    monkeypatch.delenv('DOC_LOCAL_EXCHANGE_HOST_DIR', raising=False)
-    monkeypatch.delenv('MINERU_MODELS_DIR', raising=False)
-    state['exchange'] = exchange
-    return state
-
-
 def _mineru_calls(state):
-    return [c for c in state['calls'] if 'busybox' not in c['cmd']]
+    return state['runs']()
 
 
 # -- assembly (pure, no container) ------------------------------------------
@@ -154,9 +121,9 @@ def test_content_list_grouping_with_offset_and_blank_pages():
 
 # -- the memoized run + contract ---------------------------------------------
 
-def test_full_local_run_serves_pages_from_one_container_run(fake_docker, tmp_path):
+def test_full_local_run_serves_pages_from_one_container_run(fake_launcher, tmp_path):
     path = _two_page_pdf(tmp_path)
-    fake_docker['content_list'] = [
+    fake_launcher['content_list'] = [
         {'type': 'text', 'text': 'Erste mineru-Seite.', 'page_idx': 0},
         {'type': 'footer', 'text': 'Seite 2 Fusszeile', 'page_idx': 1},
     ]
@@ -167,16 +134,22 @@ def test_full_local_run_serves_pages_from_one_container_run(fake_docker, tmp_pat
     assert payload['degradations'] == []
     # model_calls counts PAID cloud calls — a local VLM is not one.
     assert payload['usage'] == {'model_calls': 0, 'cost_eur': 0.0}
-    assert len(_mineru_calls(fake_docker)) == 1  # one run, both pages served
+    assert len(_mineru_calls(fake_launcher)) == 1  # one run, both pages served
+    # SEC-SOCKET: copy in, run, copy out, remove the job's volumes.
+    assert fake_launcher['kinds']() == ['copy_in', 'run', 'copy_out', 'volume_rm']
+    assert not fake_launcher['volumes'].exists() or not any(
+        fake_launcher['volumes'].iterdir())
 
 
-def test_invocation_vector_is_the_measured_one(fake_docker, tmp_path):
-    """SENTINEL: verbatim bake-off invocation (mineru 3.4.4, vlm-engine)."""
+def test_worker_request_reaches_the_measured_vector(fake_launcher, tmp_path):
+    """The chain, end to end: what the worker sends (data) becomes the
+    measured bake-off vector at the daemon (mineru 3.4.4, vlm-engine) — the
+    pure builder has its own sentinel (test_mineru_invocation)."""
     path = _two_page_pdf(tmp_path)
-    fake_docker['content_list'] = [
+    fake_launcher['content_list'] = [
         {'type': 'text', 'text': 'x', 'page_idx': 0}]
     run_local_pdf(path, 2)
-    cmd = _mineru_calls(fake_docker)[0]['cmd']
+    cmd = _mineru_calls(fake_launcher)[0]['cmd']
     assert cmd[:2] == ['docker', 'run']
     adjacent = set(zip(cmd, cmd[1:]))
     for pair in (('--gpus', 'all'), ('--shm-size', '16g'),
@@ -186,27 +159,34 @@ def test_invocation_vector_is_the_measured_one(fake_docker, tmp_path):
                  ('-b', 'vlm-engine')):
         assert pair in adjacent
     assert 'mineru:latest' in cmd
-    assert _vol_source(cmd, ':/in:ro')  # source dir read-only
+    # SEC-SOCKET: the run's sources are the job's volumes (input read-only),
+    # never a path below the exchange the worker could turn into a symlink.
+    job = cmd[cmd.index('--name') + 1]
+    assert _vol_source(cmd, ':/in:ro') == f'{job}_in'
+    assert _vol_source(cmd, ':/out') == f'{job}_out'
+    copy_in = fake_launcher['calls'][0]['cmd']
+    assert f"{fake_launcher['exchange']}:/x:ro" in copy_in
+    assert f'if=/x/{job}/in/doc.pdf' in copy_in
     # Whole-document start copies the original byte-identically (measured
     # invocation ran on the full file, never a fitz re-save).
-    assert fake_docker['input_pdfs'][0] == Path(path).read_bytes()
+    assert fake_launcher['input_pdfs'][0] == Path(path).read_bytes()
 
 
-def test_models_dir_env_adds_cache_mount(fake_docker, tmp_path, monkeypatch):
+def test_models_dir_env_adds_cache_mount(fake_launcher, tmp_path, monkeypatch):
     monkeypatch.setenv('MINERU_MODELS_DIR', '/srv/hf-cache')
     path = _two_page_pdf(tmp_path)
-    fake_docker['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
+    fake_launcher['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
     run_local_pdf(path, 2)
-    assert '/srv/hf-cache:/models' in _mineru_calls(fake_docker)[0]['cmd']
+    assert '/srv/hf-cache:/models' in _mineru_calls(fake_launcher)[0]['cmd']
 
 
-def test_container_failure_falls_back_to_text_layer(fake_docker, tmp_path):
+def test_container_failure_falls_back_to_text_layer(fake_launcher, tmp_path):
     """Sprint 1.3: no further engine below lokal — pages come from the REAL
     PyMuPDF text layer with ONE named backend_fallback entry, no per-page
     container retry (a failed run is memoized as failed)."""
     path = _two_page_pdf(tmp_path, ('Textebene eins.', 'Textebene zwei.'))
-    fake_docker['rc'] = 1
-    fake_docker['stderr'] = 'CUDA out of memory'
+    fake_launcher['rc'] = 1
+    fake_launcher['stderr'] = 'CUDA out of memory'
     payload = run_local_pdf(path, 2)
     assert payload['provenance'] == ['deterministisch', 'deterministisch']
     assert 'Textebene eins.' in payload['markdown']
@@ -216,37 +196,48 @@ def test_container_failure_falls_back_to_text_layer(fake_docker, tmp_path):
     entry = payload['degradations'][0]
     assert entry['pages'] == [1, 2]
     assert 'CUDA out of memory' in entry['message']  # raw tool output cited
-    assert len(_mineru_calls(fake_docker)) == 1  # exactly one attempt
+    assert len(_mineru_calls(fake_launcher)) == 1  # exactly one attempt
 
 
-def test_timeout_falls_back_with_named_deadline(fake_docker, tmp_path):
+def test_timeout_falls_back_with_named_deadline(fake_launcher, tmp_path):
+    """SEC-SOCKET: the launcher owns the deadline — it removes the container
+    (``docker rm -f <job>``) before it answers ``timed_out``; the worker
+    keeps naming the deadline exactly as before."""
     path = _two_page_pdf(tmp_path)
-    fake_docker['raise_timeout'] = True
+    fake_launcher['raise_timeout'] = True
     payload = run_local_pdf(path, 2)
     assert payload['provenance'] == ['deterministisch', 'deterministisch']
-    assert 'Zeitlimit' in payload['degradations'][0]['message']
+    message = payload['degradations'][0]['message']
+    assert message == ('Lokale Engine fehlgeschlagen. Textebene übernommen. '
+                       f'(Zeitlimit {mineru_run_timeout_for(2)} s überschritten.)')
+    run = _mineru_calls(fake_launcher)[0]
+    job = run['cmd'][run['cmd'].index('--name') + 1]
+    kills = [c['cmd'] for c in fake_launcher['calls'] if c['kind'] == 'kill']
+    assert kills == [['docker', 'rm', '-f', job]]
+    # Killed after the run, no copy-out of a dead run, volumes removed.
+    assert fake_launcher['kinds']() == ['copy_in', 'run', 'kill', 'volume_rm']
 
 
-def test_missing_content_list_falls_back(fake_docker, tmp_path):
+def test_missing_content_list_falls_back(fake_launcher, tmp_path):
     path = _two_page_pdf(tmp_path)
-    fake_docker['write_output'] = False
+    fake_launcher['write_output'] = False
     payload = run_local_pdf(path, 2)
     assert payload['provenance'] == ['deterministisch', 'deterministisch']
     assert [d['code'] for d in payload['degradations']] == ['backend_fallback']
 
 
-def test_midflight_start_cuts_subpdf_from_that_page(fake_docker, tmp_path):
+def test_midflight_start_cuts_subpdf_from_that_page(fake_launcher, tmp_path):
     """Locked decision 3: a switch at page N runs mineru over N..end — the
     input the container sees is the 1-page cut, page_idx maps back."""
     path = _two_page_pdf(tmp_path, ('Cloud hatte Seite eins.', 'Rest ab zwei.'))
-    fake_docker['content_list'] = [
+    fake_launcher['content_list'] = [
         {'type': 'text', 'text': 'mineru sieht nur Seite zwei.', 'page_idx': 0}]
     engine = LocalPdfEngine(path, 2)
     try:
         result = engine.page(1)
         assert result == {'markdown': 'mineru sieht nur Seite zwei.',
                           'origin': 'modell', 'cost_eur': 0.0}
-        cut = fitz.open(stream=fake_docker['input_pdfs'][0], filetype='pdf')
+        cut = fitz.open(stream=fake_launcher['input_pdfs'][0], filetype='pdf')
         assert cut.page_count == 1
         assert 'Rest ab zwei.' in cut[0].get_text('text')
         cut.close()
@@ -258,40 +249,130 @@ def test_midflight_start_cuts_subpdf_from_that_page(fake_docker, tmp_path):
         engine.close()
 
 
-def test_run_timeout_scales_with_cut_range(fake_docker, tmp_path):
+def test_run_timeout_scales_with_cut_range(fake_launcher, tmp_path):
     path = _two_page_pdf(tmp_path)
-    fake_docker['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
+    fake_launcher['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
     engine = LocalPdfEngine(path, 2)
     try:
         engine.page(1)  # range = 1 page
     finally:
         engine.close()
-    assert (_mineru_calls(fake_docker)[0]['timeout']
+    assert (_mineru_calls(fake_launcher)[0]['timeout']
             == mineru_run_timeout_for(1))
     assert mineru_run_timeout_for(280) == 300 + 10 * 280  # carries 12_grosses
 
 
-def test_host_view_env_travels_into_volume_args(fake_docker, tmp_path,
+def test_host_view_env_travels_into_volume_args(fake_launcher, tmp_path,
                                                 monkeypatch):
-    """The P2 Falle: -v sources are DAEMON paths. When the worker's view and
-    the host's view differ, the docker args must carry the HOST view."""
+    """The P2 Falle: -v sources are DAEMON paths. Since SEC-SOCKET the host
+    view is the LAUNCHER's env, and it appears as exactly one mount: the
+    exchange ROOT of the copy helpers. The worker writes into its own view
+    and sends only the job name."""
     monkeypatch.setenv('DOC_LOCAL_EXCHANGE_HOST_DIR', '/host/anders')
-    fake_docker['write_output'] = False  # host view existiert hier nicht
     path = _two_page_pdf(tmp_path)
-    payload = run_local_pdf(path, 2)  # kein lesbarer Output → Fallback
-    cmd = _mineru_calls(fake_docker)[0]['cmd']
-    assert _vol_source(cmd, ':/in:ro').startswith('/host/anders/')
-    assert _vol_source(cmd, ':/out').startswith('/host/anders/')
+    payload = run_local_pdf(path, 2)  # host view existiert hier nicht
+    copy_in = fake_launcher['calls'][0]['cmd']
+    assert '/host/anders:/x:ro' in copy_in
+    # The input could not be copied → 422, no mineru run, named fallback.
+    assert fake_launcher['kinds']() == ['copy_in', 'volume_rm']
+    message = payload['degradations'][0]['message']
+    assert 'mineru-Launcher antwortete 422: Eingabe nicht übernehmbar' in message
     assert payload['provenance'] == ['deterministisch', 'deterministisch']
 
 
-def test_exchange_job_dir_is_cleaned_up(fake_docker, tmp_path):
+def test_exchange_job_dir_is_cleaned_up(fake_launcher, tmp_path):
     path = _two_page_pdf(tmp_path)
-    fake_docker['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
+    fake_launcher['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
     run_local_pdf(path, 2)
-    fake_docker['rc'] = 1
+    fake_launcher['rc'] = 1
     run_local_pdf(path, 2)
-    assert list(fake_docker['exchange'].iterdir()) == []  # success AND failure
+    assert list(fake_launcher['exchange'].iterdir()) == []  # success AND failure
+
+
+# --- SEC-SOCKET: every launcher failure takes the text-layer fallback,
+# with its own reason — no new behaviour, only a different source ----------
+
+def _closed_port():
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+
+def _fallback_message(payload):
+    codes = [d['code'] for d in payload['degradations']]
+    assert codes == ['backend_fallback']
+    assert payload['provenance'] == ['deterministisch', 'deterministisch']
+    return payload['degradations'][0]['message']
+
+
+def test_launcher_unreachable_falls_back_with_reason(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOC_LOCAL_EXCHANGE_DIR', str(tmp_path))
+    monkeypatch.setenv('MINERU_LAUNCHER_URL', f'http://127.0.0.1:{_closed_port()}')
+    payload = run_local_pdf(_two_page_pdf(tmp_path, ('Eins.', 'Zwei.')), 2)
+    message = _fallback_message(payload)
+    assert 'mineru-Launcher nicht erreichbar' in message
+    assert 'Eins.' in payload['markdown']  # the real text layer served
+    assert [p.name for p in tmp_path.iterdir()] == ['doc.pdf']  # job dir gone
+
+
+def test_launcher_busy_409_falls_back(fake_launcher, tmp_path):
+    """One run at a time: while the launcher's lock is held, a second
+    request gets 409 and starts nothing — the worker falls back."""
+    assert mineru_launcher._RUN_LOCK.acquire(blocking=False)
+    try:
+        payload = run_local_pdf(_two_page_pdf(tmp_path), 2)
+    finally:
+        mineru_launcher._RUN_LOCK.release()
+    message = _fallback_message(payload)
+    assert 'mineru-Launcher antwortete 409: Es läuft bereits ein mineru-Lauf.' in message
+    assert fake_launcher['calls'] == []  # nothing started, not even a chown
+
+
+def test_launcher_not_configured_is_named(fake_launcher, tmp_path, monkeypatch):
+    monkeypatch.delenv('DOC_LOCAL_EXCHANGE_HOST_DIR')
+    payload = run_local_pdf(_two_page_pdf(tmp_path), 2)
+    message = _fallback_message(payload)
+    assert 'mineru-Launcher antwortete 503' in message
+    assert 'DOC_LOCAL_EXCHANGE_HOST_DIR' in message
+    assert fake_launcher['calls'] == []
+
+
+def test_page_range_above_the_launcher_limit_is_refused_and_named(fake_launcher,
+                                                                 tmp_path):
+    """The launcher accepts at most MINERU_MAX_PAGES per run (the invariant
+    chain deadline < worker timeout < RQ envelope holds inside it) — a
+    larger range is a 400 the worker names, never a started container."""
+    pdf = fitz.open()
+    for _ in range(MINERU_MAX_PAGES + 1):
+        pdf.new_page()
+    path = tmp_path / 'lang.pdf'
+    pdf.save(str(path))
+    pdf.close()
+    payload = run_local_pdf(str(path), MINERU_MAX_PAGES + 1)
+    entry = payload['degradations'][0]
+    assert entry['code'] == 'backend_fallback'
+    assert (f'mineru-Launcher antwortete 400: page_count muss eine ganze Zahl '
+            f'von 1 bis {MINERU_MAX_PAGES} sein.') in entry['message']
+    assert fake_launcher['calls'] == []
+
+
+def test_worker_sends_data_never_arguments(fake_launcher, tmp_path, monkeypatch):
+    """What travels to the launcher is exactly job, pdf_name, page_count."""
+    seen = []
+    real_validate = mineru_launcher.validate_run_request
+
+    def spy(payload):
+        seen.append(payload)
+        return real_validate(payload)
+
+    monkeypatch.setattr(mineru_launcher, 'validate_run_request', spy)
+    fake_launcher['content_list'] = [{'type': 'text', 'text': 'x', 'page_idx': 0}]
+    run_local_pdf(_two_page_pdf(tmp_path), 2)
+    assert len(seen) == 1
+    assert sorted(seen[0]) == ['job', 'page_count', 'pdf_name']
+    assert seen[0]['pdf_name'] == 'doc.pdf'
+    assert seen[0]['page_count'] == 2
+    assert seen[0]['job'].startswith('mineru_')
 
 
 # --- DOC-WEB 2.3: the surviving page classifier — scan pages are NAMED on
@@ -321,12 +402,12 @@ def test_is_scanned_page_distinguishes_scan_from_text(tmp_path):
         doc.close()
 
 
-def test_fallback_names_scan_pages_with_empty_text_layer(fake_docker, tmp_path):
+def test_fallback_names_scan_pages_with_empty_text_layer(fake_launcher, tmp_path):
     """Engine fails → text-layer fallback; the scan page yields '' and the
     payload SAYS so (one ``scan_text_layer_empty`` entry, pages 1-based),
     the text page is not listed."""
-    fake_docker['rc'] = 1
-    fake_docker['stderr'] = 'GPU busy'
+    fake_launcher['rc'] = 1
+    fake_launcher['stderr'] = 'GPU busy'
     payload = run_local_pdf(_scan_plus_text_pdf(tmp_path), 2)
     codes = [d['code'] for d in payload['degradations']]
     assert codes == ['backend_fallback', 'scan_text_layer_empty']
@@ -336,8 +417,8 @@ def test_fallback_names_scan_pages_with_empty_text_layer(fake_docker, tmp_path):
     assert payload['markdown'].strip() == 'Seite zwei Text.'
 
 
-def test_successful_run_never_emits_scan_entry(fake_docker, tmp_path):
-    fake_docker['content_list'] = [
+def test_successful_run_never_emits_scan_entry(fake_launcher, tmp_path):
+    fake_launcher['content_list'] = [
         {'type': 'text', 'text': 'OCR der Scan-Seite', 'page_idx': 0},
         {'type': 'text', 'text': 'Seite zwei', 'page_idx': 1}]
     payload = run_local_pdf(_scan_plus_text_pdf(tmp_path), 2)

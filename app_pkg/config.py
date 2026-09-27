@@ -8,6 +8,12 @@ import os
 
 from rq.serializers import JSONSerializer
 
+from services.mineru_invocation import (
+    MINERU_TIMEOUT_BASE_SECONDS,
+    MINERU_TIMEOUT_PER_PAGE_SECONDS,
+    mineru_run_timeout_for,
+)
+
 # Shared podcast output directory.
 # Must match the docker-compose ``podcast_data`` volume that is mounted
 # at the same path in both the web and worker containers.
@@ -117,16 +123,22 @@ TIMEOUT_DOC_JOB_PER_PAGE_SECONDS = TIMEOUT_GEMINI_SECONDS
 
 # --- DOC-LOCAL: the lokal-mode envelope rides the measured mineru curve —
 # ~61 s fixed model start + ~2.5 s/page (fitted 2..280 pages; 280 pages ran
-# 766 s ≈ 13 min). The engine module's own container deadline is
-# 300 + 10 × n (``services/pdf_local.mineru_run_timeout_for``, ~4× margin
-# for GPU contention with Olis ComfyUI use); this envelope adds a constant
-# 300 s on top for source handling, a possible text-layer fallback pass after
-# a failed run, and the result write — envelope > container deadline always.
+# 766 s ≈ 13 min). The container deadline is 300 + 10 × n, ~4× margin for GPU
+# contention with Olis ComfyUI use; since SEC-SOCKET it lives in
+# ``services/mineru_invocation.mineru_run_timeout_for`` — the ONE source this
+# envelope is derived from. On top of it: a constant 300 s for everything
+# besides the deadline — the launcher's reply margin (copy-in, container
+# kill, copy-out, volume cleanup: ``LAUNCHER_REPLY_MARGIN_SECONDS`` = 240 s,
+# the worker's extra HTTP wait), a possible text-layer fallback pass and the
+# result write. Chain, testnailed: deadline < worker HTTP timeout < envelope
+# for every page count the launcher accepts.
 # 280 pages: envelope 3400 s (~57 min) vs deadline 3100 s vs measured 766 s.
 # The cloud envelope needs no lokal term: 300 s/page ≥ 10 s/page covers any
 # mid-flight cloud→mineru switch by construction.
-TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS = 600
-TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS = 10
+TIMEOUT_DOC_JOB_LOCAL_MARGIN_SECONDS = 300
+TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS = (MINERU_TIMEOUT_BASE_SECONDS
+                                      + TIMEOUT_DOC_JOB_LOCAL_MARGIN_SECONDS)
+TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS = MINERU_TIMEOUT_PER_PAGE_SECONDS
 
 
 def doc_convert_job_timeout_for(page_count, mode=None):
@@ -140,8 +152,7 @@ def doc_convert_job_timeout_for(page_count, mode=None):
     """
     n = page_count if isinstance(page_count, int) and page_count > 0 else 1
     if mode == 'lokal':
-        scaled = (TIMEOUT_DOC_JOB_LOCAL_BASE_SECONDS
-                  + TIMEOUT_DOC_JOB_LOCAL_PER_PAGE_SECONDS * n)
+        scaled = mineru_run_timeout_for(n) + TIMEOUT_DOC_JOB_LOCAL_MARGIN_SECONDS
     else:
         scaled = (TIMEOUT_DOC_JOB_BASE_SECONDS
                   + TIMEOUT_DOC_JOB_PER_PAGE_SECONDS * n)

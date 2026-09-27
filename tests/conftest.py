@@ -20,11 +20,15 @@ imported, because both happen during ``app.py`` module load:
    container-internal ``os.makedirs('/app/data', exist_ok=True)`` line
    does not fail on macOS / Linux dev boxes.
 """
+import json
 import os
+import subprocess
 import sys
+import threading
 import types
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -69,6 +73,11 @@ os.environ.setdefault('REDIS_URL', 'redis://localhost:6379/0')
 os.environ.setdefault('NOTION_MCP_URL', 'http://notion-mcp.test')
 os.environ.setdefault('MCP_AUTH_TOKEN', 'test-mcp-token')
 os.environ.setdefault('NOTION_TOKEN', '')
+# SEC-SOCKET: the worker asks the mineru launcher over HTTP. No test may
+# resolve the compose hostname ``mineru-launcher`` (a DNS wait, not a clean
+# failure) — an unmocked local run hits a closed loopback port instead and
+# fails fast with "connection refused". ``fake_launcher`` overrides it.
+os.environ.setdefault('MINERU_LAUNCHER_URL', 'http://127.0.0.1:9')
 
 # Production code does `os.makedirs('/app/data', exist_ok=True)` at module
 # load — silently no-op on the dev box where /app is not writable.
@@ -247,3 +256,127 @@ def gemini_api_key_set(app):
     app_module.GEMINI_API_KEY = 'test-gemini-key'
     yield 'test-gemini-key'
     app_module.GEMINI_API_KEY = original
+
+
+# --- SEC-SOCKET: the mineru launcher, real HTTP, faked docker CLI ---
+
+def _docker_call_kind(argv):
+    if argv[:3] == ['docker', 'rm', '-f']:
+        return 'kill'
+    if argv[:3] == ['docker', 'volume', 'rm']:
+        return 'volume_rm'
+    if 'dd' in argv:
+        return 'copy_in'
+    if 'cp' in argv:
+        return 'copy_out'
+    return 'run'
+
+
+def _mounts(argv):
+    """``-v src:dst[:opts]`` of a docker run argv → [(src, dst)]."""
+    return [tuple(argv[i + 1].split(':')[:2])
+            for i, arg in enumerate(argv[:-1]) if arg == '-v']
+
+
+@pytest.fixture
+def fake_launcher(monkeypatch, tmp_path):
+    """The REAL launcher (``services.mineru_launcher``) on an ephemeral
+    loopback port with only ITS process boundary faked: ``subprocess.run``
+    stands in for the docker CLI. The worker side (``services.pdf_local``)
+    talks real HTTP to it, so request validation, argv building from the
+    launcher's env, the run lock, the helper steps and the kill path all run
+    for real — a patched HTTP client would test the fake, not the transport.
+
+    The fake is a small daemon: ``-v`` sources resolve to host dirs (a
+    volume name to ``tmp/docker_volumes/<name>``), ``dd`` copies the input
+    into the in-volume (and snapshots it — the worker removes its job dir
+    afterwards), the mineru run writes a content_list into the out-volume
+    like a real run (nested output tree), ``cp -r`` copies it back into the
+    job dir, ``volume rm`` deletes the volume dirs. Every call is recorded
+    with its ``kind`` (copy_in / run / copy_out / kill / volume_rm). Bare
+    metal: worker view == host view, one tmp dir. Knobs: ``content_list``,
+    ``rc``, ``stderr``, ``raise_timeout``, ``write_output``.
+    """
+    import shutil
+
+    from services import mineru_launcher
+
+    volumes = tmp_path / 'docker_volumes'
+    state = {'calls': [], 'content_list': [], 'rc': 0, 'raise_timeout': False,
+             'write_output': True, 'stderr': '', 'input_pdfs': []}
+
+    def resolve(argv, container_path):
+        for src, dst in sorted(_mounts(argv), key=lambda m: -len(m[1])):
+            if container_path == dst or container_path.startswith(dst + '/'):
+                base = Path(src) if src.startswith('/') else volumes / src
+                return base / container_path[len(dst):].lstrip('/')
+        return None
+
+    def fake_run(argv, capture_output=True, text=None, timeout=None, **kwargs):
+        argv = list(argv)
+        kind = _docker_call_kind(argv)
+        state['calls'].append({'kind': kind, 'cmd': argv, 'timeout': timeout})
+        ok = SimpleNamespace(returncode=0, stdout='', stderr='')
+        if kind == 'kill':
+            return ok
+        if kind == 'volume_rm':
+            for name in argv[3:]:
+                shutil.rmtree(volumes / name, ignore_errors=True)
+            return ok
+        if kind == 'copy_in':
+            args = dict(a.split('=', 1) for a in argv if a[:3] in ('if=', 'of='))
+            source, dest = resolve(argv, args['if']), resolve(argv, args['of'])
+            if source is None or not source.is_file():
+                return SimpleNamespace(returncode=1, stdout='',
+                                       stderr=f"dd: can't open '{args['if']}'")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, dest)
+            state['input_pdfs'].append(dest.read_bytes())
+            return ok
+        if kind == 'copy_out':
+            source, dest = resolve(argv, '/o'), resolve(argv, argv[-1])
+            if not dest.parent.is_dir():
+                return SimpleNamespace(returncode=1, stdout='',
+                                       stderr=f"cp: can't create '{argv[-1]}'")
+            shutil.copytree(source, dest, dirs_exist_ok=True)
+            return ok
+        if state['raise_timeout']:
+            # TimeoutExpired carries bytes even under text=True.
+            raise subprocess.TimeoutExpired(argv, timeout, output=b'',
+                                            stderr=b'mineru lief noch')
+        out = resolve(argv, '/out')
+        out.mkdir(parents=True, exist_ok=True)
+        if state['rc'] == 0 and state['write_output']:
+            nested = out / 'doc' / 'vlm'
+            nested.mkdir(parents=True, exist_ok=True)
+            (nested / 'doc_content_list.json').write_text(
+                json.dumps(state['content_list']), encoding='utf-8')
+        return SimpleNamespace(returncode=state['rc'], stdout='',
+                               stderr=state['stderr'])
+
+    monkeypatch.setattr(mineru_launcher.subprocess, 'run', fake_run)
+    exchange = tmp_path / 'exchange'
+    exchange.mkdir()
+    for name in ('MINERU_MODELS_DIR', 'MINERU_IMAGE', 'MINERU_TIMEOUT_BASE_SECONDS'):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv('DOC_LOCAL_EXCHANGE_DIR', str(exchange))
+    monkeypatch.setenv('DOC_LOCAL_EXCHANGE_HOST_DIR', str(exchange))
+    monkeypatch.setenv('EXCHANGE_OWNER', '0:0')
+
+    server = mineru_launcher.make_server('127.0.0.1', 0)
+    thread = threading.Thread(target=server.serve_forever,
+                              kwargs={'poll_interval': 0.05}, daemon=True)
+    thread.start()
+    url = f'http://127.0.0.1:{server.server_address[1]}'
+    monkeypatch.setenv('MINERU_LAUNCHER_URL', url)
+    state.update(exchange=exchange, volumes=volumes, url=url,
+                 runs=lambda: [c for c in state['calls'] if c['kind'] == 'run'],
+                 kinds=lambda: [c['kind'] for c in state['calls']])
+    yield state
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
+    # A failed assertion must not leak launcher state into the next test.
+    if mineru_launcher._RUN_LOCK.locked():
+        mineru_launcher._RUN_LOCK.release()
+    mineru_launcher._STOPPING.clear()

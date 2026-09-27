@@ -6,22 +6,18 @@ memoized mineru run, carry provenance ``modell`` (mineru is a VLM — locked
 decision 4: ``mode=lokal`` now means *local model, no money*, no longer
 *provably deterministic*) and cost 0.00 €.
 
-**The invocation is replicated verbatim** from the measured bake-off adapter
-(``corpus/bakeoff/harness/adapters.py::run_mineru_vlm``, mineru 3.4.4,
-gold-f1 0.9551 on 01.gold) — locked decision 2, lesson
-``reference_measured_winner_version_gap``:
-
-    docker run --rm --gpus all --shm-size 16g
-      -v <in>:/in:ro -v <out>:/out [-v <models>:/models]
-      -e HF_HOME=/models -e MINERU_MODEL_SOURCE=huggingface
-      mineru:latest mineru -p /in/<datei>.pdf -o /out -b vlm-engine
-
-The backend name is ``vlm-engine`` (the 2.x docs still say
-``vlm-vllm-engine`` — verified live against ``--help`` in the bake-off).
-The container runs as root (``--user`` dies on missing passwd entries,
-live-hit); root-owned ``/out`` files are made removable with a busybox
-``chown -R`` afterwards — chown, NOT chmod: ``a+rX`` left the temp-dir
-cleanup dying on EPERM (both live-hit in the bake-off).
+**The container run happens in the launcher, not here** (SEC-SOCKET): the
+worker holds no docker socket. It writes the run's input into a job
+directory of the exchange (``<job>/in/doc.pdf``, an empty ``<job>/out``)
+and asks ``services.mineru_launcher`` — the one holder of the host socket —
+for a run, sending data only (job name, PDF name, page count;
+``_request_mineru_run``). The launcher copies the input into the run's own
+volume, runs the measured vector, copies the output back into ``<job>/out``
+and removes the container at the deadline (before SEC-SOCKET a timed-out
+run kept the GPU on the host). The vector and the deadline arithmetic live
+in ``services.mineru_invocation``. Any launcher failure — unreachable, busy
+(409), refused, a copy step, 5xx — takes the same text-layer fallback as a
+failed run.
 
 **Measured 2026-08-16** (this sprint's P1 runs on the Mintbox, three
 documents): the model weights are BAKED INTO the image — ``/root/mineru.json``
@@ -60,21 +56,19 @@ named as ONE ``backend_fallback`` degradation (DOC-ENGINE P1 pattern: a hard
 fail would be a capability regression). One failed run is memoized as
 failed — no 61 s retry per page.
 
-Pure module in the ``pdf_cloud`` mold: no Flask, no SDK singleton; fitz and
-subprocess work live inside functions (worker-side, in-task import
-convention). The docker CLI + socket reach the HOST daemon (P2 wiring), so
-``-v`` sources must be HOST paths: ``DOC_LOCAL_EXCHANGE_HOST_DIR`` names the
-exchange directory as the daemon sees it whenever the worker's own view
-(``DOC_LOCAL_EXCHANGE_DIR``) differs — on bare metal both default to the
-same temp directory.
+Pure module in the ``pdf_cloud`` mold: no Flask, no SDK singleton, no
+subprocess; fitz lives inside functions (worker-side, in-task import
+convention). The worker only knows its OWN view of the exchange directory
+(``DOC_LOCAL_EXCHANGE_DIR``); the host view of the exchange root is the
+launcher's business (``DOC_LOCAL_EXCHANGE_HOST_DIR``, set there only).
 """
 import json
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
-import uuid
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from services.document_conversions import (
@@ -87,22 +81,17 @@ from services.document_conversions import (
     degradation,
 )
 from services.document_pipeline import PAGE_JOIN
+from services.mineru_invocation import (
+    LAUNCHER_PORT,
+    launcher_reply_timeout_for,
+    mineru_run_timeout_for,  # re-exported: the deadline has ONE source
+    new_job_name,
+)
 
 logger = logging.getLogger(__name__)
 
-# Image env-overridable (DOC-FIX lesson: a hardcoded name cost two months of
-# silent failure). The measurement holds for mineru 3.4.4 — the Mintbox image
-# id 6cc9e57ff5bd has NO registry digest (locally loaded), so P2 pins by tag.
-MINERU_IMAGE = os.environ.get('MINERU_IMAGE') or 'mineru:latest'
-MINERU_BACKEND = 'vlm-engine'
-
-# Container run deadline from the measured cost curve (~61 s start + ~2.5 s
-# per page), with ~4x margin: 280 pages measured 766 s, capped here at
-# 300 + 10×280 = 3100 s. The per-call deadline doctrine
-# (reference_worker_sdk_per_call_deadline): the RQ envelope alone would not
-# interrupt a wedged docker-CLI child — subprocess.run(timeout=) does.
-MINERU_TIMEOUT_BASE_SECONDS = 300
-MINERU_TIMEOUT_PER_PAGE_SECONDS = 10
+# The launcher's compose service name; MINERU_LAUNCHER_URL overrides it.
+DEFAULT_LAUNCHER_URL = f'http://mineru-launcher:{LAUNCHER_PORT}'
 
 
 # Scan detection thresholds — the ONE surviving use of the retired
@@ -137,23 +126,11 @@ def is_scanned_page(page):
             and text_density < SCAN_TEXT_DENSITY_MAX)
 
 
-def mineru_run_timeout_for(page_count):
-    """Deadline in seconds for ONE mineru container run over ``page_count`` pages."""
-    n = page_count if isinstance(page_count, int) and page_count > 0 else 1
-    return MINERU_TIMEOUT_BASE_SECONDS + MINERU_TIMEOUT_PER_PAGE_SECONDS * n
-
-
-def _exchange_dirs():
-    """(our_view, host_view) of the directory sibling containers mount from.
-
-    The docker daemon lives on the HOST, so every ``-v`` source must be a
-    host path. In the worker container the exchange dir is a bind mount whose
-    host-side path differs from the container-side one — P2 sets both envs.
-    Bare metal (tests, dev box): one temp dir, both views identical.
-    """
-    ours = os.environ.get('DOC_LOCAL_EXCHANGE_DIR') or tempfile.gettempdir()
-    host = os.environ.get('DOC_LOCAL_EXCHANGE_HOST_DIR') or ours
-    return ours, host
+def _exchange_dir():
+    """The worker's own view of the exchange directory (a host bind mount in
+    compose). The launcher resolves the same job directory in the host view;
+    bare metal (tests, dev box) falls back to the temp dir."""
+    return os.environ.get('DOC_LOCAL_EXCHANGE_DIR') or tempfile.gettempdir()
 
 
 def _entry_markdown(entry):
@@ -218,30 +195,67 @@ def content_list_to_pages(entries, start_index, page_count):
     return {index: '\n\n'.join(parts) for index, parts in blocks.items()}
 
 
-def _run_mineru_container(in_dir_host, out_dir_host, pdf_name, timeout_seconds):
-    """The measured sibling-container invocation, verbatim (docstring above)."""
-    models_host = os.environ.get('MINERU_MODELS_DIR')
-    cmd = ['docker', 'run', '--rm', '--gpus', 'all', '--shm-size', '16g',
-           '-v', f'{in_dir_host}:/in:ro', '-v', f'{out_dir_host}:/out']
-    if models_host:
-        cmd += ['-v', f'{models_host}:/models']
-    cmd += ['-e', 'HF_HOME=/models', '-e', 'MINERU_MODEL_SOURCE=huggingface',
-            MINERU_IMAGE,
-            'mineru', '-p', f'/in/{pdf_name}', '-o', '/out', '-b', MINERU_BACKEND]
-    proc = subprocess.run(cmd, capture_output=True, text=True,
-                          timeout=timeout_seconds)
-    # chown, not chmod: root-owned /out subdirs killed the exchange-dir
-    # cleanup with EPERM under a+rX (bake-off, live-hit). Never fatal — a
-    # failed chown surfaces later as a cleanup warning, not a failed page.
-    subprocess.run(['docker', 'run', '--rm', '-v', f'{out_dir_host}:/out',
-                    'busybox', 'chown', '-R',
-                    f'{os.getuid()}:{os.getgid()}', '/out'],
-                   capture_output=True, timeout=120)
-    if proc.returncode != 0:
-        tail = (proc.stderr or proc.stdout or '')[-800:]
+class MineruTimeout(RuntimeError):
+    """The launcher reports the run tore its deadline — and removed the
+    container before answering."""
+
+    def __init__(self, deadline_seconds):
+        super().__init__(f'Zeitlimit {deadline_seconds} s überschritten.')
+        self.deadline_seconds = deadline_seconds
+
+
+def _launcher_url():
+    return (os.environ.get('MINERU_LAUNCHER_URL') or DEFAULT_LAUNCHER_URL).rstrip('/')
+
+
+def _launcher_error_detail(http_error):
+    try:
+        detail = json.loads(http_error.read().decode('utf-8')).get('error')
+    except Exception:  # an unreadable error body still names the status
+        detail = None
+    return str(detail or http_error.reason)[:300]
+
+
+def _request_mineru_run(job_name, pdf_name, page_count):
+    """Ask the launcher for ONE run over ``<exchange>/<job_name>/{in,out}``.
+
+    Data, never arguments — the launcher builds the command line from its
+    own environment. The HTTP timeout is the deadline plus the launcher's
+    reply margin (copy steps, kill, volume cleanup), so the launcher always
+    answers first; the socket timeout covers the whole wait, because the
+    launcher sends nothing until the run is over. Every failure raises —
+    the caller turns it into the text-layer fallback with the reason named.
+    """
+    body = json.dumps({'job': job_name, 'pdf_name': pdf_name,
+                       'page_count': page_count}).encode('utf-8')
+    request = urllib.request.Request(
+        f'{_launcher_url()}/run', data=body, method='POST',
+        headers={'Content-Type': 'application/json'})
+    timeout = launcher_reply_timeout_for(page_count)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as e:  # before URLError: it is one
         raise RuntimeError(
-            f'mineru-Container rc={proc.returncode}. mineru meldete: {tail}')
-    return proc
+            f'mineru-Launcher antwortete {e.code}: {_launcher_error_detail(e)}') from None
+    except TimeoutError:
+        raise RuntimeError(
+            f'mineru-Launcher antwortete nicht innerhalb von {timeout} s.') from None
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError(
+            f'mineru-Launcher nicht erreichbar: {getattr(e, "reason", e)}') from None
+    try:
+        result = json.loads(raw.decode('utf-8'))
+    except ValueError:
+        raise RuntimeError('Antwort des mineru-Launchers ist kein JSON.') from None
+    if result.get('timed_out'):
+        raise MineruTimeout(result.get('deadline_seconds')
+                            or mineru_run_timeout_for(page_count))
+    returncode = result.get('returncode')
+    if returncode != 0:
+        tail = (result.get('stderr_tail') or result.get('stdout_tail') or '')[-800:]
+        raise RuntimeError(f'mineru-Container rc={returncode}. mineru meldete: {tail}')
+    return result
 
 
 def _load_content_list(out_dir):
@@ -326,9 +340,8 @@ class LocalPdfEngine:
         if self._pages is not None or self._failed:
             return
         self._start = start
-        exchange_ours, exchange_host = _exchange_dirs()
-        job_name = f'mineru_{uuid.uuid4().hex[:12]}'
-        job_dir = os.path.join(exchange_ours, job_name)
+        job_name = new_job_name()
+        job_dir = os.path.join(_exchange_dir(), job_name)
         n_pages = self.page_count - start
         try:
             in_dir = os.path.join(job_dir, 'in')
@@ -336,22 +349,18 @@ class LocalPdfEngine:
             os.makedirs(in_dir)
             os.makedirs(out_dir)
             self._prepare_input(start, in_dir)
-            _run_mineru_container(
-                os.path.join(exchange_host, job_name, 'in'),
-                os.path.join(exchange_host, job_name, 'out'),
-                'doc.pdf',
-                mineru_run_timeout_for(n_pages))
+            _request_mineru_run(job_name, 'doc.pdf', n_pages)
             entries = _load_content_list(out_dir)
             self._pages = content_list_to_pages(entries, start, self.page_count)
             logger.info(
                 'mineru-Lauf ok: Seiten %d–%d, %d Elemente',
                 start + 1, self.page_count, len(entries))
         except Exception as e:
+            # MineruTimeout's text is the deadline sentence; everything else
+            # (launcher unreachable, 409, 5xx, rc != 0, no output) cites
+            # itself.
             self._failed = True
             reason = str(e)
-            if isinstance(e, subprocess.TimeoutExpired):
-                reason = (f'Zeitlimit {mineru_run_timeout_for(n_pages)} s '
-                          f'überschritten.')
             logger.error('mineru-Lauf fehlgeschlagen (Seiten %d–%d): %s',
                          start + 1, self.page_count, reason)
             self.degradations.append(degradation(
