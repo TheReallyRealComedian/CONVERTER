@@ -20,6 +20,7 @@ How to run (Mintbox, ~2 min — one real mineru run on a fresh user):
     # 2. inputs + script into the web container (the corpus is not in the
     #    image; any PDF that converts in ~1 min does, e.g. 12 pages of
     #    corpus/05_scan-sauber)
+    # SEC-NONROOT (web = uid 1000): stream files in — docker exec -i <container> sh -c 'cat > /tmp/f' < f — docker cp keeps the SOURCE owner, and a root/foreign-owned file cannot be removed by uid 1000 from the sticky /tmp
     docker cp scan12.pdf markdown-converter-web:/tmp/scan12.pdf
     printf 'Notiz zum Smoke.\\n' > note.txt && docker cp note.txt markdown-converter-web:/tmp/note.txt
     docker cp scripts/smoke_document_converter.py markdown-converter-web:/tmp/smoke.py

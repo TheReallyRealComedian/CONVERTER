@@ -39,6 +39,7 @@ How to run (Mintbox, ~1 min):
 
     # 1. throwaway user — NEVER Oli's account
     docker exec markdown-converter-web flask --app app create-user zz_skip --password '<random>'
+    # SEC-NONROOT (web = uid 1000): stream files in — docker exec -i <container> sh -c 'cat > /tmp/f' < f — docker cp keeps the SOURCE owner, and a root/foreign-owned file cannot be removed by uid 1000 from the sticky /tmp
     docker cp scripts/smoke_review_skip.py markdown-converter-web:/tmp/smoke_skip.py
     # 2. run — screenshots land in the container as /tmp/smoke_skip_*.png
     docker exec -e SMOKE_USER=zz_skip -e SMOKE_PASSWORD='<random>' markdown-converter-web python /tmp/smoke_skip.py

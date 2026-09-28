@@ -376,7 +376,7 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 
 **Zwischen Phase 1 und 2 von Oli an nginx gesetzt** (Site-Config gelesen): `Strict-Transport-Security: max-age=86400` auf Server-Ebene, `limit_req` 10 r/min mit `burst=10` → `429` auf `location = /login` und `location = /api/auth/login`, die `proxy_set_header`-Zeilen auf Server-Ebene (von den Login-Locations geerbt — belegt durch die echte Client-IP im `/api/auth/login`-Log). Keine Header-Dubletten zur App. **Gemessen von Oli** (von der Mintbox, 2026-09-26 15:24): HSTS `max-age=86400`, `/api/conversions` `302`, `POST /api/auth/login` zwölfmal → zehnmal `401`, dann zweimal `429`; vom Mac: HSTS da, Statics `200`, Login `401`.
 
-**Stand der Findings nach Phase 2** (fortgeschrieben: F-7 mit SEC-REDIS-AUTH, F-13 mit SEC-SOCKET, beide 2026-09-27):
+**Stand der Findings nach Phase 2** (fortgeschrieben: F-7 mit SEC-REDIS-AUTH, F-13 mit SEC-SOCKET, F-8 mit SEC-NONROOT, alle 2026-09-27):
 
 | Finding | Stand |
 |---|---|
@@ -388,7 +388,7 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 | F-6 Remember-Cookie 365 Tage | **teils** — 30 Tage; Widerruf nur per `SECRET_KEY`-Rotation |
 | F-6-SSRF Playwright-PDF | offen → Item SEC-SSRF |
 | F-7 Redis ohne Auth + Pickle | **geschlossen** — SEC-REDIS-AUTH 2026-09-27 (`6af0ae8`): Redis mit Passwort aus `.env`, RQ mit JSON statt Pickle; gemessen `NOAUTH` ohne Passwort auch innerhalb `converter_default`, ein echter Job bis `ready` |
-| F-8 root-Container | offen → Item SEC-NONROOT |
+| F-8 root-Container | **geschlossen** — SEC-NONROOT 2026-09-27 (`7954caf`): Web und Worker laufen als uid 1000 (`converter` = `oliver` auf der Mintbox), der Code im Image gehört root und ist für sie nur lesbar; der Launcher bleibt als Socket-Halter bewusst root (`user: "0:0"`), der Copy-out der mineru-Ausgabe schreibt als 1000:1000. Gemessen: `id -u` 1000 in Web und Worker, `touch /app/app_pkg/x` → Permission denied, beide Volumes ohne Eintrag, der nicht 1000 gehört, Reader-Smoke (PDF über Chromium) und ein echter Lokal-Lauf grün, 4,3 s Auszeit |
 | F-9 `remote_addr` = Proxy | **geschlossen** (ProxyFix, gemessen) |
 | F-10 `0.0.0.0:5656` | **geschlossen** (Loopback-Bind, gemessen) |
 | F-11 Backups world-readable | **Modi geschlossen** (Oli: die drei Backup-Verzeichnisse — eins im Home, zwei im Clone — `drwx------ oliver`, die neun `converter.db.pre-*` `-rw-------`); Löschen offen → MINTBOX-BAK |

@@ -53,6 +53,7 @@ How to run (Mintbox, ~2 min):
 
     # 1. throwaway user — NEVER Oli's account
     docker exec markdown-converter-web flask --app app create-user zz_media --password '<random>'
+    # SEC-NONROOT (web = uid 1000): stream files in — docker exec -i <container> sh -c 'cat > /tmp/f' < f — docker cp keeps the SOURCE owner, and a root/foreign-owned file cannot be removed by uid 1000 from the sticky /tmp
     docker cp scripts/smoke_reader_media.py markdown-converter-web:/tmp/smoke_media.py
     docker cp tests/fixtures/rich_media_malicious.md markdown-converter-web:/tmp/rich_media_malicious.md
     # 2. run — screenshots/PDF land in the container as /tmp/smoke_media_*

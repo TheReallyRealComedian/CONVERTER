@@ -22,6 +22,7 @@ How to run (Mintbox; costs Deepgram money — two recordings):
     # 1. throwaway user — NEVER Oli's account
     docker exec markdown-converter-web flask --app app create-user zz_smoke --password '<random>'
     # 2. inputs + script into the web container
+    # SEC-NONROOT (web = uid 1000): stream files in — docker exec -i <container> sh -c 'cat > /tmp/f' < f — docker cp keeps the SOURCE owner, and a root/foreign-owned file cannot be removed by uid 1000 from the sticky /tmp
     docker cp long.wav  markdown-converter-web:/tmp/smoke_long.wav
     docker cp short.wav markdown-converter-web:/tmp/smoke_short.wav
     docker cp scripts/smoke_audio_converter.py markdown-converter-web:/tmp/smoke_audio.py

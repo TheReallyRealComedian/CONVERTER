@@ -57,6 +57,7 @@ How to run (Mintbox, ~4 min):
 
     # 1. throwaway user — NEVER Oli's account
     docker exec markdown-converter-web flask --app app create-user zz_smoke --password '<random>'
+    # SEC-NONROOT (web = uid 1000): stream files in — docker exec -i <container> sh -c 'cat > /tmp/f' < f — docker cp keeps the SOURCE owner, and a root/foreign-owned file cannot be removed by uid 1000 from the sticky /tmp
     docker cp scripts/smoke_markdown_reader.py markdown-converter-web:/tmp/smoke_reader.py
     # 2. run — screenshots + PDFs land in the container as /tmp/smoke_reader_*
     docker exec -e SMOKE_USER=zz_smoke -e SMOKE_PASSWORD='<random>' markdown-converter-web python /tmp/smoke_reader.py

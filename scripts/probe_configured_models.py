@@ -37,6 +37,7 @@ DB-Zugriff, nichts bleibt liegen)::
 
 Oder ohne Kopie: ``docker exec -i markdown-converter-worker python - < scripts/probe_configured_models.py``
 (``-i`` ist Pflicht — ohne reicht docker kein stdin durch und python tut still nichts).
+Seit SEC-NONROOT (Worker = uid 1000) ist das der sichere Weg: ``docker cp`` übernimmt den Eigentümer der QUELLE — gehört sie nicht uid 1000 (root nach ``sudo``, eine fremde uid), scheitert das ``rm`` oben im Sticky-``/tmp``.
 
 Ausgabe: eine Zeile je Modell — Status, Fläche, Name, Quelle des Namens, Latenz,
 Beleg bzw. Fehlertext. Exit **0** = alle antworten · **1** = mindestens ein
