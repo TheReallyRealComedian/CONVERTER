@@ -1,0 +1,83 @@
+# SPRINT SEC-SSRF — der PDF-Renderer lädt nur noch, was ein Tor ihm gibt
+
+**Größe**: M (3 Phasen) · **Datum**: 2026-09-28 · **Vorhaben**: SEC-AUDIT-Folge, Finding F-6-SSRF ([Befund-Doc](../audit-outputs/AUDIT_SECURITY_2026-09-25.md)), dazu VERIFY-3 (EPUB-Egress)
+
+## Warum
+
+`POST /convert-markdown` rendert das Nutzer-Markdown per Playwright/Chromium **im Web-Container** ([app_pkg/markdown.py:216–219](../../../app_pkg/markdown.py): `chromium.launch()` ohne Argumente, `new_page()`, `set_content(full_html, wait_until='networkidle')`). `render_markdown_to_html` lässt `http` **und** `https` auf `img@src` durch (`_URL_SCHEMES`, [app_pkg/markdown_render.py:252](../../../app_pkg/markdown_render.py)), und Chromium lädt jede Subressource serverseitig — aus einem Container, der auf **zwei** Netzen sitzt und über deren Gateways **jeden Dienst der Mintbox** erreicht. Ein authentifizierter Aufrufer (Session oder ein gestohlener, nie ablaufender per-User-Bearer) macht den Renderer damit zur internen Netz-Sonde: blind (die Antwort landet im PDF nur, wenn sie ein Bild ist), aber mit GET auf alles, was im Netz lauscht. Der Fix sitzt am **Konsumenten**, nicht am Renderer-HTML: der Reader lädt dieselben URLs im Browser des Nutzers, das ist kein SSRF; nur der serverseitige Chromium braucht ein Tor.
+
+## Gegroundeter Ist-Zustand (Master, gemessen 2026-09-28 — nicht neu herleiten, Abweichungen benennen)
+
+**Render-Pfad**: `full_html` = Stil-CSS + `@page` + **inline** KaTeX-CSS mit woff2-Fonts als `data:`-URIs + inline KaTeX-JS + gerendertes HTML (`_katex_pdf_assets`, lru_cache) — KaTeX braucht **kein** Netz. Danach `page.evaluate(_KATEX_RENDER_JS)`, `document.fonts.ready`, Tabellen-Wrapper, `page.pdf(...)`. Auth: `@login_required`, Eingabe Formularfeld **oder** `.md`-Upload. Browser-Start ohne `args`, kein `page.route`, kein `new_context`.
+
+**Legitimer Egress heute**: von den **drei** PDF-Stilen (`static/css/pdf_styles/*.css`) importieren **zwei** externe Fonts per `@import url(https://…)` im inline-`<style>`: `academic-latex.css` → `cdn.jsdelivr.net` (cm-web-fonts) + `fonts.googleapis.com`; `newspaper-bodoni.css` → `fonts.googleapis.com` (die CSS verweist weiter auf `fonts.gstatic.com`). Der Kommentar „Wait until all web fonts (Google Fonts etc.) are loaded" an `document.fonts.ready` gilt genau diesen beiden. Dazu RICH-MEDIA: `![alt](https://…)` rendert im PDF als Bild (Konvention [docs/doc_figures_authoring.md](../../doc_figures_authoring.md) Zeile 12). **Netz ganz abschalten kostet also Fonts in zwei Stilen und Bilder** — deshalb ein Tor, kein Stecker.
+
+**Was der Web-Container erreicht** (`docker inspect`/`docker network inspect`, `ss -ltn` auf der Mintbox): `converter_default` 172.21.0.3 (Redis 172.21.0.2:6379 mit Passwort, Worker 172.21.0.4, Gateway **172.21.0.1**) und `notion-mcp-net` 172.26.0.4 (`notion-mcp-server` 172.26.0.3, `converter-mcp-server` 172.26.0.2:3335, Gateway 172.26.0.1). Über die Gateways lauscht der Host auf `0.0.0.0`/`*` u. a. 22, 80/443 (nginx), 139/445 (Samba), 631, 993, 3334 (nextcloud-mcp), 4000 (dashy), 5057, 5434 (**Postgres** email-automation), 7188, 8000, 8002, 8014, 8015, 8070, 8080, 8085, 8188 (ComfyUI), 8443, 9000 (Portainer), 9010, 9980 (Collabora), **11434 (Ollama)**, 13378 — ein GET dorthin ist heute ein Formular-Submit entfernt. Kein Cloud-Metadaten-Endpunkt (keine Cloud), aber dieselbe Klasse.
+
+**EPUB** ([services/epub_service.py](../../../services/epub_service.py)): ebooklib setzt das HTML in ein `EpubHtml`, kein HTTP-Import im Modul — VERIFY-3 sagt „plausibel nein", **ungemessen**. Der Kindle-Weg ([app_pkg/kindle.py:34](../../../app_pkg/kindle.py)) ruft `build_epub(title, html)` direkt — im Container ohne Versand aufrufbar.
+
+**Werkzeuge im Image**: Python **3.12.3**, Playwright **1.62.0** (`page.route`, `route.fulfill`, `route.abort`, `chromium.launch(args=…)` vorhanden), PyMuPDF (Font-Liste und Bild-XObjects eines PDFs lesen), Stdlib `http.server` für Zeugen. `ipaddress` gemessen im Container: `::ffff:10.0.0.1` → `is_private True`, `is_global False`, `ipv4_mapped 10.0.0.1`; `100.64.0.1` (CGNAT) → `is_private False`, **`is_global False`**; `169.254.169.254` → `is_link_local True`, `is_global False`; `8.8.8.8`/`2606:4700::1111`/`::ffff:8.8.8.8` → `is_global True`. **Die richtige Prüfung ist `is_global`**, nicht `not is_private`; Mapped-Adressen vor der Prüfung explizit auspacken (`ipv4_mapped`) — heute urteilt 3.12.3 richtig, die Auspackung ist der Gürtel gegen den nächsten Interpreter-Wechsel.
+
+**Tests**: [tests/test_markdown.py](../../../tests/test_markdown.py) `_make_playwright_mock()` — `page` ist `MagicMock` mit `set_content`/`evaluate`/`pdf` als `AsyncMock`, `browser.new_page`, `chromium.launch` als `AsyncMock`; ein `await page.route(...)` bricht dort, bis `route` ein `AsyncMock` ist. Baseline **1278 + 1 Skip** (Mac und Container). Mac `main` auf `75fc955`, Mintbox-Clone auf `c2a9e36` (nur Docs dahinter). Container-Suite wie in CLAUDE.md *Key Files* per stdin-Stream aufs deployte Image.
+
+## Gesperrte Entscheidungen
+
+1. **Default-deny im Browser, Erfüllen aus dem Tor.** Vor `set_content` wird `await page.route('**/*', handler)` installiert. Der Handler ruft **nie** `route.continue_()`: er antwortet entweder per `route.fulfill(...)` mit dem Ergebnis des Tors oder per `route.abort('blockedbyclient')` — jeder Abbruch mit einer WARNING-Zeile (URL, Grund; kein Body, kein Header). `data:`-URIs laufen nicht über Routen (Chromium-intern) und bleiben unberührt.
+2. **Das Tor ist ein pures Modul `services/egress.py`** (Stdlib: `urllib.parse`, `ipaddress`, `socket`, `ssl`, `http.client`; kein Flask-Import) mit `fetch_public_https(url, *, accept, user_agent, max_bytes, timeout) -> EgressResponse | raise EgressBlocked(reason)`. Regeln, in dieser Reihenfolge: Schema **nur `https`**; kein Userinfo; Port **nur 443**; Host **nur ein DNS-Name** — IP-Literale in jeder Form sind gesperrt (`ipaddress.ip_address(host)` oder `getaddrinfo(..., flags=AI_NUMERICHOST)` erfolgreich → `ip_literal`; das fängt auch `0x7f000001`/`2130706433`); Auflösung **aller** Adressen per `getaddrinfo(host, 443, type=SOCK_STREAM)`, mindestens eine, und **jede** — nach `ipv4_mapped`-Auspackung — `is_global` und weder `is_multicast` noch `is_reserved` noch `is_unspecified`, sonst `non_public_address`; Verbindung **an die geprüfte IP gepinnt** (Socket zur ersten geprüften Adresse, TLS mit `server_hostname=host`, `Host: host`; keine zweite Auflösung — das schließt DNS-Rebinding zwischen Prüfung und Verbindung); Zertifikat gegen die System-CAs (`ssl.create_default_context()`); `GET` mit genau zwei weitergereichten Headern aus Chromiums Anfrage (`Accept`, `User-Agent` — Google Fonts liefert je UA andere Formate, der Browser-UA hält woff2), keine Cookies, sonst nichts; Antwort bis `max_bytes` + 1 lesen (Default **5 MB** je Ressource), darüber `too_large`; `Content-Type` muss mit `image/`, `font/`, `text/css`, `application/font-` oder `application/x-font-` beginnen, sonst `content_type`; **3xx wird nicht gefolgt**, sondern mit Status + `Location` (ohne Body) erfüllt — Chromium stellt die nächste Anfrage, und die läuft wieder durchs Tor; Fristen 5 s Verbindung / 10 s gesamt je Ressource. Der Handler führt ein **Budget je Dokument**: höchstens **64** Tor-Anfragen, **20 MB** gesamt, **20 s** Wanduhr — danach `budget_exhausted` für alles Weitere, das PDF entsteht trotzdem. Das Tor läuft in `asyncio.to_thread(...)`, damit die Anfragen parallel laufen und der Event-Loop des Renders frei bleibt.
+3. **Der Gürtel: Chromium selbst bekommt keinen Netzweg.** `chromium.launch(args=['--proxy-server=http://127.0.0.1:9', '--proxy-bypass-list=<-loopback>'])` — ein toter Proxy (im Container lauscht nichts auf :9), und `<-loopback>` nimmt Loopback aus der impliziten Bypass-Liste. Was der Handler nicht erfüllt, kann Chromium nirgends holen — auch nicht über Wege, die `page.route` nicht sieht. In Phase 1 **messen**: eine erfüllte Route rendert, eine (nur für die Probe) mit `continue_()` durchgereichte Anfrage scheitert mit `net::ERR_PROXY_CONNECTION_FAILED`. Rendert Erfülltes unter dem Proxy nicht, ist der Gürtel `--host-resolver-rules=MAP * ~NOTFOUND` plus die IP-Literal-Sperre im Handler — dann so sagen, warum.
+4. **Was danach noch rendert, was nicht**: `https`-Bilder öffentlicher Hosts (RICH-MEDIA) und die Fonts der zwei Stile — ja, durchs Tor. `http://`-Bilder — **nein**, sie werden abgebrochen und erscheinen als leeres Bild; im Reader blockt der Browser sie hinter HTTPS ohnehin als Mixed Content. Das ist eine dokumentierte Fähigkeits-Änderung ([docs/doc_figures_authoring.md](../../doc_figures_authoring.md)), kein Bug. **Kein Vendoring** der Google-Fonts (eigenes Item, falls Oli die Abhängigkeit loswerden will).
+5. **`render_markdown_to_html`, `_URL_SCHEMES` und der Reader bleiben unangetastet** — das Tor sitzt am serverseitigen Konsumenten. EPUB wird **gemessen**, nicht gebaut: fetcht ebooklib nicht (erwartet), ist VERIFY-3 geschlossen; fetcht es doch, **Stop + Bericht**, kein Ad-hoc-Bau.
+6. **Tests**: das Tor mit gepatchtem Resolver — privat, mapped-privat, CGNAT, link-local, loopback, ULA, Multicast, mehrere Adressen mit einer nicht-öffentlichen → gesperrt; IP-Literale in Dezimal-/Hex-/Bracket-Form, Userinfo, fremder Port, `http`, Übergröße, falscher Content-Type, 3xx-Durchreichung, TLS-Hostname am gepinnten Socket. Der Handler mit Fake-Routes: erfüllt/abgebrochen, Budget-Deckel (Anzahl, Bytes, Zeit), **kein** `continue_`-Aufruf (Sentinel: das Wort kommt im Handler-Modul nicht vor). Sentinel am Render: `page.route` wird **vor** `set_content` aufgerufen (Reihenfolge aus `mock_calls`), `chromium.launch` trägt die Gürtel-Argumente. `_make_playwright_mock` bekommt `page.route = AsyncMock()`.
+7. ⚠️ **Editiert wird nur auf dem Mac.** Mintbox = Runtime; Zeugen dort nur als `oliver` auf hohen Ports und im Web-Container als uid 1000 unter `/tmp`, danach weg; Wegwerf-User strikt nach `user_id`; keine unversionierten Dateien zurücklassen; **nie** `docker exec -u 0` in Web/Worker.
+
+---
+
+# Phase 1 — Messen, dann bauen
+
+## 1.1 Den Ist-Zustand messen (vor jeder Code-Zeile)
+
+- **Zeuge im Container**: als uid 1000 `mkdir /tmp/witness`, eine 1×1-PNG `hit.png` hinein, `python3 -m http.server 8999 --bind 127.0.0.1 --directory /tmp/witness` (per `docker exec -d`). **Zeuge auf dem Host**: als `oliver` `python3 -m http.server 8998 --bind 172.21.0.1 --directory ~/witness` (Gateway von `converter_default`; kein sudo nötig).
+- Wegwerf-User anlegen (`flask create-user`), `POST /convert-markdown` mit einem Markdown, das enthält: `![a](http://127.0.0.1:8999/hit.png)`, `![b](http://172.21.0.1:8998/hit.png)`, eine öffentliche `https`-PNG (Wikimedia Commons o. ä.), Stil `academic-latex`. **Erwartung Ist**: beide Zeugen loggen einen GET (Quelle 127.0.0.1 bzw. 172.21.0.3) — das ist F-6-SSRF live, Container → sich selbst und Container → Host. Zeilen in den Bericht. Zusätzlich das Font-Inventar des PDFs per PyMuPDF (`page.get_fonts()`) als **Baseline** für Phase 2 und die Zahl der Bild-XObjects.
+- **EPUB (VERIFY-3)**: im Web-Container `build_epub('t', '<p><img src="http://127.0.0.1:8999/epub.png"></p>')` aufrufen (kein Versand). Erwartung: **kein** Treffer beim Zeugen → VERIFY-3 geschlossen. Treffer → Stop + Bericht.
+- Zeugen beenden, Verzeichnisse weg, Wegwerf-User nach `user_id` weg.
+
+## 1.2 Bauen
+
+`services/egress.py` (Entscheidung 2), Handler + Budget in einem eigenen Modul neben dem Render (z. B. `app_pkg/pdf_egress.py`), Einbau in `convert_markdown` (Entscheidungen 1 und 3), Tests (Entscheidung 6), Log-Zeile. Mac-Suite grün, dann die **Container-Suite auf dem Pin** (stdin-Rezept, Image `converter-app:latest`). Commit + Push.
+
+## Stop
+Bericht mit den Ist-Messungen (Zeugen-Zeilen, Font-Baseline, EPUB-Befund), dem Diff-Überblick, Testzahl. Dann warten.
+
+---
+
+# Phase 2 — Deploy und Beleg
+
+## 2.1 Fenster
+Keine laufende Konvertierung, `rq:wip` 0, Worker `idle`, kein `mineru_*`. Kein DB-Schema, kein Volume — kein Snapshot nötig. Mintbox: `git pull --ff-only` + `docker compose up -d --build` aus dem Projektverzeichnis (Code-Layer; Web und Worker starten neu, Launcher bleibt). Login 200.
+
+## 2.2 Messung
+- Dieselben Zeugen wie 1.1, dasselbe Markdown, dazu `![c](https://localtest.me/x.png)` (löst öffentlich auf 127.0.0.1 auf — vorher `getent hosts localtest.me` im Container belegen), `![d](https://10.0.0.1/x.png)`, `![e](https://[::1]/x.png)`, `![f](https://2130706433/x.png)`, `![g](https://fonts.googleapis.com:8443/x)`, `![h](https://user@example.org/x.png)`. **Erwartung**: **0** Zeugen-Treffer; je Fall eine WARNING mit dem passenden Grund (`scheme`, `non_public_address`, `ip_literal`, `port`, `userinfo`); die öffentliche https-PNG ist im PDF (Bild-XObject ≥ 1); `academic-latex` und `newspaper-bodoni` zeigen **dasselbe Font-Inventar wie die Baseline**; Gürtel-Probe aus Entscheidung 3 einmal am deployten Image wiederholt.
+- **Budget**: ein Markdown mit 70 Verweisen auf eine öffentliche https-PNG → 64 Tor-Anfragen, 6 × `budget_exhausted`, PDF entsteht, Dauer unter dem 20-s-Deckel plus Render. Ein Markdown **ohne** Bilder: Renderdauer vorher/nachher vergleichbar (Tor kostet dort nichts).
+- **Regression**: [scripts/smoke_markdown_reader.py](../../../scripts/smoke_markdown_reader.py) grün (155 Checks, erzeugt PDFs über den Endpunkt). `gate_render_bytes.py` ist **nicht** fällig — `render_markdown_to_html` ist unberührt.
+- Zeugen weg, Wegwerf-User nach `user_id` weg, Prod-Zahlen vorher = nachher, keine Reste in `/tmp` der Container jenseits dessen, was der nächste Neustart ohnehin räumt.
+
+## Stop
+Bericht mit Messwerten. Dann warten.
+
+---
+
+# Phase 3 — Wrap
+
+- **CLAUDE.md**: Kopfsatz (die offene Audit-Liste ist abgearbeitet; IMG-CONTEXT ist Hygiene, kein Audit-Finding); Sicherheits-Bullet F-6-SSRF **geschlossen** — Mechanik in drei Sätzen (Default-deny, Tor mit IP-Pinning, toter Proxy als Gürtel), was noch rendert und was nicht, die Budget-Zahlen, die Log-Zeile; *Architecture Notes* RICH-MEDIA-Bullet: „PDF gewinnt https-Bilder durchs Tor". Test-Baseline.
+- **[docs/doc_figures_authoring.md](../../doc_figures_authoring.md)**: Zeile zu `![alt](https://…)` — im PDF nur `https`, öffentlicher Host, ≤ 5 MB, `http` bleibt leer.
+- **Befund-Doc**: F-6-SSRF und VERIFY-3 auf geschlossen. **STATUS.md**, **BACKLOG.md** (⚠️ Bullet-Guard `grep -nE '(- \*\*.*){2,}' BACKLOG.md`, exit 1 = sauber): SEC-SSRF schließen.
+- **Kein Brief ans converter-mcp** (keine Agent-Fläche: der PDF-Knopf ist Web-only) — so sagen.
+- **Memory** (eine Datei): *Serverseitige Renderer sind Egress — das Tor gehört an den Konsumenten, nicht ans HTML: Default-deny per Interception, Erfüllen aus einem Fetcher mit Auflösung aller Adressen, `is_global`-Prüfung und IP-Pinning, ein toter Proxy als Gürtel; `@import`-Fonts im Stil-CSS sind derselbe Egress wie ein `<img>`; erst mit Zeugen messen, dann bauen.* Nur, was gemessen wurde.
+- **Im Bericht**: Zeugen-Treffer vorher/nachher · Font-Inventar gleich · Bild im PDF · Budget-Probe · Dauer ohne Bilder vorher/nachher · Testzahl · Wegwerf-User weg.
+
+## Nicht-Ziele
+
+- **Kein** Vendoring der Google-/jsDelivr-Fonts, **keine** Änderung an den drei Stilen.
+- **Keine** Änderung an `render_markdown_to_html`, `_URL_SCHEMES`, dem Reader oder dem EPUB-Bau (außer VERIFY-3 misst anders — dann Stop).
+- **Keine** CSP (CSP-BASELINE), **kein** Netz-Umbau in Compose, **kein** nginx.
+- **Keine** Änderung an `.dockerignore`/Dockerfile (IMG-CONTEXT ist ein eigenes Item).
