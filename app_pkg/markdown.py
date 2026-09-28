@@ -13,6 +13,7 @@ from flask_login import login_required
 from werkzeug.utils import secure_filename
 
 from .markdown_render import render_markdown_to_html
+from .pdf_egress import PDF_BROWSER_ARGS, install_pdf_egress
 
 
 STYLE_DIR = Path('/app/static/css/pdf_styles')
@@ -214,8 +215,12 @@ def register(app):
                 temp_pdf_path = temp_pdf.name
 
             async with _app_module.async_playwright() as p:
-                browser = await p.chromium.launch()
+                # SEC-SSRF: der Browser bekommt einen toten Ausgangs-Proxy als
+                # Gürtel; der Netzweg läuft ausschließlich über den page.route-
+                # Handler, den install_pdf_egress VOR set_content einhängt.
+                browser = await p.chromium.launch(args=PDF_BROWSER_ARGS)
                 page = await browser.new_page()
+                await install_pdf_egress(page)
                 await page.set_content(full_html, wait_until='networkidle')
                 # MATH-RENDER: Mathe-Spans rendern, *bevor* auf Fonts gewartet wird,
                 # damit die von KaTeX referenzierten Fonts mit in document.fonts.ready

@@ -8,7 +8,7 @@ Playwright is patched at the ``app.async_playwright`` import boundary so the
 test does not require a running browser.
 """
 from io import BytesIO
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import app as app_module
 
@@ -32,6 +32,10 @@ def _make_playwright_mock():
     page = MagicMock()
     page.set_content = AsyncMock()
     page.evaluate = AsyncMock()
+    # SEC-SSRF: convert_markdown now installs a default-deny route handler
+    # (``await page.route(...)``) before set_content. Without an AsyncMock the
+    # ``await`` would fail on the auto-created MagicMock attribute.
+    page.route = AsyncMock()
 
     async def fake_pdf(path=None, **_kw):
         with open(path, 'wb') as fh:
@@ -176,3 +180,64 @@ def test_convert_markdown_unsupported_extension_returns_400(authenticated_client
     body = resp.get_json()
     assert 'nicht unterstützt' in body['error']
     assert '.md' in body['error']
+
+
+def test_convert_markdown_routes_before_set_content_and_launches_with_belt(
+        authenticated_client):
+    """SEC-SSRF: the render path must (1) launch Chromium with the dead-proxy
+    belt args and (2) install the default-deny route handler BEFORE
+    set_content — a route installed after would leave the first content load
+    unguarded. Both are asserted from the recorded call order on a shared
+    manager mock.
+    """
+    from unittest.mock import call
+    from app_pkg.pdf_egress import PDF_BROWSER_ARGS
+
+    manager = MagicMock()
+
+    page = MagicMock()
+
+    async def fake_pdf(path=None, **_kw):
+        with open(path, 'wb') as fh:
+            fh.write(b'%PDF-1.4\n%%EOF\n')
+
+    page.set_content = AsyncMock()
+    page.evaluate = AsyncMock()
+    page.route = AsyncMock()
+    page.pdf = AsyncMock(side_effect=fake_pdf)
+
+    browser = MagicMock()
+    browser.new_page = AsyncMock(return_value=page)
+    browser.close = AsyncMock()
+    chromium = MagicMock()
+    chromium.launch = AsyncMock(return_value=browser)
+
+    # Record ordering of route vs set_content on one manager.
+    manager.attach_mock(page.route, 'route')
+    manager.attach_mock(page.set_content, 'set_content')
+
+    pw = MagicMock()
+    pw.chromium = chromium
+
+    with patch.object(app_module, 'async_playwright', return_value=_FakeAsyncCM(pw)):
+        resp = authenticated_client.post(
+            '/convert-markdown',
+            data={
+                'markdown_text': '# Hi',
+                'output_filename': 'out',
+                'orientation': 'portrait',
+                'style_theme': 'none',
+            },
+            content_type='multipart/form-data',
+        )
+    assert resp.status_code == 200
+
+    # (1) belt args on launch
+    chromium.launch.assert_awaited_once_with(args=PDF_BROWSER_ARGS)
+
+    # (2) page.route(...) happened before page.set_content(...)
+    names = [c[0] for c in manager.mock_calls]
+    assert 'route' in names and 'set_content' in names
+    assert names.index('route') < names.index('set_content')
+    # the handler is installed with a glob catch-all
+    assert manager.mock_calls[names.index('route')] == call.route('**/*', ANY)
