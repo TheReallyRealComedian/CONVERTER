@@ -3,7 +3,9 @@
 # Docker-specific files
 .dockerignore
 Dockerfile
-docker-compose.yml
+# IMG-CONTEXT: Glob statt docker-compose.yml — nimmt den gitignorten
+# Mac-Dev-Override (docker-compose.override.yml) mit.
+docker-compose*.yml
 
 # Git and version control
 .git
@@ -14,7 +16,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
 venv/
 env/
 
@@ -43,3 +44,33 @@ doclocal_exchange/
 # dann wieder root, und der Prozess koennte nicht hineinschreiben.
 data/
 output_podcasts/
+
+# IMG-CONTEXT: `COPY . .` kopiert das Verzeichnis, nicht das Repo — was
+# .gitignore vor Git versteckt, liegt trotzdem im Build-Kontext und kaeme ins
+# Image. Die Grenze ist diese Datei; die Muss-Liste pinnt
+# tests/test_dockerignore.py. keyterms.json bleibt bewusst drin (Deepgram
+# liest es zur Laufzeit).
+#
+# Geheimnisse: der GCP-Schluessel kommt zur Laufzeit per Compose-Bind an Web
+# und Worker, die Env per env_file. `.env*` ersetzt `.env` und trifft
+# .env.example mit (kein Laufzeit-Leser).
+google-credentials.json
+.env*
+
+# Werkzeug-Zustand (Claude Code, CodeBuddy, pytest) — kein Laufzeit-Leser.
+.claude/
+.codebuddy/
+.pytest_cache/
+
+# DB-Kopien, falls je wieder welche im Clone liegen (MINTBOX-BAK).
+app_data_bak-*
+
+# Master-Docs und Root-Skripte ohne Laufzeit-Leser (die Container-Suite
+# streamt pytest.ini mit dem Arbeitsbaum, s. CLAUDE.md *Key Files*).
+BACKLOG.md
+STATUS.md
+CLAUDE.md
+MASTER_BACKLOG_HANDOFF_*.md
+pytest.ini
+test_redis_connection.py
+test_worker_libraries.py
