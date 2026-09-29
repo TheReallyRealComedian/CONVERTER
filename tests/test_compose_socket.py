@@ -66,3 +66,24 @@ def test_compose_socket_only_at_the_launcher():
                        if 'launch' in (svc.get('networks') or []))
     assert on_launch == ['mineru-launcher', 'worker']
     assert config['networks']['launch'] == {'internal': True}
+
+
+def test_credentials_bind_is_read_only():
+    """CREDS-RO: web and worker read the GCP service-account key, they never
+    write it — the bind is ``:ro`` at both, and no service carries it without.
+    Since SEC-NONROOT both run as uid 1000, the owner of the host file (600):
+    without ``:ro`` the process that parses foreign documents could overwrite
+    the key on the host. The launcher holds no key at all (IMG-CONTEXT)."""
+    compose_file = REPO / 'docker-compose.yml'
+    if not compose_file.exists():
+        pytest.skip('docker-compose.yml not shipped alongside the tests')
+    yaml = pytest.importorskip('yaml')
+    services = yaml.safe_load(compose_file.read_text())['services']
+    ro_bind = './google-credentials.json:/app/google-credentials.json:ro'
+    for name in ('markdown-converter', 'worker'):
+        assert ro_bind in services[name]['volumes'], name
+    carriers = {name: [v for v in svc.get('volumes', [])
+                       if 'google-credentials.json' in v]
+                for name, svc in services.items()}
+    assert {n: v for n, v in carriers.items() if v} == {
+        'markdown-converter': [ro_bind], 'worker': [ro_bind]}

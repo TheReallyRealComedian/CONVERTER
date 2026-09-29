@@ -42,7 +42,7 @@ services:
       # ProxyFix trusts the X-Forwarded-* headers of whoever connects here.
       - "127.0.0.1:5656:5000"
     volumes:
-      - ./google-credentials.json:/app/google-credentials.json
+      - ./google-credentials.json:/app/google-credentials.json:ro
       # Shared volume for podcast files
       - podcast_data:/app/output_podcasts
       # Persistent database storage
@@ -84,7 +84,7 @@ services:
     volumes:
       # Shared volume for podcast files
       - podcast_data:/app/output_podcasts
-      - ./google-credentials.json:/app/google-credentials.json
+      - ./google-credentials.json:/app/google-credentials.json:ro
       # SEC-SOCKET: KEIN Docker-Socket mehr. Der Worker parst fremde
       # Dokumente; Code-Ausfuehrung hier darf nicht zu Root ueber den Host
       # werden. Den Socket haelt allein der mineru-launcher (unten), der
