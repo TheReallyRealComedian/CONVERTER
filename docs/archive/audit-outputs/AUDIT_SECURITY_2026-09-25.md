@@ -134,7 +134,7 @@ Urteil je Punkt aus dem Angreifermodell (Internet-erreichbar, ein Login-Zaun, se
 
 - **VERIFY-1 — Router-Port-Forwarding:** Reicht der Router extern `5656` (F-10) oder `3335` (F-12) durch? Von hier nicht messbar (ufw/Router braucht sudo/Zugang). Prüfen: `sudo ufw status` und die Portweiterleitungs-Regeln des Routers. Sind beide **nicht** geforwardet, ist F-10 ein reiner LAN-Befund (bleibt XS-Quick-Win) und F-12 ein LAN/Host-Befund.
 - **VERIFY-2 — nginx-Header + Rate-Limit:** Die Header (HSTS/X-Frame-Options/…) und `limit_req` gehören an nginx (Systemconfig, sudo). Die Blöcke oben sind Vorschläge — setzen und mit `curl -I` gegenprüfen liegt bei dir.
-- **VERIFY-3 — EPUB-Egress:** Ob `ebooklib` beim EPUB-Bau Remote-Bilder (`<img src="https://…">`) serverseitig nachlädt (zweite SSRF-Fläche neben F-6-SSRF), ist per Code plausibel *nein* (ebooklib schreibt HTML in den Container, holt keine externen Ressourcen), aber nicht empirisch belegt — ein Kindle-Versand eines Dokuments mit einem `<img>` auf einen von dir kontrollierten Zeugen-Endpoint würde es zeigen. Niedrige Priorität.
+- **VERIFY-3 — EPUB-Egress:** **geschlossen** (SEC-SSRF Phase 1, 2026-09-28). `build_epub('t', '<p><img src="http://…zeuge…/epub.png">')` im Web-Container erzeugte **keinen** Zeugen-Treffer — ebooklib schreibt das HTML in den Container und lädt die Remote-Ressource nicht nach. Die Code-Plausibilität ist damit empirisch bestätigt; keine zweite SSRF-Fläche neben F-6-SSRF.
 - **VERIFY-4 — Samba-Reichweite:** Die `MintHome`-Freigabe (`/home/oliver`) listet `www-data` als valid user. Prüfen, ob das gewollt ist — es macht `.env`/Backups (F-1/F-11) für jede Web-App der Box lesbar, selbst nach `chmod 600` bliebe der Samba-Pfad, wenn die Freigabe mit einem privilegierten Nutzer läuft.
 
 ---
@@ -350,7 +350,9 @@ services/document_router.py:62  partition(filename=source_path, strategy="fast",
 
 ---
 
-*Ende des Befunds. Nichts wurde auf der Mintbox oder im Repo verändert; alle Messungen waren read-only. Kein Wegwerf-User angelegt (die Befunde ließen sich statisch/read-only belegen — der im Sprint vorgesehene SSRF-Zeugentest wurde durch den eindeutigen Code-Trace ersetzt und steht als VERIFY-3 offen). Kein Token, kein Hash-Wert, kein Cookie-Wert im Dokument.*
+*Ende des Befunds. Nichts wurde auf der Mintbox oder im Repo verändert; alle Messungen waren read-only. Kein Wegwerf-User angelegt (die Befunde ließen sich statisch/read-only belegen — der im Sprint vorgesehene SSRF-Zeugentest wurde durch den eindeutigen Code-Trace ersetzt und stand als VERIFY-3 offen). Kein Token, kein Hash-Wert, kein Cookie-Wert im Dokument.*
+
+*Nachtrag 2026-09-28: F-6-SSRF und VERIFY-3 sind mit Sprint SEC-SSRF geschlossen (Egress-Tor am PDF-Renderer; der Zeugentest ist in Phase 1/2 mit einem Container-Zeugen nachgeholt) — s. die Status-Zeilen oben.*
 
 ---
 
@@ -386,7 +388,7 @@ Sieben freigegebene Quick-Wins, je ein Commit, Suite **1129 + 1 Skip → 1159 + 
 | F-4 Enumeration am Web-Login | **geschlossen** |
 | F-5 Cookie ohne `Secure` | **geschlossen** (Secure hinter HTTPS) |
 | F-6 Remember-Cookie 365 Tage | **teils** — 30 Tage; Widerruf nur per `SECRET_KEY`-Rotation |
-| F-6-SSRF Playwright-PDF | offen → Item SEC-SSRF |
+| F-6-SSRF Playwright-PDF | **geschlossen** — SEC-SSRF 2026-09-28: Egress-Tor am PDF-Renderer (Default-deny per `page.route`, `services/egress.py` mit Auflösung aller Adressen + `is_global` + IP-Pinning, Variante A für 3xx, toter Proxy + `<-loopback>` als Gürtel). Gemessen am deployten Stand: Container-Zeuge 0 hit-GETs, je Sperrfall die passende WARNING (`scheme`/`ip_literal`/`non_public_address`/`port`/`userinfo`), öffentliche https-PNG im PDF, Font-Inventar der zwei `@import`-Stile identisch zur Baseline, Budget-Cap 6× `budget_exhausted` bei Anfrage 64–69 |
 | F-7 Redis ohne Auth + Pickle | **geschlossen** — SEC-REDIS-AUTH 2026-09-27 (`6af0ae8`): Redis mit Passwort aus `.env`, RQ mit JSON statt Pickle; gemessen `NOAUTH` ohne Passwort auch innerhalb `converter_default`, ein echter Job bis `ready` |
 | F-8 root-Container | **geschlossen** — SEC-NONROOT 2026-09-27 (`7954caf`): Web und Worker laufen als uid 1000 (`converter` = `oliver` auf der Mintbox), der Code im Image gehört root und ist für sie nur lesbar; der Launcher bleibt als Socket-Halter bewusst root (`user: "0:0"`), der Copy-out der mineru-Ausgabe schreibt als 1000:1000. Gemessen: `id -u` 1000 in Web und Worker, `touch /app/app_pkg/x` → Permission denied, beide Volumes ohne Eintrag, der nicht 1000 gehört, Reader-Smoke (PDF über Chromium) und ein echter Lokal-Lauf grün, 4,3 s Auszeit |
 | F-9 `remote_addr` = Proxy | **geschlossen** (ProxyFix, gemessen) |

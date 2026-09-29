@@ -14,6 +14,8 @@
 
 Relative Pfade (`![](Kapitel-8/abb-01.png)`) zeigen **ins Leere** — es gibt noch keinen Asset-Store (Backlog RICH-MEDIA-ASSETS).
 
+**`![alt](https://…)` im PDF (SEC-SSRF):** Der PDF-Renderer holt ein Netzbild nur durch ein Egress-Tor — **nur `https`**, ein **öffentlicher Host** (keine internen/privaten Adressen, keine IP-Literale), **bis 5 MB**. Ein `http://`-Bild bleibt im PDF **leer**. Im Reader lädt das Bild normal (der Browser des Nutzers, kein Tor). ⚠️ Bilder **unter der Falz** sind im PDF derzeit wackelig (`loading=lazy`, Backlog PDF-LAZY-IMG) — wichtige Netzbilder eher weiter oben platzieren oder als `data:`-URI/Inline-SVG einbetten.
+
 ## Pflicht-Regeln
 
 ### 1. Ein Inline-SVG ist ein eigener Block: `<svg` am Zeilenanfang, Leerzeile davor und danach
