@@ -2,7 +2,7 @@
 
 > **An**: CONVERTER-Master.
 > **Von**: Koordinator (Mac-Instanz), 2026-09-29, entdeckt beim Umbau des notion-mcp-server für das CalendarSystem.
-> **Worum**: Meetings, die aus CONVERTER per „An Notion senden" angelegt werden, stehen in Notion sehr wahrscheinlich **zwei Stunden zu spät** (Winterzeit: eine Stunde). Ursache ist eine Uhrzeit ohne Zeitzone. Der Fehler ist alt, nicht durch unsere Änderung entstanden. **Live-Bestätigung steht aus** (s. u.).
+> **Worum**: Meetings, die aus CONVERTER per „An Notion senden" angelegt werden, stehen in Notion **zwei Stunden zu spät** (Winterzeit: eine Stunde). Ursache ist eine Uhrzeit ohne Zeitzone. Der Fehler ist alt, nicht durch unsere Änderung entstanden. **Live bestätigt 2026-09-29** (s. u.).
 
 ## TL;DR
 
@@ -20,7 +20,11 @@
 | `app_pkg/integrations/notion.py`, `api_send_to_notion` | `payload = {k: v for k, v in data['fields'].items() if v}` → `POST {NOTION_MCP_URL}/api/meetings` — keine Umrechnung, kein `time_zone` |
 | notion-mcp-server `/api/meetings` | übergibt `datum` an Notion; ohne Offset und ohne `time_zone` legt Notion den Wert als UTC ab |
 
-## Warum „sehr wahrscheinlich" und nicht „bewiesen"
+## Bestätigung (Nachtrag 2026-09-29)
+
+Oliver hat nach dem Deploy des notion-mcp-server (`134d1d8`) einmal „An Notion senden → Meetings" ausgeführt: **Der Termin steht in Notion zwei Stunden später als im Formular.** Der Befund ist damit bestätigt; der Lösungsvorschlag unten gilt unverändert. Der Abschnitt darunter ist nur noch Vorgeschichte.
+
+## Warum ursprünglich „sehr wahrscheinlich" und nicht „bewiesen"
 
 Die Code-Kette ist eindeutig, aber wir haben noch keinen Eintrag gesehen, der nachweislich über „An Notion senden" entstanden ist: Die Meetings mit Transkript in Notion tragen meist nur ein Datum ohne Uhrzeit und kommen vermutlich aus dem Skill `notion-transcripts`, nicht aus CONVERTER. Oliver probiert „An Notion senden → Meetings" nach dem heutigen Deploy des notion-mcp-server einmal aus. **Steht die Uhrzeit in Notion danach zwei Stunden später als im Formular, ist der Befund bestätigt.** Wir tragen das Ergebnis hier nach.
 
