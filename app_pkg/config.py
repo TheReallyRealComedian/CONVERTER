@@ -5,6 +5,7 @@ can both import from here without pulling in Flask or service SDKs.
 """
 import math
 import os
+from zoneinfo import ZoneInfo
 
 from rq.serializers import JSONSerializer
 
@@ -13,6 +14,13 @@ from services.mineru_invocation import (
     MINERU_TIMEOUT_PER_PAGE_SECONDS,
     mineru_run_timeout_for,
 )
+
+# NOTION-TZ: the ONE local zone of this single-user app (Oliver sits in
+# Berlin). learn buckets per local day, library reads recorder filenames as
+# Berlin wall clock, and the Notion send attaches it to zone-less meeting
+# times (Notion reads an offset-free datetime as UTC). Server-fixed on
+# purpose — not the device's zone.
+LOCAL_TZ = ZoneInfo('Europe/Berlin')
 
 # Shared podcast output directory.
 # Must match the docker-compose ``podcast_data`` volume that is mounted

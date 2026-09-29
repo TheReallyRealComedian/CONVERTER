@@ -1,18 +1,47 @@
 """Notion integration: suggestions cache + send-to-Notion endpoint."""
 import logging
 import os
+import re
 import time as _time
+from datetime import datetime
 
 import requests as http_requests
 from flask import jsonify, request
 from flask_login import login_required
 
+from app_pkg.config import LOCAL_TZ
 from app_pkg.library import get_owned_conversion
 
 
 NOTION_MCP_URL = os.environ.get('NOTION_MCP_URL', 'http://localhost:3333')
 MCP_AUTH_TOKEN = os.environ.get('MCP_AUTH_TOKEN', '')
 NOTION_TOKEN = os.environ.get('NOTION_TOKEN', '')
+
+# NOTION-TZ: the meeting form's ``datetime-local`` yields wall-clock time
+# WITHOUT a zone, and Notion reads an offset-free datetime as UTC — 14:30 in
+# the form became 16:30 (CEST) in Notion. The notion-mcp-server accepts
+# ``{start, time_zone}`` (IANA name, only on an offset-free start), so the
+# backend attaches the one server-fixed zone here.
+_NAIVE_DATETIME_RE = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?', re.ASCII)
+
+
+def normalize_notion_datum(value):
+    """Attach ``LOCAL_TZ`` to a zone-less meeting datetime; never raises.
+
+    ``YYYY-MM-DDTHH:MM[:SS]`` (a real calendar value) →
+    ``{"start": "YYYY-MM-DDTHH:MM:SS", "time_zone": "Europe/Berlin"}``.
+    Everything else — a date (all-day), a string with ``±HH:MM``/``Z`` offset,
+    an object, blank or unrecognisable input — passes through unchanged; the
+    server validates it and its 400 text is relayed by the route.
+    """
+    if not isinstance(value, str) or not _NAIVE_DATETIME_RE.fullmatch(value):
+        return value
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    return {'start': parsed.strftime('%Y-%m-%dT%H:%M:%S'), 'time_zone': LOCAL_TZ.key}
+
 
 # --- Notion suggestions cache ---
 _notion_cache = {}
@@ -107,6 +136,8 @@ def register(app):
             return jsonify({'error': 'Invalid target'}), 400
 
         payload = {k: v for k, v in data.get('fields', {}).items() if v}
+        if 'datum' in payload:
+            payload['datum'] = normalize_notion_datum(payload['datum'])
         try:
             resp = http_requests.post(
                 f'{NOTION_MCP_URL}/api/{target}',

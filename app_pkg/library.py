@@ -2,11 +2,11 @@
 import json
 import re
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
 
+from app_pkg.config import LOCAL_TZ
 from models import Conversion, Tag, conversion_tags, db
 from services.doc_media import check_media_limits, strip_media_for_preview
 from services.markdown_sections import derive_title, _is_degenerate_title
@@ -116,7 +116,7 @@ def _conversion_summary(conversion):
     }
 
 
-_BERLIN_TZ = ZoneInfo('Europe/Berlin')
+_BERLIN_TZ = LOCAL_TZ
 
 # MCP1: recording-timestamp parser for recorder filenames. YYYY first (so the
 # year position is never ambiguous), optional time after a T / space / - / _

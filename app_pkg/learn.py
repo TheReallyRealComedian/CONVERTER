@@ -20,12 +20,12 @@ import json
 import os
 import random
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from flask import jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import text
 
+from app_pkg.config import LOCAL_TZ
 from models import Card, Review, User, db
 from services.scheduler import _parse_retention
 from services.scheduler.fsrs_scheduler import simulate_workload
@@ -33,7 +33,7 @@ from services.scheduler.fsrs_scheduler import simulate_workload
 # The learn features count and bucket per USER-local day (single-user app,
 # Oliver sits in Berlin) — a UTC day would reset the daily limits mid-evening.
 # Shared by the P3 daily caps and the P4 stats bucketing via local_day_bounds.
-LOCAL_TZ = ZoneInfo('Europe/Berlin')
+# LOCAL_TZ itself lives in app_pkg.config since NOTION-TZ (one zone, one place).
 
 # Defaults double as the key whitelist: a settings key exists iff it is here.
 LEARN_SETTINGS_DEFAULTS = {
