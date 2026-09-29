@@ -12,16 +12,18 @@ docker-compose*.yml
 .gitignore
 
 # Python virtual environments and cache
-__pycache__/
-*.pyc
+# IMG-CONTEXT: `**/` = in jeder Tiefe, die Wurzel eingeschlossen — ohne
+# trafen die Muster nur die Wurzel (Docker liest sie wurzel-verankert).
+**/__pycache__/
+**/*.pyc
 *.pyo
 *.pyd
 venv/
 env/
 
-# macOS metadata files (This is very important for you!)
-.DS_Store
-._*
+# macOS metadata files (This is very important for you!) — in jeder Tiefe
+**/.DS_Store
+**/._*
 
 # Generated output files (These are handled by volumes in docker-compose)
 output_pdfs/

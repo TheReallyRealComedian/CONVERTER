@@ -16,9 +16,13 @@ key), ``/app/.codebuddy/db`` (28 MB), ``/app/.claude/``,
    reads it from ``/app``.
 
 Docker reads the patterns root-anchored (Go ``filepath.Match``, no
-gitignore-style recursion): ``data/`` hits ``./data`` only. Whether Docker
-reads them as intended is measured on the built image (``ls -A /app``), not
-here.
+gitignore-style recursion): ``data/`` hits ``./data`` only. Only ``**``
+reaches deeper — it matches zero or more directories, the root included, so
+a leading ``**`` reaches into every keep directory and trips rule 2. Exempt
+are exactly the ``ANYWHERE`` patterns (bytecode caches, Finder metadata,
+AppleDouble — nothing reads them at any depth); at the root they still
+count. Whether Docker reads the patterns as intended is measured on the
+built image (``ls -A /app``, ``find``), not here.
 """
 import posixpath
 from fnmatch import fnmatchcase
@@ -28,7 +32,10 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 
-MUST_EXCLUDE = (
+# Junk at any depth; the only patterns allowed to reach into every directory.
+ANYWHERE = ('**/__pycache__/', '**/*.pyc', '**/.DS_Store', '**/._*')
+
+MUST_EXCLUDE = ANYWHERE + (
     # secrets — the key arrives per compose bind, the env per env_file
     'google-credentials.json', '.env*',
     # tool state
@@ -60,11 +67,18 @@ def _lines():
     return [line.strip() for line in lines if line.strip()]
 
 
+def _normalized(pattern):
+    # What Docker matches: filepath.Clean, then a leading '/' dropped.
+    return posixpath.normpath(pattern).lstrip('/')
+
+
 def _hits(pattern, name):
     """Does ``pattern`` exclude ``name`` or reach into it? Normalized like
-    Docker (``filepath.Clean``, a leading ``/`` dropped), so ``static/`` and
-    ``/static`` count as ``static``."""
-    pattern = posixpath.normpath(pattern).lstrip('/')
+    Docker, so ``static/`` and ``/static`` count as ``static``. An
+    ``ANYWHERE`` pattern is judged by what it does at the root."""
+    pattern = _normalized(pattern)
+    if pattern in {_normalized(p) for p in ANYWHERE}:
+        pattern = pattern.removeprefix('**/')
     return (fnmatchcase(name, pattern)
             or fnmatchcase(name, pattern.split('/')[0]))
 
@@ -91,4 +105,6 @@ def test_the_keep_check_can_fire():
     assert _hits('static/', 'static')
     assert _hits('/templates', 'templates')
     assert _hits('services/gemini/*.py', 'services')
+    assert _hits('**/*.css', 'static')  # a new ** pattern must be decided
     assert not _hits('.claude/', 'static')
+    assert not _hits('**/__pycache__/', 'app_pkg')
