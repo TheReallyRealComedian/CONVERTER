@@ -1,6 +1,17 @@
 # STATUS
 
-**Stand**: 2026-09-29
+**Stand**: 2026-09-30
+
+> **✅ CREDS-RO done + Mintbox-deployed (2026-09-30, 2 Phasen abgenommen, P1 `e2aa829` Compose + Sentinel · Wrap = dieser Commit) — der GCP-Schlüssel liegt in Web und Worker nur lesbar.** Befund aus IMG-CONTEXT P2: [docker-compose.yml](docker-compose.yml) band `./google-credentials.json` an Web und Worker ohne `:ro`, beide laufen seit SEC-NONROOT als uid 1000 = Eigentümer der Host-Datei (`600`) — der Prozess, der fremde Dokumente parst, konnte den Schlüssel auf dem Host überschreiben. **Gebaut:** `:ro` an genau den zwei Bind-Zeilen (Exchange-Bind bleibt schreibbar); Sentinel `test_credentials_bind_is_read_only` in [tests/test_compose_socket.py](tests/test_compose_socket.py) — Web und Worker tragen exakt die `:ro`-Zeile, kein anderer Dienst trägt die Datei (auch nicht der Launcher); gegen den alten Stand rot. **Deploy:** Fenster Queue 0, Worker `idle`, kein `mineru_*`; `git pull --ff-only`, `docker compose up -d` **ohne** `--build` — Web und Worker neu angelegt (neue IDs, beide auf `8bf21a3e2f35`), `mineru-launcher` (`c92f067867c9`, erstellt 29.09.) und Redis (`50617ec6301c`, 27.09.) unberührt.
+>
+> | Beleg | vorher | nachher |
+> |---|---|---|
+> | `docker inspect`, Mount `/app/google-credentials.json` (Web, Worker) | `RW=true` · `RW=true` | **`RW=false`** · **`RW=false`** (`Mode=ro`) |
+> | Worker als uid 1000: `os.open(…, O_WRONLY\|O_APPEND)` (nur öffnen, nie schreiben) | gelingt | **`EROFS` Read-only file system**; Lesen gelingt |
+> | `scripts/probe_configured_models.py` im Worker | — | **exit 0** (Cloud-TTS `gemini-2.5-flash-tts` WAV 48 570 B, `gemini-3.6-flash` OK) |
+> | `/login` | — | **200** |
+>
+> **Tests** 1340 → **1341 + 1 Skip** (Mac und Container-Pin, stdin-Rezept mit `--no-xattrs`). Kein Image-Bau, keine Reste. **Keine Memory** (keine übertragbare Lehre über „Geheimnis-Binds `:ro`" hinaus), **kein Brief ans converter-mcp** (keine Agent-Fläche). **SEC-KEY-ROTATION ist jetzt dran.**
 
 > **✅ NOTION-TZ done + Mintbox-deployed (2026-09-29, 3 Phasen abgenommen, P1 `7c461bd` Helper + Konstante + Tests · Wrap = dieser Commit) — „An Notion senden → Meetings" trägt die Uhrzeit mit Zeitzone.** Hinweis des Koordinators ([docs/notion_meetings_zeitzone_hinweis.md](docs/notion_meetings_zeitzone_hinweis.md)), von Oli live bestätigt: `datetime-local` liefert Ortszeit ohne Zone, CONVERTER reichte sie roh an `POST /api/meetings` des notion-mcp-server, Notion las sie als UTC → **+2 h** im Sommer. **Gebaut:** `normalize_notion_datum` in [app_pkg/integrations/notion.py](app_pkg/integrations/notion.py), pur, wirft nie, angewandt auf `payload['datum']`; `LOCAL_TZ` aus `learn.py` nach [app_pkg/config.py](app_pkg/config.py), `learn` importiert sie, `library._BERLIN_TZ = LOCAL_TZ` (Sentinel: dasselbe Objekt). Zwei Abweichungen vom Prompt, abgenommen: formpassende, aber kalender-ungültige Werte (`2026-13-45T25:99`) gehen unverändert an den Server statt als Objekt; der Regex ist ASCII-only und per `fullmatch` ohne Trailing-Newline.
 >
