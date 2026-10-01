@@ -1,6 +1,19 @@
 # STATUS
 
-**Stand**: 2026-09-30
+**Stand**: 2026-10-01
+
+> **✅ SEC-KEY-ROTATION done (2026-10-01, Olis Hand, Master-geführt Schritt für Schritt; kein Sub-Thread, keine Code-Änderung) — fünf der sechs offenen Schlüssel sind rotiert, das Postfach-Passwort ist abgespalten (SEC-MAILBOX-PW).** Reihenfolge nach Überlappungs-Semantik: **Runde 1** die Werte, deren alter Stand parallel weiterlief — Gemini-Key (neues Google-Format `AQ.A…`), Deepgram-Key, `DOC_CONVERT_TOKEN` (frisch per `secrets.token_urlsafe(48)`; Halter geklärt: **keiner** außer der Mintbox-`.env`, Browser und iOS gehen über Weg B), GCP-SA-Schlüssel `podcast-tts@podcasts-476919` (Key-ID `f5ee2e2b…` → `d932ded3e698…`, per `cat > google-credentials.json` in dieselbe Inode, `600 oliver`, `:ro`-Bind) — `.env` mit `nano` in place, `docker compose up -d` (nur Web und Worker neu), alte Werte gelöscht (GCP bot kein Deaktivieren), Proben **wiederholt** als Positivkontrolle. **Runde 2a** `NOTION_TOKEN`: Notion „Secret aktualisieren" macht den alten Wert sofort ungültig, deshalb beide betroffenen `.env` sofort nachgezogen und beide Stacks neu angelegt (CONVERTER `e80a7653c09c`/`457e0be6f28b`, email-automation `ce369bdd9648`).
+>
+> | Beleg (Master, ohne einen Wert zu sehen) | Ergebnis |
+> |---|---|
+> | Hash-Vergleich `.env` ↔ `docker inspect`-Env, Web und Worker, alle fünf Werte | gleich (neu) |
+> | `scripts/probe_configured_models.py` im Worker, vor **und nach** dem Löschen der Altschlüssel | exit 0 · exit 0 (Cloud TTS WAV, Gemini „OK") |
+> | Deepgram `GET /v1/projects` aus dem Worker | 200, falscher Key 401 |
+> | `GET /api/document-conversions/1` mit dem neuen Dienst-Token | 404 (= authentifiziert), falscher Token 401 |
+> | Notion `GET /v1/users/me` aus dem Web-Container | 200 (Bot „AgentSuite API"), falsches Secret 401 |
+> | `/login` | 200 |
+>
+> ⚠️ **Zwei Halter-Befunde, gemessen per Hash über alle Container-Envs der Mintbox (die Tabelle in [docs/converter_mcp_sec_audit_antwort.md](docs/converter_mcp_sec_audit_antwort.md) §4 war dort zu eng, dort korrigiert):** `NOTION_TOKEN` == `NOTION_API_KEY` in **email-automation** (mitgezogen; der notion-mcp-server hat eine eigene Integration). Das Postfach-Passwort `KINDLE_SMTP_PASSWORD` == `IMAP_PASSWORD` in email-automation == `MAIL_PASSWORD` in mail-mcp, dazu acht Mail-Clients laut Oli → **nicht rotiert**, BACKLOG SEC-MAILBOX-PW. Nebenbefund an der Messung: `grep … | cut | sha256sum` hasht den Zeilenumbruch mit, `printf "%s"` nicht — der erste Vergleich meldete CONVERTERs eigene Container als „anderer Wert" (Memory `reference_secret_holder_scan_by_hash`). Kein Image-Bau, Mintbox-Clone unverändert auf `e2aa829`. **Nächstes: ARCH-AUDIT** (Start der Audit-Reihe ARCH → CONSIST → TEST → DOC).
 
 > **✅ CREDS-RO done + Mintbox-deployed (2026-09-30, 2 Phasen abgenommen, P1 `e2aa829` Compose + Sentinel · Wrap = dieser Commit) — der GCP-Schlüssel liegt in Web und Worker nur lesbar.** Befund aus IMG-CONTEXT P2: [docker-compose.yml](docker-compose.yml) band `./google-credentials.json` an Web und Worker ohne `:ro`, beide laufen seit SEC-NONROOT als uid 1000 = Eigentümer der Host-Datei (`600`) — der Prozess, der fremde Dokumente parst, konnte den Schlüssel auf dem Host überschreiben. **Gebaut:** `:ro` an genau den zwei Bind-Zeilen (Exchange-Bind bleibt schreibbar); Sentinel `test_credentials_bind_is_read_only` in [tests/test_compose_socket.py](tests/test_compose_socket.py) — Web und Worker tragen exakt die `:ro`-Zeile, kein anderer Dienst trägt die Datei (auch nicht der Launcher); gegen den alten Stand rot. **Deploy:** Fenster Queue 0, Worker `idle`, kein `mineru_*`; `git pull --ff-only`, `docker compose up -d` **ohne** `--build` — Web und Worker neu angelegt (neue IDs, beide auf `8bf21a3e2f35`), `mineru-launcher` (`c92f067867c9`, erstellt 29.09.) und Redis (`50617ec6301c`, 27.09.) unberührt.
 >

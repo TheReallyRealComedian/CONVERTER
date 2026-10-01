@@ -59,6 +59,7 @@ cd ~/CODE && setfacl -R -k CONVERTER && setfacl -R -x u:mintsamba,u:mintshare CO
 | per-User-Bearer | iOS-App (3 Tokens) · converter-mcp (id 4, `converter-mcp`) | `CONVERTER_TOKEN` bei euch |
 
 Nicht rotiert und bei Oli: Gemini-/Deepgram-Key, SMTP-Passwort, `NOTION_TOKEN`, `DOC_CONVERT_TOKEN`, GCP-Service-Account (alle nur CONVERTER-seitig).
+**Korrektur 2026-10-01 (SEC-KEY-ROTATION, gemessen per Hash-Vergleich über alle Container-Envs der Mintbox):** „nur CONVERTER-seitig" stimmte für zwei Werte nicht — `NOTION_TOKEN` ist dasselbe Integrations-Secret wie `NOTION_API_KEY` in **email-automation** (der notion-mcp-server nutzt eine eigene Integration), und das SMTP-Passwort ist das Passwort von Olis Strato-Postfach, das auch **email-automation** (`IMAP_PASSWORD`) und **mail-mcp** (`MAIL_PASSWORD`) halten. `DOC_CONVERT_TOKEN`: kein externer Halter (geklärt, rotiert). Stand nach der Rotation: Gemini, Deepgram, `DOC_CONVERT_TOKEN`, GCP-SA-Schlüssel, `NOTION_TOKEN` rotiert; Postfach-Passwort offen (BACKLOG SEC-MAILBOX-PW).
 
 ## Rückkanal
 
