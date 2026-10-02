@@ -139,7 +139,7 @@ LIVE = os.environ.get('SMOKE_LIVE_PROBE') == '1'
 PROBE = '3ed3f5db-30d2-805b-baec-ec7216b6ffc0'
 PROBE_KEY = PROBE.replace('-', '')
 PROBE_DAY = '2026-10-02'
-PROBE_WHEN = 'Fr, 02.10.2026 · 20:35–21:35 · 60 min'
+PROBE_WHEN = 'Fr, 02.10.2026 · 20:35–21:35 · 1 h'
 PROBE_TITLE = 'CONVERTER-Probe'
 RUN_ID = uuid.uuid4().hex[:12]
 OUT = os.environ.get('SMOKE_OUT')      # e.g. /tmp/smoke_notion → _light.png / _dark.png of the panel
@@ -1233,14 +1233,17 @@ try:
             s = open_existing(ids['toolong'])
             check(choose_probe(s), 'the probe is preselected for the over-long row (same recording time)')
             n_dialogs = len(dialogs)
-            statuses = live_send([True])                 # if the other side asks about the overwrite first: "Ja"
+            # Measured twice (through the page and raw): the other side checks the
+            # length BEFORE the existing transcript — 413 at once, no question.
+            statuses = live_send([])
             s = state(page)
             pg_after = probe_page()
             expected = ('Das Transkript ist zu lang für Notion: ' + f'{len(TOO_LONG_CONTENT):,}'.replace(',', '.')
                         + ' Zeichen, erlaubt sind 200.000.')
             print(f'[18] chars={len(TOO_LONG_CONTENT)} statuses={statuses} dialogs={len(dialogs) - n_dialogs} alert={s["alert"]} {page_facts(pg_after)}')
-            check(statuses[-1] == 413 and s['alert'] is not None and s['alert']['text'] == expected
-                  and 'c-alert--danger' in s['alert']['cls'], 'a clear sentence with length and limit')
+            check(statuses == [413] and len(dialogs) == n_dialogs and s['alert'] is not None
+                  and s['alert']['text'] == expected and 'c-alert--danger' in s['alert']['cls'],
+                  'one 413, no question, a clear sentence with length and limit')
             check(pg_after == pg_before, 'nothing written: transcript, link, properties, blocks unchanged')
             check('notion_link' not in row_metadata(ids['toolong']) and s['link'] is None, 'the over-long row remembers no link')
 
