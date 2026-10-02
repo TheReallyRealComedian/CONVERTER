@@ -58,6 +58,11 @@ sieht er ausschließlich die Auth-Semantik aus Weg A.
 - **413** → Upload über **100 MB** (`MAX_DOCUMENT_UPLOAD_BYTES`). Geprüft am
   `Content-Length`-Header, **bevor** der Body geparst wird; ein fehlender oder
   lügender Header wird nach dem Spool auf Platte nachgeprüft.
+- **503** → `{"error": "Auftrag konnte nicht eingereiht werden. Bitte erneut
+  versuchen."}` — die Job-Queue war nicht erreichbar. Es wurde **nichts**
+  angelegt (keine `id`, keine Datei): denselben Request erneut senden ist der
+  Weg. (Seit JOB-ID-REUSE 2026-10-02; vorher ein 500 mit liegengebliebenem
+  `pending`-Auftrag.)
 
 Unterstützte Endungen: `pdf, docx, pptx, eml, html, htm, txt, md`
 (dieselbe Liste wie der Web-Konverter, `app_pkg/documents.py`).
@@ -295,7 +300,7 @@ Retry-Endpunkt).
 | 401 | Fehlender/falscher Bearer bei nicht eingeloggtem Aufrufer (generisch) |
 | 404 | `id` unbekannt/fremd/falscher Typ (ununterscheidbar) |
 | 413 | Upload > 100 MB |
-| 503 | `DOC_CONVERT_TOKEN` nicht konfiguriert · kein Zielnutzer vorhanden |
+| 503 | `DOC_CONVERT_TOKEN` nicht konfiguriert · kein Zielnutzer vorhanden · Auftrag konnte nicht eingereiht werden (Queue nicht erreichbar; nichts angelegt, erneut einreichen — §3) |
 
 ## 10. Die Engine hinter der Form (Stand DOC-WEB)
 

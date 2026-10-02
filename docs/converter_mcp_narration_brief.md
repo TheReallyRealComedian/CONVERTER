@@ -25,6 +25,7 @@ Body (JSON) — der **Turn-Listen-Kontrakt**:
 - **Validierung (400)**: über `validate_turns` (mode/Speaker-Zahl/voices-Abdeckung/non-blank) — die Fehler-Message nennt den Verstoß.
 - → **202** `{"narration_id": int, "job_id": str, "status": "pending"}`.
 - Auth-Fehler: **503** (kein `NARRATION_TOKEN` konfiguriert), **401** (fehlend/falsch).
+- **503 hat seit JOB-ID-REUSE (2026-10-02) eine zweite Ursache:** `{"error": "Auftrag konnte nicht eingereiht werden. Bitte erneut versuchen."}` — die Job-Queue war nicht erreichbar. Es wurde **keine** Narration angelegt (vorher: 500 und eine `pending`-Zeile ohne Job); derselbe Aufruf erneut ist der Weg. Kein Handlungsbedarf am Wrapper: `_write_json` reicht Status und Meldung durch.
 
 ### `GET /api/narrations/<id>` — Read (Session): Status-Poll
 - → **200** die volle Conversion (`to_dict()`), inkl. `metadata`: `narration_status` (`pending`/`ready`/`failed`), `duration_seconds`, `error`, `audio_filename`, `speakers`, `transcript`, `tts_model`.
