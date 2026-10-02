@@ -159,6 +159,8 @@ Mai 2 Module → heute 8 direkt, 12 von 32 transitiv; `config.py` 25 → 283 LOC
 
 **Autoren-Dimension: nicht anwendbar.** `git shortlog -sn --since=2026-05-01 HEAD` → 603 TheReallyRealComedian (ein Mensch, ein Assistent; 552 Commits mit `Co-Authored-By: Claude`). „Viele Autoren" kann hier nichts anzeigen.
 
+Hot-Score je Zeile: Hot = 100 × (0,5 × Churn/62 + 0,25 × LOC/2 952 + 0,25 × fix/7) — eine Näherung mit gesetzten Gewichten; „ab Juli" ist dieselbe Formel mit Churn und fix ab 2026-07-01.
+
 | Rang | File/Modul | Volatilität (Commits · Mai/Jun/Jul/Aug/Sep) | Logik-Konzentration | Bug-Anziehung (fix · Fix*) | Hot-Score (· ab Juli) | Lesart | Remediation (XS–XL) |
 |---|---|---|---|---|---|---|---|
 | 1 | [static/css/style.css](../../../static/css/style.css) | 62 · 22/23/7/3/7 | 2 952 LOC · 414 Stilregeln (431 öffnende Klammern mit `@media`/`@keyframes`) · 30× `!important` | 5 · 8 | **92,9** · 92,9 (R1) | Folge-Churn, laufend: 55 von 62 Commits reisen mit Template/JS, 6 allein; weiter jeder fünfte Produkt-Commit | XS TOC/Marker-Abgleich + S Selektoren-Inventar als Skript (V-11); tote Podcast-Regeln XS (W-9); kein Split (E-4) |
@@ -271,7 +273,7 @@ Dreizehn Cluster aus den Einzelbefunden der Untersucher, jeweils mit den Korrekt
 | V-10b | Cross-cutting ohne Layer | [services/narration_library.py](../../../services/narration_library.py) Z. 54–56 · [services/document_conversions.py](../../../services/document_conversions.py) Z. 64–66 · [services/transcription_jobs.py](../../../services/transcription_jobs.py) Z. 63–65 | Job-Status pending/ready/failed dreimal definiert, im Frontend durchgehend Literal — 22 wirksame Stellen. | 1 |
 | V-11 | Tight Coupling | [templates/base.html](../../../templates/base.html) Z. 10–30 · [static/css/style.css](../../../static/css/style.css) Z. 845, 851, 988, 991 und Z. 4–35 (TOC) | Zwei Stil-Systeme ohne festgeschriebene Ordnung: `style.css` hängt an Utility-Klassen des Laufzeit-CDN; Reihenfolge entscheidet, die Schichtregel steht nirgends; die innere Gliederung driftet. | 2 |
 | V-12 | Cross-cutting ohne Layer | [static/js/_utils.js](../../../static/js/_utils.js) Z. 6–17 · [static/js/library_detail.js](../../../static/js/library_detail.js) Z. 505, 759, 1141, 1727, 1784 | 18 von 44 Antwort-Parses gehen an `safeJSON` vorbei; 24 `window`-Funktionen existieren nur für Inline-Handler. | 1 |
-| V-13 | Cross-cutting klein | [app_pkg/collections.py](../../../app_pkg/collections.py) Z. 74, 87, 109 | `name.strip()` statt `Collection.normalize_name` — ein Name mit doppeltem Leerzeichen ist über die UI eine andere Sammlung als über den Agenten-Pfad. | 1 |
+| V-13 | Cross-cutting klein | [app_pkg/collections.py](../../../app_pkg/collections.py) Z. 74, 87, 107 | `name.strip()` statt `Collection.normalize_name` — ein Name mit doppeltem Leerzeichen ist über die UI eine andere Sammlung als über den Agenten-Pfad. | 1 |
 
 Eigene Nachmessungen am Repo (HEAD 720de89, nur lesend), wo Ausschnitte auseinanderlagen: `import app_pkg.config` lädt 569 neue Module (639 gesamt), `config.py` als Einzeldatei 243, Factory-Anteil also +326 — die Angaben 638 und 564 sind andere Zählweisen · 14 von 32 Service-Modulen laden beim Import die Factory (Graph über Top-Level-Kanten: 12; die Differenz sind Paket-Init-Kanten von `services.gemini`) · 9 Views ≥ 80 Zeilen von `def` bis Ende, 10 mit Dekoratorzeilen · 5 Owner-Helfer-Definitionen in 4 Modulen, nicht 4 · 11 `csrf.exempt`-Aufrufe (der zwölfte Grep-Treffer ist ein Docstring) · `from app_pkg import <Name>`: 10 Zeilen in 10 Dateien, sechs Namen.
 
@@ -1729,7 +1731,7 @@ Ein-Ort-Regeln intakt: Conversion.set_content 4 Aufrufer (library:573 · docwrit
   · Tag( außerhalb models 0 · MarkdownIt( 1 · check_media_limits 5 · fetch_job 3    [N: set_content, MarkdownIt]
 Upload-Vorspann: request.files in 4 Views, secure_filename( 7 Aufrufe, Endungs-Zeile dreimal wortgleich (audio.py:274 · document_api.py:440 · markdown.py:164)    [N: 7]
 Live-Vorschau: static/js/markdown_converter.js:189 linkify: true gegen linkify False im einen Server-MarkdownIt (app_pkg/markdown_render.py)    [N: JS-Zeile]
-Collection-Gate: collections.py:74, :109 name.strip() und :87 Collection( direkt gegen models.py:501-511 (kollabiert Leerraum); Aufrufer des Gates nur cards.py:304, __init__.py:735
+Collection-Gate: collections.py:74, :107 name.strip() und :87 Collection( direkt gegen models.py:501-511 (kollabiert Leerraum); Aufrufer des Gates nur cards.py:304, __init__.py:735
 JSON-Body: get_json(silent=True) 29 in 12 Modulen, wortgleiche Fehlerzeile 27×; jsonify mit 'error' 192× (400×121 · 404×33 · 503×10 · 413×9 · 409×8 · 401×6)    [N: 29]
 ```
 
