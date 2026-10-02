@@ -24,6 +24,7 @@
      TAG CHIP                    – .c-tag (shared pill), .c-tag--active (R2-B library tag-filter chip)
      REVIEW (R4-LEARN)           – .review-card (Lernen: card, figure (CARD-SVG), reveal, rating, cloze, deepen, note)
      PLACE CONTROL (R2-H)        – .place-control (flat four-place move-control, list card + detail sidebar)
+     NOTION MEETING PICKER       – .notion-existing, .notion-meeting, .notion-badge, .notion-link-status (library detail)
      READING LIST (R2-D/R2-H)    – .view-switcher (+__badge tab bar), .queue-reorder (Lese-Liste reorder rail)
      TAG MANAGER                 – .tag-manager-card (per-tag row on /tags page)
      TOAST NOTIFICATION          – .toast-notification
@@ -2294,6 +2295,101 @@ body.reader-active .sidebar-toggle-floater--global {
     font-weight: 600;
     box-shadow: var(--nm-pressed-sm);
 }
+
+/* ===== NOTION MEETING PICKER (NOTION-MEETING-LINK) ===== */
+/* "An Notion senden → Meeting → Bestehendes Meeting" in the detail sidebar
+   (300 px wide): reference line, day navigation, the candidate list. The way
+   switch above it reuses .place-control. Texts sit on --nm-text-secondary,
+   not -muted (LEARN-RATE: muted measures 2.4:1 on the light surface). */
+.notion-link-status {
+    margin: var(--nm-space-sm) 0 0;
+    font-size: var(--text-xs);
+    color: var(--nm-text-secondary);
+    overflow-wrap: anywhere;
+}
+.notion-link-status a { color: var(--nm-text); font-weight: var(--weight-semibold); }
+.notion-existing {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nm-space-sm);
+}
+/* display:flex above would beat the UA rule for [hidden]. */
+.notion-existing[hidden],
+.notion-link-status[hidden],
+#notion-way-group[hidden] { display: none; }
+.notion-existing__reference {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--nm-text);
+}
+.notion-existing__hint {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--nm-tone-warning-ink);
+}
+.notion-existing__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--nm-space-xs);
+}
+.notion-existing__nav .c-input { flex: 1; min-width: 0; }
+.notion-meeting-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nm-space-xs);
+    max-height: 320px;
+    overflow-y: auto;
+    /* room for the pressed shadow of the chosen entry */
+    padding: 2px;
+}
+.notion-meeting-list__note {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--nm-text-secondary);
+}
+.notion-meeting {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--nm-space-sm);
+    padding: 6px 8px;
+    border-radius: var(--nm-radius-sm);
+    cursor: pointer;
+}
+.notion-meeting:has(input:checked) { box-shadow: var(--nm-pressed-sm); }
+.notion-meeting input { margin-top: 3px; flex-shrink: 0; }
+.notion-meeting__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.notion-meeting__when { font-size: 0.7rem; color: var(--nm-text-secondary); }
+.notion-meeting__title {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--nm-text);
+    overflow-wrap: anywhere;
+}
+.notion-meeting__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--nm-text-secondary);
+}
+/* A neighbour day's entry: same content, visibly not the shown day. */
+.notion-meeting--other-day .notion-meeting__when { font-style: italic; }
+.notion-badge {
+    font-size: 0.66rem;
+    font-weight: var(--weight-semibold);
+    padding: 1px 6px;
+    border-radius: var(--nm-radius-pill);
+    white-space: nowrap;
+}
+.notion-badge--transcript { background: var(--nm-tone-warning); color: var(--nm-tone-warning-ink); }
+.notion-badge--linked     { background: var(--nm-tone-slate);   color: var(--nm-tone-slate-ink); }
+.notion-badge--here       { background: var(--nm-tone-success); color: var(--nm-tone-success-ink); }
 
 /* ===== READING LIST (R2-D / R2-H) ===== */
 /* View-switcher — the R2-H flat four-place tab bar (Inbox/Lese-Liste/

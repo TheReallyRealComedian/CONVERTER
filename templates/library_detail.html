@@ -192,20 +192,42 @@
 
                 <!-- Save to Notion -->
                 <div class="c-surface--flat p-4">
-                    <button type="button" id="notion-toggle-btn" onclick="toggleNotionPanel()" aria-expanded="false" aria-controls="notion-panel" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">
+                    <button type="button" id="notion-toggle-btn" onclick="toggleNotionDialog()" aria-expanded="false" aria-controls="notion-panel" class="flex items-center justify-between w-full text-left cursor-pointer bg-transparent border-none p-0">
                         <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint m-0">An Notion senden</h6>
                         <span class="text-neo-faint text-xs" id="notion-toggle-icon">&#9662;</span>
                     </button>
+                    <!-- NOTION-MEETING-LINK: die gemerkte Verknüpfung, sichtbar ohne das Panel
+                         zu öffnen. JS (renderNotionLink) füllt sie mit Text-Knoten. -->
+                    <p id="notion-link-status" class="notion-link-status" hidden></p>
                     <div id="notion-alert-container" class="mt-3"></div>
                     <div id="notion-panel" class="hidden mt-3">
                         <div class="flex gap-1.5 mb-3" id="notion-target-group">
-                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="meetings" title="Notion-Ziel wechseln" onclick="selectTarget('meetings')">Meeting</button>
-                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="notes" title="Notion-Ziel wechseln" onclick="selectTarget('notes')">Notiz</button>
-                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="inbox" title="Notion-Ziel wechseln" onclick="selectTarget('inbox')">Inbox</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="meetings" title="Notion-Ziel wechseln" onclick="chooseNotionTarget('meetings')">Meeting</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="notes" title="Notion-Ziel wechseln" onclick="chooseNotionTarget('notes')">Notiz</button>
+                            <button type="button" class="c-btn text-[11px] flex-1 py-1.5" data-target="inbox" title="Notion-Ziel wechseln" onclick="chooseNotionTarget('inbox')">Inbox</button>
                         </div>
                         <div id="notion-target-status" class="sr-only" aria-live="polite"></div>
-                        <div id="notion-fields" class="flex flex-col gap-2"></div>
-                        <button type="button" class="c-btn c-btn--primary w-full text-xs py-2 mt-3" id="notion-submit-btn" onclick="sendToNotion()">An Notion senden</button>
+                        <!-- NOTION-MEETING-LINK: zwei Wege im Ziel "Meeting". Nur dort sichtbar. -->
+                        <div class="place-control mb-3" id="notion-way-group" role="group" aria-label="Meeting-Weg" hidden>
+                            <button type="button" class="place-control__btn" data-way="existing" aria-pressed="false">Bestehendes Meeting</button>
+                            <button type="button" class="place-control__btn" data-way="new" aria-pressed="false">Neues Meeting anlegen</button>
+                        </div>
+                        <div id="notion-existing" class="notion-existing" hidden>
+                            <p id="notion-reference" class="notion-existing__reference"></p>
+                            <p id="notion-reference-hint" class="notion-existing__hint" hidden></p>
+                            <div class="notion-existing__nav">
+                                <button type="button" class="c-btn text-xs py-1 px-2" id="notion-day-prev" aria-label="Tag zurück" title="Tag zurück">&lsaquo;</button>
+                                <input type="date" class="c-input text-xs" id="notion-day-input" aria-label="Tag der Meetings">
+                                <button type="button" class="c-btn text-xs py-1 px-2" id="notion-day-next" aria-label="Tag vor" title="Tag vor">&rsaquo;</button>
+                            </div>
+                            <div id="notion-meeting-list" class="notion-meeting-list" role="radiogroup" aria-label="Meetings"></div>
+                        </div>
+                        <!-- Das Formular (Neues Meeting, Notiz, Inbox). Der Wrapper trägt das
+                             hidden-Attribut — #notion-fields selbst ist display:flex. -->
+                        <div id="notion-new">
+                            <div id="notion-fields" class="flex flex-col gap-2"></div>
+                        </div>
+                        <button type="button" class="c-btn c-btn--primary w-full text-xs py-2 mt-3" id="notion-submit-btn" onclick="submitNotion()">An Notion senden</button>
                     </div>
                 </div>
 
