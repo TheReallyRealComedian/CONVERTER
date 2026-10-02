@@ -299,4 +299,7 @@
      vor library_detail.js, das ReaderFigures in scrollToHighlight nutzt. -->
 <script src="{{ url_for('static', filename='js/reader_figures.js') }}"></script>
 <script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>
+<!-- NOTION-MEETING-LINK: das Notion-Panel; nach library_detail.js (nutzt zur Aufrufzeit
+     CONVERSION_ID und conversionTagsState von dort). -->
+<script src="{{ url_for('static', filename='js/library_notion.js') }}"></script>
 {% endblock %}
