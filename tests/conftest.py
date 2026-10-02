@@ -210,16 +210,6 @@ def mock_gemini(app):
 
 
 @pytest.fixture
-def mock_google_tts(app):
-    """Replace the module-level ``google_tts_service`` singleton with a MagicMock."""
-    mock_svc = MagicMock()
-    original = app_module.google_tts_service
-    app_module.google_tts_service = mock_svc
-    yield mock_svc
-    app_module.google_tts_service = original
-
-
-@pytest.fixture
 def mock_redis_queue(app):
     """Replace the module-level ``task_queue`` and patch ``Job.fetch``.
 

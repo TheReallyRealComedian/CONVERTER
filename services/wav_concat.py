@@ -1,8 +1,12 @@
-# services/gemini/audio.py
-"""WAV concatenation helpers for multi-chunk podcast outputs.
+# services/wav_concat.py
+"""WAV concatenation helpers for multi-chunk narration renders.
 
-Both functions take a list of WAV file paths and return the path to a new
-combined WAV file. They unlink the inputs along the way (legacy behaviour).
+The two ``concatenate_with_*`` functions take a list of WAV file paths and
+return the path to a new combined WAV file. They unlink the inputs along the
+way (legacy behaviour). ``is_pydub_available`` is the import probe that
+decides between them. Stdlib + optional pydub only — no SDK import, so the
+renderer and the worker's ``import tasks`` do not pay for one here
+(ARCH-NARR5: moved verbatim out of the retired ``services/gemini`` package).
 """
 import logging
 import os
@@ -77,3 +81,13 @@ def concatenate_with_wave(audio_files: List[str]) -> str:
 
     logger.info(f"Combined audio saved to: {output_path}")
     return output_path
+
+
+def is_pydub_available():
+    """Return True if pydub can be imported in this process."""
+    try:
+        from pydub import AudioSegment  # noqa: F401
+        return True
+    except ImportError:
+        logger.warning("PyDub not available - audio concatenation disabled")
+        return False

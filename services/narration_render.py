@@ -35,7 +35,7 @@ from google.api_core import exceptions as gax
 from google.cloud import texttospeech
 
 from app_pkg.config import TIMEOUT_TTS_SYNTH_SECONDS
-from services.gemini.audio import concatenate_with_pydub, concatenate_with_wave
+from services.wav_concat import concatenate_with_pydub, concatenate_with_wave
 
 logger = logging.getLogger(__name__)
 

@@ -228,9 +228,11 @@ def _startup_lock(uri):
 
     Every gunicorn worker runs ``create_app()`` — and with it
     ``db.create_all()`` and ``_run_pending_migrations`` — on its own. No
-    ``--preload``: the SDK clients built at import time (a gRPC channel in
-    ``GoogleTTSService``, the Deepgram/genai HTTP clients) are not fork-safe,
-    and the per-process import is the model the app has always run under.
+    ``--preload``: the per-process import is the model the app has always
+    run under. (The gRPC channel in ``GoogleTTSService`` that made a fork
+    after import unsafe left the web process with ARCH-NARR5; ``--preload``
+    has not been re-examined since — the Deepgram client and the Redis
+    connection are still built at import.)
     Both bootstrap steps are idempotent on a settled schema, but on the first
     boot after a schema change N processes would race check-then-ALTER: the
     loser dies on ``duplicate column`` / ``table already exists``, and

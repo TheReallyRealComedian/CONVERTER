@@ -1,18 +1,21 @@
 """Top-level entry point for the CONVERTER Flask app.
 
-Most of the routing and feature logic lives under ``app_pkg/``; this module
-is the bootstrap that builds the Flask instance via ``create_app()``,
-constructs the service singletons and Redis/RQ plumbing, registers the
-per-feature blueprints, and exposes ``app`` and ``asgi_app`` for Gunicorn /
-Uvicorn.
+The routing and feature logic lives under ``app_pkg/``; this module is the
+bootstrap that builds the Flask instance via ``create_app()``, constructs
+the service singletons and the Redis/RQ plumbing, calls each feature
+module's ``register(app)`` (plain functions, no Flask blueprints) and
+exposes ``app`` and ``asgi_app`` for Gunicorn / Uvicorn.
 
-Several names are kept at module level on purpose because the Stage 6
-characterization tests patch them by attribute on this module:
-``deepgram_service``, ``gemini_service``, ``google_tts_service``,
-``task_queue``, ``Job``, ``async_playwright``,
-``GEMINI_API_KEY``, ``DEEPGRAM_API_KEY``, ``redis_conn``.
-The blueprints look these up via ``import app as _app_module`` so the
-patches reach the route handlers at call time.
+Several names are kept at module level on purpose because the tests patch
+them by attribute on this module: ``deepgram_service``, ``gemini_service``,
+``task_queue``, ``Job``, ``async_playwright``, ``GEMINI_API_KEY``,
+``DEEPGRAM_API_KEY``, ``redis_conn``. The route modules look these up via
+``import app as _app_module`` so the patches reach the handlers at call
+time.
+
+No Cloud-TTS client here (ARCH-NARR5): narrations are rendered by the
+worker, which builds its own ``GoogleTTSService`` per job (``tasks.py``).
+The web process needs neither the client nor the GCP key file.
 """
 import os
 
@@ -42,12 +45,11 @@ from app_pkg import tags as tags_module
 from app_pkg.asgi import ThreadPoolWsgiToAsgi
 from app_pkg.config import RQ_SERIALIZER
 from app_pkg.integrations import notion as notion_module
-from services import DeepgramService, GeminiService, GoogleTTSService
+from services import DeepgramService, GeminiService
 
 
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-GOOGLE_CREDENTIALS_PATH = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 
 app = create_app()
 
@@ -58,7 +60,6 @@ csrf = app.extensions['csrf']
 # Initialize services
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
 gemini_service = GeminiService(GEMINI_API_KEY) if GEMINI_API_KEY else None
-google_tts_service = GoogleTTSService(GOOGLE_CREDENTIALS_PATH) if GOOGLE_CREDENTIALS_PATH else None
 
 # Redis Queue setup. SEC-REDIS-AUTH: in Compose REDIS_URL carries the
 # password; the localhost default is for tests and Mac-Dev without Compose.
@@ -99,6 +100,3 @@ narration_module.register(app)
 # SYNC-FREEZE P2: WSGI calls on a per-process thread pool instead of
 # asgiref's single thread — see app_pkg/asgi.py for the measured why.
 asgi_app = ThreadPoolWsgiToAsgi(app)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)

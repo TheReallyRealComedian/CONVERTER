@@ -33,13 +33,3 @@ def create_client(api_key):
             client._api_client._httpx_client.timeout = httpx.Timeout(timeout=float(TIMEOUT_GEMINI_SECONDS))
             logger.info(f"✅ Timeout auf {TIMEOUT_GEMINI_SECONDS} Sekunden erhöht")
     return client
-
-
-def is_pydub_available():
-    """Return True if pydub can be imported in this process."""
-    try:
-        from pydub import AudioSegment  # noqa: F401
-        return True
-    except ImportError:
-        logger.warning("PyDub not available - audio concatenation disabled")
-        return False

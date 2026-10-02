@@ -166,8 +166,10 @@ USER 1000:1000
 # process after large uploads). Under P1's single-thread adapter the process
 # count was the only lever - that is why it was 4 for one commit; --threads
 # never helped because the serialisation sat in asgiref, per process.
-# NO --preload: each process builds its own app (the SDK clients created at
-# import - a gRPC channel in GoogleTTSService - are not fork-safe); the
+# NO --preload: each process builds its own app. (The gRPC channel in
+# GoogleTTSService that made a fork after import unsafe left the web process
+# with ARCH-NARR5; --preload has not been re-examined since - the Deepgram
+# client and the Redis connection are still built at import.) The
 # schema bootstrap is serialised by the startup lock in app_pkg/__init__.py,
 # and SQLite runs in WAL mode with an explicit busy_timeout (same module) so
 # N writers don't trade the freeze for 'database is locked'.

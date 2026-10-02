@@ -11,7 +11,8 @@ text/script feature — remove it and the singleton if none materialises.
 """
 import logging
 
-from services.gemini.client import create_client, is_pydub_available
+from services.gemini.client import create_client
+from services.wav_concat import is_pydub_available
 
 logger = logging.getLogger(__name__)
 

@@ -13,13 +13,11 @@ from flask import jsonify
 
 _SERVICE_LABELS = {
     'deepgram': 'Audio-Transkriptions-Service',
-    'google_tts': 'Google Cloud TTS',
     'gemini': 'Gemini-API-Key',
 }
 
 _SERVICE_ATTRS = {
     'deepgram': 'deepgram_service',
-    'google_tts': 'google_tts_service',
     'gemini': 'GEMINI_API_KEY',
 }
 
