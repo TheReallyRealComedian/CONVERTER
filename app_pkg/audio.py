@@ -29,8 +29,9 @@ it into the inbox via ``/place`` instead of creating a second row. The
 ``recorded_at`` capture (MCP1) happens here at submit — filename date beats
 the client's ``lastModified``, the precedence of ``POST /api/conversions``.
 
-Live transcription (browser ↔ Deepgram WebSocket via the token route) is
-untouched.
+Live transcription runs browser ↔ Deepgram over a WebSocket; the page gets a
+short-lived token for it from ``GET /api/get-deepgram-token`` (Deepgram's
+grant, server-set lifetime, fail-closed — SEC-DG-TOKEN), never the API key.
 """
 import json
 import logging
@@ -42,7 +43,9 @@ from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 from werkzeug.utils import secure_filename
 
-from app_pkg.config import is_job_mark, new_job_mark, transcribe_job_timeout_for
+from app_pkg.config import (DEEPGRAM_LIVE_TOKEN_TTL_SECONDS,
+                            TIMEOUT_DEEPGRAM_GRANT_SECONDS, is_job_mark,
+                            new_job_mark, transcribe_job_timeout_for)
 from app_pkg.decorators import require_service
 from app_pkg.library import (_normalize_client_recorded_at,
                              parse_recorded_at_from_filename)
@@ -274,12 +277,31 @@ def register(app):
     @login_required
     @require_service('deepgram')
     def get_deepgram_token():
+        """Short-lived Deepgram token for the page's live WebSocket.
+
+        Answers only with a token minted by Deepgram's grant; the lifetime is
+        the server's (``DEEPGRAM_LIVE_TOKEN_TTL_SECONDS``), nothing in the
+        request can change it. Fail-closed (SEC-DG-TOKEN): a failed grant is a
+        502 — no branch falls back to the API key, which carries account
+        rights and does not expire.
+        """
         try:
-            temp_key = _app_module.deepgram_service.create_temporary_key(ttl_seconds=60)
-            return jsonify({"deepgram_token": temp_key})
+            token, expires_in = _app_module.deepgram_service.grant_live_token(
+                ttl_seconds=DEEPGRAM_LIVE_TOKEN_TTL_SECONDS,
+                timeout_seconds=TIMEOUT_DEEPGRAM_GRANT_SECONDS,
+            )
         except Exception as e:
-            app.logger.error(f"Failed to create temporary Deepgram key: {e}", exc_info=True)
-            return jsonify({"error": "Failed to create transcription token."}), 500
+            # Type and upstream status only: an SDK error can carry response
+            # headers and body, and nothing near a credential belongs in a log.
+            app.logger.error('Deepgram token grant failed: %s (upstream status %s)',
+                             type(e).__name__, getattr(e, 'status_code', None))
+            return jsonify({'error': 'Transkriptions-Token konnte nicht erstellt werden. '
+                                     'Bitte erneut versuchen.'}), 502
+        response = jsonify({'deepgram_token': token, 'expires_in': expires_in})
+        # A credential response is never stored — a cached answer would also
+        # be an expired token on the next recording.
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
     @app.route('/api/transcriptions', methods=['POST'])
     @login_required

@@ -83,7 +83,9 @@ class DeepgramService:
     def __init__(self, api_key):
         if not api_key:
             raise ValueError("DEEPGRAM_API_KEY is required")
-        self.api_key = api_key
+        # The key goes into the SDK client and nowhere else: the service keeps
+        # no copy it could hand out (SEC-DG-TOKEN, sentinel in
+        # tests/test_deepgram_live_token.py).
         self.client = DeepgramClient(api_key=api_key)
 
         # Initialisiere Chunker und Merger
@@ -290,11 +292,37 @@ class DeepgramService:
         )
         return None
     
-    def create_temporary_key(self, ttl_seconds=60):
-        """Return API key for client-side WebSocket connection.
+    def grant_live_token(self, *, ttl_seconds, timeout_seconds):
+        """Mint a short-lived access token for the browser's live WebSocket.
 
-        Since the app is LAN-only and login-protected, we return the
-        existing key directly instead of creating a temporary scoped key
-        (which requires admin-level keys:write permission).
+        Deepgram's grant (``POST /v1/auth/grant``) returns a JWT for the voice
+        APIs and nothing else — measured 2026-10-02: with it ``/v1/projects``
+        and a further grant both answer 403. Returns
+        ``(access_token, expires_in)``.
+
+        Both arguments are required on purpose: lifetime and deadline are the
+        caller's decision (``app_pkg/config.py``), not a default here. One
+        attempt, no SDK retries — the call runs in a web thread, and the SDK's
+        default (two retries with backoff, a Retry-After of up to 60 s) would
+        stretch the deadline several times over.
+
+        Raises on every failure: SDK error, timeout, or an answer without a
+        usable token and expiry. There is no fallback — this service holds no
+        copy of the API key and has no way to hand it out (SEC-DG-TOKEN).
         """
-        return self.api_key
+        response = self.client.auth.v1.tokens.grant(
+            ttl_seconds=ttl_seconds,
+            request_options={
+                "timeout_in_seconds": timeout_seconds,
+                "max_retries": 0,
+            },
+        )
+        access_token = getattr(response, "access_token", None)
+        expires_in = getattr(response, "expires_in", None)
+        if not isinstance(access_token, str) or not access_token.strip():
+            raise RuntimeError("Deepgram grant returned no access token")
+        if (isinstance(expires_in, bool)
+                or not isinstance(expires_in, (int, float))
+                or not expires_in > 0):  # also False for NaN
+            raise RuntimeError("Deepgram grant returned no usable expiry")
+        return access_token, expires_in

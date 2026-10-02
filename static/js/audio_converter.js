@@ -167,13 +167,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // A short-lived Deepgram token (server-set lifetime, seconds) — never the
+    // API key. Fetch it right before connecting; every recording gets its own.
     async function getDeepgramToken() {
-        const response = await fetch('/api/get-deepgram-token');
+        const response = await fetch('/api/get-deepgram-token', { cache: 'no-store' });
         if (!response.ok) {
             const errorData = await safeJSON(response);
             throw new Error(errorData.error || 'Token-Abruf fehlgeschlagen');
         }
         const data = await safeJSON(response);
+        if (!data.deepgram_token) throw new Error('Token-Abruf fehlgeschlagen');
         return data.deepgram_token;
     }
 
@@ -194,20 +197,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const connectToDeepgram = async () => {
         setMicLoading(true);
 
-        let deepgramToken;
-        try {
-            deepgramToken = await getDeepgramToken();
-        } catch (error) {
-            console.error('Failed to get token:', error);
-            setMicLoading(false);
-            showAlert(liveAlertContainer, 'danger',
-                'API-Token konnte nicht abgerufen werden. Server-Konfiguration prüfen.');
-            return;
-        }
-
-        // Acquire the mic before opening the WebSocket so the browser
-        // permission prompt fires before any network handshake. Denial leaves
-        // no socket dangling.
+        // Order: mic → token → socket. The token lives for seconds, and the
+        // browser's permission prompt can take longer than that to answer —
+        // so the mic comes first. Denial requests no token and leaves no
+        // socket dangling.
         let stream;
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -226,6 +219,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 msg = 'Mikrofon konnte nicht gestartet werden. Browser-Berechtigung und angeschlossenes Gerät prüfen.';
             }
             showAlert(liveAlertContainer, 'danger', msg);
+            return;
+        }
+
+        let deepgramToken;
+        try {
+            deepgramToken = await getDeepgramToken();
+        } catch (error) {
+            console.error('Failed to get token:', error);
+            // The mic is already ours — release it, no recording follows.
+            stream.getTracks().forEach(t => t.stop());
+            setMicLoading(false);
+            showAlert(liveAlertContainer, 'danger',
+                'API-Token konnte nicht abgerufen werden. Server-Konfiguration prüfen.');
             return;
         }
 
@@ -256,7 +262,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const deepgramUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
-        socket = new WebSocket(deepgramUrl, ['token', deepgramToken]);
+        // 'bearer' is the subprotocol form for a granted token (a JWT);
+        // 'token' would be the form for an API key.
+        socket = new WebSocket(deepgramUrl, ['bearer', deepgramToken]);
 
         socket.onopen = () => {
             baseText = transcriptOutput.value;

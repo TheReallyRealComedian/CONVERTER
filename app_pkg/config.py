@@ -101,6 +101,17 @@ def job_source_ext(value):
 TIMEOUT_GEMINI_SECONDS = 300
 TIMEOUT_DEEPGRAM_SECONDS = 1200
 
+# Live transcription (SEC-DG-TOKEN): the browser opens its Deepgram WebSocket
+# with a short-lived token minted by Deepgram's grant, never with the API key.
+# The SERVER sets the lifetime — 30 s is Deepgram's own default, and the page
+# fetches the token right before it connects (after the mic permission, so
+# the prompt cannot eat the lifetime). The grant runs in a web thread and
+# therefore carries its own per-call deadline; the service makes one attempt
+# (no SDK retries — their backoff would stretch the deadline several times
+# over).
+DEEPGRAM_LIVE_TOKEN_TTL_SECONDS = 30
+TIMEOUT_DEEPGRAM_GRANT_SECONDS = 10
+
 
 def _env_positive_float(name, default):
     """Parse a positive float from ``os.environ[name]``, else ``float(default)``.
