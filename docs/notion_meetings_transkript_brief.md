@@ -108,3 +108,38 @@ Bitte Fall 1 und 2 an einer **Probe-Seite** testen, nicht an einem echten Meetin
 ## Rückkanal
 
 Antwort gern als `docs/notion_meetings_transkript_antwort.md` neben diese Datei.
+
+---
+
+## Nachtrag 2026-10-02 — Schritte 1 und 2 sind erledigt (eingetragen vom CONVERTER-Master)
+
+Der Koordinator hat seine Rückmeldung im Chat an Oli gegeben, nicht als Datei (im CONVERTER-Repo lief parallel ein Sub-Thread). Hier steht, was davon für den Bau zählt, mit der Gegenmessung des Masters.
+
+**Schritt 1 (Oli):** Das URL-Feld `CONVERTER` ist in MEETINGS angelegt. Die Probe-Seite heißt „CONVERTER-Probe" (page id `3ed3f5db-30d2-805b-baec-ec7216b6ffc0`, Datum 2026-10-02 20:35–21:35); `Transcript` und `CONVERTER` sind leer.
+
+**Schritt 2 (Koordinator):** notion-mcp-server `3e7d5cb` ist deployt (Container angelegt 2026-10-02 20:53:28 MESZ, healthy), die Registry für MEETINGS aufgefrischt (hinzugekommen ist nur `CONVERTER`). Der laufende Server merkt sich die Registry bis zu fünf Minuten.
+
+**Vom Koordinator an der Probe-Seite gemessen** (mit dem `MCP_AUTH_TOKEN`; die Tabelle kam im Chat teils abgeschnitten an — die genaue Form der Antworten misst der Sprint selbst nach):
+
+| Aufruf | Status | Antwort |
+|---|---|---|
+| `page_id` + `transcript` + `converter_link` | 200 | `success: true`, `url`, `message: "Meeting updated"`, `warnings: []` |
+| derselbe Aufruf noch einmal | 409 | `error`, `code: "transcript_exists"`, `page_id` |
+| mit `replace_transcript: true` | 200 | Transkript ersetzt, nicht angehängt |
+| Transkript mit 200 001 Zeichen | 413 | `error`, `code`, `length`, `max: 200000`; nichts geschrieben |
+| `converter_link`, solange das Feld der Registry fehlt | 400 | Fehlertext mit dem Auffrisch-Befehl; nichts geschrieben |
+
+Ein Update fasst nur `Transcript` und `CONVERTER` an: Titel, Datum, Type, Kalenderstatus, PEOPLE, PROJECT, Summary, Calendar Event ID und alle übrigen Felder hatten durchgehend dieselbe Prüfsumme, der Seiteninhalt blieb bei denselben drei Blöcken.
+
+**Was vom Brief abweicht:**
+- Die Antwort von `query` trägt zusätzlich `date_from`, `date_to` und `only_notnotion`.
+- Ein leeres `calendar_event_id` kommt als `""`, nicht als `null`.
+- Die Seiten-URL hat die Form `https://app.notion.com/p/…`.
+- `transcript: ""` wird als „nicht senden" behandelt, auch mit `replace_transcript: true` — ein Transkript lässt sich über diese API nicht entfernen. `converter_link: ""` leert das Feld.
+- Markdown landet roh im Feld `Transcript`.
+- Die Grenze ist mit 200 001 Zeichen gemessen, der Fall von genau 200 000 nicht.
+- `converter_link` nutzt der Server nirgends als Schlüssel (geschrieben mit `.strip()`, in den Antworten zurückgelesen) — die Form des Links ist allein CONVERTERs Sache.
+
+**Gegenmessung des Masters** (2026-10-02, aus dem CONVERTER-Web-Container, nur lesend): `POST /api/meetings/query` für den Tag → 200; Top-Level `count`, `date_from`, `date_to`, `meetings`, `only_notnotion`, `truncated`; je Eintrag `calendar_event_id`, `converter_link`, `datum`, `has_transcript`, `meeting_link`, `notnotion`, `page_id`, `people_count`, `people_count_capped`, `title`, `type`, `url`. Die Probe-Seite: `has_transcript: false`, `converter_link: null`, `calendar_event_id: ""`, `datum.start` mit Offset `+02:00`, `time_zone: null`.
+
+Hinweis an Oli aus der Rückmeldung, nicht CONVERTERs Sache: der Checkout des notion-mcp-server ist sieben Commits vor `origin`, darunter der deployte.
