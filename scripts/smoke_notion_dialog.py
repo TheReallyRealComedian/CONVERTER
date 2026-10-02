@@ -53,6 +53,38 @@ In parts A and B nothing is written to Notion: a send request that is not
 answered by the script fails the run. ``/api/notion/suggestions`` is the one
 real (read-only) call; only COUNTS of its lists are printed, never the names.
 
+Part C (only with SMOKE_LIVE_PROBE=1) = the acceptance of the brief, END TO
+END against the real notion-mcp-server — and it WRITES, to exactly one page:
+the probe page "CONVERTER-Probe" (``PROBE``). The interception of send
+requests is lifted for that page id and for nothing else: a send request whose
+``page_id`` is not the probe id is aborted in the browser, never reaches the
+app, and ends the run (step 14 shows the lock closing on a foreign id before
+the first real send). The script's own direct calls to the other side go
+through ``probe_post``, which refuses any other page id. Real meeting titles
+from Oli's calendar are in the list during part C — they are never printed;
+the output carries counts and the probe's own entry only.
+
+14. The lock: a scripted list with a foreign page id → the send is aborted.
+15. Case 1 — recording time inside the probe's window → the probe is the
+    preselected entry → send → Notion has the transcript and the back link;
+    title, date, type, people of the page unchanged; body blocks unchanged;
+    the row remembers the link, its other metadata untouched.
+16. Case 2 — the same row again → confirm → "Nein": nothing changes; "Ja":
+    replaced, not appended (the field holds the text once).
+17. Case 3 — a date-only row: hint, no preselection, the day can be changed;
+    a row without ``recorded_at``: the upload-time hint.
+18. Case 4 — a transcript over 200 000 characters: the sentence with both
+    numbers, nothing written.
+19. Case 5 — the link line without opening the panel; reopening preselects
+    the probe; "Neues Meeting anlegen" shows the form (NOT sent — it would
+    create a real page).
+20. Clean-up: the probe's ``converter_link`` is emptied. Its transcript cannot
+    be removed through the API and stays.
+
+A re-run finds the probe WITH a transcript: case 1 then goes through the
+confirm ("Ja") — the script reads the state first and expects the dialog
+exactly when the page had a transcript.
+
 Test rows are written through the ORM under the throwaway user's own
 ``user_id``. The script REFUSES to run for user id 1 or the INGEST_USER and
 removes the rows it created (strictly by ``user_id`` + the ids it wrote); the
@@ -66,12 +98,16 @@ How to run (Mintbox, ~1 min):
     docker exec -i markdown-converter-web sh -c 'cat > /tmp/smoke_notion.py' < scripts/smoke_notion_dialog.py
     # 3. run
     docker exec -e SMOKE_USER=zz_notion -e SMOKE_PASSWORD='<random>' markdown-converter-web python /tmp/smoke_notion.py
+    # 3b. the acceptance run (parts A, B and C — C writes to the probe page)
+    docker exec -e SMOKE_LIVE_PROBE=1 -e SMOKE_USER=zz_notion -e SMOKE_PASSWORD='<random>' markdown-converter-web python /tmp/smoke_notion.py
     # 4. clean up STRICTLY by user_id (the api_token table carries Oli's iOS
     #    tokens): the script already removed its rows; delete the User row via
     #    the ORM filtered by that user_id, then rm /tmp/smoke_notion.py.
 
 Env: BASE_URL (default http://localhost:5000), SMOKE_USER, SMOKE_PASSWORD,
-SMOKE_APP_ROOT (default: cwd = /app in the container). Exit 0 = every check
+SMOKE_APP_ROOT (default: cwd = /app in the container), SMOKE_LIVE_PROBE (part
+C; needs NOTION_MCP_URL, MCP_AUTH_TOKEN, NOTION_TOKEN and PUBLIC_BASE_URL from
+the container's env — none of them is printed). Exit 0 = every check
 passed; every measured value is printed so a failure is diagnosable from the
 output alone.
 
@@ -84,10 +120,12 @@ NOTION_TOKEN): the script then answers ``/api/notion/suggestions`` itself with
 canned lists. Never set it for the run that counts — against the deployed app
 the real endpoint is the one being measured.
 """
+import hashlib
 import json
 import os
 import re
 import sys
+import uuid
 
 from playwright.sync_api import sync_playwright
 
@@ -95,6 +133,15 @@ BASE = os.environ.get('BASE_URL', 'http://localhost:5000')
 USER = os.environ.get('SMOKE_USER') or sys.exit('SMOKE_USER missing')
 PASSWORD = os.environ.get('SMOKE_PASSWORD') or sys.exit('SMOKE_PASSWORD missing')
 FAKE_SUGGESTIONS = os.environ.get('SMOKE_FAKE_SUGGESTIONS') == '1'
+LIVE = os.environ.get('SMOKE_LIVE_PROBE') == '1'
+# Part C writes to THIS page and to no other (Oli's test meeting, 2026-10-02
+# 20:35–21:35). Every write path compares against it.
+PROBE = '3ed3f5db-30d2-805b-baec-ec7216b6ffc0'
+PROBE_KEY = PROBE.replace('-', '')
+PROBE_DAY = '2026-10-02'
+PROBE_WHEN = 'Fr, 02.10.2026 · 20:35–21:35 · 60 min'
+PROBE_TITLE = 'CONVERTER-Probe'
+RUN_ID = uuid.uuid4().hex[:12]
 OUT = os.environ.get('SMOKE_OUT')      # e.g. /tmp/smoke_notion → _light.png / _dark.png of the panel
 CANNED_SUGGESTIONS = json.dumps({'people': ['Anna Beispiel', 'Bert Probe'], 'projects': ['Smoke-Projekt'],
                                  'meeting_types': ['Jour fixe'], 'note_types': ['Idee', 'Protokoll']})
@@ -104,6 +151,12 @@ AUDIO_CONTENT = '**Sprecher 1:** Smoke-Transkript, erste Zeile.\n\n**Sprecher 2:
 DOC_TITLE = 'Smoke NOTION Dokument'
 DOC_CONTENT = '# Smoke\n\nEin Absatz.'
 TAG_NAME = 'zz-smoke-notion'
+# Part C. The run id makes each run's transcript distinguishable from the one
+# the previous run left on the probe page.
+TIMED_CONTENT = (f'**Sprecher 1:** Smoke-Transkript der Abnahme, Lauf {RUN_ID}.\n\n'
+                 '**Sprecher 2:** Zweite Zeile, mit *Markdown* und Umlauten: äöüß.')
+_LINE = 'Zeile des ueberlangen Smoke-Transkripts, nur ASCII, damit die Zeichenzahl eindeutig ist.\n'
+TOO_LONG_CONTENT = (f'Lauf {RUN_ID}\n' + _LINE * (200000 // len(_LINE) + 1))[:200123]
 
 # Part B: scripted meetings. The ids only need the SHAPE of a Notion page id.
 P_NEAR = '11111111-1111-4111-8111-111111111111'
@@ -202,9 +255,22 @@ def create_rows(user_id):
                                 'page_id': P_NEAR, 'url': LINK_URL, 'meeting_title': LINK_TITLE,
                                 'meeting_start': '2026-10-02T14:30:00.000+02:00',
                                 'linked_at': '2026-10-02T13:00:00+00:00'}}))
-        db.session.add_all([tag, audio, doc, linked])
+        rows = {'audio': audio, 'doc': doc, 'linked': linked}
+        if LIVE:
+            def live_row(title, content, recorded_at, source):
+                return Conversion(user_id=user_id, conversion_type='audio_transcription', title=title,
+                                  content=content, metadata_json=json.dumps({
+                                      'transcription_status': 'ready', 'language': 'de',
+                                      'duration_seconds': 1500, 'source_sha256': f'smoke-{RUN_ID}',
+                                      'recorded_at': recorded_at, 'recorded_at_source': source}))
+            # recording time INSIDE the probe's window (20:35–21:35)
+            rows['timed'] = live_row('Smoke NOTION Uhrzeit', TIMED_CONTENT, '2026-10-02T20:50:00+02:00', 'client')
+            # the dictaphone case: a date, no time
+            rows['dateonly'] = live_row('Smoke NOTION nur Datum', AUDIO_CONTENT, '2026-10-02T00:00:00+02:00', 'filename')
+            rows['toolong'] = live_row('Smoke NOTION zu lang', TOO_LONG_CONTENT, '2026-10-02T20:50:00+02:00', 'client')
+        db.session.add_all([tag] + list(rows.values()))
         db.session.commit()
-        return {'audio': audio.id, 'doc': doc.id, 'linked': linked.id}, tag.id
+        return {key: row.id for key, row in rows.items()}, tag.id
 
 
 def remove_rows(ids, tag_id, user_id):
@@ -221,6 +287,68 @@ def remove_rows(ids, tag_id, user_id):
                                        Conversion.id.in_(ids)).count()
         tags_left = Tag.query.filter_by(user_id=user_id).count()
         return len(rows), left, tags_left
+
+
+# --- part C: the other side, read directly (same container, its env) --------
+def sha(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:12]
+
+
+def mcp_post(path, payload):
+    import requests
+    return requests.post(os.environ['NOTION_MCP_URL'] + path, json=payload, timeout=90,
+                         headers={'Authorization': 'Bearer ' + os.environ['MCP_AUTH_TOKEN']})
+
+
+def probe_post(payload):
+    """The script's own write to the other side — the probe page or nothing."""
+    if payload.get('page_id') != PROBE:
+        sys.exit(f'ABORT: refusing a direct write to page {payload.get("page_id")!r} — only the probe page')
+    return mcp_post('/api/meetings', payload)
+
+
+def probe_row():
+    """The probe as ``/api/meetings/query`` delivers it (never the transcript)."""
+    rows = mcp_post('/api/meetings/query', {'date_from': '2026-10-01', 'date_to': '2026-10-03'}).json()['meetings']
+    hits = [m for m in rows if m['page_id'].replace('-', '') == PROBE_KEY]
+    if len(hits) != 1:
+        sys.exit(f'ABORT: the probe page is not (uniquely) in the query answer ({len(hits)} rows)')
+    return hits[0]
+
+
+def probe_page():
+    """The probe read from Notion itself: the transcript field (as length +
+    hash), the back link, a hash per OTHER property, the body block count."""
+    import requests
+    headers = {'Authorization': 'Bearer ' + os.environ['NOTION_TOKEN'], 'Notion-Version': '2022-06-28'}
+    page = requests.get(f'https://api.notion.com/v1/pages/{PROBE}', headers=headers, timeout=30).json()
+    blocks = requests.get(f'https://api.notion.com/v1/blocks/{PROBE}/children?page_size=100',
+                          headers=headers, timeout=30).json()
+    props = page['properties']
+    items = props['Transcript']['rich_text']
+    transcript = ''.join(i.get('plain_text', '') for i in items)
+    return {
+        'transcript': transcript, 'items': len(items), 'converter': props['CONVERTER']['url'],
+        'last_edited': page['last_edited_time'], 'blocks': len(blocks['results']),
+        'other': {name: sha(json.dumps(p, sort_keys=True, ensure_ascii=False))
+                  for name, p in props.items() if name not in ('Transcript', 'CONVERTER')},
+    }
+
+
+def page_facts(pg):
+    return (f'transcript len={len(pg["transcript"])} sha={sha(pg["transcript"])} items={pg["items"]} '
+            f'converter={"set" if pg["converter"] else "empty"} blocks={pg["blocks"]} last_edited={pg["last_edited"]}')
+
+
+ROW_KEYS = ('title', 'datum', 'type', 'people_count', 'people_count_capped', 'calendar_event_id',
+            'notnotion', 'meeting_link', 'url')
+
+
+def row_metadata(conv_id):
+    with app.app_context():
+        raw = db.session.get(Conversion, conv_id).metadata_json
+        db.session.remove()
+        return json.loads(raw) if raw else {}
 
 
 # --- page helpers ----------------------------------------------------------
@@ -344,12 +472,33 @@ try:
                 if '/api/notion/suggestions' in r.url else None)
 
         # Every send request stops here; the script answers it itself. Nothing
-        # is ever continued to the server.
+        # is continued to the server — EXCEPT in part C (live['on']), and there
+        # only a request whose page_id is the probe page. Anything else is
+        # aborted in the browser and recorded as blocked.
         held_sends = []
+        live = {'on': False, 'blocked': [], 'passed': []}
 
         def on_send(route):
-            send_requests_seen.append(route.request.post_data)
-            held_sends.append(route)
+            data = route.request.post_data
+            send_requests_seen.append(data)
+            if not live['on']:
+                held_sends.append(route)
+                return
+            try:
+                body = json.loads(data)
+            except (TypeError, ValueError):
+                body = {}
+            page_id = body.get('page_id') if isinstance(body, dict) else None
+            if not isinstance(page_id, str) or page_id.replace('-', '').lower() != PROBE_KEY:
+                live['blocked'].append(page_id)
+                route.abort()
+                return
+            live['passed'].append({'replace': body.get('replace_transcript'), 'keys': sorted(body)})
+            route.continue_()
+
+        def no_foreign_send():
+            if live['blocked']:
+                sys.exit(f'ABORT: a send request for a page that is not the probe was issued and blocked: {live["blocked"]}')
 
         ctx.route('**/api/conversions/*/send-to-notion', on_send)
 
@@ -362,6 +511,9 @@ try:
             day = url.split('?day=')[1] if '?day=' in url else None
             candidates['requests'].append(day)
             body = scripted_candidates(day, candidates['sent'])
+            if candidates['mode'] == 'live':        # part C: the real endpoint answers
+                route.continue_()
+                return
             if candidates['mode'] == 'empty':
                 body = dict(scripted_candidates('2026-09-28', False), day='2026-10-02')
             route.fulfill(status=200, content_type='application/json', body=json.dumps(body))
@@ -380,6 +532,10 @@ try:
                 dialog.dismiss()
 
         page.on('dialog', on_dialog)
+
+        # Part C: the status of every answer to a send that really left the page.
+        answers = []
+        page.on('response', lambda r: answers.append(r.status) if '/send-to-notion' in r.url else None)
 
         page.goto(f'{BASE}/login')
         page.fill('input[name=username]', USER)
@@ -878,21 +1034,269 @@ try:
                 check(overflow == 0, f'{theme}: nothing in the panel reaches past the card')
             page.evaluate("() => localStorage.setItem('globalTheme', 'light')")
 
+        # Parts A and B are over: from here on a held request would be a bug.
+        seen_ab, held_ab = len(send_requests_seen), len(held_sends)
+
+        # ---------------------------------------------------------------- part C
+        if LIVE:
+            public = os.environ.get('PUBLIC_BASE_URL', '').rstrip('/')
+            question = f'‚{PROBE_TITLE}‘ (Fr, 02.10.2026, 20:35) hat schon ein Transkript. Überschreiben?'
+            LIST_READY = ("() => { const l = document.getElementById('notion-meeting-list');"
+                          " return l.children.length > 0 && !l.textContent.includes('Lade Meetings'); }")
+
+            def open_existing(conv_id):
+                open_detail(page, conv_id)
+                page.click('#notion-toggle-btn')
+                page.wait_for_function(LIST_READY, timeout=60000)
+                page.wait_for_timeout(300)
+                return state(page)
+
+            def is_probe(page_id):
+                return isinstance(page_id, str) and page_id.replace('-', '').lower() == PROBE_KEY
+
+            def probe_entry(st):
+                return next((m for m in st['meetings'] if is_probe(m['page'])), None)
+
+            def live_view(st):
+                """What part C prints: counts and the probe's own entry — never
+                the titles of the real meetings around it."""
+                return {'entries': len(st['meetings']),
+                        'checked': ['PROBE' if is_probe(m['page']) else 'other' for m in st['meetings'] if m['checked']],
+                        'probe': probe_entry(st), 'reference': st['reference'], 'hint': st['hint'],
+                        'dayInput': st['dayInput'], 'notes': st['notes'], 'submit': st['submit'],
+                        'alert': st['alert'], 'toast': st['toast'], 'link': st['link'], 'way': st['way']}
+
+            def choose_probe(st):
+                """Make the probe the checked entry; True if it already was.
+                Ends the run if anything else would be sent."""
+                was = [is_probe(m['page']) for m in st['meetings'] if m['checked']] == [True]
+                if not was:
+                    page.click(f'#notion-meeting-list input[value="{PROBE}"]')
+                now = page.evaluate("() => { const r = document.querySelector('#notion-meeting-list input:checked');"
+                                    " return r ? r.value : null; }")
+                if not is_probe(now):
+                    sys.exit(f'ABORT: the checked entry is not the probe page ({now!r}) — nothing sent')
+                return was
+
+            def live_send(plan):
+                """Send with the probe checked; returns the statuses our app
+                answered with (a confirmed 409 is followed by a second one)."""
+                dialog_plan[:] = plan
+                n_pass, n_ans = len(live['passed']), len(answers)
+                page.click('#notion-submit-btn')
+                quiet = 0
+                for _ in range(1500):                    # up to 150 s
+                    page.wait_for_timeout(100)
+                    no_foreign_send()
+                    sent, got = len(live['passed']) - n_pass, len(answers) - n_ans
+                    idle = page.evaluate("() => document.getElementById('notion-submit-btn').textContent === 'An Notion senden'")
+                    quiet = quiet + 1 if (sent >= 1 and got == sent and idle) else 0
+                    if quiet >= 8:                       # 0.8 s without a follow-up request
+                        break
+                else:
+                    sys.exit('ABORT: the send did not settle')
+                dialog_plan[:] = []
+                page.wait_for_function(LIST_READY, timeout=60000)
+                page.wait_for_timeout(300)
+                return answers[n_ans:]
+
+            print('=== 14. the lock: a send for a foreign page id is aborted in the browser ===')
+            candidates.update(mode='scenario', sent=False)
+            live['on'] = True
+            s = open_existing(ids['audio'])              # scripted list, a made-up page id preselected
+            check([m['page'] for m in s['meetings'] if m['checked']] == [P_NEAR], 'a foreign page id is the checked entry')
+            n_ans = len(answers)
+            page.click('#notion-submit-btn')
+            s = settle()
+            print(f'[14] blocked={live["blocked"]} passed={live["passed"]} answers={answers[n_ans:]} alert={s["alert"]}')
+            check(live['blocked'] == [P_NEAR] and live['passed'] == [] and answers[n_ans:] == [],
+                  'the request was aborted before it left the browser (blocked, nothing passed, no answer)')
+            check(s['alert'] is not None and s['alert']['text'] == 'Verbindung fehlgeschlagen. Netzwerk prüfen und erneut versuchen.',
+                  'the page sees a failed connection')
+            live['blocked'].clear()
+            candidates['mode'] = 'live'                  # from here on the real endpoint answers
+
+            print('=== 15. case 1: recording time in the window → probe preselected → send ===')
+            row0, pg0 = probe_row(), probe_page()
+            had = row0['has_transcript']
+            print(f'[probe before] has_transcript={had} converter_link={"set" if row0["converter_link"] else None} {page_facts(pg0)}')
+            meta0 = row_metadata(ids['timed'])
+            s = open_existing(ids['timed'])
+            print('[15 list] ' + json.dumps(live_view(s), ensure_ascii=False))
+            check(s['way']['pressed'] == ['existing'] and s['reference'] == 'Aufnahme: Fr, 02.10.2026, 20:50 · Dauer 25 min'
+                  and s['hint'] is None and s['dayInput'] == PROBE_DAY,
+                  f'the dialog opens on the recording\'s day with its time and length, no hint ({s["reference"]!r})')
+            entry = probe_entry(s)
+            check(entry is not None and entry['when'] == PROBE_WHEN and entry['title'] == PROBE_TITLE,
+                  f'the probe is in the list with weekday, date, time, length ({entry and entry["when"]!r})')
+            preselected = choose_probe(s)
+            check(preselected, 'the probe page IS the preselected entry (checked by id)')
+            n_dialogs = len(dialogs)
+            statuses = live_send([True] if had else [])
+            s = state(page)
+            print(f'[15 sent] statuses={statuses} dialogs={len(dialogs) - n_dialogs} ' + json.dumps(live_view(s), ensure_ascii=False))
+            check(statuses == ([409, 200] if had else [200]) and len(dialogs) - n_dialogs == (1 if had else 0),
+                  'sent: ' + ('the page had a transcript → confirm → "Ja" → 200' if had else 'an empty page → 200 without a question'))
+            check(s['toast'] == 'An Notion gesendet' and s['alert'] is None, 'toast, no alert')
+            link_text = f'Verknüpft mit {PROBE_TITLE}, Fr, 02.10.2026, 20:35'
+            check(s['link'] is not None and s['link']['text'] == link_text and (s['link']['href'] or '').startswith('https://')
+                  and s['link']['elements'] == 1, f'link line ({s["link"]})')
+            entry = probe_entry(s)
+            check(entry is not None and entry['checked'] and entry['meta'][-2:] == ['hat schon Transkript', 'mit diesem Dokument verknüpft'],
+                  f'the reloaded list marks the probe ({entry and entry["meta"]})')
+            row1, pg1 = probe_row(), probe_page()
+            own_link = f'{public}/library/{ids["timed"]}'
+            print(f'[probe after send] has_transcript={row1["has_transcript"]} converter_link ours={row1["converter_link"] == own_link} {page_facts(pg1)}')
+            check(public.startswith('https://') and row1['has_transcript'] is True and row1['converter_link'] == own_link
+                  and pg1['converter'] == own_link, 'Notion: transcript present, CONVERTER = <PUBLIC_BASE_URL>/library/<id>')
+            check({k: row1[k] for k in ROW_KEYS} == {k: row0[k] for k in ROW_KEYS},
+                  'query: title, date, type, people, calendar id, meeting link, url unchanged')
+            changed = sorted(k for k in pg1['other'] if pg1['other'][k] != pg0['other'].get(k))
+            check(changed == [] and sorted(pg1['other']) == sorted(pg0['other']),
+                  f'Notion: no property besides Transcript and CONVERTER changed ({changed})')
+            check(pg1['transcript'] == TIMED_CONTENT,
+                  f'Notion: the Transcript field holds the row content, raw Markdown, once '
+                  f'(len {len(pg1["transcript"])} vs {len(TIMED_CONTENT)}, sha {sha(pg1["transcript"])} vs {sha(TIMED_CONTENT)})')
+            check(pg1['blocks'] == pg0['blocks'], f'Notion: body blocks unchanged ({pg0["blocks"]} → {pg1["blocks"]})')
+            meta1 = row_metadata(ids['timed'])
+            link = meta1.pop('notion_link', None)
+            print('[15 notion_link keys] ' + json.dumps(sorted(link) if link else None))
+            check(meta1 == meta0, 'the row\'s other metadata is untouched')
+            check(bool(link) and link.get('page_id') == PROBE and link.get('meeting_title') == PROBE_TITLE
+                  and link.get('meeting_start') == row0['datum']['start'] and (link.get('url') or '').startswith('https://')
+                  and bool(link.get('linked_at')) and 'calendar_event_id' not in link,
+                  'the row remembers page, url, title, start, linked_at (no calendar id: the probe has none)')
+            check(all(p['keys'] == ['day', 'page_id', 'replace_transcript', 'target'] for p in live['passed']),
+                  'every request that passed carried exactly target, page_id, day, replace_transcript')
+
+            print('=== 16. case 2: the same row again → confirm → Nein / Ja ===')
+            n_dialogs = len(dialogs)
+            statuses = live_send([False])
+            s = state(page)
+            pg2 = probe_page()
+            print(f'[16 Nein] statuses={statuses} {page_facts(pg2)}')
+            check(statuses == [409] and dialogs[n_dialogs:] == [question], f'409 → confirm with title and date ({dialogs[n_dialogs:]})')
+            check(s['alert'] is None and s['submit'] == {'disabled': False, 'text': SUBMIT_IDLE}, '"Nein": no alert, button back')
+            check(pg2 == pg1, '"Nein": the page is unchanged (transcript, link, properties, blocks, last_edited_time)')
+            statuses = live_send([True])
+            s = state(page)
+            pg3 = probe_page()
+            print(f'[16 Ja] statuses={statuses} {page_facts(pg3)}')
+            check(statuses == [409, 200] and s['toast'] == 'An Notion gesendet', '"Ja": 409, then 200 with replace_transcript')
+            check([p['replace'] for p in live['passed'][-2:]] == [False, True], 'the second request carried replace_transcript: true')
+            check(pg3['transcript'] == TIMED_CONTENT and pg3['blocks'] == pg1['blocks'] and pg3['other'] == pg1['other']
+                  and pg3['converter'] == own_link,
+                  f'replaced, not appended: the field holds the text once (len {len(pg3["transcript"])}), blocks and properties as before')
+
+            print('=== 17. case 3: date-only row and a row without recorded_at ===')
+            n_cand = len(candidates['requests'])
+            s = open_existing(ids['dateonly'])
+            print('[17 date only] ' + json.dumps(live_view(s), ensure_ascii=False))
+            check(s['reference'] == 'Aufnahme: Fr, 02.10.2026 · Dauer 25 min' and s['hint'] == 'Uhrzeit der Aufnahme unbekannt.',
+                  f'date only: the hint is shown ({s["hint"]!r})')
+            check(not any(m['checked'] for m in s['meetings']) and s['submit']['disabled'] is True,
+                  'date only: NO preselection — although the probe lies on that day — and send disabled')
+            flags = [m['otherDay'] for m in s['meetings']]
+            times = [('00:00' if 'ganztägig' in m['when'] else m['when'].split(' · ')[1][:5])
+                     for m in s['meetings'] if not m['otherDay']]
+            print(f'[17 order] entries={len(flags)} of the shown day={len(times)} times={times}')
+            check(flags == sorted(flags) and times == sorted(times) and len(times) >= 1,
+                  'date only: the day\'s meetings first, in chronological order, then the neighbour days')
+            entry = probe_entry(s)
+            check(entry is not None and entry['meta'][-2:] == ['hat schon Transkript', 'schon mit CONVERTER verknüpft'],
+                  f'the probe shows as taken by another document ({entry and entry["meta"]})')
+            page.click('#notion-day-next')
+            page.wait_for_function("() => document.getElementById('notion-day-input').value === '2026-10-03'", timeout=60000)
+            page.wait_for_function(LIST_READY, timeout=60000)
+            page.click('#notion-day-prev')
+            page.wait_for_function("() => document.getElementById('notion-day-input').value === '2026-10-02'", timeout=60000)
+            page.wait_for_function(LIST_READY, timeout=60000)
+            page.fill('#notion-day-input', '2026-10-01')
+            page.wait_for_function(LIST_READY, timeout=60000)
+            page.wait_for_timeout(500)
+            s = state(page)
+            asked = candidates['requests'][n_cand:]
+            print(f'[17 nav] asked={asked} shown={s["dayInput"]} entries={len(s["meetings"])}')
+            check(asked == [None, '2026-10-03', '2026-10-02', '2026-10-01'] and s['dayInput'] == '2026-10-01',
+                  'the day is changeable: vor, zurück and the date field against the real endpoint')
+            check(not any(m['checked'] for m in s['meetings']), 'another day: still no preselection')
+            s = open_existing(ids['audio'])
+            print('[17 no recorded_at] ' + json.dumps({k: v for k, v in live_view(s).items() if k in ('reference', 'hint', 'checked', 'entries', 'submit')}, ensure_ascii=False))
+            check(re.fullmatch(r'Upload: (Mo|Di|Mi|Do|Fr|Sa|So), \d{2}\.\d{2}\.\d{4}', s['reference']) is not None
+                  and s['hint'] == 'Aufnahmezeit unbekannt, Upload-Zeit verwendet.',
+                  f'no recorded_at: the upload day and the hint ({s["reference"]!r})')
+            check(not any(m['checked'] for m in s['meetings']) and s['submit']['disabled'] is True,
+                  'no recorded_at: no preselection, send disabled')
+
+            print('=== 18. case 4: a transcript over 200 000 characters ===')
+            pg_before = probe_page()
+            s = open_existing(ids['toolong'])
+            check(choose_probe(s), 'the probe is preselected for the over-long row (same recording time)')
+            n_dialogs = len(dialogs)
+            statuses = live_send([True])                 # if the other side asks about the overwrite first: "Ja"
+            s = state(page)
+            pg_after = probe_page()
+            expected = ('Das Transkript ist zu lang für Notion: ' + f'{len(TOO_LONG_CONTENT):,}'.replace(',', '.')
+                        + ' Zeichen, erlaubt sind 200.000.')
+            print(f'[18] chars={len(TOO_LONG_CONTENT)} statuses={statuses} dialogs={len(dialogs) - n_dialogs} alert={s["alert"]} {page_facts(pg_after)}')
+            check(statuses[-1] == 413 and s['alert'] is not None and s['alert']['text'] == expected
+                  and 'c-alert--danger' in s['alert']['cls'], 'a clear sentence with length and limit')
+            check(pg_after == pg_before, 'nothing written: transcript, link, properties, blocks unchanged')
+            check('notion_link' not in row_metadata(ids['toolong']) and s['link'] is None, 'the over-long row remembers no link')
+
+            print('=== 19. case 5: the link line, reopening, "Neues Meeting anlegen" up to the send ===')
+            open_detail(page, ids['timed'])
+            s = state(page)
+            check(s['panelHidden'] and s['link'] is not None and s['link']['text'] == link_text,
+                  f'detail page: "{link_text}" without opening the panel')
+            page.click('#notion-toggle-btn')
+            page.wait_for_function(LIST_READY, timeout=60000)
+            page.wait_for_timeout(300)
+            s = state(page)
+            check(s['dayInput'] == PROBE_DAY and [is_probe(m['page']) for m in s['meetings'] if m['checked']] == [True],
+                  'reopening the dialog opens on the linked meeting\'s day and has the probe checked')
+            n_seen = len(send_requests_seen)
+            page.click('#notion-way-group button[data-way=new]')
+            page.wait_for_selector('#nf-title')
+            s = state(page)
+            v = values(s)
+            check(keys(s) == ['title', 'datum', 'project', 'people', 'type', 'summary'] and v['title'] == 'Smoke NOTION Uhrzeit'
+                  and s['submit'] == {'disabled': False, 'text': SUBMIT_IDLE},
+                  '"Neues Meeting anlegen": the form as before, ready to send')
+            check(len(send_requests_seen) == n_seen, 'NOT sent — a click would create a real page in MEETINGS')
+
+            print('=== 20. clean-up: the probe\'s CONVERTER field ===')
+            resp = probe_post({'page_id': PROBE, 'converter_link': ''})
+            row_end, pg_end = probe_row(), probe_page()
+            print(f'[20] status={resp.status_code} keys={sorted(resp.json())} converter_link={row_end["converter_link"]} {page_facts(pg_end)}')
+            check(resp.status_code == 200 and row_end['converter_link'] is None and pg_end['converter'] is None,
+                  'converter_link "" empties the field')
+            check(pg_end['transcript'] == TIMED_CONTENT and row_end['has_transcript'] is True,
+                  f'the transcript stays (not removable through the API): {len(pg_end["transcript"])} characters of this run')
+            no_foreign_send()
+            print(f'[part C] requests passed to the app: {len(live["passed"])}, all for the probe page; blocked: {live["blocked"]}')
+
         print('=== guards ===')
         # The handler above never calls continue_(): a held route is either
         # fulfilled or aborted by the script, so the count IS the proof.
-        check(sends_part_a == 9 and len(send_requests_seen) == len(held_sends) == 15,
-              f'every send request was answered by the script, none reached the server '
-              f'(part A {sends_part_a}, total seen={len(send_requests_seen)}, held={len(held_sends)})')
-        check(all(day is None or re.fullmatch(r'\d{4}-\d{2}-\d{2}', day) for day in candidates['requests']),
-              'every candidates request was answered by the script')
+        check(sends_part_a == 9 and seen_ab == held_ab == len(held_sends) == 15,
+              f'parts A and B: every send request was answered by the script, none reached the server '
+              f'(part A {sends_part_a}, A+B seen={seen_ab}, held={len(held_sends)})')
+        check(live['blocked'] == [], f'no send request for a foreign page in part C ({live["blocked"]})')
         check(page_errors == [], f'no uncaught JS error on the page ({page_errors})')
 
         browser.close()
 finally:
+    if LIVE:
+        # Also after a crash in part C: never leave a back link to a row that
+        # is about to be deleted. Idempotent.
+        try:
+            print(f'[finally] probe converter_link emptied: {probe_post({"page_id": PROBE, "converter_link": ""}).status_code}')
+        except Exception as e:  # noqa: BLE001 — report, still remove the rows
+            print(f'[finally] could not empty the probe link: {type(e).__name__}')
     removed, left, tags_left = remove_rows(list(ids.values()), tag_id, user_id)
     print(f'[cleanup] removed {removed} rows of user_id={user_id}, left={left}, tags left={tags_left}')
-    check(removed == 3 and left == 0 and tags_left == 0, 'test rows and the test tag are gone')
+    check(removed == len(ids) and left == 0 and tags_left == 0, 'test rows and the test tag are gone')
 
 print()
 if failures:
