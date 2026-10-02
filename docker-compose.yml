@@ -31,6 +31,15 @@ services:
         - converter-app:latest
     image: converter-app:latest
     container_name: markdown-converter-web
+    # SEC-DG-TOKEN P2b: docker-init as PID 1. Without it gunicorn is PID 1
+    # and adopts every orphan — the browser smokes run Chromium here via
+    # docker exec, and its helper processes are orphaned at browser.close().
+    # gunicorn reaps ANY child (waitpid(-1)), logs it as "Worker (pid:N) was
+    # sent SIGTERM!" and halts the server if such a foreign process exits
+    # with code 3 or 4 (measured: six such lines from two smoke runs; the
+    # halt read at the installed source, 22.0.0). Only here — the measured
+    # case.
+    init: true
     dns:
       - 8.8.8.8
       - 8.8.4.4

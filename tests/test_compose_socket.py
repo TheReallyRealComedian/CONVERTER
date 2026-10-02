@@ -112,3 +112,24 @@ def test_web_mounts_no_host_path_and_names_no_key():
     assert 'GOOGLE_APPLICATION_CREDENTIALS' in [
         e.split('=')[0] for e in worker['environment']]
     assert any(v.split(':')[0] not in named for v in worker['volumes'])
+
+
+def test_web_runs_under_an_init_and_only_web():
+    """SEC-DG-TOKEN P2b: without an init, gunicorn is PID 1 in the web
+    container and adopts every orphan — and the browser smokes run Chromium
+    there via ``docker exec``, whose helper processes are orphaned at
+    ``browser.close()``. gunicorn's ``reap_workers`` waits on ANY child
+    (``waitpid(-1)``), logs it as "Worker (pid:N) was sent SIGTERM!" and
+    raises ``HaltServer`` if such a foreign process exits with code 3 or 4
+    (22.0.0, read at the installed source) — a smoke could stop the server.
+    ``init: true`` makes docker-init PID 1: it reaps the orphans, gunicorn
+    only ever sees its own workers. Only at the web service — the measured
+    case; nothing is run via ``docker exec`` under a reaping PID 1 elsewhere."""
+    compose_file = REPO / 'docker-compose.yml'
+    if not compose_file.exists():
+        pytest.skip('docker-compose.yml not shipped alongside the tests')
+    yaml = pytest.importorskip('yaml')
+    services = yaml.safe_load(compose_file.read_text())['services']
+    assert services['markdown-converter'].get('init') is True
+    assert [name for name, svc in services.items() if 'init' in svc] == [
+        'markdown-converter']
