@@ -75,6 +75,44 @@ Stimme passend zum Ton wählen — das ist der stärkste Stil-Hebel. **Live für
 
 **Empfohlenes Default-Paar (2 Sprecher):** eine **firme** + eine **helle** Stimme, z.B. `Kore` + `Zephyr` (oder das live-bestätigte `Kore` + `Puck`). Für 1 Sprecher: `Kore`/`Charon`/`Rasalgethi`.
 
+### Vollständiger Katalog (Referenz)
+
+Alle 30 Stimmen mit der Kurzbeschreibung ihres Registers — bis ARCH-NARR5 (2026-10-02) als reine Daten in `services/gemini/voices.py`, ohne Code-Konsument; seitdem ist dieses Doc der eine Ort. `Kore` steht zweimal (männlich **und** neutral), daher 31 Einträge. Die Gruppierung ist die wahrgenommene Lage, keine Eigenschaft der API.
+
+| Gruppe | Stimme | Register |
+|---|---|---|
+| Männlich gelesen | `Kore` | Firm and authoritative |
+| Männlich gelesen | `Charon` | Informative and clear |
+| Männlich gelesen | `Fenrir` | Excitable and energetic |
+| Männlich gelesen | `Orus` | Firm and steady |
+| Männlich gelesen | `Puck` | Upbeat and cheerful |
+| Männlich gelesen | `Enceladus` | Breathy and soft |
+| Männlich gelesen | `Iapetus` | Clear and precise |
+| Männlich gelesen | `Algenib` | Gravelly and deep |
+| Männlich gelesen | `Achernar` | Soft and gentle |
+| Männlich gelesen | `Algieba` | Smooth and polished |
+| Männlich gelesen | `Gacrux` | Mature and experienced |
+| Männlich gelesen | `Alnilam` | Firm and direct |
+| Männlich gelesen | `Rasalgethi` | Informative and educational |
+| Männlich gelesen | `Sadaltager` | Knowledgeable and wise |
+| Männlich gelesen | `Zubenelgenubi` | Casual and relaxed |
+| Weiblich gelesen | `Zephyr` | Bright and lively |
+| Weiblich gelesen | `Leda` | Youthful and fresh |
+| Weiblich gelesen | `Laomedeia` | Upbeat and positive |
+| Weiblich gelesen | `Aoede` | Breezy and light |
+| Weiblich gelesen | `Callirrhoe` | Easy-going and friendly |
+| Weiblich gelesen | `Autonoe` | Bright and clear |
+| Weiblich gelesen | `Erinome` | Clear and articulate |
+| Weiblich gelesen | `Umbriel` | Easy-going and calm |
+| Weiblich gelesen | `Despina` | Smooth and flowing |
+| Weiblich gelesen | `Pulcherrima` | Forward and confident |
+| Weiblich gelesen | `Vindemiatrix` | Gentle and warm |
+| Neutral | `Kore` | Firm (can be male or female) |
+| Neutral | `Achird` | Friendly and approachable |
+| Neutral | `Schedar` | Even and balanced |
+| Neutral | `Sadachbia` | Lively and animated |
+| Neutral | `Sulafat` | Warm and inviting |
+
 ## Tags & Delivery (das Wesentliche — der Skill ist hier autark)
 
 Steuere die Sprechweise **primär über die Stimmwahl + sauberen, gut gebauten Text**, **nicht** über Inline-Tags. Die Regeln, die du wirklich brauchst:

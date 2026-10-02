@@ -7,15 +7,16 @@ module's ``register(app)`` (plain functions, no Flask blueprints) and
 exposes ``app`` and ``asgi_app`` for Gunicorn / Uvicorn.
 
 Several names are kept at module level on purpose because the tests patch
-them by attribute on this module: ``deepgram_service``, ``gemini_service``,
-``task_queue``, ``Job``, ``async_playwright``, ``GEMINI_API_KEY``,
-``DEEPGRAM_API_KEY``, ``redis_conn``. The route modules look these up via
-``import app as _app_module`` so the patches reach the handlers at call
-time.
+them by attribute on this module: ``deepgram_service``, ``task_queue``,
+``Job``, ``async_playwright``, ``DEEPGRAM_API_KEY``, ``redis_conn``. The
+route modules look these up via ``import app as _app_module`` so the
+patches reach the handlers at call time.
 
-No Cloud-TTS client here (ARCH-NARR5): narrations are rendered by the
-worker, which builds its own ``GoogleTTSService`` per job (``tasks.py``).
-The web process needs neither the client nor the GCP key file.
+No Cloud-TTS and no Gemini client here (ARCH-NARR5): narrations are
+rendered by the worker, which builds its own ``GoogleTTSService`` per job
+(``tasks.py``), and the Cloud-PDF path builds its genai client where it
+runs (``services/pdf_cloud.py``). The web process needs neither client nor
+the GCP key file.
 """
 import os
 
@@ -45,11 +46,10 @@ from app_pkg import tags as tags_module
 from app_pkg.asgi import ThreadPoolWsgiToAsgi
 from app_pkg.config import RQ_SERIALIZER
 from app_pkg.integrations import notion as notion_module
-from services import DeepgramService, GeminiService
+from services import DeepgramService
 
 
 DEEPGRAM_API_KEY = os.environ.get('DEEPGRAM_API_KEY')
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
 app = create_app()
 
@@ -59,7 +59,6 @@ csrf = app.extensions['csrf']
 
 # Initialize services
 deepgram_service = DeepgramService(DEEPGRAM_API_KEY) if DEEPGRAM_API_KEY else None
-gemini_service = GeminiService(GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # Redis Queue setup. SEC-REDIS-AUTH: in Compose REDIS_URL carries the
 # password; the localhost default is for tests and Mac-Dev without Compose.

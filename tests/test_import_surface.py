@@ -4,7 +4,9 @@ NARR-5 retired the alt-podcast flow (the *users*) and left the *providers*
 standing: a Cloud-TTS client built at import in every web process — the only
 reason the GCP key file was mounted at the internet-facing container — and
 the WAV helpers of the living renderer inside a package whose ``__init__``
-imported ``google.genai``. These sentinels hold what ARCH-NARR5 removed.
+imported ``google.genai``. ARCH-NARR5 removed the singletons, moved the
+helpers to ``services/wav_concat.py`` and deleted ``services/gemini``; these
+sentinels hold that.
 
 Each import is measured in its **own subprocess** (model:
 ``test_launcher_import_surface_is_minimal``): inside the pytest process
@@ -12,6 +14,7 @@ Each import is measured in its **own subprocess** (model:
 in-process check could neither pass nor fail honestly.
 """
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -83,15 +86,70 @@ def test_wav_concat_is_stdlib_only():
         assert not _loaded(modules, forbidden), forbidden
 
 
-# --- the web shim holds no Cloud-TTS client ---------------------------------
+# --- the web shim holds no Cloud-TTS and no Gemini client --------------------
 
-def test_app_holds_no_cloud_tts_singleton():
+def test_app_holds_no_retired_singleton():
     for name in ('google_tts_service', 'GoogleTTSService',
-                 'GOOGLE_CREDENTIALS_PATH'):
+                 'GOOGLE_CREDENTIALS_PATH',
+                 'gemini_service', 'GeminiService', 'GEMINI_API_KEY'):
         assert not hasattr(app_module, name), name
+    assert hasattr(app_module, 'deepgram_service')  # positive control
 
 
-def test_require_service_knows_no_google_tts():
+@pytest.mark.parametrize('retired', ['google_tts', 'gemini'])
+def test_require_service_knows_only_deepgram(retired):
     with pytest.raises(ValueError):
-        require_service('google_tts')
+        require_service(retired)
     require_service('deepgram')  # positive control: the living key resolves
+
+
+def test_the_gemini_package_is_gone():
+    import services
+    assert sorted(services._LAZY) == ['DeepgramService', 'GoogleTTSService']
+    with pytest.raises(ImportError):
+        from services import GeminiService  # noqa: F401
+    # Not even as a namespace package (a leftover directory would be one).
+    assert not (REPO / 'services' / 'gemini').exists()
+
+
+# ``import app`` the way the web container runs it after ARCH-NARR5: both
+# key names are in the env (``env_file`` still delivers them), but there is
+# no key file at the path. The pre-sprint shim built a Cloud-TTS client at
+# import and died right here with ``DefaultCredentialsError``; the heavy
+# deps the suite never loads are stubbed exactly as conftest.py does.
+_IMPORT_APP = '''
+import types
+from unittest.mock import MagicMock
+unstructured = types.ModuleType('unstructured')
+partition_pkg = types.ModuleType('unstructured.partition')
+partition_auto = types.ModuleType('unstructured.partition.auto')
+partition_auto.partition = lambda **_kwargs: []
+sys.modules['unstructured'] = unstructured
+sys.modules['unstructured.partition'] = partition_pkg
+sys.modules['unstructured.partition.auto'] = partition_auto
+playwright_pkg = types.ModuleType('playwright')
+playwright_async = types.ModuleType('playwright.async_api')
+playwright_async.async_playwright = MagicMock()
+sys.modules['playwright'] = playwright_pkg
+sys.modules['playwright.async_api'] = playwright_async
+import app
+assert app.deepgram_service is not None
+'''
+
+
+def test_import_app_needs_no_key_file_and_loads_no_genai(tmp_path):
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('GOOGLE_APPLICATION_CREDENTIALS', 'GEMINI_API_KEY',
+                        'DEEPGRAM_API_KEY', 'DATABASE_URL')}
+    env.update(
+        SECRET_KEY='test-secret-key',
+        DATABASE_URL=f"sqlite:///{tmp_path / 'import-surface.db'}",
+        REDIS_URL='redis://localhost:6379/0',
+        GEMINI_API_KEY='test-gemini-key',
+        DEEPGRAM_API_KEY='test-deepgram-key',
+        GOOGLE_APPLICATION_CREDENTIALS=str(tmp_path / 'no-such-key.json'),
+    )
+    modules = _modules_after(_IMPORT_APP, env=env)
+    assert 'app' in modules and 'tasks' in modules  # positive control
+    assert not _loaded(modules, 'google.genai')
+    assert not _loaded(modules, 'services.gemini')

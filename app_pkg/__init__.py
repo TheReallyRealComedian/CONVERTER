@@ -5,7 +5,7 @@ registers global error handlers, the CSRF-token endpoint, and CLI commands.
 Routes are registered separately in ``app.py``; later steps of Stage 2 move
 them into per-feature blueprints under this package.
 
-Service singletons (``deepgram_service``, ``gemini_service`` etc.) live in
+Service singletons (``deepgram_service``, ``task_queue`` etc.) live in
 ``app.py`` so the existing test suite, which patches them at
 ``app.<name>``, continues to work without changes.
 """

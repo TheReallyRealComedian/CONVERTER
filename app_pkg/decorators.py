@@ -1,10 +1,12 @@
 """Route decorators for the CONVERTER blueprints.
 
 Currently exposes ``require_service`` (F-011): a uniform 503 + DE-JSON gate
-that replaces six near-identical inline checks across the audio and podcast
-endpoints. The decorator looks the service singleton up on the top-level
-``app`` module at request time, mirroring the existing late-import pattern
-the route modules use so test patches at ``app.<name>`` continue to apply.
+in front of the endpoints that need a configured service. Since ARCH-NARR5
+the one key is ``deepgram`` (the alt-podcast endpoints that used
+``google_tts`` and ``gemini`` went with NARR-5). The decorator looks the
+service singleton up on the top-level ``app`` module at request time,
+mirroring the existing late-import pattern the route modules use so test
+patches at ``app.<name>`` continue to apply.
 """
 from functools import wraps
 
@@ -13,12 +15,10 @@ from flask import jsonify
 
 _SERVICE_LABELS = {
     'deepgram': 'Audio-Transkriptions-Service',
-    'gemini': 'Gemini-API-Key',
 }
 
 _SERVICE_ATTRS = {
     'deepgram': 'deepgram_service',
-    'gemini': 'GEMINI_API_KEY',
 }
 
 

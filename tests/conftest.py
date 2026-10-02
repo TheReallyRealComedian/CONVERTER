@@ -1,10 +1,10 @@
 """Test fixtures and stubs for the Flask test client.
 
 The tests in this directory exercise the application through the public HTTP
-boundary (``app.test_client()``).  External SDK clients (Gemini, Deepgram,
-Google Cloud TTS) are mocked at the place they are *instantiated* — never
-inside the service implementation — so the mocks survive future internal
-refactors (Stage 2 blueprint split, Stage 3 gemini_service decomposition).
+boundary (``app.test_client()``).  External SDK clients (Deepgram, Google
+Cloud TTS, the genai client of the Cloud-PDF path) are mocked at the place
+they are *instantiated* — never inside the service implementation — so the
+mocks survive internal refactors.
 
 Two pieces of test-only setup happen at import time, *before* ``app`` is
 imported, because both happen during ``app.py`` module load:
@@ -200,16 +200,6 @@ def mock_deepgram(app):
 
 
 @pytest.fixture
-def mock_gemini(app):
-    """Replace the module-level ``gemini_service`` singleton with a MagicMock."""
-    mock_svc = MagicMock()
-    original = app_module.gemini_service
-    app_module.gemini_service = mock_svc
-    yield mock_svc
-    app_module.gemini_service = original
-
-
-@pytest.fixture
 def mock_redis_queue(app):
     """Replace the module-level ``task_queue`` and patch ``Job.fetch``.
 
@@ -246,15 +236,6 @@ def mock_redis_queue(app):
 
     fetch_patcher.stop()
     app_module.task_queue = original_queue
-
-
-@pytest.fixture
-def gemini_api_key_set(app):
-    """Force ``app.GEMINI_API_KEY`` to a truthy value for routes that gate on it."""
-    original = app_module.GEMINI_API_KEY
-    app_module.GEMINI_API_KEY = 'test-gemini-key'
-    yield 'test-gemini-key'
-    app_module.GEMINI_API_KEY = original
 
 
 # --- SEC-SOCKET: the mineru launcher, real HTTP, faked docker CLI ---

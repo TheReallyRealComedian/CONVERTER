@@ -104,7 +104,7 @@ def test_the_keep_check_can_fire():
     assert _hits('*.json', 'keyterms.json')
     assert _hits('static/', 'static')
     assert _hits('/templates', 'templates')
-    assert _hits('services/gemini/*.py', 'services')
+    assert _hits('services/*.py', 'services')
     assert _hits('**/*.css', 'static')  # a new ** pattern must be decided
     assert not _hits('.claude/', 'static')
     assert not _hits('**/__pycache__/', 'app_pkg')
