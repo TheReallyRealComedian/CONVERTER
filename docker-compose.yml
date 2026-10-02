@@ -73,6 +73,10 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - NOTION_MCP_URL=http://notion-mcp-server:3333
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      # NOTION-MEETING-LINK: origin of the back link written into Notion's
+      # CONVERTER field (<PUBLIC_BASE_URL>/library/<id>). Without the
+      # variable the app falls back to the request's own root.
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://converter.smallpieces.de}
       - NOTION_TOKEN=${NOTION_TOKEN}
     env_file:
       - .env

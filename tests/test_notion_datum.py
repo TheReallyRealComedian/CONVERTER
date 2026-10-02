@@ -75,6 +75,8 @@ def test_route_attaches_zone_to_naive_meeting_time(app, authenticated_client, te
         'title': 'NOTION-TZ Probe',
         'datum': {'start': '2026-09-29T14:30:00', 'time_zone': 'Europe/Berlin'},
         'content': 'Text',
+        # NOTION-MEETING-LINK: the back link travels with every meeting send
+        'converter_link': f'http://localhost.test/library/{conv_id}',
     }
 
 
@@ -83,7 +85,9 @@ def test_route_leaves_all_day_date_unchanged(app, authenticated_client, test_use
     r, post = _send(authenticated_client, conv_id, 'meetings',
                     {'title': 'T', 'datum': '2026-09-29'})
     assert r.status_code == 200
-    assert post.call_args.kwargs['json'] == {'title': 'T', 'datum': '2026-09-29'}
+    assert post.call_args.kwargs['json'] == {
+        'title': 'T', 'datum': '2026-09-29',
+        'converter_link': f'http://localhost.test/library/{conv_id}'}
 
 
 def test_route_notes_carry_no_datum(app, authenticated_client, test_user):

@@ -245,10 +245,10 @@
                     </div>
                 </div>
 
-                {% if metadata %}
+                {% if metadata_rows %}
                 <div class="c-surface--flat p-4">
                     <h6 class="text-[11px] font-semibold uppercase tracking-wider text-neo-faint mb-3">Conversion Metadata</h6>
-                    {% for key, value in metadata.items() %}
+                    {% for key, value in metadata_rows.items() %}
                     <div class="flex justify-between py-1.5 text-sm {% if not loop.last %}neo-separator-bottom{% endif %}">
                         <span class="text-neo-faint">{{ key.replace('_', ' ').title() }}</span>
                         <span class="text-neo-text font-medium text-right max-w-[60%] break-words">{{ value }}</span>
@@ -285,6 +285,9 @@
         conversionTags: {{ conversion_tag_refs | tojson }},
         lastReadPercent: {{ conversion.last_read_percent | tojson }},
         conversionType: '{{ conversion.conversion_type }}',
+        {# NOTION-MEETING-LINK: the remembered meeting, already cleaned server-side
+           (url only if https on a Notion host); the JS draws it as text nodes. #}
+        notionLink: {{ notion_link | tojson }},
         {# NARR-5: slim narration seed (no transcript — that's already in content_html)
            so the player renders the right initial state before its first poll. #}
         narration: {% if conversion.conversion_type == 'audio_narration' %}{{ {'narration_status': metadata.get('narration_status'), 'duration_seconds': metadata.get('duration_seconds'), 'speakers': metadata.get('speakers'), 'error': metadata.get('error')} | tojson }}{% else %}null{% endif %},

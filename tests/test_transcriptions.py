@@ -262,6 +262,35 @@ def test_recorded_at_falls_back_to_client_epoch_ms(app, authenticated_client,
     assert 'recorded_at' not in meta
 
 
+def test_browser_file_time_is_kept_next_to_the_winner(app, authenticated_client, mock_deepgram,
+                                                      mock_redis_queue, transcription_dir):
+    """NOTION-MEETING-LINK: the filename date beats the browser's
+    ``lastModified`` — which was then thrown away. It is now stored as
+    ``recorded_at_client`` (additive, no logic reads it) so it becomes
+    measurable whether copying off the recorder preserves the recording
+    time."""
+    body = _post(authenticated_client, filename='260521_0176.wav',
+                 extra={'recorded_at': '1716300000000'}).get_json()
+    with app.app_context():
+        meta = json.loads(_row(body['id']).metadata_json)
+    assert meta['recorded_at_source'] == 'filename' and meta['recorded_at'].startswith('2026-05-21')
+    assert meta['recorded_at_client'] == '2024-05-21T14:00:00+00:00'
+
+    # the client value wins (no date in the name): both keys carry it
+    body = _post(authenticated_client, data=b'ID3 other bytes', filename='Besprechung.mp3',
+                 extra={'recorded_at': '1716300000000'}).get_json()
+    with app.app_context():
+        meta = json.loads(_row(body['id']).metadata_json)
+    assert meta['recorded_at'] == meta['recorded_at_client'] == '2024-05-21T14:00:00+00:00'
+
+    # nothing sent / unparseable: the key is absent, never null
+    for data, extra in ((b'ID3 third bytes', None), (b'ID3 fourth bytes', {'recorded_at': 'gestern'})):
+        body = _post(authenticated_client, data=data, filename='260522_0177.wav', extra=extra).get_json()
+        with app.app_context():
+            meta = json.loads(_row(body['id']).metadata_json)
+        assert 'recorded_at_client' not in meta
+
+
 # --- poll / reconcile -------------------------------------------------------------
 
 def test_poll_pending_while_the_job_runs(authenticated_client, mock_deepgram,

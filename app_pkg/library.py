@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 
 from flask import jsonify, render_template, request
 from flask_login import current_user, login_required
+from sqlalchemy import text
 
 from app_pkg.config import LOCAL_TZ
+from app_pkg.integrations.notion_meetings import clean_notion_link
 from models import Conversion, Tag, conversion_tags, db
 from services.doc_media import check_media_limits, strip_media_for_preview
 from services.markdown_sections import derive_title, _is_degenerate_title
@@ -79,6 +81,36 @@ def get_owned_conversion(conversion_id):
     return Conversion.query.filter_by(
         id=conversion_id, user_id=current_user.id,
     ).first_or_404()
+
+
+def write_metadata_keys(conversion, updates):
+    """Merge ``updates`` into the row's ``metadata_json`` ATOMICALLY, keeping
+    every other key.
+
+    NOTION-MEETING-LINK: the one merge writer of the metadata bag — ONE UPDATE
+    with SQLite's ``json_patch`` (RFC 7396), the sibling of
+    ``learn.write_settings_keys`` (LOST-UPDATE). The bag is shared by features
+    with disjoint keys (job state of the reconciles, ``recorded_at``, and the
+    ``notion_link`` namespace this was built for); a read-modify-write of the
+    whole blob over a loaded row puts back what another request changed in
+    between — e.g. a reconcile's ``transcription_status``. The other writers
+    of ``metadata_json`` still write the whole blob (not rebuilt here); a NEW
+    writer of a single namespace goes through this function.
+
+    ``json_patch`` semantics, as for the settings: a ``None`` value DELETES its
+    key, objects merge RECURSIVELY — so to replace a namespace wholesale, send
+    every one of its keys (None for the absent ones). Lenient on a
+    missing/corrupt/non-object blob (starts fresh). Does not touch
+    ``updated_at`` or ``content_version`` (a link is not an edit). Does NOT
+    commit — the caller owns the transaction; the in-memory attribute is
+    expired so it re-reads the merged blob.
+    """
+    db.session.execute(
+        text('UPDATE conversion SET metadata_json = json_patch('
+             "CASE WHEN json_valid(metadata_json) AND json_type(metadata_json) = 'object' "
+             "THEN metadata_json ELSE '{}' END, :updates) WHERE id = :cid"),
+        {'updates': json.dumps(updates), 'cid': conversion.id})
+    db.session.expire(conversion, ['metadata_json'])
 
 
 def _conversion_summary(conversion):
@@ -388,6 +420,12 @@ def register(app):
             metadata=metadata,
             content_html=content_html,
             conversion_tag_refs=[t.to_dict() for t in conversion.tag_refs],
+            # NOTION-MEETING-LINK: the remembered meeting, read as INPUT (the
+            # metadata bag is client-writable) — only the cleaned form reaches
+            # the page, and the raw namespace stays out of the generic
+            # metadata card (it has its own line in the Notion panel).
+            notion_link=clean_notion_link(metadata.get('notion_link')),
+            metadata_rows={k: v for k, v in metadata.items() if k != 'notion_link'},
         )
 
     @app.route('/api/conversions', methods=['GET'])

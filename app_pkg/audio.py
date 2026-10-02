@@ -105,6 +105,24 @@ def _recorded_at_for(filename, client_value):
     return normalized, 'client'
 
 
+def _client_file_time(client_value):
+    """NOTION-MEETING-LINK: the browser's ``file.lastModified`` as an ISO UTC
+    string, or None — stored as ``recorded_at_client`` NEXT TO the winner.
+
+    The filename date beats it (see above), and until now it was then thrown
+    away. It is kept additively and NOTHING reads it: it makes measurable
+    whether copying a file off the recorder preserves the recording time —
+    the question a preselection for date-only recordings hangs on (BACKLOG
+    NOTION-PRESELECT). Unparseable → absent, never a 400.
+    """
+    if client_value is None or client_value == '':
+        return None
+    value = client_value
+    if isinstance(value, str) and value.strip().isdigit():
+        value = int(value.strip())
+    return _normalize_client_recorded_at(value)
+
+
 def _find_duplicate(user_id, source_sha256, language):
     """Idempotency: same user + content hash + language with a pending/ready
     job → that row. ``failed`` never dedups — re-submitting IS the retry.
@@ -381,6 +399,9 @@ def register(app):
             file_size_mb=round(size / (1024 * 1024), 2),
             recorded_at=recorded_at, recorded_at_source=recorded_at_source)
         metadata['job_id'] = job_id
+        client_file_time = _client_file_time(request.form.get('recorded_at'))
+        if client_file_time is not None:
+            metadata['recorded_at_client'] = client_file_time
 
         # Enqueue BEFORE the row exists: no open DB write while Redis is
         # asked, and a failed enqueue leaves nothing behind. The task needs
