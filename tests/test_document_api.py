@@ -25,6 +25,7 @@ import hashlib
 import io
 import json
 import sys
+import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -149,7 +150,7 @@ def test_session_path_works_without_env_token(app, authenticated_client,
     assert resp.status_code == 202
     body = resp.get_json()
     assert body['status'] == 'pending'
-    assert body['job_id'] == 'test-job-123'
+    assert body['job_id'] == mock_redis_queue['queue'].enqueue.call_args.kwargs['job_id']
     # Poll works on the same session.
     mock_redis_queue['fetch'].return_value.is_failed = False
     poll = authenticated_client.get(f"{DOC_URL}/{body['id']}")
@@ -208,7 +209,8 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
     body = resp.get_json()
     assert body['status'] == 'pending'
     assert body['mode'] == 'lokal'  # default without a stored setting (DOC-WEB)
-    assert body['job_id'] == 'test-job-123'
+    mark = body['job_id']
+    assert str(uuid.UUID(mark)) == mark   # web-made, not the queue's own id
     cid = body['id']
 
     with app.app_context():
@@ -227,10 +229,11 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
     assert metadata['source_format'] == 'pdf'
     assert metadata['page_count'] == 1
     assert metadata['source_sha256'] == hashlib.sha256(pdf).hexdigest()
-    assert metadata['job_id'] == 'test-job-123'
+    assert metadata['job_id'] == mark
 
-    # Source landed under the id-derived name with the exact upload bytes.
-    source = doc_convert_dir / f'source_{cid}.pdf'
+    # Source landed under the job mark (never the row id — JOB-ID-REUSE) with
+    # the exact upload bytes.
+    source = doc_convert_dir / f'source_{mark}.pdf'
     assert source.read_bytes() == pdf
     # No leftover tmp spool file.
     assert sorted(p.name for p in doc_convert_dir.iterdir()) == [source.name]
@@ -238,10 +241,11 @@ def test_post_creates_pending_row_and_enqueues(app, client, test_user, doc_token
     # Enqueue carried the task, the resolved job args and the page-scaled
     # envelope.
     args, kwargs = mock_redis_queue['queue'].enqueue.call_args
-    assert args == (convert_document_task, cid, 'pdf', 'lokal',
+    assert args == (convert_document_task, mark, 'pdf', 'lokal',
                     DOC_CONVERT_BUDGET_EUR, 1)
+    assert kwargs['job_id'] == mark
     assert kwargs['job_timeout'] == doc_convert_job_timeout_for(1, 'lokal')
-    assert kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': cid}
+    assert kwargs['meta'] == {'user_id': test_user['id']}
 
 
 def test_post_enqueue_survives_rq_json(app, client, test_user, doc_token,
@@ -401,8 +405,8 @@ def test_dedup_same_file_same_mode(app, client, test_user, doc_token,
 def test_dedup_serves_stored_ready_result(app, client, test_user, doc_token,
                                           mock_redis_queue, doc_convert_dir):
     pdf = _pdf_bytes()
-    cid = _post(client, data=pdf, headers=_auth()).get_json()['id']
-    doc_lib.write_result_file(cid, build_result_payload(
+    mark = _post(client, data=pdf, headers=_auth()).get_json()['job_id']
+    doc_lib.write_result_file(mark, build_result_payload(
         '# Gespeichert', provenance_unit='page', provenance=['deterministisch'],
         usage={'model_calls': 0, 'cost_eur': 0.0}))
     second = _post(client, data=pdf, headers=_auth())
@@ -471,11 +475,18 @@ def test_no_dedup_on_other_mode_or_failed(app, client, test_user, doc_token,
 
 # --- job states via reconcile ---------------------------------------------------
 
-def _submit(client, app, data=None, filename='doc.pdf', mode=None):
+def _submit_job(client, app, data=None, filename='doc.pdf', mode=None):
+    """Submit and return ``(conversion_id, job_mark)`` — the mark names the
+    job's files and is the RQ job id (JOB-ID-REUSE)."""
     resp = _post(client, data=data if data is not None else _pdf_bytes(),
                  filename=filename, headers=_auth(), mode=mode)
     assert resp.status_code == 202
-    return resp.get_json()['id']
+    body = resp.get_json()
+    return body['id'], body['job_id']
+
+
+def _submit(client, app, data=None, filename='doc.pdf', mode=None):
+    return _submit_job(client, app, data=data, filename=filename, mode=mode)[0]
 
 
 def test_get_stays_pending_while_job_runs(app, client, test_user, doc_token,
@@ -491,8 +502,8 @@ def test_get_stays_pending_while_job_runs(app, client, test_user, doc_token,
 
 def test_get_ready_reads_structured_result(app, client, test_user, doc_token,
                                            mock_redis_queue, doc_convert_dir):
-    cid = _submit(client, app, filename='Bericht.pdf')
-    doc_lib.write_result_file(cid, build_result_payload(
+    cid, mark = _submit_job(client, app, filename='Bericht.pdf')
+    doc_lib.write_result_file(mark, build_result_payload(
         '# Hallo\n\nWelt.',
         provenance_unit='page',
         provenance=['deterministisch'],
@@ -559,12 +570,12 @@ def test_get_failed_when_job_gone(app, client, test_user, doc_token,
 def test_get_reads_job_with_rq_serializer(app, client, test_user, doc_token,
                                          mock_redis_queue, doc_convert_dir):
     """SEC-REDIS-AUTH: the reconcile reads the job via app.fetch_job (JSON)."""
-    cid = _submit(client, app)
+    cid, mark = _submit_job(client, app)
     mock_redis_queue['fetch'].return_value.is_failed = False
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'pending'
     fetch = mock_redis_queue['fetch']
-    assert fetch.call_args.args == ('test-job-123',)
+    assert fetch.call_args.args == (mark,)
     assert fetch.call_args.kwargs['serializer'] is RQ_SERIALIZER
 
 
@@ -585,13 +596,13 @@ def test_get_stays_pending_on_transient_redis_error(app, client, test_user,
 
 def test_get_failed_on_unreadable_result_file(app, client, test_user, doc_token,
                                               mock_redis_queue, doc_convert_dir):
-    cid = _submit(client, app)
-    (doc_convert_dir / f'result_{cid}.json').write_text('{not json', encoding='utf-8')
+    cid, mark = _submit_job(client, app)
+    (doc_convert_dir / f'result_{mark}.json').write_text('{not json', encoding='utf-8')
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'failed'
     assert body['error'] == 'Ergebnisdatei unlesbar.'
     # The broken file is kept for diagnosis.
-    assert (doc_convert_dir / f'result_{cid}.json').exists()
+    assert (doc_convert_dir / f'result_{mark}.json').exists()
 
 
 def test_get_owner_and_type_scoped_404(app, client, authenticated_client,
@@ -624,9 +635,9 @@ def test_get_owner_and_type_scoped_404(app, client, authenticated_client,
 
 # --- P2: worker task — mode routing, honest provenance, budget pre-flight --------
 
-def _plant_source(cid, ext, data=b'x'):
+def _plant_source(job_id, ext, data=b'x'):
     doc_lib.ensure_doc_convert_dir()
-    path = doc_lib.doc_source_path(cid, ext)
+    path = doc_lib.doc_source_path(job_id, ext)
     with open(path, 'wb') as f:
         f.write(data)
     return path
@@ -647,9 +658,9 @@ def test_task_cloud_routes_to_paged_backend(monkeypatch, doc_convert_dir):
             usage={'model_calls': 3, 'cost_eur': 0.044})
 
     monkeypatch.setattr('services.pdf_cloud.run_cloud_pdf', fake_run_cloud_pdf)
-    _plant_source(901, 'pdf')
-    convert_document_task(901, 'pdf', 'cloud', 5.0, 3)
-    payload = doc_lib.read_result_file(901)
+    _plant_source('job-901', 'pdf')
+    convert_document_task('job-901', 'pdf', 'cloud', 5.0, 3)
+    payload = doc_lib.read_result_file('job-901')
     assert calls['args'] == ('k-123', 5.0)
     assert payload['provenance_unit'] == 'page'
     assert payload['provenance'] == ['modell'] * 3
@@ -682,10 +693,10 @@ def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,
     # run goes to the mineru engine (DOC-LOCAL: provenance ``modell``, 0 €)
     # and the degradation names the numbers.
     monkeypatch.setenv('GEMINI_API_KEY', 'k-123')
-    _plant_source(902, 'pdf')
-    convert_document_task(902, 'pdf', 'cloud', 0.01, 3)
-    payload = doc_lib.read_result_file(902)
-    assert fake_local_run == [(doc_lib.doc_source_path(902, 'pdf'), 3)]
+    _plant_source('job-902', 'pdf')
+    convert_document_task('job-902', 'pdf', 'cloud', 0.01, 3)
+    payload = doc_lib.read_result_file('job-902')
+    assert fake_local_run == [(doc_lib.doc_source_path('job-902', 'pdf'), 3)]
     assert payload['provenance_unit'] == 'page'
     assert payload['provenance'] == ['modell'] * 3
     assert [d['code'] for d in payload['degradations']] == ['budget_exceeded']
@@ -696,10 +707,10 @@ def test_task_budget_preflight_degrades_to_local(monkeypatch, doc_convert_dir,
 def test_task_cloud_without_key_degrades(monkeypatch, doc_convert_dir,
                                          fake_local_run):
     monkeypatch.delenv('GEMINI_API_KEY', raising=False)
-    _plant_source(903, 'pdf')
-    convert_document_task(903, 'pdf', 'cloud', 5.0, 2)
-    payload = doc_lib.read_result_file(903)
-    assert fake_local_run == [(doc_lib.doc_source_path(903, 'pdf'), 2)]
+    _plant_source('job-903', 'pdf')
+    convert_document_task('job-903', 'pdf', 'cloud', 5.0, 2)
+    payload = doc_lib.read_result_file('job-903')
+    assert fake_local_run == [(doc_lib.doc_source_path('job-903', 'pdf'), 2)]
     assert payload['provenance'] == ['modell'] * 2
     assert [d['code'] for d in payload['degradations']] == ['cloud_unavailable']
 
@@ -710,10 +721,10 @@ def test_task_local_mode_never_touches_the_key(monkeypatch, doc_convert_dir,
     carries no API key at all (key-free by construction), and the cloud
     backend is never built."""
     monkeypatch.setenv('GEMINI_API_KEY', 'k-123')
-    _plant_source(904, 'pdf')
-    convert_document_task(904, 'pdf', 'lokal', 5.0, 2)
-    payload = doc_lib.read_result_file(904)
-    assert fake_local_run == [(doc_lib.doc_source_path(904, 'pdf'), 2)]
+    _plant_source('job-904', 'pdf')
+    convert_document_task('job-904', 'pdf', 'lokal', 5.0, 2)
+    payload = doc_lib.read_result_file('job-904')
+    assert fake_local_run == [(doc_lib.doc_source_path('job-904', 'pdf'), 2)]
     assert payload['provenance_unit'] == 'page'
     assert payload['provenance'] == ['modell'] * 2
     assert payload['degradations'] == []
@@ -757,12 +768,12 @@ def test_pipeline_payload_flows_through_reconcile(app, client, test_user,
                                                   doc_token, mock_redis_queue,
                                                   doc_convert_dir):
     """The pipeline's output IS the worker result shape: written as
-    result_<id>.json, the existing reconcile serves the mixed provenance
+    result_<job>.json, the existing reconcile serves the mixed provenance
     unchanged — the follow-up engine sprint plugs in without touching the
     contract."""
     payload = run_paged_conversion(4, _cloud_page, _local_page, budget_eur=1.0)
-    cid = _submit(client, app)
-    doc_lib.write_result_file(cid, payload)
+    cid, mark = _submit_job(client, app)
+    doc_lib.write_result_file(mark, payload)
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'ready'
     assert body['provenance_unit'] == 'page'
@@ -789,15 +800,15 @@ def test_pdf_end_to_end_local_engine_failure_degrades(app, client, test_user,
     fake_launcher['rc'] = 1
     fake_launcher['stderr'] = 'kein docker'
 
-    cid = _submit(client, app, data=_pdf_bytes('Hallo Konvertierung.'),
-                  filename='echt.pdf', mode='lokal')
+    cid, mark = _submit_job(client, app, data=_pdf_bytes('Hallo Konvertierung.'),
+                            filename='echt.pdf', mode='lokal')
 
     # Run the DB-free worker task in-process, exactly as RQ would call it.
-    convert_document_task(cid, 'pdf', 'lokal', DOC_CONVERT_BUDGET_EUR, 1)
+    convert_document_task(mark, 'pdf', 'lokal', DOC_CONVERT_BUDGET_EUR, 1)
 
     # Structured result on the volume, source consumed by the task's finally.
-    assert (doc_convert_dir / f'result_{cid}.json').exists()
-    assert not (doc_convert_dir / f'source_{cid}.pdf').exists()
+    assert (doc_convert_dir / f'result_{mark}.json').exists()
+    assert not (doc_convert_dir / f'source_{mark}.pdf').exists()
 
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'ready'
@@ -838,9 +849,9 @@ def test_eml_end_to_end_with_real_serializer(app, client, test_user, doc_token,
     monkeypatch.setattr(sys.modules['unstructured.partition.auto'],
                         'partition', fake_partition)
 
-    cid = _submit(client, app, data=b'From: a@b.de\n\nHallo',
-                  filename='mail.eml')
-    convert_document_task(cid, 'eml', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
+    cid, mark = _submit_job(client, app, data=b'From: a@b.de\n\nHallo',
+                            filename='mail.eml')
+    convert_document_task(mark, 'eml', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
 
     body = client.get(f'{DOC_URL}/{cid}', headers=_auth()).get_json()
     assert body['status'] == 'ready'
@@ -867,14 +878,13 @@ def test_task_failure_leaves_no_result_and_consumes_source(app, client,
 
     monkeypatch.setattr(sys.modules['unstructured.partition.auto'],
                         'partition', boom)
-    cid = _submit(client, app, data=b'kaputt', filename='defekt.eml')
+    cid, mark = _submit_job(client, app, data=b'kaputt', filename='defekt.eml')
 
     with pytest.raises(RuntimeError):
-        convert_document_task(cid, 'eml', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
+        convert_document_task(mark, 'eml', 'cloud', DOC_CONVERT_BUDGET_EUR, None)
 
     # No result file → reconcile keys on the RQ job; source is consumed.
-    assert not (doc_convert_dir / f'result_{cid}.json').exists()
-    assert not (doc_convert_dir / f'source_{cid}.eml').exists()
+    assert list(doc_convert_dir.iterdir()) == []
 
     job = mock_redis_queue['fetch'].return_value
     job.is_failed = True

@@ -40,15 +40,22 @@ anyway). Consequence, documented for the contract: a POST with neither an
 ``Authorization`` header nor a valid CSRF token dies as 400 (CSRF) before
 reaching this module's 401/503 — fail-closed either way.
 
-Job mechanic (Option B, extended): the web process validates + stores the
-upload on the shared volume, creates the ``pending`` Conversion
+Job mechanic (Option B, extended): the web process creates the **job mark**
+(a uuid — the RQ job id AND the name of every file of this job), validates +
+stores the upload on the shared volume as ``source_<job>.<ext>``, enqueues
+``tasks.convert_document_task`` and THEN creates the ``pending`` Conversion
 (``conversion_type='document_conversion'``, state in ``metadata_json`` — no
-schema touch) and enqueues ``tasks.convert_document_task``. The worker is
-DB-free: it converts and atomically writes ``result_<id>.json``; reconcile
-here *reads* that structured file (markdown + warnings — existence alone
-proves nothing, the DOC-API extension over "WAV exists == done") and flips
-the row on poll. Transient Redis errors keep ``pending``; terminal states are
-idempotent.
+schema touch) in one commit. The worker is DB-free: it converts and
+atomically writes ``result_<job>.json``; reconcile here *reads* that
+structured file (markdown + warnings — existence alone proves nothing, the
+DOC-API extension over "WAV exists == done") and flips the row on poll.
+Transient Redis errors keep ``pending``; terminal states are idempotent.
+
+JOB-ID-REUSE: no job file hangs on the row id — SQLite reuses the id of a
+deleted highest row, and "wrong file → delete the pending row → right file"
+handed the old job's result to the new row. Enqueue-before-row also means a
+queue that cannot be reached is a clean 503 without a row or a source
+instead of a 500 with a ``pending`` row nobody will ever finish.
 """
 import hashlib
 import hmac
@@ -62,7 +69,12 @@ from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 from werkzeug.utils import secure_filename
 
-from app_pkg.config import DOC_CONVERT_BUDGET_EUR, doc_convert_job_timeout_for
+from app_pkg.config import (
+    DOC_CONVERT_BUDGET_EUR,
+    doc_convert_job_timeout_for,
+    is_job_mark,
+    new_job_mark,
+)
 from app_pkg.documents import ACCEPTED_EXTENSIONS
 # Reuse the Ingest auth primitives (same Bearer parse + target-user resolver
 # as the Card/Narration writes); only the secret differs — mirrored, not shared.
@@ -293,12 +305,54 @@ def _fail_document_conversion(conversion, metadata, error):
     _persist_metadata(conversion, metadata)
 
 
+def _apply_ready_result(conversion, metadata, payload):
+    """Persist a worker result on the row: content + result fields → ``ready``."""
+    # LOST-UPDATE: content writers bump content_version.
+    conversion.set_content(payload.get('markdown') or '')
+    metadata['doc_status'] = DOC_STATUS_READY
+    # Result fields from the worker's build_result_payload shape; lightly
+    # type-guarded (the payload is our own task's, not user input).
+    metadata['provenance_unit'] = payload.get('provenance_unit')
+    provenance = payload.get('provenance')
+    metadata['provenance'] = provenance if isinstance(provenance, list) else None
+    degradations = payload.get('degradations')
+    metadata['degradations'] = [d for d in (degradations or [])
+                                if isinstance(d, dict)]
+    usage = payload.get('usage')
+    metadata['usage'] = usage if isinstance(usage, dict) else None
+    metadata['error'] = None
+    _persist_metadata(conversion, metadata)
+
+
+def _take_result(conversion, metadata, job_id, source_ext):
+    """File first: if the job's own result is on the volume, settle the row.
+
+    Returns ``True`` iff the row left ``pending`` (ready, or failed on an
+    unreadable file). The name carries the job mark — a result can only be
+    the one THIS row's job wrote (JOB-ID-REUSE).
+    """
+    if not os.path.exists(doc_result_path(job_id)):
+        return False
+    payload = read_result_file(job_id)
+    if payload is None:
+        # Atomic writes make a half-written file impossible — an
+        # unparseable result is a defect; keep the file for diagnosis.
+        _fail_document_conversion(conversion, metadata, 'Ergebnisdatei unlesbar.')
+        return True
+    _apply_ready_result(conversion, metadata, payload)
+    # Post-commit: the DB row is the artifact now, the volume files are
+    # scratch (source is normally already gone via the task's finally).
+    discard_job_files(job_id, source_ext=source_ext)
+    return True
+
+
 def reconcile_document_conversion(conversion):
     """Flip a ``pending`` document conversion to its terminal state on read.
 
     Idempotent (terminal states untouched), safe on every poll. Unlike the
     narration reconcile, the success signal is a **structured file read**, not
-    file existence: ``result_<id>.json`` carries markdown + warnings.
+    file existence: ``result_<job>.json`` carries markdown + warnings. The
+    file is looked up under the row's own job mark only.
 
     * result file parses      → ``ready``; markdown becomes ``content``,
                                 warnings land in metadata, scratch files are
@@ -308,6 +362,10 @@ def reconcile_document_conversion(conversion):
     * RQ job failed           → ``failed`` + the exc_info **tail** (the
                                 exception line lives at the end — NARR-FAIL).
     * RQ job gone / no job_id → ``failed`` ("Job nicht mehr auffindbar.").
+    * RQ job finished, no file → ``failed`` ("Ergebnis nicht auffindbar.") —
+                                the worker writes the result BEFORE the job
+                                ends, so after a second look this is final
+                                (without it such a row stayed pending forever).
     * RQ job queued/started   → stays ``pending``.
     * Redis unreachable       → stays ``pending`` (retried on the next poll).
     """
@@ -316,48 +374,34 @@ def reconcile_document_conversion(conversion):
 
     metadata = doc_metadata(conversion)
     source_ext = metadata.get('source_format')
+    job_id = metadata.get('job_id')
+    # The mark comes back from metadata_json (client-writable): anything that
+    # is not a mark names no file and no job.
+    has_mark = is_job_mark(job_id)
 
-    if os.path.exists(doc_result_path(conversion.id)):
-        payload = read_result_file(conversion.id)
-        if payload is None:
-            # Atomic writes make a half-written file impossible — an
-            # unparseable result is a defect; keep the file for diagnosis.
-            _fail_document_conversion(conversion, metadata, 'Ergebnisdatei unlesbar.')
-            return
-        # LOST-UPDATE: content writers bump content_version.
-        conversion.set_content(payload.get('markdown') or '')
-        metadata['doc_status'] = DOC_STATUS_READY
-        # Result fields from the worker's build_result_payload shape; lightly
-        # type-guarded (the payload is our own task's, not user input).
-        metadata['provenance_unit'] = payload.get('provenance_unit')
-        provenance = payload.get('provenance')
-        metadata['provenance'] = provenance if isinstance(provenance, list) else None
-        degradations = payload.get('degradations')
-        metadata['degradations'] = [d for d in (degradations or [])
-                                    if isinstance(d, dict)]
-        usage = payload.get('usage')
-        metadata['usage'] = usage if isinstance(usage, dict) else None
-        metadata['error'] = None
-        _persist_metadata(conversion, metadata)
-        # Post-commit: the DB row is the artifact now, the volume files are
-        # scratch (source is normally already gone via the task's finally).
-        discard_job_files(conversion.id, source_ext=source_ext)
+    if has_mark and _take_result(conversion, metadata, job_id, source_ext):
         return
 
-    # No result file yet — consult the RQ job to tell "still converting" from
-    # "dead". Late import: tests patch Job / redis_conn on app.py.
+    # No result under our mark. Another reconcile of this row may have
+    # consumed it (ready committed, THEN the files discarded) while this one
+    # still held the row as pending — read the row again before judging it.
+    db.session.refresh(conversion)
+    if doc_status(conversion) != DOC_STATUS_PENDING:
+        return
+
+    if not has_mark:
+        _fail_document_conversion(conversion, metadata, 'Job nicht mehr auffindbar.')
+        return
+
+    # Consult the RQ job to tell "still converting" from "dead". Late import:
+    # tests patch Job / redis_conn on app.py.
     import app as _app_module
 
-    job_id = metadata.get('job_id')
-    if not job_id:
-        _fail_document_conversion(conversion, metadata, 'Job nicht mehr auffindbar.')
-        discard_job_files(conversion.id, source_ext=source_ext)
-        return
     try:
         job = _app_module.fetch_job(job_id)
     except NoSuchJobError:
         _fail_document_conversion(conversion, metadata, 'Job nicht mehr auffindbar.')
-        discard_job_files(conversion.id, source_ext=source_ext)
+        discard_job_files(job_id, source_ext=source_ext)
         return
     except Exception:
         # Transient Redis error — never fail an in-flight conversion over a blip.
@@ -367,7 +411,18 @@ def reconcile_document_conversion(conversion):
     if job.is_failed:
         error = (job.exc_info or '')[-2000:] or 'Konvertierung fehlgeschlagen.'
         _fail_document_conversion(conversion, metadata, error)
-        discard_job_files(conversion.id, source_ext=source_ext)
+        discard_job_files(job_id, source_ext=source_ext)
+    elif job.is_finished:
+        # The job ended between our look at the volume and the fetch → its
+        # result is there now. Still none: either a concurrent reconcile took
+        # it (then the row is no longer pending) or it never existed.
+        if _take_result(conversion, metadata, job_id, source_ext):
+            return
+        db.session.refresh(conversion)
+        if doc_status(conversion) != DOC_STATUS_PENDING:
+            return
+        _fail_document_conversion(conversion, metadata, 'Ergebnis nicht auffindbar.')
+        discard_job_files(job_id, source_ext=source_ext)
     # queued / started / deferred → still converting, stays pending.
 
 
@@ -417,10 +472,11 @@ def register(app):
 
         Multipart field ``file``. Size is checked from the Content-Length
         header BEFORE the body is parsed (1.4), with an on-disk backstop after
-        the save. The upload lands on the shared volume under an id-derived
-        name, a ``pending`` Conversion row is created (content fills in on
-        reconcile), and the DB-free worker task is enqueued with a
-        page-count-scaled RQ envelope.
+        the save. Order (JOB-ID-REUSE): job mark → the upload lands on the
+        shared volume under the mark → the DB-free worker task is enqueued
+        with a page-count-scaled RQ envelope → the ``pending`` Conversion row
+        (content fills in on reconcile) is created in ONE commit, job_id
+        included. A queue that cannot take the job is a 503 without a row.
         """
         target, err = _authorize_document_access()
         if err:
@@ -451,9 +507,13 @@ def register(app):
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
 
+        # The job mark: created before anything touches the volume. It names
+        # the source and the result, is the RQ job id and lands in metadata.
+        job_id = new_job_mark()
+
         # Spool to the shared volume first (same directory as the final path →
-        # os.replace stays an atomic same-FS rename), verify, then create the
-        # row. No DB rollback paths for upload problems.
+        # os.replace stays an atomic same-FS rename), verify, enqueue, then
+        # create the row. No DB rollback paths for upload problems.
         convert_dir = ensure_doc_convert_dir()
         tmp_f = tempfile.NamedTemporaryFile(
             dir=convert_dir, suffix='.upload', delete=False)
@@ -486,31 +546,7 @@ def register(app):
 
             page_count = _pdf_page_count(tmp_path) if ext == 'pdf' else None
 
-            conversion = Conversion(
-                user_id=target.id,
-                conversion_type=DOCUMENT_CONVERSION_TYPE,
-                title=original_filename[:255],
-                content='',  # fills in on the ready-reconcile
-                source_filename=original_filename[:255],
-                source_mimetype=upload.mimetype,
-                source_size_bytes=size,
-                # Service jobs are not triage material — the inbox is Oli's
-                # working queue; converted documents shelve straight to archive.
-                lifecycle_status='archive',
-            )
-            db.session.add(conversion)
-            db.session.flush()  # id for the id-derived source path
-
-            os.replace(tmp_path, doc_source_path(conversion.id, ext))
-
-            # Budget frozen per job at submit time (locked decision 2): an env
-            # change never re-prices an already enqueued job.
-            metadata = build_doc_metadata(
-                status=DOC_STATUS_PENDING, mode=mode,
-                budget_eur=DOC_CONVERT_BUDGET_EUR, source_format=ext,
-                source_sha256=source_sha256, page_count=page_count)
-            conversion.metadata_json = json.dumps(metadata)
-            db.session.commit()
+            os.replace(tmp_path, doc_source_path(job_id, ext))
         finally:
             try:
                 if os.path.exists(tmp_path):
@@ -518,27 +554,57 @@ def register(app):
             except OSError:
                 pass
 
-        job = _app_module.task_queue.enqueue(
-            convert_document_task,
-            conversion.id, ext, mode, metadata['budget_eur'], page_count,
-            meta={'user_id': target.id, 'conversion_id': conversion.id},
-            job_timeout=doc_convert_job_timeout_for(page_count, mode),
-        )
+        # Budget frozen per job at submit time (locked decision 2): an env
+        # change never re-prices an already enqueued job.
+        metadata = build_doc_metadata(
+            status=DOC_STATUS_PENDING, mode=mode,
+            budget_eur=DOC_CONVERT_BUDGET_EUR, source_format=ext,
+            source_sha256=source_sha256, page_count=page_count)
+        metadata['job_id'] = job_id
 
-        # job_id back into metadata — reconcile keys "still converting" vs
-        # "gone" on it. (Two commits, like narration: the row must exist
-        # before the caller can poll.)
-        metadata['job_id'] = job.id
-        conversion.metadata_json = json.dumps(metadata)
+        # Enqueue BEFORE the row exists: no open DB write while Redis is
+        # asked, and a failed enqueue leaves nothing behind. The task needs
+        # no row id — it reads and writes under the mark.
+        try:
+            _app_module.task_queue.enqueue(
+                convert_document_task,
+                job_id, ext, mode, metadata['budget_eur'], page_count,
+                job_id=job_id,
+                meta={'user_id': target.id},
+                job_timeout=doc_convert_job_timeout_for(page_count, mode),
+            )
+        except Exception:
+            logger.error('Document conversion job %s could not be enqueued',
+                         job_id, exc_info=True)
+            discard_job_files(job_id, source_ext=ext)
+            return jsonify({'error': 'Auftrag konnte nicht eingereiht werden. '
+                                     'Bitte erneut versuchen.'}), 503
+
+        # One commit, job_id included. If it fails the job still runs — under
+        # a mark nobody looks for; the task removes the source itself.
+        conversion = Conversion(
+            user_id=target.id,
+            conversion_type=DOCUMENT_CONVERSION_TYPE,
+            title=original_filename[:255],
+            content='',  # fills in on the ready-reconcile
+            source_filename=original_filename[:255],
+            source_mimetype=upload.mimetype,
+            source_size_bytes=size,
+            # Service jobs are not triage material — the inbox is Oli's
+            # working queue; converted documents shelve straight to archive.
+            lifecycle_status='archive',
+            metadata_json=json.dumps(metadata),
+        )
+        db.session.add(conversion)
         db.session.commit()
 
         app.logger.info(
-            f"Document conversion job {job.id} queued for conversion {conversion.id}")
+            f"Document conversion job {job_id} queued for conversion {conversion.id}")
         return jsonify({
             'id': conversion.id,
             'status': DOC_STATUS_PENDING,
             'mode': mode,
-            'job_id': job.id,
+            'job_id': job_id,
         }), 202
 
     @app.route('/api/document-conversions/<int:conversion_id>', methods=['GET'])

@@ -10,7 +10,11 @@ from app_pkg.config import LOCAL_TZ
 from models import Conversion, Tag, conversion_tags, db
 from services.doc_media import check_media_limits, strip_media_for_preview
 from services.markdown_sections import derive_title, _is_degenerate_title
-from services.narration_library import delete_narration_audio
+from services import document_conversions, transcription_jobs
+from services.narration_library import (
+    delete_narration_audio,
+    discard_narration_job_audio,
+)
 
 from .markdown_render import render_markdown_to_html
 
@@ -586,15 +590,38 @@ def register(app):
     @login_required
     def api_delete_conversion(conversion_id):
         conversion = get_owned_conversion(conversion_id)
-        # NARR-2: an audio_narration has a persistent WAV alongside the row.
-        # Note the type *before* the delete; unlink the file *after* a
-        # successful commit (best-effort, traversal-guarded) — never mid-flush,
-        # so a failed delete can't orphan-then-rollback an already-removed file.
-        is_narration = conversion.conversion_type == 'audio_narration'
+        # Files alongside the row. Note type, job mark and source extension
+        # *before* the delete; unlink *after* a successful commit (best-effort)
+        # — never mid-flush, so a failed delete can't orphan-then-rollback an
+        # already-removed file.
+        #   NARR-2: an audio_narration has a persistent WAV (the artifact).
+        #   JOB-ID-REUSE: the row's OWN job files go too — source, result, an
+        #   unadopted render. A running job is not cancelled: it may still
+        #   write a result under its mark afterwards, which nobody reads (one
+        #   orphan per such delete; never served — the id may be reused, the
+        #   mark is not).
+        conversion_type = conversion.conversion_type
+        try:
+            metadata = json.loads(conversion.metadata_json or '{}')
+        except (ValueError, TypeError):
+            metadata = {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        # Client-writable bag: the discard helpers skip anything that is not
+        # a mark / not an extension instead of turning it into a path.
+        job_id = metadata.get('job_id')
+        source_ext = metadata.get('source_format')
+
         db.session.delete(conversion)
         db.session.commit()
-        if is_narration:
+
+        if conversion_type == 'audio_narration':
             delete_narration_audio(conversion_id)
+            discard_narration_job_audio(job_id)
+        elif conversion_type == document_conversions.DOCUMENT_CONVERSION_TYPE:
+            document_conversions.discard_job_files(job_id, source_ext=source_ext)
+        elif conversion_type == transcription_jobs.TRANSCRIPTION_TYPE:
+            transcription_jobs.discard_job_files(job_id, source_ext=source_ext)
         return jsonify({'success': True})
 
     @app.route('/api/conversions/<int:conversion_id>/progress', methods=['PATCH'])

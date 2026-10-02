@@ -207,18 +207,18 @@ def doc_convert_dir(tmp_path, monkeypatch):
     return d
 
 
-def _plant_source(cid, ext, data=b'x'):
+def _plant_source(job_id, ext, data=b'x'):
     doc_lib.ensure_doc_convert_dir()
-    with open(doc_lib.doc_source_path(cid, ext), 'wb') as f:
+    with open(doc_lib.doc_source_path(job_id, ext), 'wb') as f:
         f.write(data)
 
 
 def test_task_routes_docx_to_pandoc(monkeypatch, doc_convert_dir):
     monkeypatch.setattr('services.office_backends.convert_docx_pandoc',
                         lambda path: ('# Via pandoc', ['eine Warnung']))
-    _plant_source(801, 'docx')
-    convert_document_task(801, 'docx', 'cloud', 1.0, None)
-    payload = doc_lib.read_result_file(801)
+    _plant_source('job-801', 'docx')
+    convert_document_task('job-801', 'docx', 'cloud', 1.0, None)
+    payload = doc_lib.read_result_file('job-801')
     assert payload['markdown'] == '# Via pandoc'
     assert payload['provenance_unit'] == 'document'
     assert payload['provenance'] == ['deterministisch']
@@ -230,9 +230,9 @@ def test_task_routes_docx_to_pandoc(monkeypatch, doc_convert_dir):
 def test_task_routes_pptx_to_markitdown(monkeypatch, doc_convert_dir):
     monkeypatch.setattr('services.office_backends.convert_pptx_markitdown',
                         lambda path: ('# Via markitdown', []))
-    _plant_source(802, 'pptx')
-    convert_document_task(802, 'pptx', 'cloud', 1.0, None)
-    payload = doc_lib.read_result_file(802)
+    _plant_source('job-802', 'pptx')
+    convert_document_task('job-802', 'pptx', 'cloud', 1.0, None)
+    payload = doc_lib.read_result_file('job-802')
     assert payload['markdown'] == '# Via markitdown'
     assert payload['provenance'] == ['deterministisch']
     assert payload['degradations'] == []
@@ -243,10 +243,10 @@ def test_task_routes_html_family_to_trafilatura(monkeypatch, doc_convert_dir,
                                                 ext):
     monkeypatch.setattr('services.office_backends.convert_html_trafilatura',
                         lambda path: ('# Via trafilatura', []))
-    cid = 803 if ext == 'html' else 804
-    _plant_source(cid, ext)
-    convert_document_task(cid, ext, 'cloud', 1.0, None)
-    payload = doc_lib.read_result_file(cid)
+    job_id = 'job-803' if ext == 'html' else 'job-804'
+    _plant_source(job_id, ext)
+    convert_document_task(job_id, ext, 'cloud', 1.0, None)
+    payload = doc_lib.read_result_file(job_id)
     assert payload['markdown'] == '# Via trafilatura'
     assert payload['provenance'] == ['deterministisch']
 
@@ -263,9 +263,9 @@ def test_task_html_empty_extraction_falls_back_named(monkeypatch,
             category='NarrativeText', text='Roher Seitentext.',
             metadata=SimpleNamespace(category_depth=None, page_number=None,
                                      text_as_html=None))])
-    _plant_source(805, 'html')
-    convert_document_task(805, 'html', 'cloud', 1.0, None)
-    payload = doc_lib.read_result_file(805)
+    _plant_source('job-805', 'html')
+    convert_document_task('job-805', 'html', 'cloud', 1.0, None)
+    payload = doc_lib.read_result_file('job-805')
     assert payload['markdown'] == 'Roher Seitentext.'
     assert payload['provenance'] == ['deterministisch']
     assert [d['code'] for d in payload['degradations']] == ['backend_fallback']
@@ -286,9 +286,9 @@ def test_task_eml_stays_on_unstructured(monkeypatch, doc_convert_dir):
 
     monkeypatch.setattr(sys.modules['unstructured.partition.auto'],
                         'partition', fake_partition)
-    _plant_source(806, 'eml')
-    convert_document_task(806, 'eml', 'cloud', 1.0, None)
-    payload = doc_lib.read_result_file(806)
+    _plant_source('job-806', 'eml')
+    convert_document_task('job-806', 'eml', 'cloud', 1.0, None)
+    payload = doc_lib.read_result_file('job-806')
     # TXT-BINDESTRICH: the invocation hands unstructured OUR paragraph grouper
     # (bullets anchored at the line start) — without it, short lines and
     # bullet items are torn at every ``-``/``–``.

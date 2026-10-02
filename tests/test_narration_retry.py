@@ -80,22 +80,24 @@ def test_retry_failed_reenqueues_from_metadata(
     assert resp.status_code == 202
     body = resp.get_json()
     assert body['status'] == 'pending'
-    assert body['job_id'] == 'test-job-123'  # from the mock job
+    mark = body['job_id']
+    assert mark != 'old-job-1'               # a NEW job mark per retry
 
     enqueue = mock_redis_queue['queue'].enqueue
     enqueue.assert_called_once()
     call = enqueue.call_args
-    # positional: (task, conversion_id, turns, voices, style_prompt, mode,
+    # positional: (task, job_id, turns, voices, style_prompt, mode,
     #              language_code, tts_model) — exactly the worker's signature.
     assert call.args[0] is generate_narration_task
-    assert call.args[1] == cid
+    assert call.args[1] == mark
+    assert call.kwargs['job_id'] == mark
     assert call.args[2] == _TURNS
     assert call.args[3] == _VOICES
     assert call.args[4] == 'ruhig'                 # style_prompt
     assert call.args[5] == 'two_speaker'           # mode
     assert call.args[6] == 'de-DE'                 # language_code
     assert call.args[7] == 'gemini-2.5-flash-tts'  # tts_model
-    assert call.kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': cid}
+    assert call.kwargs['meta'] == {'user_id': test_user['id']}
 
 
 def test_retry_enqueue_survives_rq_json(
@@ -110,13 +112,15 @@ def test_retry_resets_metadata_to_pending(
         authenticated_client, app, test_user, mock_redis_queue):
     cid = _make_narration(app, test_user['id'], status='failed')
 
-    assert authenticated_client.post(RETRY_URL.format(cid)).status_code == 202
+    resp = authenticated_client.post(RETRY_URL.format(cid))
+    assert resp.status_code == 202
 
     meta = _stored_meta(app, cid)
     assert meta['narration_status'] == 'pending'
     assert meta['error'] is None
     assert meta['duration_seconds'] is None
-    assert meta['job_id'] == 'test-job-123'        # new job, not the old one
+    assert meta['job_id'] == resp.get_json()['job_id']   # new job, not the old one
+    assert meta['job_id'] != 'old-job-1'
     # render inputs untouched (faithful re-run)
     assert meta['transcript'] == _TURNS
     assert meta['speakers'] == _VOICES

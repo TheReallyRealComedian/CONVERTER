@@ -57,7 +57,7 @@ def run_paged_conversion(page_count, cloud_page, local_page, budget_eur):
     nonzero costs; today's placeholder and the planned mineru path report 0).
 
     Returns the shared ``build_result_payload`` dict — directly writable as
-    ``result_<id>.json`` and readable by the existing reconcile.
+    ``result_<job>.json`` and readable by the existing reconcile.
     """
     page_markdowns = []
     provenance = []

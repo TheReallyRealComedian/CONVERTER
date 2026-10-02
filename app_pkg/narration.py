@@ -2,10 +2,18 @@
 
 Serves the persisted audio of an ``audio_narration`` Conversion. The WAV lives
 at the deterministic, **id-derived** path ``OUTPUT_DIR/narration_<id>.wav`` on
-the shared ``podcast_data`` volume (written by the NARR-3 worker). Because the
-path is resolved from the id — never from ``metadata.audio_filename`` — there is
-no filename-injection surface; a traversal guard against ``OUTPUT_DIR`` is kept
-as belt-and-suspenders.
+the shared ``podcast_data`` volume. Because the path is resolved from the id —
+never from ``metadata.audio_filename`` — there is no filename-injection
+surface; a traversal guard against ``OUTPUT_DIR`` is kept as
+belt-and-suspenders.
+
+That id-named file is the ARTIFACT, and only this module writes it
+(JOB-ID-REUSE): the worker renders to ``narration_jobs/render_<job>.wav``,
+named after the job mark the submit created, and ``reconcile_narration``
+adopts the render of the row's OWN mark onto the artifact name before it
+sets ``ready``. SQLite reuses the id of a deleted highest row — a worker
+writing ``narration_<id>.wav`` itself would hand a deleted row's render to
+the row that took its id.
 
 Session-authed (``@login_required``, owner-404) and **persistent**: the file is
 **never deleted on serve** (a library element, not a one-shot download).
@@ -21,7 +29,7 @@ from flask import jsonify, request, send_file
 from flask_login import login_required
 from rq.exceptions import NoSuchJobError
 
-from app_pkg.config import OUTPUT_DIR, rq_job_timeout_for
+from app_pkg.config import OUTPUT_DIR, is_job_mark, new_job_mark, rq_job_timeout_for
 # Reuse the Ingest auth primitives (same Bearer parse + target-user resolver as
 # the Card write surface), so a session-less narration write resolves the SAME
 # target user. Only the secret differs — see _authorize_narration_write.
@@ -33,7 +41,9 @@ from services.narration_library import (
     NARRATION_STATUS_FAILED,
     NARRATION_STATUS_PENDING,
     NARRATION_STATUS_READY,
+    adopt_narration_audio,
     build_narration_metadata,
+    discard_narration_job_audio,
     narration_audio_path,
     narration_metadata,
     narration_status,
@@ -84,8 +94,9 @@ def _normalize_language_code(raw):
 # Option B (set architecture): the RQ worker mounts the shared podcast_data
 # volume but NOT the SQLite DB, so it renders the WAV and returns — it never
 # flips the Conversion. The web side, which *does* have the DB, decides the
-# outcome lazily on read (status poll / serve), from two observable facts: does
-# the id-derived WAV exist, and what is the RQ job's terminal state.
+# outcome lazily on read (status poll / serve), from two observable facts: is
+# there a finished render under the row's own job mark, and what is the RQ
+# job's terminal state.
 
 def _wav_duration_seconds(path):
     """Whole-second duration of a WAV (``frames / framerate``), best-effort.
@@ -119,41 +130,70 @@ def _fail_narration(conversion, metadata, error):
     _persist_metadata(conversion, metadata)
 
 
+def _adopt_render(conversion, metadata, job_id):
+    """File first: adopt the job's own render as the artifact → ``ready``.
+
+    Returns ``True`` iff the row is ``ready`` now. Only the render named
+    after THIS row's mark counts; ``narration_<id>.wav`` merely existing
+    proves nothing (JOB-ID-REUSE).
+    """
+    if not adopt_narration_audio(job_id, conversion.id):
+        return False
+    metadata['narration_status'] = NARRATION_STATUS_READY
+    metadata['duration_seconds'] = _wav_duration_seconds(
+        narration_audio_path(conversion.id))
+    metadata['error'] = None
+    _persist_metadata(conversion, metadata)
+    # Post-commit: the artifact holds the audio, the job name can go. Until
+    # here the adoption was repeatable (another reconcile, a crash).
+    discard_narration_job_audio(job_id)
+    return True
+
+
 def reconcile_narration(conversion):
     """Flip a ``pending`` narration to its terminal state on read (NARR-3).
 
     Idempotent: terminal states (``ready`` / ``failed``) are left untouched, so
     this is safe to call on every status poll and every serve. The transitions:
 
-    * audio file exists       → ``ready`` + ``duration_seconds`` from the WAV.
-    * RQ job failed            → ``failed`` + the truncated ``exc_info``.
+    * own render finished       → adopted as ``narration_<id>.wav``, then
+                                  ``ready`` + ``duration_seconds`` from the WAV.
+    * RQ job failed             → ``failed`` + the truncated ``exc_info``.
     * RQ job gone / no job_id   → ``failed`` ("Job nicht mehr auffindbar.").
-    * RQ job queued/started     → stays ``pending``.
+    * RQ job finished, no render → ``failed`` ("Ergebnis nicht auffindbar.") —
+                                  the worker renames the render into place
+                                  before the job ends.
+    * RQ job queued/started     → stays ``pending`` (a ``.part`` is not a render).
     * Redis unreachable         → stays ``pending`` (retried on the next poll).
     """
     if narration_status(conversion) != NARRATION_STATUS_PENDING:
         return
 
     metadata = narration_metadata(conversion)
-    audio_path = narration_audio_path(conversion.id)
+    job_id = metadata.get('job_id')
+    # metadata_json is client-writable: only a real mark names a file or a job.
+    has_mark = is_job_mark(job_id)
 
-    # The file is the source of truth: a present WAV means the worker finished,
-    # regardless of how Redis later reports the (possibly already-evicted) job.
-    if os.path.exists(audio_path):
-        metadata['narration_status'] = NARRATION_STATUS_READY
-        metadata['duration_seconds'] = _wav_duration_seconds(audio_path)
-        metadata['error'] = None
-        _persist_metadata(conversion, metadata)
+    # The render is the source of truth: a finished one means the worker is
+    # done, regardless of how Redis later reports the (possibly evicted) job.
+    if has_mark and _adopt_render(conversion, metadata, job_id):
         return
 
-    # No file yet — consult the RQ job to tell "still rendering" from "dead".
+    # No render under our mark. Another reconcile of this row may have
+    # adopted it (ready committed, THEN the job file removed) while this one
+    # still held the row as pending — read the row again before judging it.
+    db.session.refresh(conversion)
+    if narration_status(conversion) != NARRATION_STATUS_PENDING:
+        return
+
+    if not has_mark:
+        _fail_narration(conversion, metadata, 'Job nicht mehr auffindbar.')
+        return
+
+    # Consult the RQ job to tell "still rendering" from "dead".
     # Late import: tests patch Job / redis_conn on the top-level app.py module.
     import app as _app_module
 
-    job_id = metadata.get('job_id')
-    if not job_id:
-        _fail_narration(conversion, metadata, 'Job nicht mehr auffindbar.')
-        return
     try:
         job = _app_module.fetch_job(job_id)
     except NoSuchJobError:
@@ -170,6 +210,16 @@ def reconcile_narration(conversion):
         # (NARR-FAIL made that diagnosis blind).
         error = (job.exc_info or '')[-2000:] or 'Vertonung fehlgeschlagen.'
         _fail_narration(conversion, metadata, error)
+    elif job.is_finished:
+        # Finished between our look at the volume and the fetch → the render
+        # is there now. Still none: a concurrent reconcile adopted it (the
+        # row is no longer pending) or it never existed.
+        if _adopt_render(conversion, metadata, job_id):
+            return
+        db.session.refresh(conversion)
+        if narration_status(conversion) != NARRATION_STATUS_PENDING:
+            return
+        _fail_narration(conversion, metadata, 'Ergebnis nicht auffindbar.')
     # queued / started / deferred → still rendering, stays pending.
 
 
@@ -225,22 +275,43 @@ def _job_timeout_for_turns(turns):
         return rq_job_timeout_for(0)
 
 
-def register(app):
-    # Late import: tests patch the RQ singletons (``task_queue``, ``Job``,
-    # ``redis_conn``) on the top-level app.py module, so look them up at call
-    # time rather than capturing imports here.
-    import app as _app_module
+def _enqueue_render(job_id, user_id, turns, voices, style_prompt, mode,
+                    language_code, tts_model):
+    """Enqueue the DB-free render under ``job_id``; ``False`` if the queue
+    could not take it (logged). Shared by create and retry."""
+    import app as _app_module  # late: tests patch task_queue on app.py
 
+    try:
+        _app_module.task_queue.enqueue(
+            generate_narration_task,
+            job_id, turns, voices, style_prompt, mode, language_code, tts_model,
+            job_id=job_id,
+            meta={'user_id': user_id},
+            job_timeout=_job_timeout_for_turns(turns),
+        )
+    except Exception:
+        logger.error('Narration job %s could not be enqueued', job_id, exc_info=True)
+        return False
+    return True
+
+
+_ENQUEUE_FAILED = ('Auftrag konnte nicht eingereiht werden. '
+                   'Bitte erneut versuchen.')
+
+
+def register(app):
     @app.route('/api/narrations', methods=['POST'])
     def api_create_narration():
         """Create a pending narration + enqueue the DB-free render (NARR-3).
 
         Token-authed (``NARRATION_TOKEN``, CSRF-exempt — session-less write).
         The web side owns the DB: it validates the turn contract, creates the
-        ``pending`` audio_narration Conversion (flush → id → metadata), enqueues
-        ``generate_narration_task`` onto the shared queue, and writes the job_id
-        back into metadata (reconcile needs it). The worker renders DB-free; the
-        status/serve reads reconcile ``pending`` → ``ready``/``failed`` later.
+        job mark, enqueues ``generate_narration_task`` under it onto the shared
+        queue and THEN creates the ``pending`` audio_narration Conversion in one
+        commit, job_id included (JOB-ID-REUSE: no open DB write while Redis is
+        asked; a queue that cannot take the job is a 503 without a row). The
+        worker renders DB-free; the status/serve reads reconcile ``pending`` →
+        ``ready``/``failed`` later.
         """
         target, err = _authorize_narration_write()
         if err:
@@ -282,8 +353,15 @@ def register(app):
         posted = data.get('title')
         title = (derive_title(content) if _is_degenerate_title(posted) else posted)[:255]
 
-        # pending Conversion — flush first so the id-derived audio_filename in
-        # metadata matches narration_audio_path.
+        # The job mark names the worker's render and is the RQ job id. The
+        # task needs no row id, so the job is enqueued before the row exists.
+        job_id = new_job_mark()
+        if not _enqueue_render(job_id, target.id, turns, voices, style_prompt,
+                               mode, language_code, tts_model):
+            return jsonify({'error': _ENQUEUE_FAILED}), 503
+
+        # pending Conversion — flush for the id (the id-derived audio_filename
+        # in metadata mirrors narration_audio_path), then ONE commit.
         conversion = Conversion(
             user_id=target.id,
             conversion_type='audio_narration',
@@ -298,27 +376,14 @@ def register(app):
             conversion.id, status=NARRATION_STATUS_PENDING,
             tts_model=tts_model, speakers=voices, transcript=turns,
             mode=mode, style_prompt=style_prompt, language_code=language_code)
+        metadata['job_id'] = job_id
         conversion.metadata_json = json.dumps(metadata)
         db.session.commit()
 
-        # Enqueue the DB-free render task (positional task args + RQ job opts).
-        job = _app_module.task_queue.enqueue(
-            generate_narration_task,
-            conversion.id, turns, voices, style_prompt, mode, language_code, tts_model,
-            meta={'user_id': target.id, 'conversion_id': conversion.id},
-            job_timeout=_job_timeout_for_turns(turns),
-        )
-
-        # job_id back into metadata — reconcile keys "still rendering" vs "gone"
-        # on it. (Two commits: the row must exist before the agent can poll.)
-        metadata['job_id'] = job.id
-        conversion.metadata_json = json.dumps(metadata)
-        db.session.commit()
-
-        app.logger.info(f"Narration job {job.id} queued for conversion {conversion.id}")
+        app.logger.info(f"Narration job {job_id} queued for conversion {conversion.id}")
         return jsonify({
             'narration_id': conversion.id,
-            'job_id': job.id,
+            'job_id': job_id,
             'status': NARRATION_STATUS_PENDING,
         }), 202
 
@@ -359,7 +424,7 @@ def register(app):
         # pending-but-file-already-present element serves immediately.
         reconcile_narration(conversion)
 
-        if narration_status(conversion) != 'ready':
+        if narration_status(conversion) != NARRATION_STATUS_READY:
             # pending/failed carry no audio file yet; NARR-5 surfaces the state.
             return jsonify({'error': 'Audio nicht verfügbar.'}), 404
 
@@ -393,8 +458,9 @@ def register(app):
         otherwise: ``pending`` is already in flight, ``ready`` needs no retry).
         Re-enqueues ``generate_narration_task`` from the persisted render inputs
         (transcript / speakers / mode / style_prompt / language_code / tts_model)
-        and flips metadata back to ``pending`` with the new job_id; the existing
-        reconcile-on-poll path then drives it to ``ready``/``failed`` as usual.
+        under a NEW job mark and flips metadata back to ``pending`` with it; the
+        existing reconcile-on-poll path then drives it to ``ready``/``failed`` as
+        usual. A queue that cannot take the job → 503, the row stays ``failed``.
         Pre-NARR-5 rows lack mode/style/language → fall back (mode from speaker
         count, no style, default language).
         """
@@ -428,24 +494,22 @@ def register(app):
         mode = metadata.get('mode') or (
             'two_speaker' if len(voices) >= 2 else 'single_speaker')
 
-        job = _app_module.task_queue.enqueue(
-            generate_narration_task,
-            conversion.id, turns, voices, style_prompt, mode, language_code, tts_model,
-            meta={'user_id': conversion.user_id, 'conversion_id': conversion.id},
-            job_timeout=_job_timeout_for_turns(turns),
-        )
+        job_id = new_job_mark()
+        if not _enqueue_render(job_id, conversion.user_id, turns, voices,
+                               style_prompt, mode, language_code, tts_model):
+            return jsonify({'error': _ENQUEUE_FAILED}), 503
 
         # Back to pending: clear the prior error + stale duration, point reconcile
         # at the new job. Same two-field reset the create path writes.
         metadata['narration_status'] = NARRATION_STATUS_PENDING
         metadata['error'] = None
         metadata['duration_seconds'] = None
-        metadata['job_id'] = job.id
+        metadata['job_id'] = job_id
         conversion.metadata_json = json.dumps(metadata)
         db.session.commit()
 
-        app.logger.info(f"Narration retry job {job.id} queued for conversion {conversion.id}")
-        return jsonify({'status': NARRATION_STATUS_PENDING, 'job_id': job.id}), 202
+        app.logger.info(f"Narration retry job {job_id} queued for conversion {conversion.id}")
+        return jsonify({'status': NARRATION_STATUS_PENDING, 'job_id': job_id}), 202
 
     # Session-less, token-authed write has no CSRF cookie → waive CSRF for THIS
     # view only (same posture as Ingest / the Card writes). The session-authed

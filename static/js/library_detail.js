@@ -1690,10 +1690,11 @@ function narrationShowFailed(meta) {
     narrationStopPolling();
     const errEl = document.getElementById('narration-player-error');
     if (errEl) {
-        const msg = (meta && meta.error) ? String(meta.error) : 'Vertonung fehlgeschlagen.';
-        // Der Server-Fehler kann ein langes/mehrzeiliges exc_info sein —
-        // die erste Zeile (gekappt) reicht als UI-Text.
-        errEl.textContent = msg.split('\n')[0].slice(0, 300);
+        // Der Server-Fehler kann ein langes/mehrzeiliges exc_info sein (der
+        // Server speichert das Traceback-ENDE) — die Exception steht in der
+        // letzten Zeile, die erste wäre "Traceback (most recent call last):".
+        const lines = String((meta && meta.error) || '').split('\n').map(l => l.trim()).filter(Boolean);
+        errEl.textContent = (lines[lines.length - 1] || 'Vertonung fehlgeschlagen.').slice(0, 300);
     }
     narrationSetBlock('failed');
 }

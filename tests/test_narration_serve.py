@@ -8,7 +8,10 @@ monkeypatched to a tmp dir in both the serve module and the persistence helper s
 no container path is touched.
 
 The WAVs are written by hand: a headerless ``_DUMMY_WAV`` where only existence
-matters, and a real ``_write_real_wav`` where ``reconcile`` must read a duration.
+matters, and a real WAV where ``reconcile`` must read a duration. A ``ready``
+row's audio is the artifact ``narration_<id>.wav``; a ``pending`` row's is the
+worker's render under its job mark (``narration_jobs/render_<job>.wav``),
+which the reconcile adopts (JOB-ID-REUSE).
 """
 import json
 import os
@@ -62,9 +65,12 @@ def _write_wav(output_dir, conversion_id, data=_DUMMY_WAV):
     return path
 
 
-def _write_real_wav(output_dir, conversion_id, seconds=2, rate=24000):
-    """A valid mono/16-bit WAV so reconcile's _wav_duration reads a real length."""
-    path = os.path.join(output_dir, f'narration_{conversion_id}.wav')
+def _write_job_render(output_dir, job_id, seconds=2, rate=24000):
+    """The worker's finished render for ``job_id`` — a valid mono/16-bit WAV so
+    reconcile's _wav_duration reads a real length after adopting it."""
+    job_dir = os.path.join(output_dir, 'narration_jobs')
+    os.makedirs(job_dir, exist_ok=True)
+    path = os.path.join(job_dir, f'render_{job_id}.wav')
     with wave.open(path, 'wb') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
@@ -154,14 +160,18 @@ def test_serve_traversal_blocked_403(
 
 def test_serve_pending_with_file_reconciles_then_serves(
         authenticated_client, app, test_user, narration_output_dir):
-    # NARR-3: a pending element whose WAV is already on disk gets reconciled to
-    # ready by the serve route (before the ready-gate) and streams immediately.
-    cid = _make_narration(app, test_user['id'], status='pending')
-    _write_real_wav(narration_output_dir, cid)
+    # NARR-3: a pending element whose render is already on the volume gets
+    # reconciled to ready by the serve route (before the ready-gate) and
+    # streams immediately.
+    cid = _make_narration(app, test_user['id'], status='pending', job_id='job-serve')
+    render = _write_job_render(narration_output_dir, 'job-serve')
+    with open(render, 'rb') as f:
+        audio = f.read()
 
     resp = authenticated_client.get(f'/api/narrations/{cid}/audio')
     assert resp.status_code == 200
     assert resp.mimetype == 'audio/wav'
+    assert resp.data == audio
     assert _stored_status(app, cid) == 'ready'  # reconcile persisted the flip
 
 
@@ -180,8 +190,8 @@ def test_status_wrong_type_404(authenticated_client, app, test_user, narration_o
 
 def test_status_pending_with_file_reconciles_to_ready(
         authenticated_client, app, test_user, narration_output_dir):
-    cid = _make_narration(app, test_user['id'], status='pending')
-    _write_real_wav(narration_output_dir, cid, seconds=2)
+    cid = _make_narration(app, test_user['id'], status='pending', job_id='job-poll')
+    _write_job_render(narration_output_dir, 'job-poll', seconds=2)
 
     resp = authenticated_client.get(f'/api/narrations/{cid}')
     assert resp.status_code == 200

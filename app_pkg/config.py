@@ -5,6 +5,8 @@ can both import from here without pulling in Flask or service SDKs.
 """
 import math
 import os
+import re
+import uuid
 from zoneinfo import ZoneInfo
 
 from rq.serializers import JSONSerializer
@@ -35,6 +37,48 @@ OUTPUT_DIR = '/app/output_podcasts'
 # default fails every job with ``DeserializationError`` (measured against
 # rq 2.8.0 + Redis 8.4, see the sprint doc).
 RQ_SERIALIZER = JSONSerializer
+
+# JOB-ID-REUSE: the job mark. ``Conversion.id`` is reused by SQLite once the
+# highest row is deleted, so no job file on the shared volume may hang on the
+# row id alone — two jobs would share one name (the old job's result served
+# to the new row; the old job's ``finally`` deleting the new job's source).
+# The web side creates the mark (``new_job_mark``) BEFORE anything touches
+# the volume, hands it to RQ as the job id and to the task as its first
+# argument, and stores it as ``metadata['job_id']``; every job file is named
+# after it and the reconcile looks only for the name of its own job.
+#
+# The reconciles and the delete cleanup read the mark back from
+# ``metadata_json`` — which a client can write (``POST /api/conversions``
+# takes a metadata bag). So the path helpers of the three job modules build a
+# name only from a value that IS a mark (and a source extension that is one):
+# no dot, no separator, nothing that could leave the job's namespace.
+_JOB_MARK_RE = re.compile(r'[A-Za-z0-9_-]{1,64}')
+_JOB_SOURCE_EXT_RE = re.compile(r'[a-z0-9]{1,8}')
+
+
+def new_job_mark():
+    """A fresh job mark — a uuid4, the format RQ would have picked itself."""
+    return str(uuid.uuid4())
+
+
+def is_job_mark(value):
+    """Whether ``value`` may become part of a job file name."""
+    return isinstance(value, str) and _JOB_MARK_RE.fullmatch(value) is not None
+
+
+def job_mark(value):
+    """``value`` if it is a job mark, else ``ValueError`` (never a path)."""
+    if not is_job_mark(value):
+        raise ValueError('not a job mark')
+    return value
+
+
+def job_source_ext(value):
+    """``value`` if it is a plain lowercase file extension, else ``ValueError``."""
+    if not isinstance(value, str) or _JOB_SOURCE_EXT_RE.fullmatch(value) is None:
+        raise ValueError('not a job source extension')
+    return value
+
 
 # Upstream timeouts, centralised in one place. Two of them govern faithful
 # narration and are deliberately related:

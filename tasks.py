@@ -1,6 +1,14 @@
 """
 Background tasks for RQ workers.
 These functions run in isolated worker processes.
+
+JOB-ID-REUSE: every task takes the **job mark** as its first argument (the
+web side creates it, hands it to RQ as the job id and stores it as
+``metadata['job_id']``) and reads and writes ONLY under names that carry it.
+No task knows a ``conversion_id``: SQLite reuses the id of a deleted row, so
+an id-named file could belong to two jobs at once. The mark travels as an
+explicit argument, not via ``get_current_job()`` — the tasks stay runnable
+in-process (tests) without an RQ context.
 """
 import os
 import shutil
@@ -10,7 +18,11 @@ from rq import get_current_job
 
 from app_pkg.config import OUTPUT_DIR
 from services import DeepgramService, GoogleTTSService
-from services.narration_library import narration_audio_path
+from services.narration_library import (
+    ensure_narration_job_dir,
+    narration_job_audio_path,
+    narration_job_part_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +76,12 @@ def _deterministic_document_payload(markdown, degradations):
     )
 
 
-def convert_document_task(conversion_id, source_ext, mode, budget_eur,
-                          page_count):
-    """Convert an uploaded document to Markdown → ``result_<id>.json`` (DOC-API).
+def convert_document_task(job_id, source_ext, mode, budget_eur, page_count):
+    """Convert an uploaded document to Markdown → ``result_<job>.json`` (DOC-API).
 
     **DB-free worker task (Option B, like the narration render).** The worker
     container mounts only the shared volume, never the SQLite DB, so this task
-    reads the source from the id-derived path, routes it to the format's
+    reads the source from the mark-derived path, routes it to the format's
     measured winner (PDF → gemini page-wise bzw. mineru seit DOC-LOCAL;
     everything else via the SHARED ``services.document_router`` — DOC-WEB:
     one router serves this task AND the web button), and writes a
@@ -89,14 +100,15 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
     them; the SDK-singleton convention stays untouched). On any failure it
     logs and re-raises so RQ marks the job ``failed`` (reconcile surfaces the
     ``exc_info`` tail). The source file is scratch: best-effort deleted in
-    ``finally`` — there is no retry path that would need it.
+    ``finally`` — there is no retry path that would need it, and because the
+    path carries the job mark it can only ever be THIS job's source.
     """
     from services.document_conversions import doc_source_path, write_result_file
 
-    source_path = doc_source_path(conversion_id, source_ext)
+    source_path = doc_source_path(job_id, source_ext)
     try:
         logger.info("=== DOCUMENT CONVERSION TASK START ===")
-        logger.info(f"conversion_id={conversion_id} ext={source_ext} "
+        logger.info(f"job_id={job_id} ext={source_ext} "
                     f"mode={mode} budget_eur={budget_eur} pages={page_count}")
 
         from services.document_router import convert_non_pdf, convert_pdf
@@ -107,7 +119,7 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
             payload = _deterministic_document_payload(
                 *convert_non_pdf(source_path, source_ext))
 
-        result_path = write_result_file(conversion_id, payload)
+        result_path = write_result_file(job_id, payload)
 
         logger.info("=== DOCUMENT CONVERSION TASK SUCCESS ===")
         logger.info(f"Result written to: {result_path}")
@@ -128,11 +140,11 @@ def convert_document_task(conversion_id, source_ext, mode, budget_eur,
             logger.warning(f"Could not remove source file: {source_path}")
 
 
-def transcribe_audio_task(conversion_id, source_ext, language):
-    """Transcribe an uploaded audio file → ``result_<id>.json`` (SYNC-FREEZE P3).
+def transcribe_audio_task(job_id, source_ext, language):
+    """Transcribe an uploaded audio file → ``result_<job>.json`` (SYNC-FREEZE P3).
 
     **DB-free worker task (Option B, like the document conversion).** Reads
-    the source from the id-derived path on the shared volume, runs the
+    the source from the mark-derived path on the shared volume, runs the
     UNCHANGED ``DeepgramService.transcribe_file`` (diarization on a single
     request, the chunk path above 90 min — both live in the service, they
     moved, they were not rebuilt) and writes a structured result atomically.
@@ -151,10 +163,10 @@ def transcribe_audio_task(conversion_id, source_ext, language):
     from services.transcription_jobs import (transcription_source_path,
                                              write_result_file)
 
-    source_path = transcription_source_path(conversion_id, source_ext)
+    source_path = transcription_source_path(job_id, source_ext)
     try:
         logger.info("=== TRANSCRIPTION TASK START ===")
-        logger.info(f"conversion_id={conversion_id} ext={source_ext} language={language}")
+        logger.info(f"job_id={job_id} ext={source_ext} language={language}")
 
         api_key = os.environ.get('DEEPGRAM_API_KEY')
         if not api_key:
@@ -172,7 +184,7 @@ def transcribe_audio_task(conversion_id, source_ext, language):
             'file_size_mb': round(len(audio_data) / (1024 * 1024), 2),
             'language': language,
         }
-        result_path = write_result_file(conversion_id, payload)
+        result_path = write_result_file(job_id, payload)
 
         logger.info("=== TRANSCRIPTION TASK SUCCESS ===")
         logger.info(f"Result written to: {result_path} ({len(transcript)} chars)")
@@ -190,26 +202,32 @@ def transcribe_audio_task(conversion_id, source_ext, language):
             logger.warning(f"Could not remove source file: {source_path}")
 
 
-def generate_narration_task(conversion_id, turns, voices, style_prompt, mode,
+def generate_narration_task(job_id, turns, voices, style_prompt, mode,
                             language_code, model_name):
-    """Render a faithful narration to ``narration_<conversion_id>.wav`` (NARR-3).
+    """Render a faithful narration to ``narration_jobs/render_<job>.wav`` (NARR-3).
 
     **DB-free worker task (Option B).** The worker container mounts only the
-    shared ``podcast_data`` volume, never the SQLite DB. So this task renders the
-    audio and writes it to the deterministic, id-derived path — it **never**
-    flips the Conversion. The web side reconciles ``pending`` →
-    ``ready``/``failed`` on the next poll (``reconcile_narration``), keyed on
-    this file's existence and the RQ job's terminal state.
+    shared ``podcast_data`` volume, never the SQLite DB. So this task renders
+    the audio and puts it on the volume under its JOB name — it **never**
+    flips the Conversion and never writes the artifact ``narration_<id>.wav``
+    (it does not even know the row id). The web side reconciles ``pending`` →
+    ``ready``/``failed`` on the next poll (``reconcile_narration``): it adopts
+    the render of the row's own mark onto the artifact name.
 
-    Instantiates the SDK service in-task, renders, ``shutil.move``s the temp WAV
-    onto the shared volume, and returns the final path. On any failure it logs
-    and re-raises so RQ marks the job ``failed``
-    (the Exception lands in ``job.exc_info``, which reconcile surfaces as the
-    error). The renderer already cleans up its own temp WAVs on the error path.
+    Instantiates the SDK service in-task, renders, moves the temp WAV onto the
+    volume as ``render_<job>.wav.part`` and renames it into place: the temp file
+    lives on the worker's ``/tmp``, so the move is a COPY across filesystems —
+    under the final name a reconcile could see half a WAV. The rename within
+    the volume is atomic, and it happens before the task returns: a finished
+    job always has its render. On any failure it logs and re-raises so RQ
+    marks the job ``failed`` (the Exception lands in ``job.exc_info``, which
+    reconcile surfaces as the error). The renderer already cleans up its own
+    temp WAVs on the error path.
     """
+    part_path = None
     try:
         logger.info("=== NARRATION TASK START ===")
-        logger.info(f"conversion_id={conversion_id} mode={mode} model={model_name}")
+        logger.info(f"job_id={job_id} mode={mode} model={model_name}")
 
         creds = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
         if not creds:
@@ -224,10 +242,13 @@ def generate_narration_task(conversion_id, turns, voices, style_prompt, mode,
             model_name=model_name,
         )
 
-        # id-derived destination on the shared volume (never user input).
-        final_path = narration_audio_path(conversion_id)
+        # Mark-derived destination on the shared volume (never user input).
+        final_path = narration_job_audio_path(job_id)
+        part_path = narration_job_part_path(job_id)
+        ensure_narration_job_dir()
         update_job_stage('finalizing')
-        shutil.move(temp_path, final_path)
+        shutil.move(temp_path, part_path)
+        os.replace(part_path, final_path)
 
         logger.info("=== NARRATION TASK SUCCESS ===")
         logger.info(f"File moved to: {final_path}")
@@ -237,4 +258,10 @@ def generate_narration_task(conversion_id, turns, voices, style_prompt, mode,
     except Exception as e:
         logger.error("=== NARRATION TASK FAILED ===")
         logger.error(f"Error: {type(e).__name__}: {str(e)}")
+        # A copy that died half-way must not sit on the volume forever.
+        try:
+            if part_path and os.path.exists(part_path):
+                os.remove(part_path)
+        except OSError:
+            logger.warning(f"Could not remove partial render: {part_path}")
         raise

@@ -1,12 +1,18 @@
 """Audio transcription routes (Deepgram-backed).
 
 Since SYNC-FREEZE P3 the file transcription is a JOB on the worker:
-``POST /api/transcriptions`` stores the upload on the shared volume, creates
-a ``pending`` ``audio_transcription`` row and enqueues
-``tasks.transcribe_audio_task``; ``GET /api/transcriptions/<id>`` reconciles
-the row (file-first, like the document conversion) and answers status plus,
-once ready, the transcript. The synchronous ``POST /transcribe-audio-file``
-is gone — its only caller was this page's JS.
+``POST /api/transcriptions`` creates the job mark, stores the upload on the
+shared volume as ``source_<job>.<ext>``, enqueues
+``tasks.transcribe_audio_task`` and then creates the ``pending``
+``audio_transcription`` row in one commit; ``GET /api/transcriptions/<id>``
+reconciles the row (file-first under the row's own mark, like the document
+conversion) and answers status plus, once ready, the transcript. The
+synchronous ``POST /transcribe-audio-file`` is gone. Its only WEB caller was
+this page's JS — the iOS app still calls it in its capture flow and has been
+hitting a 404 there since (BACKLOG IOS-TRANSCRIBE-ROUTE).
+
+JOB-ID-REUSE: no job file hangs on the row id (SQLite reuses the id of a
+deleted highest row) — see ``services/transcription_jobs.py`` for the layout.
 
 Why a job (see ``services/transcription_jobs.py`` for the long form): NOT
 against the freeze — since P2 a synchronous transcription parks nobody. The
@@ -36,7 +42,7 @@ from flask_login import current_user, login_required
 from rq.exceptions import NoSuchJobError
 from werkzeug.utils import secure_filename
 
-from app_pkg.config import transcribe_job_timeout_for
+from app_pkg.config import is_job_mark, new_job_mark, transcribe_job_timeout_for
 from app_pkg.decorators import require_service
 from app_pkg.library import (_normalize_client_recorded_at,
                              parse_recorded_at_from_filename)
@@ -127,16 +133,42 @@ def _fail_transcription(conversion, metadata, error):
     _persist_metadata(conversion, metadata)
 
 
+def _take_result(conversion, metadata, job_id, source_ext):
+    """File first: if the job's own result is on the volume, settle the row.
+
+    Returns ``True`` iff the row left ``pending``. The name carries the job
+    mark — a result can only be the one THIS row's job wrote (JOB-ID-REUSE).
+    """
+    if not os.path.exists(transcription_result_path(job_id)):
+        return False
+    payload = read_result_file(job_id)
+    if payload is None:
+        _fail_transcription(conversion, metadata, 'Ergebnisdatei unlesbar.')
+        return True
+    transcript = payload.get('transcript') or ''
+    conversion.set_content(transcript)  # LOST-UPDATE: content writers bump content_version
+    metadata['transcription_status'] = STATUS_READY
+    metadata['transcript_length'] = len(transcript)
+    if payload.get('file_size_mb') is not None:
+        metadata['file_size_mb'] = payload['file_size_mb']
+    metadata['error'] = None
+    _persist_metadata(conversion, metadata)
+    discard_job_files(job_id, source_ext=source_ext)
+    return True
+
+
 def reconcile_transcription(conversion):
     """Flip a ``pending`` transcription to its terminal state on read.
 
     Idempotent, safe on every poll — the document-conversion reconcile with
-    the transcription file layout:
+    the transcription file layout (files under the row's own job mark):
 
     * result file parses      → ``ready``; the transcript becomes ``content``.
     * result file unreadable  → ``failed`` (atomic writes → a real defect).
     * RQ job failed           → ``failed`` + the exc_info **tail**.
     * RQ job gone / no job_id → ``failed`` ("Job nicht mehr auffindbar.").
+    * RQ job finished, no file → ``failed`` ("Ergebnis nicht auffindbar.") —
+                                the worker writes before the job ends.
     * RQ job queued/started   → stays ``pending``.
     * Redis unreachable       → stays ``pending`` (retried on the next poll).
     """
@@ -145,35 +177,31 @@ def reconcile_transcription(conversion):
 
     metadata = transcription_metadata(conversion)
     source_ext = metadata.get('source_format')
+    job_id = metadata.get('job_id')
+    # metadata_json is client-writable: only a real mark names a file or a job.
+    has_mark = is_job_mark(job_id)
 
-    if os.path.exists(transcription_result_path(conversion.id)):
-        payload = read_result_file(conversion.id)
-        if payload is None:
-            _fail_transcription(conversion, metadata, 'Ergebnisdatei unlesbar.')
-            return
-        transcript = payload.get('transcript') or ''
-        conversion.set_content(transcript)  # LOST-UPDATE: content writers bump content_version
-        metadata['transcription_status'] = STATUS_READY
-        metadata['transcript_length'] = len(transcript)
-        if payload.get('file_size_mb') is not None:
-            metadata['file_size_mb'] = payload['file_size_mb']
-        metadata['error'] = None
-        _persist_metadata(conversion, metadata)
-        discard_job_files(conversion.id, source_ext=source_ext)
+    if has_mark and _take_result(conversion, metadata, job_id, source_ext):
+        return
+
+    # Another reconcile of this row may have consumed the result (ready
+    # committed, THEN the files discarded) while this one still held the row
+    # as pending — read the row again before judging it.
+    db.session.refresh(conversion)
+    if transcription_status(conversion) != STATUS_PENDING:
+        return
+
+    if not has_mark:
+        _fail_transcription(conversion, metadata, 'Job nicht mehr auffindbar.')
         return
 
     import app as _app_module  # late: tests patch Job / redis_conn on app.py
 
-    job_id = metadata.get('job_id')
-    if not job_id:
-        _fail_transcription(conversion, metadata, 'Job nicht mehr auffindbar.')
-        discard_job_files(conversion.id, source_ext=source_ext)
-        return
     try:
         job = _app_module.fetch_job(job_id)
     except NoSuchJobError:
         _fail_transcription(conversion, metadata, 'Job nicht mehr auffindbar.')
-        discard_job_files(conversion.id, source_ext=source_ext)
+        discard_job_files(job_id, source_ext=source_ext)
         return
     except Exception:
         logger.warning('reconcile_transcription: RQ fetch failed for job %s',
@@ -182,7 +210,18 @@ def reconcile_transcription(conversion):
     if job.is_failed:
         error = (job.exc_info or '')[-2000:] or 'Transkription fehlgeschlagen.'
         _fail_transcription(conversion, metadata, error)
-        discard_job_files(conversion.id, source_ext=source_ext)
+        discard_job_files(job_id, source_ext=source_ext)
+    elif job.is_finished:
+        # Finished between our look at the volume and the fetch → the result
+        # is there now. Still none: a concurrent reconcile took it (the row
+        # is no longer pending) or it never existed.
+        if _take_result(conversion, metadata, job_id, source_ext):
+            return
+        db.session.refresh(conversion)
+        if transcription_status(conversion) != STATUS_PENDING:
+            return
+        _fail_transcription(conversion, metadata, 'Ergebnis nicht auffindbar.')
+        discard_job_files(job_id, source_ext=source_ext)
     # queued / started / deferred → still transcribing, stays pending.
 
 
@@ -253,7 +292,8 @@ def register(app):
         bearer skips it). The configured-ness gate is the Deepgram singleton
         (``require_service``) — the job itself runs on the worker with the
         worker's own key. Same file + language already pending/ready → 200
-        with ``deduped: true`` and the stored state, nothing enqueued.
+        with ``deduped: true`` and the stored state, nothing enqueued. A queue
+        that cannot take the job → 503, no row, no source left on the volume.
         """
         if 'audio_file' not in request.files:
             return jsonify({"error": 'Kein Datei-Feld "audio_file" im Request.'}), 400
@@ -278,8 +318,12 @@ def register(app):
                          "Erlaubt: MP3, WAV, M4A, OGG, FLAC, WEBM."
             }), 400
 
+        # The job mark: created before anything touches the volume. It names
+        # the source and the result, is the RQ job id and lands in metadata.
+        job_id = new_job_mark()
+
         # Spool to the shared volume first (same directory as the final path →
-        # os.replace stays an atomic same-FS rename), then create the row.
+        # os.replace stays an atomic same-FS rename), enqueue, then the row.
         job_dir = ensure_transcription_dir()
         tmp_f = tempfile.NamedTemporaryFile(dir=job_dir, suffix='.upload', delete=False)
         tmp_path = tmp_f.name
@@ -299,34 +343,7 @@ def register(app):
                 return jsonify(payload), 200
 
             duration = probe_duration_seconds(tmp_path)
-            recorded_at, recorded_at_source = _recorded_at_for(
-                original_filename, request.form.get('recorded_at'))
-
-            stem = os.path.splitext(original_filename)[0] or original_filename
-            conversion = Conversion(
-                user_id=current_user.id,
-                conversion_type=TRANSCRIPTION_TYPE,
-                title=stem[:255],
-                content='',  # fills in on the ready-reconcile
-                source_filename=original_filename[:255],
-                source_mimetype=upload.mimetype,
-                source_size_bytes=size,
-                # A job row shelves to the archive; "In Library speichern"
-                # moves it into the inbox (the page's existing button).
-                lifecycle_status='archive',
-            )
-            db.session.add(conversion)
-            db.session.flush()  # id for the id-derived source path
-
-            os.replace(tmp_path, transcription_source_path(conversion.id, ext))
-
-            metadata = build_transcription_metadata(
-                language=language, source_format=ext, source_sha256=source_sha256,
-                duration_seconds=duration,
-                file_size_mb=round(size / (1024 * 1024), 2),
-                recorded_at=recorded_at, recorded_at_source=recorded_at_source)
-            conversion.metadata_json = json.dumps(metadata)
-            db.session.commit()
+            os.replace(tmp_path, transcription_source_path(job_id, ext))
         finally:
             try:
                 if os.path.exists(tmp_path):
@@ -334,28 +351,60 @@ def register(app):
             except OSError:
                 pass
 
-        job = _app_module.task_queue.enqueue(
-            transcribe_audio_task,
-            conversion.id, ext, language,
-            meta={'user_id': current_user.id, 'conversion_id': conversion.id},
-            job_timeout=transcribe_job_timeout_for(duration),
-        )
+        recorded_at, recorded_at_source = _recorded_at_for(
+            original_filename, request.form.get('recorded_at'))
+        metadata = build_transcription_metadata(
+            language=language, source_format=ext, source_sha256=source_sha256,
+            duration_seconds=duration,
+            file_size_mb=round(size / (1024 * 1024), 2),
+            recorded_at=recorded_at, recorded_at_source=recorded_at_source)
+        metadata['job_id'] = job_id
 
-        # job_id back into metadata — reconcile keys "still transcribing" vs
-        # "gone" on it (two commits, like the document job: the row must
-        # exist before the page can poll).
-        metadata['job_id'] = job.id
-        conversion.metadata_json = json.dumps(metadata)
+        # Enqueue BEFORE the row exists: no open DB write while Redis is
+        # asked, and a failed enqueue leaves nothing behind. The task needs
+        # no row id — it reads and writes under the mark.
+        try:
+            _app_module.task_queue.enqueue(
+                transcribe_audio_task,
+                job_id, ext, language,
+                job_id=job_id,
+                meta={'user_id': current_user.id},
+                job_timeout=transcribe_job_timeout_for(duration),
+            )
+        except Exception:
+            logger.error('Transcription job %s could not be enqueued',
+                         job_id, exc_info=True)
+            discard_job_files(job_id, source_ext=ext)
+            return jsonify({'error': 'Auftrag konnte nicht eingereiht werden. '
+                                     'Bitte erneut versuchen.'}), 503
+
+        # One commit, job_id included. If it fails the job still runs — under
+        # a mark nobody looks for; the task removes the source itself.
+        stem = os.path.splitext(original_filename)[0] or original_filename
+        conversion = Conversion(
+            user_id=current_user.id,
+            conversion_type=TRANSCRIPTION_TYPE,
+            title=stem[:255],
+            content='',  # fills in on the ready-reconcile
+            source_filename=original_filename[:255],
+            source_mimetype=upload.mimetype,
+            source_size_bytes=size,
+            # A job row shelves to the archive; "In Library speichern"
+            # moves it into the inbox (the page's existing button).
+            lifecycle_status='archive',
+            metadata_json=json.dumps(metadata),
+        )
+        db.session.add(conversion)
         db.session.commit()
 
         app.logger.info(
-            f"Transcription job {job.id} queued for conversion {conversion.id} "
+            f"Transcription job {job_id} queued for conversion {conversion.id} "
             f"({original_filename}, {size / (1024 * 1024):.1f} MB, "
             f"duration={duration})")
         return jsonify({
             'id': conversion.id,
             'status': STATUS_PENDING,
-            'job_id': job.id,
+            'job_id': job_id,
         }), 202
 
     @app.route('/api/transcriptions/<int:conversion_id>', methods=['GET'])

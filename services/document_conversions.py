@@ -12,21 +12,30 @@ WAVs), and a subdirectory gives the same namespace isolation an extra volume
 would, without touching docker-compose in two places. The misleading volume
 *name* is a pre-existing cosmetic debt, not this sprint's.
 
-File layout under ``DOC_CONVERT_DIR`` (id-derived names, never user input):
+File layout under ``DOC_CONVERT_DIR`` — every name carries the **job mark**
+(``metadata['job_id']``, a uuid the web side creates at submit and hands to
+RQ as the job id), never the row id and never user input (JOB-ID-REUSE:
+SQLite reuses the id of a deleted highest row, so an id-named file could
+belong to two jobs — the old job's result reached the new row, the old job's
+``finally`` deleted the new job's source):
 
-* ``source_<id>.<ext>``  — uploaded original, written by the web process,
+* ``source_<job>.<ext>`` — uploaded original, written by the web process,
   read (and finally deleted) by the worker.
-* ``result_<id>.json``   — the worker's **structured** result. Unlike the
+* ``result_<job>.json``  — the worker's **structured** result. Unlike the
   narration WAV ("file exists" == done), a conversion result carries markdown
   plus warnings, so reconcile must *read* it. Written atomically
   (tmp + ``os.replace``) so the web side can never observe a half-written file:
   an unparseable result file is therefore a real defect, not a race.
 
+The mark is read back from ``metadata_json``, which a client can write
+(``POST /api/conversions``): the path helpers raise ``ValueError`` on anything
+that is not a mark (``app_pkg.config.job_mark``) instead of building a path.
+
 metadata_json contract (v2, DOC-API P2):
 
   {
     "doc_status": "pending" | "ready" | "failed",
-    "job_id": "<rq job id>",
+    "job_id": "<job mark>",              # == the RQ job id == the file names
     "mode": "cloud" | "lokal",           # effective mode of THIS job
     "budget_eur": 1.0,                   # per-job cap, frozen at submit
     "source_format": "pdf",              # lowercased extension
@@ -59,7 +68,7 @@ Provenance semantics (the contract other services rely on):
 import json
 import os
 
-from app_pkg.config import OUTPUT_DIR
+from app_pkg.config import OUTPUT_DIR, job_mark, job_source_ext
 
 DOC_STATUS_PENDING = 'pending'
 DOC_STATUS_READY = 'ready'
@@ -122,22 +131,24 @@ def ensure_doc_convert_dir():
     return DOC_CONVERT_DIR
 
 
-def doc_source_path(conversion_id, source_ext):
-    """Shared-volume path of the uploaded source: ``source_<id>.<ext>``.
+def doc_source_path(job_id, source_ext):
+    """Shared-volume path of the uploaded source: ``source_<job>.<ext>``.
 
-    Derived from the id + the validated extension only — the original filename
-    never reaches the filesystem. Web writes it, the worker derives the SAME
-    path from the same arguments (single definition, no path drift).
+    Derived from the job mark + the validated extension only — the original
+    filename never reaches the filesystem. Web writes it, the worker derives
+    the SAME path from the same arguments (single definition, no path drift).
+    ``ValueError`` if either part is not what it claims to be.
     """
-    return os.path.join(DOC_CONVERT_DIR, f'source_{conversion_id}.{source_ext}')
+    return os.path.join(
+        DOC_CONVERT_DIR, f'source_{job_mark(job_id)}.{job_source_ext(source_ext)}')
 
 
-def doc_result_path(conversion_id):
-    """Shared-volume path of the worker's structured result: ``result_<id>.json``."""
-    return os.path.join(DOC_CONVERT_DIR, f'result_{conversion_id}.json')
+def doc_result_path(job_id):
+    """Shared-volume path of the worker's structured result: ``result_<job>.json``."""
+    return os.path.join(DOC_CONVERT_DIR, f'result_{job_mark(job_id)}.json')
 
 
-def write_result_file(conversion_id, payload):
+def write_result_file(job_id, payload):
     """Atomically write the worker's result JSON onto the shared volume.
 
     tmp file + ``os.replace`` in the same directory (same filesystem →
@@ -145,7 +156,7 @@ def write_result_file(conversion_id, payload):
     JSON. Returns the final path.
     """
     ensure_doc_convert_dir()
-    final_path = doc_result_path(conversion_id)
+    final_path = doc_result_path(job_id)
     tmp_path = final_path + '.tmp'
     with open(tmp_path, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False)
@@ -153,32 +164,38 @@ def write_result_file(conversion_id, payload):
     return final_path
 
 
-def read_result_file(conversion_id):
+def read_result_file(job_id):
     """Read + parse the worker's result JSON, or ``None`` if unreadable.
 
-    ``None`` covers missing file, invalid JSON and a non-object top level.
-    Because writes are atomic, an existing-but-unparseable file is a genuine
-    defect (reconcile flips such a row to ``failed`` rather than retrying
-    forever).
+    ``None`` covers missing file, invalid JSON, a non-object top level and a
+    ``job_id`` that is not a mark. Because writes are atomic, an
+    existing-but-unparseable file is a genuine defect (reconcile flips such a
+    row to ``failed`` rather than retrying forever).
     """
     try:
-        with open(doc_result_path(conversion_id), encoding='utf-8') as f:
+        with open(doc_result_path(job_id), encoding='utf-8') as f:
             data = json.load(f)
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else {}
 
 
-def discard_job_files(conversion_id, source_ext=None):
+def discard_job_files(job_id, source_ext=None):
     """Best-effort unlink of a job's volume files (result + optionally source).
 
     Called post-commit by reconcile once the result is persisted in the DB
     (the files are scratch, not the artifact — the narration WAV *is* the
-    artifact and stays; a conversion's artifact is the DB row). Never raises.
+    artifact and stays; a conversion's artifact is the DB row) and by the
+    library delete for the deleted row's own job. Never raises — a value that
+    is not a mark / not an extension names no file and is skipped.
     """
-    paths = [doc_result_path(conversion_id)]
-    if source_ext:
-        paths.append(doc_source_path(conversion_id, source_ext))
+    paths = []
+    try:
+        paths.append(doc_result_path(job_id))
+        if source_ext:
+            paths.append(doc_source_path(job_id, source_ext))
+    except ValueError:
+        pass
     for path in paths:
         try:
             if os.path.exists(path):
@@ -214,7 +231,7 @@ DEGRADATION_SCAN_TEXT_LAYER_EMPTY = 'scan_text_layer_empty'
 
 def build_result_payload(markdown, *, provenance_unit, provenance,
                          degradations=None, usage=None):
-    """The ONE result shape a conversion run produces (``result_<id>.json``).
+    """The ONE result shape a conversion run produces (``result_<job>.json``).
 
     Shared by the worker task, the paged pipeline (services/document_pipeline)
     and the tests, so whatever backend fills it — today's blackbox or the

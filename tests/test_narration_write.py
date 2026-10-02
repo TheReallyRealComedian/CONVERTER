@@ -10,6 +10,7 @@ fixture) — no real Redis, no real Cloud-TTS call. The enqueue is captured to
 assert the task + args + job options without running a worker.
 """
 import json
+import uuid
 
 import pytest
 
@@ -85,7 +86,9 @@ def test_create_202_with_good_token(app, client, test_user, monkeypatch, mock_re
     assert resp.status_code == 202
     body = resp.get_json()
     assert body['status'] == 'pending'
-    assert body['job_id'] == 'test-job-123'        # from the mock job
+    # The web side makes the job id (JOB-ID-REUSE) and hands it to the queue.
+    assert str(uuid.UUID(body['job_id'])) == body['job_id']
+    assert body['job_id'] == mock_redis_queue['queue'].enqueue.call_args.kwargs['job_id']
     assert isinstance(body['narration_id'], int)
 
 
@@ -132,6 +135,7 @@ def test_create_persists_pending_conversion(app, client, test_user, monkeypatch,
     resp = client.post(NARR_URL, headers=_auth(), json=_payload())
     assert resp.status_code == 202
     nid = resp.get_json()['narration_id']
+    mark = resp.get_json()['job_id']
 
     with app.app_context():
         conv = db.session.get(Conversion, nid)
@@ -146,7 +150,7 @@ def test_create_persists_pending_conversion(app, client, test_user, monkeypatch,
         assert meta['tts_model'] == DEFAULT_NARRATION_MODEL
         assert meta['speakers'] == _VOICES
         assert meta['transcript'] == _TURNS
-        assert meta['job_id'] == 'test-job-123'         # written back post-enqueue
+        assert meta['job_id'] == mark                   # the mark the job runs under
         assert meta['audio_filename'] == f'narration_{nid}.wav'
 
 
@@ -154,15 +158,16 @@ def test_create_enqueues_render_task_with_args(app, client, test_user, monkeypat
     monkeypatch.setenv('NARRATION_TOKEN', NARRATION_TOKEN)
     resp = client.post(NARR_URL, headers=_auth(), json=_payload())
     assert resp.status_code == 202
-    nid = resp.get_json()['narration_id']
+    mark = resp.get_json()['job_id']
 
     enqueue = mock_redis_queue['queue'].enqueue
     enqueue.assert_called_once()
     call = enqueue.call_args
-    # positional task args: (task, conversion_id, turns, voices, style_prompt,
-    #                        mode, language_code, tts_model)
+    # positional task args: (task, job_id, turns, voices, style_prompt,
+    #                        mode, language_code, tts_model) — the task gets
+    # the job mark, never the row id (JOB-ID-REUSE).
     assert call.args[0] is generate_narration_task
-    assert call.args[1] == nid
+    assert call.args[1] == mark
     assert call.args[2] == _TURNS
     assert call.args[3] == _VOICES
     assert call.args[4] == 'ruhig'                       # style_prompt
@@ -170,7 +175,8 @@ def test_create_enqueues_render_task_with_args(app, client, test_user, monkeypat
     assert call.args[6] == 'de-DE'                       # language default
     assert call.args[7] == DEFAULT_NARRATION_MODEL       # tts_model default
     # RQ job options
-    assert call.kwargs['meta'] == {'user_id': test_user['id'], 'conversion_id': nid}
+    assert call.kwargs['job_id'] == mark
+    assert call.kwargs['meta'] == {'user_id': test_user['id']}
     assert call.kwargs['job_timeout'] == TIMEOUT_RQ_JOB_SECONDS
 
 

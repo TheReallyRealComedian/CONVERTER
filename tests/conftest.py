@@ -225,7 +225,12 @@ def mock_redis_queue(app):
 
     The fixture yields a dict with three handles: ``queue`` (the mock RQ
     queue), ``job`` (a default MagicMock job that ``enqueue`` returns), and
-    ``set_fetch`` (a callable to reconfigure ``Job.fetch`` mid-test).
+    ``fetch`` (the ``Job.fetch`` mock, reconfigurable mid-test).
+
+    Since JOB-ID-REUSE the web side creates the job id itself and passes it
+    as ``enqueue(..., job_id=<mark>)``; the id of the mock job the queue
+    returns (``test-job-123``) reaches nothing anymore. Tests read the mark
+    from the response / ``enqueue.call_args.kwargs['job_id']``.
     """
     mock_queue = MagicMock()
     mock_job = MagicMock()
@@ -237,6 +242,10 @@ def mock_redis_queue(app):
 
     fetch_patcher = patch.object(app_module.Job, 'fetch')
     mock_fetch = fetch_patcher.start()
+    # JOB-ID-REUSE: the reconciles read ``job.is_finished`` (finished without
+    # a result file → failed). A bare MagicMock attribute is truthy — the
+    # default fetched job is one that is still queued/running.
+    mock_fetch.return_value.is_finished = False
 
     handles = {
         'queue': mock_queue,

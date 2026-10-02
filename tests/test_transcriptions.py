@@ -1,8 +1,8 @@
 """SYNC-FREEZE P3 — the file transcription as a job on the worker.
 
 Replaces ``tests/test_audio.py`` (the synchronous ``POST /transcribe-audio-file``
-is gone). Locks in: submit → pending row + source file on the volume + RQ
-envelope from the audio duration; the validation 400s and the 503 gate;
+is gone). Locks in: submit → pending row + source file on the volume (named
+after the job mark, JOB-ID-REUSE) + RQ envelope from the audio duration; the validation 400s and the 503 gate;
 idempotency (same file + language → the stored state, nothing enqueued);
 the MCP1 ``recorded_at`` precedence at submit; every reconcile branch
 (pending / ready from the result file / failed from RQ / unreadable result /
@@ -17,6 +17,7 @@ shared-volume dir is a monkeypatched tmp directory.
 import io
 import json
 import os
+import uuid
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -66,8 +67,16 @@ def _row(conversion_id):
     return db.session.get(Conversion, conversion_id)
 
 
-def _job(is_failed=False, exc_info=None):
-    return SimpleNamespace(is_failed=is_failed, exc_info=exc_info)
+def _submit(client, **kwargs):
+    """Submit and return ``(conversion_id, job_mark)`` — the mark names the
+    job's files and is the RQ job id (JOB-ID-REUSE)."""
+    body = _post(client, **kwargs).get_json()
+    return body['id'], body['job_id']
+
+
+def _job(is_failed=False, exc_info=None, is_finished=False):
+    return SimpleNamespace(is_failed=is_failed, exc_info=exc_info,
+                           is_finished=is_finished)
 
 
 # --- submit -------------------------------------------------------------------
@@ -78,7 +87,8 @@ def test_submit_creates_pending_job(app, authenticated_client, test_user,
     assert resp.status_code == 202
     body = resp.get_json()
     assert body['status'] == 'pending'
-    assert body['job_id'] == 'test-job-123'
+    mark = body['job_id']
+    assert str(uuid.UUID(mark)) == mark   # web-made, not the queue's own id
 
     with app.app_context():
         row = _row(body['id'])
@@ -90,20 +100,23 @@ def test_submit_creates_pending_job(app, authenticated_client, test_user,
         assert row.source_filename == '260521_0176.wav'
         meta = json.loads(row.metadata_json)
     assert meta['transcription_status'] == 'pending'
-    assert meta['job_id'] == 'test-job-123'
+    assert meta['job_id'] == mark
     assert meta['language'] == 'de'
     assert meta['source_format'] == 'wav'
     assert meta['duration_seconds'] == 1901.1
     assert len(meta['source_sha256']) == 64
-    assert os.path.exists(tj.transcription_source_path(body['id'], 'wav'))
+    # The source lies under the job mark, never under the row id.
+    assert os.listdir(transcription_dir) == [f'source_{mark}.wav']
+    assert os.path.exists(tj.transcription_source_path(mark, 'wav'))
 
     # The unchanged service is NOT called in the web process — the job is.
     mock_deepgram.transcribe_file.assert_not_called()
     call = mock_redis_queue['queue'].enqueue.call_args
     assert call.args[0] is tasks.transcribe_audio_task
-    assert call.args[1:] == (body['id'], 'wav', 'de')
+    assert call.args[1:] == (mark, 'wav', 'de')
+    assert call.kwargs['job_id'] == mark
     assert call.kwargs['job_timeout'] == transcribe_job_timeout_for(1901.1)
-    assert call.kwargs['meta']['conversion_id'] == body['id']
+    assert call.kwargs['meta'] == {'user_id': test_user['id']}
 
 
 def test_submit_enqueue_survives_rq_json(authenticated_client, mock_deepgram,
@@ -128,7 +141,7 @@ def test_submit_without_language_defaults_to_german(app, authenticated_client,
         meta = json.loads(_row(body['id']).metadata_json)
     assert meta['language'] == 'de'
     call = mock_redis_queue['queue'].enqueue.call_args
-    assert call.args[1:] == (body['id'], 'wav', 'de')
+    assert call.args[1:] == (body['job_id'], 'wav', 'de')
 
 
 def test_submit_envelope_scales_with_the_duration(authenticated_client, mock_deepgram,
@@ -265,10 +278,10 @@ def test_poll_pending_while_the_job_runs(authenticated_client, mock_deepgram,
 
 def test_poll_ready_reads_the_result_file_and_discards_the_files(
         app, authenticated_client, mock_deepgram, mock_redis_queue, transcription_dir):
-    cid = _post(authenticated_client).get_json()['id']
-    tj.write_result_file(cid, {'transcript': '**Sprecher 1:** Hallo.\n\n**Sprecher 2:** Moin.',
-                               'transcript_length': 40, 'file_size_mb': 0.0,
-                               'language': 'de'})
+    cid, mark = _submit(authenticated_client)
+    tj.write_result_file(mark, {'transcript': '**Sprecher 1:** Hallo.\n\n**Sprecher 2:** Moin.',
+                                'transcript_length': 40, 'file_size_mb': 0.0,
+                                'language': 'de'})
     body = authenticated_client.get(f'{URL}/{cid}').get_json()
     assert body['status'] == 'ready'
     assert body['transcript'].startswith('**Sprecher 1:**')
@@ -278,8 +291,7 @@ def test_poll_ready_reads_the_result_file_and_discards_the_files(
         row = _row(cid)
         assert row.content == body['transcript']
         assert json.loads(row.metadata_json)['transcription_status'] == 'ready'
-    assert not os.path.exists(tj.transcription_result_path(cid))
-    assert not os.path.exists(tj.transcription_source_path(cid, 'wav'))
+    assert os.listdir(transcription_dir) == []   # result AND source discarded
     # terminal state is idempotent — no RQ lookup anymore
     mock_redis_queue['fetch'].reset_mock()
     assert authenticated_client.get(f'{URL}/{cid}').get_json()['status'] == 'ready'
@@ -288,25 +300,25 @@ def test_poll_ready_reads_the_result_file_and_discards_the_files(
 
 def test_poll_failed_job_surfaces_the_exc_info_tail(authenticated_client, mock_deepgram,
                                                     mock_redis_queue, transcription_dir):
-    cid = _post(authenticated_client).get_json()['id']
+    cid, mark = _submit(authenticated_client)
     exc_info = 'x' * 3000 + '\nRuntimeError: Transcription failed for chunk 2'
     mock_redis_queue['fetch'].return_value = _job(is_failed=True, exc_info=exc_info)
     body = authenticated_client.get(f'{URL}/{cid}').get_json()
     assert body['status'] == 'failed'
     assert body['error'].endswith('RuntimeError: Transcription failed for chunk 2')
     assert len(body['error']) <= 2000
-    assert not os.path.exists(tj.transcription_source_path(cid, 'wav'))
+    assert not os.path.exists(tj.transcription_source_path(mark, 'wav'))
 
 
 def test_poll_unreadable_result_file_fails(authenticated_client, mock_deepgram,
                                            mock_redis_queue, transcription_dir):
-    cid = _post(authenticated_client).get_json()['id']
-    with open(tj.transcription_result_path(cid), 'w') as f:
+    cid, mark = _submit(authenticated_client)
+    with open(tj.transcription_result_path(mark), 'w') as f:
         f.write('{not json')
     body = authenticated_client.get(f'{URL}/{cid}').get_json()
     assert body['status'] == 'failed'
     assert body['error'] == 'Ergebnisdatei unlesbar.'
-    assert os.path.exists(tj.transcription_result_path(cid))  # kept for diagnosis
+    assert os.path.exists(tj.transcription_result_path(mark))  # kept for diagnosis
 
 
 def test_poll_job_gone_fails(authenticated_client, mock_deepgram, mock_redis_queue,
@@ -320,21 +332,21 @@ def test_poll_job_gone_fails(authenticated_client, mock_deepgram, mock_redis_que
 def test_poll_reads_job_with_rq_serializer(authenticated_client, mock_deepgram,
                                            mock_redis_queue, transcription_dir):
     """SEC-REDIS-AUTH: the reconcile reads the job via app.fetch_job (JSON)."""
-    cid = _post(authenticated_client).get_json()['id']
+    cid, mark = _submit(authenticated_client)
     mock_redis_queue['fetch'].return_value.is_failed = False
     assert authenticated_client.get(f'{URL}/{cid}').get_json()['status'] == 'pending'
     fetch = mock_redis_queue['fetch']
-    assert fetch.call_args.args == ('test-job-123',)
+    assert fetch.call_args.args == (mark,)
     assert fetch.call_args.kwargs['serializer'] is RQ_SERIALIZER
 
 
 def test_poll_transient_redis_error_stays_pending(authenticated_client, mock_deepgram,
                                                   mock_redis_queue, transcription_dir):
-    cid = _post(authenticated_client).get_json()['id']
+    cid, mark = _submit(authenticated_client)
     mock_redis_queue['fetch'].side_effect = ConnectionError('redis down')
     body = authenticated_client.get(f'{URL}/{cid}').get_json()
     assert body['status'] == 'pending'
-    assert os.path.exists(tj.transcription_source_path(cid, 'wav'))
+    assert os.path.exists(tj.transcription_source_path(mark, 'wav'))
 
 
 def test_poll_foreign_missing_or_wrong_type_is_404(app, authenticated_client, test_user,
@@ -384,16 +396,17 @@ def test_worker_task_writes_result_and_removes_the_source(transcription_dir, mon
     monkeypatch.setattr(tasks, 'DeepgramService', _FakeDeepgram)
     _FakeDeepgram.calls = []
     tj.ensure_transcription_dir()
-    with open(tj.transcription_source_path(7, 'mp3'), 'wb') as f:
+    with open(tj.transcription_source_path('job-7', 'mp3'), 'wb') as f:
         f.write(b'abc')
 
-    path = tasks.transcribe_audio_task(7, 'mp3', 'de')
+    path = tasks.transcribe_audio_task('job-7', 'mp3', 'de')
 
-    assert path == tj.transcription_result_path(7)
-    payload = tj.read_result_file(7)
+    assert path == tj.transcription_result_path('job-7')
+    assert os.listdir(transcription_dir) == ['result_job-7.json']
+    payload = tj.read_result_file('job-7')
     assert payload == {'transcript': 'Hallo Welt.', 'transcript_length': 11,
                        'file_size_mb': 0.0, 'language': 'de'}
-    assert not os.path.exists(tj.transcription_source_path(7, 'mp3'))
+    assert not os.path.exists(tj.transcription_source_path('job-7', 'mp3'))
     # one service PER JOB, built with the worker's key — never a shared one
     assert _FakeDeepgram.calls == [('init', 'worker-key'), ('transcribe', 3, 'de')]
 
@@ -404,18 +417,18 @@ def test_worker_task_failure_reraises_and_removes_the_source(transcription_dir, 
     broken.return_value.transcribe_file.side_effect = RuntimeError('chunk 2 failed')
     monkeypatch.setattr(tasks, 'DeepgramService', broken)
     tj.ensure_transcription_dir()
-    with open(tj.transcription_source_path(8, 'wav'), 'wb') as f:
+    with open(tj.transcription_source_path('job-8', 'wav'), 'wb') as f:
         f.write(b'abc')
     with pytest.raises(RuntimeError, match='chunk 2 failed'):
-        tasks.transcribe_audio_task(8, 'wav', 'de')
-    assert not os.path.exists(tj.transcription_result_path(8))
-    assert not os.path.exists(tj.transcription_source_path(8, 'wav'))
+        tasks.transcribe_audio_task('job-8', 'wav', 'de')
+    assert not os.path.exists(tj.transcription_result_path('job-8'))
+    assert not os.path.exists(tj.transcription_source_path('job-8', 'wav'))
 
 
 def test_worker_task_without_key_fails_loudly(transcription_dir, monkeypatch):
     monkeypatch.delenv('DEEPGRAM_API_KEY', raising=False)
     with pytest.raises(ValueError, match='DEEPGRAM_API_KEY'):
-        tasks.transcribe_audio_task(9, 'wav', 'de')
+        tasks.transcribe_audio_task('job-9', 'wav', 'de')
 
 
 # --- the RQ envelope --------------------------------------------------------------

@@ -5,15 +5,17 @@ Cloud-TTS call, no real Redis):
 
 * ``generate_narration_task`` (tasks.py) — the worker renders via a mocked
   ``GoogleTTSService.synthesize_narration`` and moves the temp WAV onto the
-  id-derived path ``narration_<id>.wav``. It is **DB-free** by design (Option B):
-  it never touches the Conversion.
-* ``reconcile_narration`` (app_pkg/narration.py) — the web side flips a pending
-  narration to ready/failed from the file's existence + the RQ job's terminal
-  state. The job is a MagicMock; ``Job.fetch`` is patched on app.py via the
+  volume under its JOB name ``narration_jobs/render_<job>.wav`` (JOB-ID-REUSE:
+  never under the row id). It is **DB-free** by design (Option B): it never
+  touches the Conversion and does not know its id.
+* ``reconcile_narration`` (app_pkg/narration.py) — the web side adopts the
+  render of the row's own job mark as ``narration_<id>.wav`` and flips a
+  pending narration to ready/failed from that + the RQ job's terminal state.
+  The job is a MagicMock; ``Job.fetch`` is patched on app.py via the
   ``mock_redis_queue`` fixture.
 
 ``OUTPUT_DIR`` is monkeypatched in ``services.narration_library`` so the
-id-derived ``narration_audio_path`` resolves into a tmp dir (no container path).
+volume paths resolve into a tmp dir (no container path).
 """
 import json
 import wave
@@ -45,12 +47,24 @@ def _write_real_wav(path, seconds=1, rate=24000):
         w.writeframes(b'\x00\x00' * (rate * seconds))
 
 
+def _write_job_render(output_dir, job_id, seconds=1):
+    """The worker's finished render for ``job_id``, as the task leaves it."""
+    job_dir = output_dir / 'narration_jobs'
+    job_dir.mkdir(exist_ok=True)
+    path = job_dir / f'render_{job_id}.wav'
+    _write_real_wav(path, seconds=seconds)
+    return path
+
+
 # --- worker task: generate_narration_task (DB-free) --------------------------
 
-def test_generate_narration_task_writes_id_derived_wav(tmp_path, monkeypatch):
-    """Renderer returns a temp WAV → task moves it to ``narration_<id>.wav``."""
+def test_generate_narration_task_writes_the_render_under_its_job_mark(tmp_path, monkeypatch):
+    """Renderer returns a temp WAV → task moves it to
+    ``narration_jobs/render_<job>.wav`` — never to an id-named artifact."""
     monkeypatch.setenv('GOOGLE_APPLICATION_CREDENTIALS', '/fake/creds.json')
-    monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(tmp_path))
+    volume = tmp_path / 'volume'
+    volume.mkdir()
+    monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(volume))
 
     temp_wav = tmp_path / 'render-tmp.wav'
     _write_real_wav(temp_wav)
@@ -61,12 +75,14 @@ def test_generate_narration_task_writes_id_derived_wav(tmp_path, monkeypatch):
     monkeypatch.setattr(tasks, 'GoogleTTSService', fake_cls)
 
     result = tasks.generate_narration_task(
-        42, _TURNS, _VOICES, 'ruhig', 'two_speaker', 'de-DE', 'gemini-2.5-flash-tts')
+        'job-42', _TURNS, _VOICES, 'ruhig', 'two_speaker', 'de-DE', 'gemini-2.5-flash-tts')
 
-    final = tmp_path / 'narration_42.wav'
+    final = volume / 'narration_jobs' / 'render_job-42.wav'
     assert result == str(final)
     assert final.exists()
     assert not temp_wav.exists()  # moved, not copied
+    # Nothing else on the volume: no ``.part`` left, no artifact written.
+    assert [p.name for p in volume.rglob('*') if p.is_file()] == ['render_job-42.wav']
     # creds + render args threaded through verbatim
     fake_cls.assert_called_once_with('/fake/creds.json')
     fake_svc.synthesize_narration.assert_called_once_with(
@@ -82,7 +98,7 @@ def test_generate_narration_task_missing_creds_raises(monkeypatch):
 
     with pytest.raises(ValueError):
         tasks.generate_narration_task(
-            1, _TURNS, _VOICES, None, 'two_speaker', 'de-DE', 'm')
+            'job-1', _TURNS, _VOICES, None, 'two_speaker', 'de-DE', 'm')
     fake_cls.assert_not_called()  # bailed before instantiating the service
 
 
@@ -97,8 +113,33 @@ def test_generate_narration_task_renderer_raises_propagates(tmp_path, monkeypatc
 
     with pytest.raises(RuntimeError, match="TTS boom"):
         tasks.generate_narration_task(
-            7, _TURNS, _VOICES, None, 'two_speaker', 'de-DE', 'm')
-    assert not (tmp_path / 'narration_7.wav').exists()  # nothing written on failure
+            'job-7', _TURNS, _VOICES, None, 'two_speaker', 'de-DE', 'm')
+    assert [p for p in tmp_path.rglob('*') if p.is_file()] == []  # nothing written on failure
+
+
+def test_generate_narration_task_failed_move_leaves_no_part_file(tmp_path, monkeypatch):
+    """The copy onto the volume dies half-way → the ``.part`` is removed and
+    the job fails; no finished render appears."""
+    monkeypatch.setenv('GOOGLE_APPLICATION_CREDENTIALS', '/fake/creds.json')
+    volume = tmp_path / 'volume'
+    volume.mkdir()
+    monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(volume))
+    temp_wav = tmp_path / 'render-tmp.wav'
+    _write_real_wav(temp_wav)
+    fake_svc = MagicMock()
+    fake_svc.synthesize_narration.return_value = str(temp_wav)
+    monkeypatch.setattr(tasks, 'GoogleTTSService', MagicMock(return_value=fake_svc))
+
+    def half_a_copy(src, dst):
+        with open(dst, 'wb') as f:
+            f.write(b'RIFF-half')
+        raise OSError('No space left on device')
+
+    monkeypatch.setattr(tasks.shutil, 'move', half_a_copy)
+    with pytest.raises(OSError, match='No space left'):
+        tasks.generate_narration_task(
+            'job-8', _TURNS, _VOICES, None, 'two_speaker', 'de-DE', 'm')
+    assert [p for p in volume.rglob('*') if p.is_file()] == []
 
 
 # --- web-side reconcile: reconcile_narration ---------------------------------
@@ -126,10 +167,12 @@ def _meta(app, cid):
         return json.loads(db.session.get(Conversion, cid).metadata_json)
 
 
-def test_reconcile_file_exists_flips_ready_with_duration(app, test_user, tmp_path, monkeypatch):
+def test_reconcile_own_render_is_adopted_and_flips_ready_with_duration(
+        app, test_user, tmp_path, monkeypatch):
     monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(tmp_path))
     cid = _make_pending(app, test_user['id'])
-    _write_real_wav(tmp_path / f'narration_{cid}.wav', seconds=2)
+    render = _write_job_render(tmp_path, 'job-xyz', seconds=2)
+    audio = render.read_bytes()
 
     with app.app_context():
         reconcile_narration(db.session.get(Conversion, cid))
@@ -138,6 +181,28 @@ def test_reconcile_file_exists_flips_ready_with_duration(app, test_user, tmp_pat
     assert meta['narration_status'] == 'ready'
     assert meta['duration_seconds'] == 2   # frames / framerate
     assert meta['error'] is None
+    # Adopted: the artifact carries the render, the job name is gone.
+    assert (tmp_path / f'narration_{cid}.wav').read_bytes() == audio
+    assert not render.exists()
+
+
+def test_reconcile_ignores_an_id_named_wav_that_is_not_its_jobs(
+        app, test_user, tmp_path, monkeypatch, mock_redis_queue):
+    """JOB-ID-REUSE: ``narration_<id>.wav`` merely existing proves nothing —
+    it may be the render of a deleted row whose id this row took. Without a
+    render under its OWN mark the row stays pending while its job runs."""
+    monkeypatch.setattr('services.narration_library.OUTPUT_DIR', str(tmp_path))
+    cid = _make_pending(app, test_user['id'], job_id='job-mine')
+    _write_real_wav(tmp_path / f'narration_{cid}.wav', seconds=2)
+    _write_job_render(tmp_path, 'job-somebody-else', seconds=5)
+    mock_redis_queue['fetch'].return_value.is_failed = False
+
+    with app.app_context():
+        reconcile_narration(db.session.get(Conversion, cid))
+
+    meta = _meta(app, cid)
+    assert meta['narration_status'] == 'pending'
+    assert meta['duration_seconds'] is None
 
 
 def test_reconcile_job_failed_flips_failed(app, test_user, tmp_path, monkeypatch, mock_redis_queue):
@@ -231,6 +296,7 @@ def test_reconcile_job_running_stays_pending(app, test_user, tmp_path, monkeypat
 
     running_job = MagicMock()
     running_job.is_failed = False
+    running_job.is_finished = False
     mock_redis_queue['fetch'].return_value = running_job
 
     with app.app_context():

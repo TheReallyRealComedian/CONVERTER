@@ -139,7 +139,7 @@ def test_compose_redis_requires_password():
 
 def test_update_job_stage_meta_roundtrips(monkeypatch):
     class _CurrentJob:
-        meta = {'user_id': 7, 'conversion_id': 42}
+        meta = {'user_id': 7}
         saved = None
 
         def save_meta(self):
@@ -149,7 +149,7 @@ def test_update_job_stage_meta_roundtrips(monkeypatch):
     monkeypatch.setattr(tasks, 'get_current_job', lambda: job)
     tasks.update_job_stage('finalizing', chunks_done=3)
     assert RQ_SERIALIZER.loads(job.saved) == {
-        'user_id': 7, 'conversion_id': 42, 'stage': 'finalizing', 'chunks_done': 3}
+        'user_id': 7, 'stage': 'finalizing', 'chunks_done': 3}
 
 
 def test_result_payload_and_return_value_roundtrip():
@@ -167,7 +167,8 @@ def test_result_payload_and_return_value_roundtrip():
         usage={'model_calls': 0, 'cost_eur': 0.0},
     )
     assert rq_json_roundtrip(payload) == payload
-    path = '/app/output_podcasts/result_42.json'
+    path = ('/app/output_podcasts/doc_conversions/'
+            'result_0b9e1c52-6f3a-4c1e-9d55-2a7f0c9b1e44.json')
     assert rq_json_roundtrip(path) == path
 
 

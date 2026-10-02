@@ -24,19 +24,25 @@ And, per construction, it removes the one thread-safety exposure P2 created:
 (``_tmp_path`` …); in the RQ worker one job runs at a time and the task
 builds its own service instance — no two transcriptions ever share one.
 
-File layout under ``TRANSCRIPTION_DIR`` (id-derived names, never user input):
+File layout under ``TRANSCRIPTION_DIR`` — every name carries the **job mark**
+(``metadata['job_id']``, created by the web side at submit, also the RQ job
+id), never the row id and never user input (JOB-ID-REUSE: SQLite reuses the
+id of a deleted highest row; see ``services/document_conversions``):
 
-* ``source_<id>.<ext>`` — the uploaded audio, written by the web process,
+* ``source_<job>.<ext>`` — the uploaded audio, written by the web process,
   read (and finally deleted) by the worker.
-* ``result_<id>.json``  — the worker's structured result (transcript + facts),
+* ``result_<job>.json``  — the worker's structured result (transcript + facts),
   written atomically (tmp + ``os.replace``), so reconcile can never read a
   half-written file: an unparseable result is a defect, not a race.
+
+The path helpers raise ``ValueError`` on a ``job_id`` that is not a mark —
+it is read back from client-writable ``metadata_json``.
 
 metadata_json contract:
 
   {
     "transcription_status": "pending" | "ready" | "failed",
-    "job_id": "<rq job id>",
+    "job_id": "<job mark>",              # == the RQ job id == the file names
     "language": "de",
     "source_format": "wav",
     "source_sha256": "<hex>",            # idempotency key (user + hash + language)
@@ -56,7 +62,7 @@ import json
 import os
 import subprocess
 
-from app_pkg.config import OUTPUT_DIR
+from app_pkg.config import OUTPUT_DIR, job_mark, job_source_ext
 
 TRANSCRIPTION_TYPE = 'audio_transcription'
 
@@ -77,20 +83,21 @@ def ensure_transcription_dir():
     return TRANSCRIPTION_DIR
 
 
-def transcription_source_path(conversion_id, source_ext):
-    """``source_<id>.<ext>`` — web writes it, the worker derives the SAME path."""
-    return os.path.join(TRANSCRIPTION_DIR, f'source_{conversion_id}.{source_ext}')
+def transcription_source_path(job_id, source_ext):
+    """``source_<job>.<ext>`` — web writes it, the worker derives the SAME path."""
+    return os.path.join(
+        TRANSCRIPTION_DIR, f'source_{job_mark(job_id)}.{job_source_ext(source_ext)}')
 
 
-def transcription_result_path(conversion_id):
-    """``result_<id>.json`` — the worker's structured result."""
-    return os.path.join(TRANSCRIPTION_DIR, f'result_{conversion_id}.json')
+def transcription_result_path(job_id):
+    """``result_<job>.json`` — the worker's structured result."""
+    return os.path.join(TRANSCRIPTION_DIR, f'result_{job_mark(job_id)}.json')
 
 
-def write_result_file(conversion_id, payload):
+def write_result_file(job_id, payload):
     """Atomically write the worker's result JSON (tmp + same-dir ``os.replace``)."""
     ensure_transcription_dir()
-    final_path = transcription_result_path(conversion_id)
+    final_path = transcription_result_path(job_id)
     tmp_path = final_path + '.tmp'
     with open(tmp_path, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False)
@@ -98,22 +105,28 @@ def write_result_file(conversion_id, payload):
     return final_path
 
 
-def read_result_file(conversion_id):
-    """Parsed result JSON, or ``None`` if missing/unreadable/not an object."""
+def read_result_file(job_id):
+    """Parsed result JSON, or ``None`` if missing/unreadable/not an object
+    (or ``job_id`` is not a mark)."""
     try:
-        with open(transcription_result_path(conversion_id), encoding='utf-8') as f:
+        with open(transcription_result_path(job_id), encoding='utf-8') as f:
             data = json.load(f)
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else {}
 
 
-def discard_job_files(conversion_id, source_ext=None):
+def discard_job_files(job_id, source_ext=None):
     """Best-effort unlink of a job's volume files (result + optionally source).
-    The DB row is the artifact; the files are scratch. Never raises."""
-    paths = [transcription_result_path(conversion_id)]
-    if source_ext:
-        paths.append(transcription_source_path(conversion_id, source_ext))
+    The DB row is the artifact; the files are scratch. Never raises — a value
+    that is not a mark / not an extension names no file and is skipped."""
+    paths = []
+    try:
+        paths.append(transcription_result_path(job_id))
+        if source_ext:
+            paths.append(transcription_source_path(job_id, source_ext))
+    except ValueError:
+        pass
     for path in paths:
         try:
             if os.path.exists(path):
