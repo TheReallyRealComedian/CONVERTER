@@ -69,21 +69,46 @@ def test_compose_socket_only_at_the_launcher():
 
 
 def test_credentials_bind_is_read_only():
-    """CREDS-RO: web and worker read the GCP service-account key, they never
-    write it — the bind is ``:ro`` at both, and no service carries it without.
-    Since SEC-NONROOT both run as uid 1000, the owner of the host file (600):
-    without ``:ro`` the process that parses foreign documents could overwrite
-    the key on the host. The launcher holds no key at all (IMG-CONTEXT)."""
+    """CREDS-RO + ARCH-NARR5: the GCP service-account key is bound at the
+    WORKER only, and ``:ro`` there. The worker renders narrations; it reads
+    the key, it never writes it — it runs as uid 1000, the owner of the host
+    file (600), and without ``:ro`` the process that parses foreign documents
+    could overwrite the key on the host. No other service carries the file:
+    the web container lost it with ARCH-NARR5 (its Cloud-TTS singleton had no
+    reader), the launcher never held it (IMG-CONTEXT)."""
     compose_file = REPO / 'docker-compose.yml'
     if not compose_file.exists():
         pytest.skip('docker-compose.yml not shipped alongside the tests')
     yaml = pytest.importorskip('yaml')
     services = yaml.safe_load(compose_file.read_text())['services']
     ro_bind = './google-credentials.json:/app/google-credentials.json:ro'
-    for name in ('markdown-converter', 'worker'):
-        assert ro_bind in services[name]['volumes'], name
+    assert ro_bind in services['worker']['volumes']
     carriers = {name: [v for v in svc.get('volumes', [])
                        if 'google-credentials.json' in v]
                 for name, svc in services.items()}
-    assert {n: v for n, v in carriers.items() if v} == {
-        'markdown-converter': [ro_bind], 'worker': [ro_bind]}
+    assert {n: v for n, v in carriers.items() if v} == {'worker': [ro_bind]}
+
+
+def test_web_mounts_no_host_path_and_names_no_key():
+    """ARCH-NARR5: the internet-facing container mounts named volumes only —
+    no bind from the host — and its ``environment`` block no longer passes
+    ``GOOGLE_APPLICATION_CREDENTIALS`` (the name still arrives via
+    ``env_file``; nothing in the web process reads it, and
+    ``test_import_app_needs_no_key_file_and_loads_no_genai`` holds that the
+    app boots with the name set and no file behind it)."""
+    compose_file = REPO / 'docker-compose.yml'
+    if not compose_file.exists():
+        pytest.skip('docker-compose.yml not shipped alongside the tests')
+    yaml = pytest.importorskip('yaml')
+    config = yaml.safe_load(compose_file.read_text())
+    web = config['services']['markdown-converter']
+    named = set(config['volumes'])
+    sources = [v.split(':')[0] for v in web['volumes']]
+    assert sources and all(src in named for src in sources), sources
+    env_names = [e.split('=')[0] for e in web['environment']]
+    assert 'GOOGLE_APPLICATION_CREDENTIALS' not in env_names
+    # Positive control: the worker still names it and still binds host paths.
+    worker = config['services']['worker']
+    assert 'GOOGLE_APPLICATION_CREDENTIALS' in [
+        e.split('=')[0] for e in worker['environment']]
+    assert any(v.split(':')[0] not in named for v in worker['volumes'])

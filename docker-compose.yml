@@ -42,7 +42,10 @@ services:
       # ProxyFix trusts the X-Forwarded-* headers of whoever connects here.
       - "127.0.0.1:5656:5000"
     volumes:
-      - ./google-credentials.json:/app/google-credentials.json:ro
+      # ARCH-NARR5: NO GCP key on this container. Narrations are rendered by
+      # the worker; the web process built a Cloud-TTS client at import that
+      # no route ever read - the bind existed only for that. With it gone
+      # this internet-facing container mounts no host path at all.
       # Shared volume for podcast files
       - podcast_data:/app/output_podcasts
       # Persistent database storage
@@ -56,7 +59,6 @@ services:
     environment:
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
       # SEC-REDIS-AUTH: token_urlsafe-Passwort, URL-sicher ohne Escaping.
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD fehlt in .env}@redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
