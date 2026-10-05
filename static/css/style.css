@@ -2291,6 +2291,52 @@ body.reader-active .sidebar-toggle-floater--global {
    neutral "Neu laden", separated so the two buttons never read as one row. */
 .review-more { margin-bottom: var(--nm-space-lg); }
 
+/* LERN-TEXT: the "Lerntext" link in the footer row (an <a> styled like the
+   link buttons — inserted on reveal, see review.js), the "Lesen" line under
+   the pills (full-width row like the order hint), and the Nacharbeiten block
+   in the centered done panel (left-aligned inside, so the heading links read
+   as a list, not as centered fragments). Tokens only — both themes. */
+.review-lerntext-link { text-decoration: none; }
+.review-lerntext-link:hover { text-decoration: underline; }
+.review-read-line {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    color: var(--nm-text-secondary);
+}
+.review-read-line a { color: var(--nm-accent-hover); text-decoration: none; }
+.review-read-line a:hover { text-decoration: underline; }
+.review-rework {
+    display: inline-block;
+    text-align: left;
+    margin: 0 auto var(--nm-space-lg);
+    max-width: 42ch;
+}
+.review-rework__title {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--nm-text);
+    margin-bottom: var(--nm-space-sm);
+}
+.review-rework__group { margin-bottom: var(--nm-space-sm); }
+.review-rework__doc {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--nm-text);
+    text-decoration: none;
+}
+.review-rework__doc:hover { text-decoration: underline; }
+.review-rework__list {
+    list-style: disc outside;
+    margin: 2px 0 0;
+    padding-left: 1.25rem;
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+}
+.review-rework__list a { color: var(--nm-accent-hover); text-decoration: none; }
+.review-rework__list a:hover { text-decoration: underline; }
+
 /* ===== PLACE CONTROL (R2-H) ===== */
 /* R2-H: the one flat four-place move-control — identical on each list card and
    in the detail sidebar, same elevation-budget treatment as the .view-switcher

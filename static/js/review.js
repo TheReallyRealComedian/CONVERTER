@@ -21,6 +21,7 @@
 
     const REVIEW_STATE_URL = window.PageData.reviewStateUrl;
     const COLLECTIONS_URL = window.PageData.collectionsUrl;
+    const LIBRARY_URL = window.PageData.libraryUrl;
     const LEARN_SETTINGS_URL = window.PageData.learnSettingsUrl;
     const LEARN_STATS_URL = window.PageData.learnStatsUrl;
     const LEARN_SIMULATE_URL = window.PageData.learnSimulateUrl;
@@ -99,6 +100,13 @@
     const moreWrap = el('review-more');
     const moreTextEl = el('review-more-text');
     const moreBtn = el('review-more-btn');
+    // LERN-TEXT: footer row (the Lerntext link is inserted here on reveal),
+    // the Nacharbeiten block in the done panel, the "Lesen" line under the pills.
+    const actionsEl = el('review-actions');
+    const reworkEl = el('review-rework');
+    const reworkListEl = el('review-rework-list');
+    const readLineEl = el('review-read-line');
+    const readListEl = el('review-read-list');
 
     const alertContainer = () => el('review-alert-container');
     const currentCard = () => queue[index];
@@ -167,6 +175,9 @@
         // N+1 would briefly flash card N's back figure on reveal (stale trap).
         renderFigure(figureFrontEl, card.front_svg);
         renderFigure(figureBackEl, null);
+        // LERN-TEXT: same stale trap for the Lerntext link — gone until the
+        // reveal of THIS card (a leftover would point at the previous one).
+        removeLerntextLink();
 
         show(revealBtn);
         show(skipBtn);
@@ -206,6 +217,7 @@
         hide(skipBtn);   // LEARN-SKIP: not after the reveal (see skipCard)
         show(answerWrap);
         show(ratingEl);
+        renderLerntextLink(card);   // LERN-TEXT: only now (see the block below)
     }
 
     function updateProgress() {
@@ -289,6 +301,7 @@
         hide(cardEl);
         doneTextEl.textContent =
             `Alle ${totalDue} ${totalDue === 1 ? 'fällige Karte' : 'fälligen Karten'} wiederholt.`;
+        renderRework();      // LERN-TEXT: this session's places to re-read
         renderMoreOffer();
         progressEl.textContent = '';
         show(doneEl);
@@ -377,6 +390,9 @@
             const newDue = updated && updated.review && updated.review.due;
             const stillDue = !newDue || !dayEnd || parseUTC(newDue) <= dayEnd;
             if (!stillDue) decrementPoolCounts(card);
+            // LERN-TEXT: Nochmal/Schwer → the card's place goes on the
+            // Nacharbeiten list of this session (if it has one).
+            if (rating === 'again' || rating === 'hard') markRework(card);
             advance();
         } catch (e) {
             showAlert(alertContainer(), 'danger', e.serverMessage ||
@@ -400,6 +416,7 @@
             card.state = 'wackelt';
             show(stateBadge);
             deepenBtn.classList.add('is-active');
+            markRework(card);   // LERN-TEXT: Vertiefen alone puts the place on the list
             showToast('Als „wackelt“ markiert');
         } catch (e) {
             showAlert(alertContainer(), 'danger', 'Konnte nicht markieren. Erneut versuchen.');
@@ -470,6 +487,118 @@
         }
     }
 
+    // --- LERN-TEXT: Lerntext-Link, Nacharbeiten, Lesen-Zeile -----------------
+    // card.context = {document_id, document_title, heading, url} | null — the
+    // ONE place in a Lerntext that explains the card (server-validated: own
+    // document, heading present and unique; url = /library/<id>[#h=…]).
+    // Three consumers, every text a TEXT NODE (document titles and headings
+    // are agent input, same doctrine as the card text):
+    //  * the "Lerntext" link in the footer row — inserted on the reveal, NOT
+    //    in the DOM before it (a crib otherwise, LEARN-SKIP doctrine), and
+    //    removed by the next renderCard (the back figure's stale trap);
+    //  * the Nacharbeiten block of the done panel: the places of the cards
+    //    THIS session rated Nochmal/Schwer or marked wackelt, grouped by
+    //    document (the title links to the whole text, so a place without a
+    //    heading needs no special case), one link per distinct heading.
+    //    Session state only — no request, no server state; every load()
+    //    clears it (LEARN-SKIP semantics);
+    //  * the "Lesen" line under the pills: the Lerntexte of the CHECKED
+    //    collections, position order, deduplicated, from the documents field
+    //    /api/collections already delivers — no second request.
+    const LERNTEXT_LINK_ID = 'review-lerntext-link';
+    const reworkCards = new Map();   // card id → card, in session order
+
+    function placeLink(url, text) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = text;
+        return a;
+    }
+
+    function removeLerntextLink() {
+        const old = el(LERNTEXT_LINK_ID);
+        if (old) old.remove();
+    }
+
+    function renderLerntextLink(card) {
+        removeLerntextLink();
+        const ctx = card && card.context;
+        if (!ctx || !ctx.url) return;
+        const a = placeLink(ctx.url, 'Lerntext');
+        a.id = LERNTEXT_LINK_ID;
+        a.className = 'review-link-btn review-lerntext-link';
+        a.title = ctx.heading
+            ? `${ctx.document_title || ''} › ${ctx.heading}`
+            : (ctx.document_title || '');
+        actionsEl.insertBefore(a, actionsEl.firstChild);
+    }
+
+    function markRework(card) {
+        if (card && card.context && card.context.url) reworkCards.set(card.id, card);
+    }
+
+    function renderRework() {
+        reworkListEl.textContent = '';
+        const groups = new Map();   // document_id → {title, url, headings: Map}
+        reworkCards.forEach((card) => {
+            const ctx = card.context;
+            let group = groups.get(ctx.document_id);
+            if (!group) {
+                group = {
+                    title: ctx.document_title || 'Dokument',
+                    url: `${LIBRARY_URL}/${ctx.document_id}`,
+                    headings: new Map(),
+                };
+                groups.set(ctx.document_id, group);
+            }
+            if (ctx.heading && !group.headings.has(ctx.heading)) {
+                group.headings.set(ctx.heading, ctx.url);
+            }
+        });
+        if (!groups.size) { hide(reworkEl); return; }
+        groups.forEach((group) => {
+            const box = document.createElement('div');
+            box.className = 'review-rework__group';
+            const title = placeLink(group.url, group.title);
+            title.className = 'review-rework__doc';
+            box.appendChild(title);
+            if (group.headings.size) {
+                const list = document.createElement('ul');
+                list.className = 'review-rework__list';
+                group.headings.forEach((url, heading) => {
+                    const item = document.createElement('li');
+                    item.appendChild(placeLink(url, heading));
+                    list.appendChild(item);
+                });
+                box.appendChild(list);
+            }
+            reworkListEl.appendChild(box);
+        });
+        show(reworkEl);
+    }
+
+    function renderReadLine() {
+        readListEl.textContent = '';
+        const seen = new Set();
+        const docs = [];
+        (collections || []).forEach((c) => {
+            if (!scopeIds.includes(c.id)) return;
+            (c.documents || []).forEach((d) => {
+                if (seen.has(d.id)) return;
+                seen.add(d.id);
+                docs.push(d);
+            });
+        });
+        if (!docs.length) { hide(readLineEl); return; }
+        docs.forEach((d, i) => {
+            if (i) readListEl.appendChild(document.createTextNode(' · '));
+            readListEl.appendChild(placeLink(d.url, d.title));
+        });
+        show(readLineEl);
+    }
+
     function scopeUrl() {
         const params = [];
         if (scopeIds.length) params.push(`collection=${scopeIds.join(',')}`);
@@ -512,6 +641,12 @@
 
     async function load() {
         show(loadingEl); hide(emptyEl); hide(doneEl); hide(cardEl);
+        // LERN-TEXT: a load() is a new session — the Nacharbeiten list of the
+        // previous one goes, state AND DOM (LEARN-SKIP semantics: reload,
+        // scope change, "Mehr lernen", "Neu laden" all restore server state;
+        // without the re-render the hidden block kept the old links).
+        reworkCards.clear();
+        renderRework();
         try {
             const resp = await fetch(scopeUrl());
             const data = await safeJSON(resp);
@@ -548,6 +683,10 @@
                     // The pure stage-2 case stays on the empty panel: nothing
                     // was capped away, borrowing belongs to a finished session.
                     doneTextEl.textContent = 'Tagespensum erreicht.';
+                    // LERN-TEXT: the second way into the done panel renders the
+                    // (just reset, hence empty → hidden) Nacharbeiten block too,
+                    // so a list from the previous session never lingers here.
+                    renderRework();
                     renderMoreOffer();
                     show(doneEl);
                     return;
@@ -607,6 +746,7 @@
             scopeList.appendChild(pill);
         }
         scopeAllBox.checked = scopeIds.length === 0 && !scopeUncollected;
+        renderReadLine();   // LERN-TEXT: the Lerntexte of the checked collections
     }
 
     async function loadCollections() {

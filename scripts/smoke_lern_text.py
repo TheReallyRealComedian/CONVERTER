@@ -26,7 +26,22 @@ Teil A — the reader opens ``/library/<id>#h=<encodeURIComponent(heading)>``
    value is still 50 % afterwards), while a real scroll afterwards still is.
 4. An in-page hash change (same tab) jumps again.
 
-Teil B (Phase 3) — see the Phase-3 section below.
+Teil B — the review (``/review``), five own cards in creation order
+1. Launcher line "Lesen": hidden with nothing checked; ticking the own
+   collection's pill shows it with the collection's Lerntext as a link (new
+   tab, ``/library/<id>``); unticking hides it again — no extra request.
+2. Card A: before the reveal there is NO ``Lerntext`` link in the DOM; after
+   the reveal it is there with the heading url (``#h=…``), ``target=_blank``,
+   ``rel=noopener`` and a title "<Dokument> › <Überschrift>"; rated Nochmal.
+3. Card B (same heading): link gone again before its reveal, back after;
+   Nochmal. Card C (no place): no link after the reveal; Nochmal. Card D:
+   Vertiefen (one POST …/annotate), then Gut. Card E: Gut.
+4. Done panel "Nacharbeiten": one document group whose title links to the
+   text, below it the heading links "Säuren und Basen" (ONCE, though two
+   cards) and "Redox" (via Vertiefen) — NOT "Einleitung" (Gut) — and between
+   the last rating click and the panel exactly the two requests that existed
+   before this sprint (POST …/review, GET /api/collections resync): the list
+   itself costs 0 requests. "Neu laden" clears the block.
 
 Test rows are written through the ORM under the throwaway user's own
 ``user_id`` — never through ``POST /api/cards``, which always writes to the
@@ -79,6 +94,9 @@ PASSWORD = os.environ.get('SMOKE_PASSWORD') or sys.exit('SMOKE_PASSWORD missing'
 OUT = os.environ.get('SMOKE_OUT', '/tmp/smoke_lern_text')
 
 HEADINGS = ['Einleitung', 'Säuren und Basen', 'Redox']
+# (context heading | None, label) in creation order — see create_rows.
+CARD_PLAN = ((HEADINGS[1], 'A'), (HEADINGS[1], 'B'), (None, 'C'),
+             (HEADINGS[2], 'D'), (HEADINGS[0], 'E'))
 MISSING_TEXT = 'Abschnitt nicht gefunden. Der Text wurde seit der Verknüpfung geändert.'
 PARAS_PER_SECTION = 40          # long enough to scroll at 900 px
 HIGHLIGHT_EXACT = 'LERN-TEXT Markierungsanker Absatz 3'
@@ -150,8 +168,11 @@ def create_rows(user_id):
                                           position=0))
         base = datetime.now(timezone.utc) - timedelta(minutes=5)
         cards = []
-        for i, (heading, label) in enumerate(((HEADINGS[1], 'A'), (HEADINGS[1], 'B'),
-                                              (None, 'C'))):
+        # Teil B walks them in creation order (smart: new cards by created_at):
+        # A, B → same heading, both Nochmal (heading listed ONCE); C → no
+        # place, Nochmal (not listed); D → Vertiefen + Gut (listed via
+        # Vertiefen); E → Gut (not listed).
+        for i, (heading, label) in enumerate(CARD_PLAN):
             card = Card(user_id=user_id, type='atomic', front=f'LERN-TEXT Karte {label}',
                         back=f'Antwort {label}', created_by='smoke',
                         created_at=base + timedelta(seconds=i),
@@ -329,6 +350,152 @@ def part_a(page, ids, user_id):
     check(s['found'] and -2 <= s['top'] <= 40 and s['cued'], f'hashchange to {HEADINGS[1]!r} lands on it and cues it (top={s["top"]})')
 
 
+REVIEW_STATE = """() => {
+  const q = s => document.querySelector(s);
+  const text = s => (q(s) ? q(s).innerText.trim() : null);
+  const vis = el => !!el && !el.classList.contains('hidden') && el.offsetParent !== null;
+  const link = q('#review-lerntext-link');
+  const readLine = q('#review-read-line');
+  const rework = q('#review-rework');
+  const groups = Array.from(document.querySelectorAll('#review-rework-list .review-rework__group')).map(g => ({
+    doc: g.querySelector('.review-rework__doc').textContent,
+    docHref: g.querySelector('.review-rework__doc').getAttribute('href'),
+    headings: Array.from(g.querySelectorAll('.review-rework__list a')).map(a => ({text: a.textContent, href: a.getAttribute('href'), target: a.target, rel: a.rel})),
+  }));
+  return {
+    question: text('#review-question'),
+    revealed: vis(q('#review-rating')),
+    linkInDom: !!link,
+    linkHref: link ? link.getAttribute('href') : null,
+    linkTarget: link ? link.target : null,
+    linkRel: link ? link.rel : null,
+    linkTitle: link ? link.title : null,
+    linkText: link ? link.textContent : null,
+    linkFirstInRow: link ? link.parentElement.firstElementChild === link : null,
+    readLineVisible: vis(readLine),
+    readLinks: Array.from(document.querySelectorAll('#review-read-list a')).map(a => ({text: a.textContent, href: a.getAttribute('href'), target: a.target, rel: a.rel})),
+    doneVisible: vis(q('#review-done')),
+    reworkVisible: vis(rework),
+    reworkGroups: groups,
+    groupChildren: q('#review-rework-list') ? q('#review-rework-list').children.length : null,
+    emptyVisible: vis(q('#review-empty')),
+  };
+}"""
+
+
+def review_state(page):
+    return page.evaluate(REVIEW_STATE)
+
+
+def open_review(page):
+    page.goto('about:blank')
+    page.goto(f'{BASE}/review')
+    page.wait_for_selector('#review-card:not(.hidden), #review-empty:not(.hidden), #review-done:not(.hidden)')
+    page.wait_for_function("() => document.querySelectorAll('.review-scope-pill[data-col]').length > 0")
+    page.wait_for_timeout(400)
+
+
+def label_of(question):
+    return (question or '').replace('LERN-TEXT Karte ', '')
+
+
+def blur(page):
+    page.evaluate("() => document.activeElement && document.activeElement.blur()")
+
+
+def part_b(page, ids, user_id):
+    doc_id = ids['doc']
+    doc_url = f'/library/{doc_id}'
+    requests = []
+    page.route('**/*', lambda route: (requests.append(f'{route.request.method} {route.request.url}'),
+                                      route.continue_()))
+
+    print('=== B1. launcher line "Lesen" follows the checked pills, no extra request ===')
+    open_review(page)
+    s = review_state(page)
+    print(f'[launcher start] readLineVisible={s["readLineVisible"]} readLinks={json.dumps(s["readLinks"], ensure_ascii=False)}')
+    check(not s['readLineVisible'] and s['readLinks'] == [], 'nothing checked → no "Lesen" line')
+    n0 = len(requests)
+    page.click(f'.review-scope-pill[data-col="{ids["collection"]}"] input')
+    page.wait_for_timeout(1200)
+    s = review_state(page)
+    tick_requests = requests[n0:]
+    print(f'[pill on] readLineVisible={s["readLineVisible"]} readLinks={json.dumps(s["readLinks"], ensure_ascii=False)} requests={tick_requests}')
+    check(s['readLineVisible'], 'own collection checked → the "Lesen" line is visible')
+    check(s['readLinks'] == [{'text': 'LERN-TEXT Smoke-Dokument', 'href': doc_url, 'target': '_blank', 'rel': 'noopener'}],
+          f'the line links the collection\'s Lerntext (new tab, {doc_url})')
+    check(all('/api/review-state' in r for r in tick_requests),
+          f'ticking the pill fetched only the queue — no document request ({tick_requests})')
+    page.click(f'.review-scope-pill[data-col="{ids["collection"]}"] input')
+    page.wait_for_timeout(1200)
+    s = review_state(page)
+    check(not s['readLineVisible'] and s['readLinks'] == [], 'pill unchecked → the line is gone')
+
+    print('=== B2./B3. Lerntext link only after the reveal, per card ===')
+    expected = {'A': f'{doc_url}#h=' + encode(HEADINGS[1]), 'B': f'{doc_url}#h=' + encode(HEADINGS[1]),
+                'C': None, 'D': f'{doc_url}#h=' + encode(HEADINGS[2]), 'E': f'{doc_url}#h=' + encode(HEADINGS[0])}
+    ratings = {'A': '1', 'B': '1', 'C': '1', 'D': '3', 'E': '3'}
+    last_rate_index = None
+    for label in ('A', 'B', 'C', 'D', 'E'):
+        s = review_state(page)
+        check(label_of(s['question']) == label, f'card {label} is up ({s["question"]!r})')
+        check(not s['linkInDom'], f'{label}: before the reveal there is NO Lerntext link in the DOM')
+        blur(page)
+        page.keyboard.press('Space')
+        page.wait_for_timeout(300)
+        s = review_state(page)
+        print(f'[{label} revealed] ' + json.dumps({k: s[k] for k in ('linkInDom', 'linkHref', 'linkTarget', 'linkRel', 'linkTitle', 'linkText', 'linkFirstInRow')}, ensure_ascii=False))
+        check(s['revealed'], f'{label}: revealed')
+        if expected[label] is None:
+            check(not s['linkInDom'], f'{label}: no place → no link after the reveal')
+        else:
+            heading = dict((lbl, h) for h, lbl in CARD_PLAN)[label]
+            check(s['linkInDom'] and s['linkHref'] == expected[label], f'{label}: link with href {expected[label]}')
+            check(s['linkTarget'] == '_blank' and s['linkRel'] == 'noopener', f'{label}: target=_blank, rel=noopener')
+            check(s['linkText'] == 'Lerntext' and s['linkTitle'] == f'LERN-TEXT Smoke-Dokument › {heading}', f'{label}: text "Lerntext", title "<Dokument> › <Überschrift>" ({s["linkTitle"]!r})')
+            check(s['linkFirstInRow'], f'{label}: the link is the first element of the footer row')
+        if label == 'D':
+            n0 = len(requests)
+            page.click('#review-deepen-btn')
+            page.wait_for_function("() => document.getElementById('review-deepen-btn').classList.contains('is-active')")
+            page.wait_for_timeout(300)
+            deepen_requests = [r for r in requests[n0:] if '/api/' in r]
+            check(deepen_requests == [f'POST {BASE}/api/cards/{ids["cards"][3]}/annotate'],
+                  f'D: Vertiefen sent exactly one POST …/annotate ({deepen_requests})')
+        blur(page)
+        last_rate_index = len(requests)
+        page.keyboard.press(ratings[label])
+        # The next card hides the rating row; the LAST card hides the whole
+        # card and shows the done panel (the row keeps its state) — wait for
+        # either, like smoke_review_skip waits for the done panel at the end.
+        page.wait_for_function(
+            "() => document.getElementById('review-rating').classList.contains('hidden')"
+            " || !document.getElementById('review-done').classList.contains('hidden')")
+        page.wait_for_timeout(600)
+
+    print('=== B4. done panel: Nacharbeiten from session state, 0 extra requests ===')
+    page.wait_for_selector('#review-done:not(.hidden)')
+    page.wait_for_timeout(800)
+    s = review_state(page)
+    after_last_rate = [r for r in requests[last_rate_index:] if '/api/' in r or '/library' in r]
+    print(f'[done] reworkVisible={s["reworkVisible"]} groups={json.dumps(s["reworkGroups"], ensure_ascii=False)} requests_after_last_rate={after_last_rate}')
+    check(s['doneVisible'] and s['reworkVisible'], 'done panel with the Nacharbeiten block')
+    check(len(s['reworkGroups']) == 1 and s['reworkGroups'][0]['doc'] == 'LERN-TEXT Smoke-Dokument'
+          and s['reworkGroups'][0]['docHref'] == doc_url, 'one document group, its title links to the text')
+    heads = s['reworkGroups'][0]['headings'] if s['reworkGroups'] else []
+    check([h['text'] for h in heads] == [HEADINGS[1], HEADINGS[2]],
+          f'headings: "{HEADINGS[1]}" once (two cards) + "{HEADINGS[2]}" (Vertiefen), not "{HEADINGS[0]}" (Gut) — got {[h["text"] for h in heads]}')
+    check(all(h['target'] == '_blank' and h['rel'] == 'noopener' for h in heads), 'every heading link opens a new tab (noopener)')
+    check([h['href'] for h in heads] == [expected['A'], expected['D']], 'heading links carry the #h= urls')
+    check(after_last_rate == [f'POST {BASE}/api/cards/{ids["cards"][4]}/review', f'GET {BASE}/api/collections'],
+          f'between the last rating and the panel only the two pre-existing requests — the list cost none ({after_last_rate})')
+    page.click('#review-reload')
+    page.wait_for_timeout(1200)
+    s = review_state(page)
+    check(not s['reworkVisible'] and s['groupChildren'] == 0, f'"Neu laden" clears the block (visible={s["reworkVisible"]}, children={s["groupChildren"]})')
+    page.unroute('**/*')
+
+
 user_id = resolve_user()
 ids = create_rows(user_id)
 print(f'user_id={user_id} rows={json.dumps(ids)}')
@@ -340,6 +507,7 @@ try:
         page = ctx.new_page()
         login(page)
         part_a(page, ids, user_id)
+        part_b(page, ids, user_id)
         browser.close()
 finally:
     removed, left = remove_rows(ids, user_id)

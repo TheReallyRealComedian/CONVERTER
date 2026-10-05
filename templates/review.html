@@ -39,6 +39,15 @@
                 <span data-order-hint="smart">Gelernte Karten nach Dringlichkeit — die wackligsten zuerst. Neue Karten kommen in der Reihenfolge dran, in der sie angelegt wurden.</span>
                 <span data-order-hint="random" class="hidden">Mischt beide Töpfe vollständig. Auch neue Karten kommen dann in zufälliger Reihenfolge statt in der, in der sie angelegt wurden.</span>
             </p>
+            <!-- LERN-TEXT „Lesen": die Lerntexte der ANGEHAKTEN Sammlungen (Links,
+                 neuer Tab, Positionsreihenfolge, dedupliziert) aus dem documents-
+                 Feld von /api/collections — kein zweiter Request. review.js füllt
+                 die Zeile in renderScopePills und zeigt sie nur mit mindestens
+                 einem Text. -->
+            <p id="review-read-line" class="review-read-line hidden">
+                <span class="review-scope__label">Lesen:</span>
+                <span id="review-read-list"></span>
+            </p>
         </div>
 
         <!-- Tageslimits (LEARN-UP P3) + Nach-Cap-Zähler. Berlin-Lokaltag. -->
@@ -71,6 +80,16 @@
         <div id="review-done" class="review-empty c-surface--flat hidden">
             <p class="review-empty__title">Geschafft.</p>
             <p id="review-done-text" class="review-empty__text"></p>
+            <!-- LERN-TEXT „Nacharbeiten": die Textstellen der Karten, die in DIESER
+                 Session Nochmal/Schwer bekamen oder per Vertiefen „wackelt" wurden —
+                 gruppiert nach Dokument, je Überschrift ein Link (neuer Tab). Rein
+                 aus dem Session-Zustand (kein Request), jedes load() setzt die
+                 Liste zurück; review.js baut sie als Text-Knoten und zeigt den
+                 Block nur, wenn er nicht leer ist. -->
+            <div id="review-rework" class="review-rework hidden">
+                <p class="review-rework__title">Nacharbeiten</p>
+                <div id="review-rework-list"></div>
+            </div>
             <div id="review-more" class="review-more hidden">
                 <p id="review-more-text" class="review-empty__text"></p>
                 <button type="button" id="review-more-btn" class="c-btn c-btn--primary">Mehr lernen</button>
@@ -154,8 +173,12 @@
                 </div>
             </div>
 
-            <!-- Footer actions -->
-            <div class="review-actions">
+            <!-- Footer actions. LERN-TEXT: der Link „Lerntext" (zur Textstelle der
+                 Karte, neuer Tab) steht NICHT hier im Markup — review.js hängt ihn
+                 erst beim Aufdecken als erstes Kind ein und entfernt ihn im nächsten
+                 renderCard. Vor dem Aufdecken wäre er ein Spickzettel (LEARN-SKIP-
+                 Doktrin), und ein stehengebliebener Link zeigte auf die vorige Karte. -->
+            <div class="review-actions" id="review-actions">
                 <button type="button" id="review-deepen-btn" class="review-link-btn"
                         title="Karte als „wackelt“ markieren — Einstieg in den Agent-Dialog">Vertiefen</button>
                 <button type="button" id="review-note-toggle" class="review-link-btn">Notiz</button>
