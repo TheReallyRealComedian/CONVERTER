@@ -344,7 +344,7 @@ def test_context_heading_not_found_400_with_sentence(app, authenticated_client, 
     resp = _post_card(authenticated_client,
                       context={'document_id': doc_id, 'heading': 'Nicht da'})
     assert resp.status_code == 400, resp.get_json()
-    assert resp.get_json()['error'] == "Überschrift nicht gefunden: ‚Nicht da'."
+    assert resp.get_json()['error'] == "Überschrift nicht gefunden: ‚Nicht da‘."
     with app.app_context():
         assert Card.query.count() == 0
 
@@ -358,7 +358,7 @@ def test_context_heading_inside_code_fence_does_not_count(app, authenticated_cli
     resp = _post_card(authenticated_client,
                       context={'document_id': doc_id, 'heading': 'Kein Heading'})
     assert resp.status_code == 400
-    assert resp.get_json()['error'] == "Überschrift nicht gefunden: ‚Kein Heading'."
+    assert resp.get_json()['error'] == "Überschrift nicht gefunden: ‚Kein Heading‘."
 
 
 def test_context_heading_ambiguous_409_names_the_count(app, authenticated_client, test_user,
@@ -793,3 +793,62 @@ def test_card_context_columns_exist_in_fresh_schema(app, test_user):
         db.session.add(card)
         db.session.commit()
         assert Card.query.get(card.id).context_heading == 'Redox'
+
+
+# --- G. Detailseite: zwei ruhige Zeilen unter dem Titel (Phase 2) -------------
+
+def test_detail_page_lists_collections_and_card_count(app, authenticated_client, test_user,
+                                                      monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    doc_id = _make_doc(app, uid)
+    chem = _make_collection(app, uid, name='Chemie-Basics')
+    tce = _make_collection(app, uid, name='TCE <b>')          # autoescape sentinel
+    assert _put_documents(authenticated_client, chem, [doc_id]).status_code == 200
+    assert _put_documents(authenticated_client, tce, [doc_id]).status_code == 200
+    for heading in ('Redox', 'Einleitung'):
+        assert _post_card(authenticated_client,
+                          context={'document_id': doc_id, 'heading': heading}).status_code == 201
+    _post_card(authenticated_client)  # a card without a place does not count
+
+    resp = authenticated_client.get(f'/library/{doc_id}')
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'Lerntext zu: Chemie-Basics, TCE &lt;b&gt;' in html   # name order, escaped
+    assert '2 Karten verweisen auf diesen Text' in html
+
+
+def test_detail_page_singular_card_line_and_no_lines_without_links(app, authenticated_client,
+                                                                   test_user, monkeypatch):
+    monkeypatch.setenv('CARD_TOKEN', CARD_TOKEN)
+    uid = test_user['id']
+    doc_id = _make_doc(app, uid)
+    plain_id = _make_doc(app, uid, title='Ohne Verknüpfung')
+    assert _post_card(authenticated_client,
+                      context={'document_id': doc_id, 'heading': None}).status_code == 201
+
+    html = authenticated_client.get(f'/library/{doc_id}').get_data(as_text=True)
+    assert '1 Karte verweist auf diesen Text' in html
+    assert 'Lerntext zu:' not in html
+
+    html = authenticated_client.get(f'/library/{plain_id}').get_data(as_text=True)
+    assert 'Lerntext zu:' not in html
+    assert 'verweis' not in html
+
+
+def test_detail_page_lines_are_owner_scoped(app, authenticated_client, test_user):
+    # Another user's collection cannot list this document in the first place
+    # (PUT is owner-equal), but the line's query filters by owner anyway —
+    # a junction row written by other means never leaks a foreign name.
+    uid = test_user['id']
+    mallory = _make_user(app)
+    doc_id = _make_doc(app, uid)
+    foreign_col = _make_collection(app, mallory, name='Fremde Sammlung')
+    with app.app_context():
+        from models import CollectionDocument
+        db.session.add(CollectionDocument(collection_id=foreign_col, conversion_id=doc_id,
+                                          position=0))
+        db.session.commit()
+    html = authenticated_client.get(f'/library/{doc_id}').get_data(as_text=True)
+    assert 'Fremde Sammlung' not in html
+    assert 'Lerntext zu:' not in html

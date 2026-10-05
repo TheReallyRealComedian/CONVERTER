@@ -538,6 +538,9 @@ async function loadHighlights() {
         if (!applied) crossFormatHighlightIds.add(h.id);
     });
     renderHighlightList();
+    // LERN-TEXT: the applied spans can shift the layout — re-align on the
+    // #h= heading (quiet pass: no notice, no persist of the landing spot).
+    jumpToSectionHash(false);
 }
 
 function renderHighlightList() {
@@ -630,6 +633,107 @@ function scrollToHighlight(id) {
     span.scrollIntoView({ behavior: 'smooth', block: 'center' });
     span.classList.add('highlight-flash');
     setTimeout(() => span.classList.remove('highlight-flash'), 1000);
+}
+
+// --- LERN-TEXT: jump to a heading by its TEXT — /library/<id>#h=<heading> ---
+// The review's "Lerntext" button and the Nacharbeiten list open the reader
+// with ``#h=<encodeURIComponent(heading)>``. The target is the first h1–h6 in
+// .reader-view whose textContent (whitespace collapsed, trimmed) equals the
+// decoded heading — no id attributes on the rendered headings, so the
+// renderer and with it every rendered byte, EPUB name and highlight anchor
+// stays untouched. Runs after the render AND again after the highlights are
+// applied (their spans can shift the layout), beats the progress resume
+// (initReadingProgress skips its resume scroll when a #h= is present) and
+// must not persist its landing position as "read" (scrollQuietly below). A
+// miss shows a quiet notice ABOVE the text — outside .reader-view, whose
+// text nodes are the highlight anchors' coordinate system (readerRawText);
+// a notice inside would shift every stored offset.
+const SECTION_HASH_PREFIX = '#h=';
+const SECTION_TARGET_CLASS = 'reader-section-target';
+const SECTION_TARGET_MS = 2000;
+const SECTION_MISSING_TEXT = 'Abschnitt nicht gefunden. Der Text wurde seit der Verknüpfung geändert.';
+let sectionTargetTimer = null;
+// Set by initReadingProgress — the one seam between the jump and the
+// furthest-read persistence ({scrollQuietly(fn)}). Null before init.
+let readingProgressControl = null;
+
+function normalizeHeadingText(s) {
+    return (s || '').replace(/\s+/g, ' ').trim();
+}
+
+// The heading named by location.hash: null = no #h= at all, '' = a #h= that
+// names nothing (empty or malformed encoding → the notice), else the text.
+function sectionHashHeading() {
+    const hash = window.location.hash || '';
+    if (!hash.startsWith(SECTION_HASH_PREFIX)) return null;
+    try {
+        return normalizeHeadingText(decodeURIComponent(hash.slice(SECTION_HASH_PREFIX.length)));
+    } catch (_) {
+        return '';
+    }
+}
+
+function findSectionHeading(target) {
+    const reader = highlightReaderEl();
+    if (!reader || !target) return null;
+    const headings = reader.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    for (const h of headings) {
+        if (normalizeHeadingText(h.textContent) === target) return h;
+    }
+    return null;
+}
+
+function showSectionNotice(show) {
+    const container = document.getElementById('content-body');
+    const reader = highlightReaderEl();
+    if (!container || !reader) return;
+    const existing = document.getElementById('reader-section-notice');
+    if (!show) {
+        if (existing) existing.remove();
+        return;
+    }
+    if (existing) return;
+    const notice = document.createElement('p');
+    notice.id = 'reader-section-notice';
+    notice.className = 'reader-section-notice';
+    notice.setAttribute('role', 'status');
+    notice.textContent = SECTION_MISSING_TEXT;
+    container.insertBefore(notice, reader);
+}
+
+// announce=true: first pass (notice on a miss, clears it on a hit).
+// announce=false: the repeat after the highlights — re-aligns a hit, says
+// nothing on a miss. Returns true iff a heading was jumped to.
+function jumpToSectionHash(announce) {
+    const target = sectionHashHeading();
+    if (target === null) return false;
+    const heading = findSectionHeading(target);
+    if (!heading) {
+        if (announce) showSectionNotice(true);
+        return false;
+    }
+    if (announce) showSectionNotice(false);
+    const scroll = () => heading.scrollIntoView({ block: 'start' });
+    if (readingProgressControl) readingProgressControl.scrollQuietly(scroll); else scroll();
+    // Brief, decaying cue on the target; the repeat jump restarts the clock.
+    document.querySelectorAll('.' + SECTION_TARGET_CLASS).forEach(el => {
+        if (el !== heading) el.classList.remove(SECTION_TARGET_CLASS);
+    });
+    heading.classList.add(SECTION_TARGET_CLASS);
+    if (sectionTargetTimer !== null) clearTimeout(sectionTargetTimer);
+    sectionTargetTimer = setTimeout(() => {
+        heading.classList.remove(SECTION_TARGET_CLASS);
+        sectionTargetTimer = null;
+    }, SECTION_TARGET_MS);
+    return true;
+}
+
+function initSectionJump() {
+    // The first pass normally runs inside initReadingProgress' settle frame
+    // (so it can replace the resume scroll); without a progress bar on the
+    // page it runs here. A later in-page hash change (same tab) jumps again.
+    if (!readingProgressControl) jumpToSectionHash(true);
+    window.addEventListener('hashchange', () => jumpToSectionHash(true));
 }
 
 // Locate the stored anchor in readerRawText. Returns {start, end} raw-offset
@@ -1245,15 +1349,36 @@ function initReadingProgress() {
     window.addEventListener('resize', update);
     update();
 
+    // LERN-TEXT: the one seam for programmatic scrolls (the #h= jump). A
+    // jump to a heading must not be persisted as "read up to here" — same
+    // self-persist guard as the resume scroll and resetProgress: disarm,
+    // scroll, re-arm two frames later (the scroll event of the jump lands in
+    // the next frame, before that frame's rAF callbacks).
+    readingProgressControl = {
+        scrollQuietly(fn) {
+            persistArmed = false;
+            fn();
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => { persistArmed = true; });
+            });
+        },
+    };
+
     // Resume-on-Open nach Layout-Settle (rAF — Code-Blocks/Markdown sind
     // server-gerendert, Höhe steht nach dem ersten Frame). Nur mitten im Doc
     // (1 < gespeichert < 95): ≤1 ist sowieso oben, ≥95 als "gelesen" oben
     // öffnen statt ans Ende zu zwingen.
+    // LERN-TEXT: ein #h= im Hash schlägt den Resume — die Seite öffnet auf
+    // der Überschrift (oder bei Nicht-Treffer oben mit dem Hinweis), nie
+    // mitten im Dokument.
     requestAnimationFrame(() => {
         const scrollable = scroller.scrollHeight - scroller.clientHeight;
-        if (maxReached > 1 && maxReached < READ_COMPLETE_PERCENT && scrollable >= MIN_SCROLLABLE_PX) {
+        const hasSectionHash = sectionHashHeading() !== null;
+        if (!hasSectionHash && maxReached > 1 && maxReached < READ_COMPLETE_PERCENT
+                && scrollable >= MIN_SCROLLABLE_PX) {
             scroller.scrollTop = (maxReached / 100) * scrollable;
         }
+        if (hasSectionHash) jumpToSectionHash(true);
         update();
         // Erst im Folge-Frame scharf schalten, damit das Scroll-Event des
         // Resume-Scrolls (oben bereits verarbeitet) keinen Persist auslöst.
@@ -1584,6 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initHighlights();
     initMarkOnMouseup();
     initReadingProgress();
+    initSectionJump();
     initDetailSidebarToggle();
     initFinishBackLink();
     initLibraryReader();

@@ -26,6 +26,14 @@
                     {% else %}{{ conversion.conversion_type }}{% endif %}
                 </span>
             </div>
+            {# LERN-TEXT: two quiet lines, server-side, each only when it applies —
+               the collections that list this text and the cards whose place is in it. #}
+            {% if lern_collection_names %}
+            <p class="lern-text-line" id="lern-text-collections">Lerntext zu: {{ lern_collection_names | join(', ') }}</p>
+            {% endif %}
+            {% if context_card_count %}
+            <p class="lern-text-line" id="lern-text-cards">{% if context_card_count == 1 %}1 Karte verweist auf diesen Text{% else %}{{ context_card_count }} Karten verweisen auf diesen Text{% endif %}</p>
+            {% endif %}
             <div id="detail-alert-container"></div>
         </div>
 

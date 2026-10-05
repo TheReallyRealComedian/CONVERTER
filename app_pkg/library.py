@@ -9,7 +9,8 @@ from sqlalchemy import text
 
 from app_pkg.config import LOCAL_TZ
 from app_pkg.integrations.notion_meetings import clean_notion_link
-from models import Conversion, Tag, conversion_tags, db
+from models import (Card, Collection, CollectionDocument, Conversion, Tag,
+                    conversion_tags, db)
 from services.doc_media import check_media_limits, strip_media_for_preview
 from services.markdown_sections import derive_title, _is_degenerate_title
 from services import document_conversions, transcription_jobs
@@ -414,11 +415,29 @@ def register(app):
         conversion = get_owned_conversion(conversion_id)
         metadata = json.loads(conversion.metadata_json) if conversion.metadata_json else {}
         content_html = render_markdown_to_html(conversion.content)
+        # LERN-TEXT: the two quiet lines under the title — the collections
+        # that list this document as a Lerntext and the number of cards whose
+        # place is in it. One query each; owner-scoped like the document.
+        lern_collection_names = [
+            name for (name,) in (
+                db.session.query(Collection.name)
+                .join(CollectionDocument, CollectionDocument.collection_id == Collection.id)
+                .filter(CollectionDocument.conversion_id == conversion.id,
+                        Collection.user_id == current_user.id)
+                .order_by(Collection.name.asc())
+                .all())
+        ]
+        context_card_count = (Card.query
+                              .filter_by(context_conversion_id=conversion.id,
+                                         user_id=current_user.id)
+                              .count())
         return render_template(
             'library_detail.html',
             conversion=conversion,
             metadata=metadata,
             content_html=content_html,
+            lern_collection_names=lern_collection_names,
+            context_card_count=context_card_count,
             conversion_tag_refs=[t.to_dict() for t in conversion.tag_refs],
             # NOTION-MEETING-LINK: the remembered meeting, read as INPUT (the
             # metadata bag is client-writable) — only the cleaned form reaches

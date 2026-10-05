@@ -18,6 +18,7 @@
      DARK MODE (Reader only)     – data-theme (reader pick); tokens live at .main-container.reader-mode
      READER MODE — TOGGLES       – sidebar-toggle-floater, layout/detail-grid, reading-progress, card-progress
      READER VIEW                 – .reader-view (library detail Markdown render)
+     LERN-TEXT                   – .reader-section-target (#h= jump cue), .reader-section-notice, .lern-text-line (detail header)
      HIGHLIGHT                   – .highlight span, create-btn, action-popover, sidebar-card, flash
      HIGHLIGHT TAG               – .highlight-tag-chip (popover + sidebar compact), tag section
      CONVERSION TAG              – .conversion-tag-chip (library_detail sidebar inline picker)
@@ -1305,6 +1306,38 @@ body.reader-active .sidebar-toggle-floater--global {
     font-style: italic;
     text-align: center;
     margin: 2em 0;
+}
+
+/* ===== LERN-TEXT =====
+   The jump to a heading by its text (/library/<id>#h=<heading>, see
+   library_detail.js jumpToSectionHash): a 2-s cue on the target heading
+   (the class is removed by JS after SECTION_TARGET_MS — the animation only
+   has to fade), a quiet notice ABOVE the article when the heading is gone
+   (outside .reader-view: its text nodes are the highlight anchors), and the
+   two lines under the detail title (which collections list this text, how
+   many cards point into it). Tokens only — both themes by construction. */
+@keyframes reader-section-flash {
+    0%   { background-color: var(--nm-tint-warning); box-shadow: 0 0 0 6px var(--nm-tint-warning); }
+    100% { background-color: transparent; box-shadow: 0 0 0 6px transparent; }
+}
+.reader-view .reader-section-target {
+    animation: reader-section-flash 2s ease-out;
+    border-radius: 4px;
+    /* the 3-px sticky progress bar must not cover the landed heading */
+    scroll-margin-top: 0.5rem;
+}
+.reader-section-notice {
+    margin: 1.5rem 1.5rem 0;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    color: var(--nm-text-secondary);
+    background: var(--nm-tint-info);
+    border-radius: 8px;
+}
+.lern-text-line {
+    margin: 0.25rem 0 0;
+    font-size: var(--text-sm);
+    color: var(--nm-text-secondary);
 }
 
 /* ===== HIGHLIGHT =====

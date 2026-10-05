@@ -325,7 +325,7 @@ def _resolve_card_context(user_id, payload):
         return conversion, None
     count = find_heading(conversion.content, heading)
     if count == 0:
-        raise CardContextError(400, f"Überschrift nicht gefunden: ‚{heading}'.")
+        raise CardContextError(400, f"Überschrift nicht gefunden: ‚{heading}‘.")
     if count > 1:
         raise CardContextError(409, f'Überschrift kommt {count}-mal vor.')
     return conversion, heading
