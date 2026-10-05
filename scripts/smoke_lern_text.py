@@ -73,10 +73,13 @@ user is not user id 1 — the id-1 guard below is the same on every instance:
     # clean up STRICTLY by user_id (api_token carries Oli's iOS tokens): the
     # script removed its rows; delete the user's remaining Card/Collection/
     # Conversion/ApiToken rows and the User row via the ORM by that user_id,
-    # then rm /tmp/smoke_lern_text*.
+    # then remove the script AND the screenshots it wrote under the prefix:
+    #   docker exec markdown-converter-web sh -c 'rm -f /tmp/smoke_lern_text.py /tmp/smoke_lern_text_*.png; rm -rf /tmp/pulse-*'
 
 Env: BASE_URL (default http://localhost:5000), SMOKE_USER, SMOKE_PASSWORD,
-SMOKE_OUT (/tmp/smoke_lern_text — screenshot prefix), SMOKE_APP_ROOT
+SMOKE_OUT — a FILENAME PREFIX, not a directory: the screenshots land as
+``<SMOKE_OUT>_a1_<n>.png`` / ``<SMOKE_OUT>_a2_<label>.png`` (default
+``/tmp/smoke_lern_text`` → ``/tmp/smoke_lern_text_a1_0.png`` …), SMOKE_APP_ROOT
 (default: cwd — where ``app.py`` lives). Exit 0 = every check passed; every
 measured value is printed so a failure is diagnosable from the output alone.
 """
