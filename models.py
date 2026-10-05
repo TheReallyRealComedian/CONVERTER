@@ -2,14 +2,32 @@ import json
 import re
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import quote
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from sqlalchemy import event
+from sqlalchemy import event, select
+from sqlalchemy.orm import column_property
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from services.svg_sanitize import sanitize_card_svg
 
 db = SQLAlchemy()
+
+
+def library_url(conversion_id, heading=None):
+    """The reader address of a document, optionally of ONE heading in it
+    (LERN-TEXT): ``/library/<id>`` or ``/library/<id>#h=<heading>``.
+
+    The fragment is encoded exactly like JavaScript's ``encodeURIComponent``
+    — ``A-Z a-z 0-9 - _ . ! ~ * ' ( )`` stay, everything else is UTF-8
+    percent-encoded — because the reader decodes it with ``decodeURIComponent``
+    and compares the text against the rendered headings. The jump goes over
+    the heading TEXT, not over ``id`` attributes (the renderer stays untouched).
+    """
+    url = f'/library/{conversion_id}'
+    if heading:
+        url += '#h=' + quote(heading, safe="!*'()")
+    return url
 
 # Burned on login attempts for unknown usernames so both failure paths do the
 # same password-hash work — no timing split (anti-enumeration). Random input:
@@ -135,6 +153,12 @@ class Conversion(db.Model):
                                  cascade='all, delete-orphan', lazy='dynamic')
     tag_refs = db.relationship('Tag', secondary=conversion_tags, lazy='joined',
                                backref=db.backref('conversions', lazy='dynamic'))
+    # LERN-TEXT: the collections that list this document as a Lerntext. The
+    # ORM cascade is the real delete mechanic (no FK pragma): deleting the
+    # document sweeps its collection_documents rows in the same flush — the
+    # cards' context columns are nulled by the before_delete event below.
+    collection_links = db.relationship('CollectionDocument', backref='conversion',
+                                       cascade='all, delete-orphan')
 
     def set_content(self, text):
         """Replace ``content`` and bump ``content_version`` IN THE DATABASE
@@ -360,10 +384,33 @@ class Card(db.Model):
     front_svg = db.Column(db.Text, nullable=True)
     back_svg = db.Column(db.Text, nullable=True)
     state = db.Column(db.String(20), default='ok', nullable=False)  # 'ok' | 'wackelt'
+    # LERN-TEXT: the ONE place in a Lerntext that explains this card —
+    # a library document (owned by the same user, checked at write time) and
+    # optionally one of its headings (NULL = the text as a whole; never a
+    # heading without a document). Bare FK like highlight_id: the declared
+    # ON DELETE is inert without the FK pragma, the before_delete event on
+    # Conversion is the real mechanic (both columns → NULL, same commit).
+    context_conversion_id = db.Column(db.Integer,
+                                      db.ForeignKey('conversion.id', ondelete='SET NULL'),
+                                      nullable=True, index=True)
+    context_heading = db.Column(db.Text, nullable=True)
     created_by = db.Column(db.String(40), default='agent', nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
+
+    # LERN-TEXT: the context document's title, loaded IN the card SELECT as a
+    # correlated scalar subquery — no relationship, no per-card query, no
+    # joined load of a whole Conversion row (its ``content`` can be 100 kB;
+    # review-state serves up to 200 cards). The statement count of
+    # review-state is independent of the card count by construction
+    # (tests/test_lern_text.py counts it).
+    context_document_title = column_property(
+        select(Conversion.title)
+        .where(Conversion.id == context_conversion_id)
+        .correlate_except(Conversion)
+        .scalar_subquery()
+    )
 
     tags = db.relationship('Tag', secondary=card_tags, lazy='joined',
                            backref=db.backref('cards', lazy='dynamic'))
@@ -376,10 +423,25 @@ class Card(db.Model):
     review = db.relationship('Review', uselist=False, backref='card',
                              cascade='all, delete-orphan')
 
+    def context_dict(self):
+        """``{document_id, document_title, heading, url}`` of the card's
+        Lerntext place, or None (LERN-TEXT). ``url`` is the reader address
+        the review button and the Nacharbeiten list open."""
+        if self.context_conversion_id is None:
+            return None
+        return {
+            'document_id': self.context_conversion_id,
+            'document_title': self.context_document_title,
+            'heading': self.context_heading,
+            'url': library_url(self.context_conversion_id, self.context_heading),
+        }
+
     def to_dict(self):
         return {
             'id': self.id,
             'highlight_id': self.highlight_id,
+            # LERN-TEXT: additive — null for cards without a Lerntext place.
+            'context': self.context_dict(),
             'source_snapshot': self.source_snapshot,
             'source_doc_title': self.source_doc_title,
             'type': self.type,
@@ -476,6 +538,23 @@ def _null_card_provenance_on_highlight_delete(mapper, connection, target):
     )
 
 
+@event.listens_for(Conversion, 'before_delete')
+def _null_card_context_on_conversion_delete(mapper, connection, target):
+    """LERN-TEXT: a deleted Lerntext takes the cards' place with it — both
+    context columns → NULL in the SAME flush as the row delete (the card and
+    its Review survive, only the link is gone). Same mechanic and same
+    reasoning as the highlight provenance above: the declared ON DELETE SET
+    NULL is inert without ``PRAGMA foreign_keys=ON``; this Core UPDATE on the
+    flush connection is the real one. The collection_documents rows go
+    through the ``Conversion.collection_links`` cascade."""
+    tbl = Card.__table__
+    connection.execute(
+        tbl.update()
+        .where(tbl.c.context_conversion_id == target.id)
+        .values(context_conversion_id=None, context_heading=None)
+    )
+
+
 class Collection(db.Model):
     """A curated, flat bundle of cards (LERN-GROUP Achse B).
 
@@ -527,15 +606,69 @@ class Collection(db.Model):
             db.session.flush()
         return coll
 
-    def to_dict(self, card_count=None, due_count=None):
+    # LERN-TEXT: the Lerntexte of this collection, in position order. The
+    # cascade sweeps the junction rows when the collection goes (no FK pragma).
+    document_links = db.relationship('CollectionDocument', backref='collection',
+                                     cascade='all, delete-orphan',
+                                     order_by='CollectionDocument.position')
+
+    @classmethod
+    def documents_by_id(cls, collection_ids):
+        """``{collection_id: [{id, title, url}, …]}`` in position order for
+        several collections in ONE query (LERN-TEXT) — the list endpoint
+        must not run one query per collection, and the single-object
+        responses use the same builder so the shape exists exactly once.
+        Ids without rows map to ``[]``."""
+        out = {cid: [] for cid in collection_ids}
+        if not collection_ids:
+            return out
+        rows = (db.session.query(CollectionDocument.collection_id,
+                                 Conversion.id, Conversion.title)
+                .join(Conversion, Conversion.id == CollectionDocument.conversion_id)
+                .filter(CollectionDocument.collection_id.in_(list(collection_ids)))
+                .order_by(CollectionDocument.collection_id, CollectionDocument.position)
+                .all())
+        for cid, doc_id, title in rows:
+            out[cid].append({'id': doc_id, 'title': title, 'url': library_url(doc_id)})
+        return out
+
+    def to_dict(self, card_count=None, due_count=None, documents=None):
         out = {
             'id': self.id,
             'name': self.name,
             'description': self.description,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            # LERN-TEXT: additive field, ALWAYS present (the iOS app decodes
+            # the bare array; an extra key per entry is harmless, a wrapper
+            # would not be). None → look the list up for this one collection.
+            'documents': (documents if documents is not None
+                          else Collection.documents_by_id([self.id])[self.id]),
         }
         if card_count is not None:
             out['card_count'] = card_count
         if due_count is not None:
             out['due_count'] = due_count
         return out
+
+
+class CollectionDocument(db.Model):
+    """Junction ``collection_documents`` — a Lerntext listed in a collection
+    (LERN-TEXT, chapter level: "read these before learning this set").
+
+    Association object rather than a bare ``secondary`` table because of
+    ``position`` (the reading order the agent/user sets; ``PUT
+    /api/collections/<id>/documents`` replaces the whole list, positions
+    0..n-1). Owner-equal by construction: the write path accepts only the
+    current user's own documents for the current user's own collection. The
+    declared ``ON DELETE CASCADE`` is inert (no FK pragma) — the two
+    delete-orphan relationships (``Collection.document_links``,
+    ``Conversion.collection_links``) are the real sweep, from either side.
+    """
+    __tablename__ = 'collection_documents'
+    collection_id = db.Column(db.Integer,
+                              db.ForeignKey('collection.id', ondelete='CASCADE'),
+                              primary_key=True)
+    conversion_id = db.Column(db.Integer,
+                              db.ForeignKey('conversion.id', ondelete='CASCADE'),
+                              primary_key=True, index=True)
+    position = db.Column(db.Integer, nullable=False, default=0)

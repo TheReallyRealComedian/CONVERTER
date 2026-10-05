@@ -368,6 +368,27 @@ def _run_pending_migrations(app):
             # guards above.
             db.session.commit()
             app.logger.info("CARD-SVG: card.back_svg column added via ALTER TABLE")
+        # LERN-TEXT: the card's Lerntext place (models.Card.context_*). No
+        # backfill — NULL means "no place". The junction table
+        # collection_documents needs no entry here: db.create_all() (which
+        # runs right before this function at startup) creates missing
+        # TABLES, it only never patches COLUMNS onto existing ones.
+        if 'context_conversion_id' not in cols:
+            db.session.execute(text('ALTER TABLE card ADD COLUMN context_conversion_id INTEGER'))
+            db.session.commit()
+            app.logger.info("LERN-TEXT: card.context_conversion_id column added via ALTER TABLE")
+        if 'context_heading' not in cols:
+            db.session.execute(text('ALTER TABLE card ADD COLUMN context_heading TEXT'))
+            db.session.commit()
+            app.logger.info("LERN-TEXT: card.context_heading column added via ALTER TABLE")
+        # The index create_all declares (index=True) exists only on files the
+        # column was CREATED with; an ALTERed file needs it made explicitly.
+        if not any(ix['name'] == 'ix_card_context_conversion_id'
+                   for ix in inspector.get_indexes('card')):
+            db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_card_context_conversion_id '
+                                    'ON card (context_conversion_id)'))
+            db.session.commit()
+            app.logger.info("LERN-TEXT: ix_card_context_conversion_id created")
     if 'review' in inspector.get_table_names():
         cols = {c['name'] for c in inspector.get_columns('review')}
         if 'version' not in cols:

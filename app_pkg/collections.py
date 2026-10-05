@@ -18,7 +18,8 @@ from flask import jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
-from models import Card, Collection, Review, card_collections, db
+from models import (Card, Collection, CollectionDocument, Conversion, Review,
+                    card_collections, db)
 
 
 def _get_owned_collection(collection_id):
@@ -57,8 +58,12 @@ def register(app):
                 .filter(Collection.user_id == current_user.id)
                 .order_by(Collection.name.asc())
                 .all())
+        # LERN-TEXT: the Lerntexte per collection in ONE query (not one per
+        # row); additive per-entry field — the response stays a bare array.
+        documents = Collection.documents_by_id([col.id for col, _cnt, _due in rows])
         return jsonify([
-            col.to_dict(card_count=int(cnt or 0), due_count=int(due or 0))
+            col.to_dict(card_count=int(cnt or 0), due_count=int(due or 0),
+                        documents=documents[col.id])
             for col, cnt, due in rows
         ])
 
@@ -88,7 +93,7 @@ def register(app):
                                 description=(description or None))
         db.session.add(collection)
         db.session.commit()
-        return jsonify(collection.to_dict(card_count=0)), 201
+        return jsonify(collection.to_dict(card_count=0, documents=[])), 201
 
     @app.route('/api/collections/<int:collection_id>', methods=['PATCH'])
     @login_required
@@ -134,10 +139,54 @@ def register(app):
         if collection is None:
             return jsonify({'error': 'Nicht gefunden.'}), 404
         # ORM delete sweeps the card_collections rows via the Card.collections
-        # relationship (verified: the backref side drains too). The cards survive.
+        # relationship (verified: the backref side drains too) and the
+        # collection_documents rows via Collection.document_links (LERN-TEXT).
+        # The cards and the documents survive.
         db.session.delete(collection)
         db.session.commit()
         return jsonify({'success': True})
+
+    @app.route('/api/collections/<int:collection_id>/documents', methods=['PUT'])
+    @login_required
+    def api_set_collection_documents(collection_id):
+        # LERN-TEXT: REPLACE the collection's Lerntext list. ``documents`` is
+        # the ordered list of document ids (position = index; repeats keep
+        # their first position); an empty list clears. Every id must be the
+        # current user's own document, else 404 and NOTHING is written — the
+        # list before the call stays as it was (checked before the first
+        # write, one commit). Same session/owner posture as the siblings.
+        collection = _get_owned_collection(collection_id)
+        if collection is None:
+            return jsonify({'error': 'Nicht gefunden.'}), 404
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+        documents = data.get('documents')
+        if (not isinstance(documents, list)
+                or any(not isinstance(d, int) or isinstance(d, bool) for d in documents)):
+            return jsonify({'error': "Feld 'documents' muss eine Liste von Zahlen sein."}), 400
+        ordered = list(dict.fromkeys(documents))
+
+        if ordered:
+            owned = {row[0] for row in (db.session.query(Conversion.id)
+                                        .filter(Conversion.user_id == current_user.id,
+                                                Conversion.id.in_(ordered))
+                                        .all())}
+            if any(doc_id not in owned for doc_id in ordered):
+                return jsonify({'error': 'Dokument nicht gefunden.'}), 404
+
+        # Clear + flush BEFORE inserting: a kept id would otherwise collide on
+        # the composite primary key (the unit of work inserts before it
+        # deletes within one flush). Still one transaction — a failure
+        # between the two leaves the old list in place.
+        collection.document_links.clear()
+        db.session.flush()
+        collection.document_links.extend(
+            CollectionDocument(conversion_id=doc_id, position=position)
+            for position, doc_id in enumerate(ordered)
+        )
+        db.session.commit()
+        return jsonify(collection.to_dict())
 
     @app.route('/api/collections/<int:collection_id>/cards', methods=['POST'])
     @login_required

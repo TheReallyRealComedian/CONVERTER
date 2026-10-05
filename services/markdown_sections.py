@@ -111,6 +111,34 @@ def _is_degenerate_title(title) -> bool:
             or t.startswith('<!--'))
 
 
+def normalize_heading(heading: str) -> str:
+    """The canonical form of a heading given as a target: leading ``#``s and
+    surrounding whitespace stripped. ``## Intro`` and ``  Intro  `` both name
+    the heading "Intro". ONE definition — ``replace_section`` (docwrite) and
+    the card-context check (LERN-TEXT) compare against exactly this."""
+    return (heading or '').lstrip('#').strip()
+
+
+def _matching_headings(lines, heading):
+    """``[(index, level), …]`` of the ATX headings (outside fences) whose text
+    equals the normalised ``heading`` — level-agnostic. The one comparison
+    rule behind ``replace_section`` and ``find_heading``."""
+    target = normalize_heading(heading)
+    return [(i, level) for (i, level, text) in _iter_headings(lines) if text == target]
+
+
+def find_heading(markdown_text: str, heading: str) -> int:
+    """How many headings in ``markdown_text`` address ``heading`` — 0 (not
+    found), 1 (unique) or more (ambiguous).
+
+    Same recognition (ATX only, fenced code skipped) and same comparison
+    (``normalize_heading``, level-agnostic) as ``replace_section``, so a
+    heading that the section writer would accept is exactly one that counts
+    1 here. LERN-TEXT: the card-context check maps 0 → 400, >1 → 409.
+    """
+    return len(_matching_headings((markdown_text or '').split('\n'), heading))
+
+
 def replace_section(markdown_text: str, heading: str, new_section: str) -> str:
     """Return ``markdown_text`` with the section under ``heading`` replaced.
 
@@ -121,13 +149,13 @@ def replace_section(markdown_text: str, heading: str, new_section: str) -> str:
 
     Raises ``SectionNotFound`` (0 matches) or ``SectionAmbiguous`` (>1 match).
     """
-    target = heading.lstrip('#').strip()
+    target = normalize_heading(heading)
     # split('\n') + '\n'.join() round-trips exactly, preserving the document's
     # trailing-newline state and never gluing adjacent lines together.
     lines = markdown_text.split('\n')
     headings = list(_iter_headings(lines))
 
-    matches = [(i, level) for (i, level, text) in headings if text == target]
+    matches = _matching_headings(lines, heading)
     if not matches:
         raise SectionNotFound(target)
     if len(matches) > 1:

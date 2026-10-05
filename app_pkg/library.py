@@ -650,6 +650,12 @@ def register(app):
         job_id = metadata.get('job_id')
         source_ext = metadata.get('source_format')
 
+        # LERN-TEXT: the ORM delete is the whole mechanic — the before_delete
+        # event on Conversion (models.py) nulls every card's context columns
+        # and the Conversion.collection_links cascade removes the
+        # collection_documents rows, both in THIS commit (no FK pragma, so
+        # nothing happens DB-side; a raw DELETE FROM conversion would leave
+        # dangling places behind).
         db.session.delete(conversion)
         db.session.commit()
 

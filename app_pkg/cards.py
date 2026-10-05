@@ -35,6 +35,7 @@ from sqlalchemy.orm import contains_eager, joinedload
 from sqlalchemy.orm.exc import StaleDataError
 
 from models import Card, Collection, Conversion, Highlight, Review, Tag, db
+from services.markdown_sections import find_heading, normalize_heading
 from services.scheduler import RATINGS, get_scheduler
 from services.svg_sanitize import MAX_CARD_SVG_BYTES, sanitize_card_svg
 
@@ -276,6 +277,60 @@ def _validate_highlight_ownership(highlight_id, user_id):
     return None
 
 
+class CardContextError(Exception):
+    """A rejected ``context`` payload (LERN-TEXT): HTTP ``status`` + the
+    German sentence the agent gets back."""
+
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+def _resolve_card_context(user_id, payload):
+    """Validate and resolve the ``context`` field of a card write (LERN-TEXT).
+
+    ``payload`` is the JSON value under ``context``:
+
+    * ``None`` → ``(None, None)`` — no place, or clear the place.
+    * ``{"document_id": <int>, "heading": <str> | null}`` → ``(conversion,
+      heading)`` with the heading in its canonical form (``normalize_heading``:
+      leading ``#``s and surrounding whitespace stripped); a blank heading is
+      a clear-intent like the note/figure fields → None = the text as a whole.
+
+    Fail-closed, in this order: shape → 400; the document must be the target
+    user's OWN (→ 404, never leak another user's document); the heading must
+    occur in the document (→ 400 with the heading named) exactly once
+    (→ 409 with the count) — the SAME recognition and comparison rule as
+    ``replace_section`` (fenced code skipped, level-agnostic), so a place the
+    section writer would accept is exactly a place this check accepts.
+    """
+    if payload is None:
+        return None, None
+    if not isinstance(payload, dict):
+        raise CardContextError(400, "Feld 'context' muss ein Objekt oder null sein.")
+    document_id = payload.get('document_id')
+    if not isinstance(document_id, int) or isinstance(document_id, bool):
+        raise CardContextError(400, "Feld 'context.document_id' muss eine Zahl sein.")
+    heading = payload.get('heading')
+    if heading is not None and not isinstance(heading, str):
+        raise CardContextError(400, "Feld 'context.heading' muss Text oder null sein.")
+
+    conversion = Conversion.query.filter_by(id=document_id, user_id=user_id).first()
+    if conversion is None:
+        raise CardContextError(404, 'Dokument nicht gefunden.')
+
+    heading = normalize_heading(heading) if heading is not None else ''
+    if not heading:
+        return conversion, None
+    count = find_heading(conversion.content, heading)
+    if count == 0:
+        raise CardContextError(400, f"Überschrift nicht gefunden: ‚{heading}'.")
+    if count > 1:
+        raise CardContextError(409, f'Überschrift kommt {count}-mal vor.')
+    return conversion, heading
+
+
 def _replace_card_tags(card, names, user_id):
     """Replace a card's tags with the normalised get_or_create set."""
     card.tags = []
@@ -411,6 +466,14 @@ def register(app):
         if svg_error:
             return jsonify({'error': svg_error}), 400
 
+        # LERN-TEXT: the card's place in a Lerntext — own document, heading
+        # present and unique, else 404/400/409 and NO card (fail-closed).
+        try:
+            context_doc, context_heading = _resolve_card_context(target.id,
+                                                                 data.get('context'))
+        except CardContextError as exc:
+            return jsonify({'error': exc.message}), exc.status
+
         card = Card(
             user_id=target.id,
             highlight_id=highlight_id,
@@ -424,6 +487,8 @@ def register(app):
             source_doc_title=data.get('source_doc_title'),
             front_svg=front_svg,
             back_svg=back_svg,
+            context_conversion_id=context_doc.id if context_doc is not None else None,
+            context_heading=context_heading,
         )
         # Add before touching the tags collection: get_or_create's lookup
         # autoflushes, and the Tag.cards backref warns if the card isn't yet in
@@ -452,6 +517,18 @@ def register(app):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
+
+        # LERN-TEXT: resolve the place FIRST — a rejected context leaves the
+        # card exactly as it was, whatever else the PATCH carried (the
+        # session rolls back at teardown anyway; the order makes it explicit).
+        if 'context' in data:
+            try:
+                context_doc, context_heading = _resolve_card_context(target.id,
+                                                                     data['context'])
+            except CardContextError as exc:
+                return jsonify({'error': exc.message}), exc.status
+            card.context_conversion_id = context_doc.id if context_doc is not None else None
+            card.context_heading = context_heading
 
         if 'type' in data:
             if data['type'] not in CARD_TYPES:
