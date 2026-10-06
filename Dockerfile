@@ -28,9 +28,21 @@ RUN apt-get update && apt-get install -y \
 # to escaped text plus a numbered list, voiding the choice. Arch-aware deb
 # (amd64 Mintbox / arm64 local builds both exist upstream).
 ARG PANDOC_VERSION=3.10.1
+# ARCH-BUILD: sha256 per architecture, checked before dpkg sees the file.
+# Source of the hashes: the GitHub release API's per-asset `digest` for
+# 3.10.1 (the release ships no SHA256SUMS file), re-computed on both
+# downloaded debs on 2026-10-06. A version bump brings two new hashes; an
+# unknown architecture fails instead of installing something unchecked.
+# (tests/test_build_pins.py pins: curl -> sha256sum -c -> use, two hashes.)
 RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) sha=b419369915e0f3181be0afdb040ec8ecc6b70e72e5992652a0d83aed9e6bc109 ;; \
+         arm64) sha=14add8849fda702051f8f4da7b080dfab91ac7a11144602a9643e065d3b4c206 ;; \
+         *) echo "pandoc: no checksum pinned for $arch" >&2; exit 1 ;; \
+       esac \
     && curl -fsSL -o /tmp/pandoc.deb \
        "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-${arch}.deb" \
+    && echo "$sha  /tmp/pandoc.deb" | sha256sum -c - \
     && dpkg -i /tmp/pandoc.deb \
     && rm /tmp/pandoc.deb
 
@@ -65,44 +77,60 @@ RUN pip install --no-cache-dir --timeout=600 --retries=5 -r requirements.txt -c 
 # the tree is opened to read-for-all at the end — still root-owned.
 RUN python - <<'PY'
 import os
+import sys
 import nltk
-import ssl
 
 NLTK_DIR = '/usr/local/share/nltk_data'
 
-# Handle SSL issues if they occur
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
+# ARCH-BUILD: fail the build instead of printing. The downloader returns
+# False on failure (it does not raise), and the previous block ignored the
+# value and swallowed exceptions — a missing resource surfaced only as a
+# runtime LookupError in every unstructured partition. Each resource must
+# download AND be findable in NLTK_DIR itself (paths= pins the lookup; the
+# default search path would also accept a stray /root/nltk_data). TLS stays
+# verified: the former unverified-context shim is gone — a TLS failure is a
+# build finding, not something to silence. tests/test_build_pins.py executes
+# this block against a stub nltk.
+# resource id -> what nltk.data.find() resolves. wordnet ships zip-only
+# upstream (the reader opens the zip), so its findable name is the zip.
+RESOURCES = {
+    'punkt': 'tokenizers/punkt',
+    'punkt_tab': 'tokenizers/punkt_tab',
+    'averaged_perceptron_tagger': 'taggers/averaged_perceptron_tagger',
+    'averaged_perceptron_tagger_eng': 'taggers/averaged_perceptron_tagger_eng',
+    'stopwords': 'corpora/stopwords',
+    'wordnet': 'corpora/wordnet.zip',
+    'maxent_ne_chunker': 'chunkers/maxent_ne_chunker',
+    'words': 'corpora/words',
+}
 
-# Download all resources that unstructured commonly needs
-resources_to_download = [
-    'punkt',                    
-    'punkt_tab',                 
-    'averaged_perceptron_tagger',
-    'averaged_perceptron_tagger_eng',
-    'stopwords', 
-    'wordnet', 
-    'maxent_ne_chunker',
-    'words',
-]
-
-print("Downloading NLTK resources...")
-for resource in resources_to_download:
+failed = []
+for resource, probe in RESOURCES.items():
     try:
-        nltk.download(resource, download_dir=NLTK_DIR, quiet=False)
-        print(f"✓ Successfully downloaded {resource}")
-    except Exception as e:
-        print(f"⚠ Failed to download {resource}: {e}")
+        ok = nltk.download(resource, download_dir=NLTK_DIR, quiet=False)
+    except Exception as exc:  # network, TLS, disk — every one ends the build
+        print(f'nltk: download of {resource} raised {exc!r}')
+        ok = False
+    if not ok:
+        print(f'nltk: download of {resource} FAILED')
+        failed.append(resource)
+        continue
+    try:
+        found = nltk.data.find(probe, paths=[NLTK_DIR])
+    except LookupError:
+        print(f'nltk: {resource} downloaded, but {probe} not found under {NLTK_DIR}')
+        failed.append(resource)
+        continue
+    print(f'nltk: {resource} OK -> {found}')
 for root, dirs, files in os.walk(NLTK_DIR):
     for name in dirs:
         os.chmod(os.path.join(root, name), 0o755)
     for name in files:
         os.chmod(os.path.join(root, name), 0o644)
-print("NLTK resource download complete.")
+if failed:
+    print(f'nltk: {len(failed)} resource(s) failed: {", ".join(failed)}')
+    sys.exit(1)
+print(f'nltk: all {len(RESOURCES)} resources present under {NLTK_DIR}')
 PY
 
 # docker CLI, client binary only (DOC-LOCAL): since SEC-SOCKET only the
@@ -114,9 +142,21 @@ PY
 # apt package's containerd stack. Placed late on purpose: the layer sits
 # BELOW the expensive pip layers, so a CLI bump never rebuilds them.
 ARG DOCKER_CLI_VERSION=27.5.1
+# ARCH-BUILD: sha256 per architecture, checked before tar opens the file.
+# download.docker.com publishes no checksum file for the static bundles —
+# trust on first use, 2026-10-06: each tarball downloaded twice (same hash
+# both times), and the x86_64 bundle's docker/docker is byte-identical to
+# /usr/local/bin/docker in the then-deployed image f9cd92dd81ac. Integrity
+# from here on; a version bump brings two new hashes.
 RUN arch="$(uname -m)" \
+    && case "$arch" in \
+         x86_64)  sha=4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640 ;; \
+         aarch64) sha=e6b53725a73763ab3f988c73f8772eaed429754c1a579db5ff11f21990fd1817 ;; \
+         *) echo "docker CLI: no checksum pinned for $arch" >&2; exit 1 ;; \
+       esac \
     && curl -fsSL -o /tmp/docker.tgz \
        "https://download.docker.com/linux/static/stable/${arch}/docker-${DOCKER_CLI_VERSION}.tgz" \
+    && echo "$sha  /tmp/docker.tgz" | sha256sum -c - \
     && tar -xzf /tmp/docker.tgz -C /tmp docker/docker \
     && mv /tmp/docker/docker /usr/local/bin/docker \
     && rm -rf /tmp/docker.tgz /tmp/docker

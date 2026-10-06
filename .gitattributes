@@ -1,0 +1,4 @@
+# ARCH-BUILD (2026-10-06, Audit V-6/E-1): Python-Hunk-Header nennen die View-
+# Funktion statt des umschliessenden `def register(app):` (168 von 170 Hunk-
+# Headern lagen falsch); `git log -L` auf Views traegt damit.
+*.py diff=python

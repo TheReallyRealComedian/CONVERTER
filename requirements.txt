@@ -1,4 +1,8 @@
-# requirements.txt
+# requirements.txt — ARCH-BUILD (2026-10-06): jede Zeile ein exaktes `==`
+# (Sentinel tests/test_build_pins.py). Was im deployten Image wirklich laeuft,
+# protokolliert docs/build/pip-freeze.txt (scripts/freeze_image.sh, Ritual in
+# CLAUDE.md *Running*): Freeze vorher == Datei, Build, Freeze nachher, Diff.
+# Transitive gehoeren nach constraints.txt, nicht hierher.
 Flask[async]==3.1.3
 markdown-it-py==3.0.0
 mdit-py-plugins==0.4.2  # dollarmath: LaTeX-Mathe ($…$/$$…$$) vor Markdown-Zerlegung schützen (MATH-RENDER)
@@ -10,11 +14,10 @@ asgiref==3.8.1
 unstructured[all-docs]==0.18.32
 markitdown[pptx]==0.1.7  # DOC-ENGINE: PPTX backend (bake-off winner, only candidate with speaker notes); pptx extra only — [all] would pull azure/audio/pdf stacks
 trafilatura==2.2.0  # DOC-ENGINE: HTML backend (bake-off winner, <2 % boilerplate)
-pdfminer.six==20251230
 PyMuPDF==1.24.1
 deepgram-sdk==7.1.0
-google-cloud-texttospeech>=2.31.0  # NARR-1B: Gemini-TTS multi-speaker (MultiSpeakerMarkup ≥2.20, SynthesisInput.prompt ≥2.29, Gemini speaker types ≥2.30/2.31) — additiv über 2.21; Standard-Neural-Pfad unberührt
-google-genai>=1.0.0
+google-cloud-texttospeech==2.37.0  # ARCH-BUILD: exakt die deployte Version (Freeze f9cd92dd81ac, 2026-10-05); vorher >=2.31.0. NARR-1B: Gemini-TTS multi-speaker (MultiSpeakerMarkup ≥2.20, SynthesisInput.prompt ≥2.29, Gemini speaker types ≥2.30/2.31) — additiv über 2.21; Standard-Neural-Pfad unberührt
+google-genai==2.25.0  # ARCH-BUILD: exakt die deployte Version (Freeze f9cd92dd81ac, 2026-10-05); vorher >=1.0.0. Leser: services/pdf_cloud.py, scripts/probe_configured_models.py
 requests==2.33.0
 pydub==0.25.1
 redis==7.4.0
@@ -27,7 +30,7 @@ ebooklib==0.20  # EPUB builder for the Send-to-Kindle flow (pulls lxml + six)
 latex2mathml==3.79.0  # pure-Python LaTeX→MathML for the EPUB/Kindle math pass (KINDLE-MATH)
 fsrs==6.3.1  # py-fsrs: FSRS spaced-repetition engine (R4-LEARN scheduler)
 tzdata==2025.2  # zoneinfo fallback for Europe/Berlin (LEARN-UP local-day caps); unused if the image ships system tzdata
-# Test deps (run `pytest` locally)
-pytest>=8.0
-pytest-asyncio>=0.23
-responses>=0.25
+# Test deps (run `pytest` locally). ARCH-BUILD: pytest-asyncio und responses
+# gestrichen — 0 Importe in tests/ und scripts/ (grep 2026-10-06), kein
+# `async def test_`; pytest.ini traegt kein asyncio_mode mehr.
+pytest==9.1.1  # ARCH-BUILD: exakt die deployte Version (Freeze f9cd92dd81ac); vorher >=8.0

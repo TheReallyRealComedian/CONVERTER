@@ -15,6 +15,10 @@ key), ``/app/.codebuddy/db`` (28 MB), ``/app/.claude/``,
    ``keyterms.json`` stays on purpose — ``DeepgramService.load_keyterms``
    reads it from ``/app``.
 
+3. (ARCH-BUILD) ``corpus/``, ``tests/`` and ``docs/`` are on the must-list,
+   and the two root diagnostics are gone from the repository, not just
+   from the context.
+
 Docker reads the patterns root-anchored (Go ``filepath.Match``, no
 gitignore-style recursion): ``data/`` hits ``./data`` only. Only ``**``
 reaches deeper — it matches zero or more directories, the root included, so
@@ -44,10 +48,20 @@ MUST_EXCLUDE = ANYWHERE + (
     'app_data_bak-*',
     # compose files, the Mac-dev override included
     'docker-compose*.yml',
-    # master docs and root scripts without a runtime reader
+    # master docs without a runtime reader
     'BACKLOG.md', 'STATUS.md', 'CLAUDE.md', 'MASTER_BACKLOG_HANDOFF_*.md',
-    'pytest.ini', 'test_redis_connection.py', 'test_worker_libraries.py',
+    'pytest.ini',
+    # ARCH-BUILD (W-11): the three big trees without a runtime reader —
+    # corpus/ alone is 6.5 GB and once made the COPY layer 7.08 GB; pytest
+    # runs on the Mac or with the tree streamed in, never from the image.
+    'corpus/', 'tests/', 'docs/',
 )
+
+# ARCH-BUILD: the two root diagnostics of May 2026 (0 readers; the Redis one
+# connected without a password since SEC-REDIS-AUTH) are DELETED, not merely
+# kept out of the image — nothing may name them anymore, or the must-list
+# would pin an exclusion for files that do not exist.
+ROOT_DIAGNOSTICS_GONE = ('test_redis_connection.py', 'test_worker_libraries.py')
 
 MUST_KEEP = (
     'keyterms.json', 'static', 'templates', 'app_pkg', 'services', 'scripts',
@@ -108,3 +122,10 @@ def test_the_keep_check_can_fire():
     assert _hits('**/*.css', 'static')  # a new ** pattern must be decided
     assert not _hits('.claude/', 'static')
     assert not _hits('**/__pycache__/', 'app_pkg')
+
+
+def test_the_root_diagnostics_are_gone_not_just_ignored():
+    lines = _lines()
+    for name in ROOT_DIAGNOSTICS_GONE:
+        assert not (REPO / name).exists(), name
+        assert name not in lines, name
