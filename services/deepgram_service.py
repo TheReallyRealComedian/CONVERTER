@@ -22,6 +22,31 @@ MULTI_CHUNK_DIARIZATION_NOTICE = (
     "> Hinweis: Aufnahme über 90 Minuten — Sprecher-Erkennung für diese Länge deaktiviert."
 )
 
+# Das eine Modell der Datei-Transkription. scripts/probe_configured_models.py
+# liest den Namen hier (ARCH-BUILD) — nie aus einer eigenen Liste.
+DEEPGRAM_MODEL = "nova-3"
+# DIARIZE: v2 nur als Query-Parameter (SDK 7.1.0 kennt kein typisiertes
+# `diarize_model`); NIE `diarize=True` daneben — Deepgram weist Anfragen mit
+# beiden Parametern ab. Dienst und Probe teilen genau diese Form.
+DIARIZE_QUERY_PARAMS = {"diarize_model": "v2"}
+
+
+def diarization_outcome(utterances) -> str:
+    """Was Deepgrams Utterances über Sprecher hergeben — pur, seiteneffektfrei.
+
+    ``'none'``: keine Utterances oder ein ``speaker``-Feld fehlt (nicht
+    zuverlässig attribuierbar) · ``'single'``: genau ein Sprecher ·
+    ``'multi'``: zwei oder mehr. ``format_diarized_transcript`` labelt nur
+    ``'multi'``; die Aufrufstelle loggt ``'none'`` als WARNING und
+    ``'single'`` als INFO (ARCH-BUILD, W-16).
+    """
+    if not utterances:
+        return "none"
+    speakers = [getattr(u, "speaker", None) for u in utterances]
+    if any(s is None for s in speakers):
+        return "none"
+    return "multi" if len(set(speakers)) >= 2 else "single"
+
 
 def format_diarized_transcript(utterances, plain_transcript: str) -> str:
     """Format Deepgram-Utterances zu Sprecher-gelabeltem Markdown — pur, seiteneffektfrei.
@@ -34,15 +59,8 @@ def format_diarized_transcript(utterances, plain_transcript: str) -> str:
     fehlt/leer oder ein `speaker`-Feld ist None → ebenfalls `plain_transcript`
     (Diarization-Ausfall darf die Transkription nie brechen).
     """
-    if not utterances:
-        return plain_transcript
-
-    # Sprecher-Index fehlt irgendwo → nicht zuverlässig attribuierbar → Plain.
-    speakers = [getattr(u, "speaker", None) for u in utterances]
-    if any(s is None for s in speakers):
-        return plain_transcript
-
-    if len(set(speakers)) < 2:
+    # Keine Utterances, ein Sprecher-Index fehlt, oder nur ein Sprecher → Plain.
+    if diarization_outcome(utterances) != "multi":
         return plain_transcript
 
     blocks = []
@@ -213,10 +231,10 @@ class DeepgramService:
             logger.info(f"Transcribing with Nova-3, language={language}, keyterms={len(keyterms)}")
 
             # SDK 7.1.0: kein typisiertes `diarize_model` — v2 via additional_query_parameters
-            # (→ ?diarize_model=v2). NIEMALS zusätzlich diarize=True: beide Params → Request rejected.
+            # (→ ?diarize_model=v2, DIARIZE_QUERY_PARAMS). NIEMALS zusätzlich diarize=True.
             response = self.client.listen.v1.media.transcribe_file(
                 request=audio_data,
-                model="nova-3",
+                model=DEEPGRAM_MODEL,
                 smart_format=True,
                 utterances=True,
                 punctuate=True,
@@ -226,7 +244,7 @@ class DeepgramService:
                 keyterm=keyterms,
                 request_options={
                     "timeout_in_seconds": TIMEOUT_DEEPGRAM_SECONDS,
-                    "additional_query_parameters": {"diarize_model": "v2"},
+                    "additional_query_parameters": dict(DIARIZE_QUERY_PARAMS),
                 },
             )
 
@@ -237,8 +255,15 @@ class DeepgramService:
             if not apply_diarization:
                 return plain_transcript
 
-            # Single-Request: ≥2 Sprecher → gelabelte Blocks, sonst byte-gleich Plain
+            # Single-Request: ≥2 Sprecher → gelabelte Blocks, sonst byte-gleich Plain.
+            # ARCH-BUILD (W-16): die Degradation ist laut — bis hierhin fiel ein
+            # Diarisierungs-Ausfall still auf den Fließtext zurück.
             utterances = getattr(response.results, "utterances", None)
+            outcome = diarization_outcome(utterances)
+            if outcome == "none":
+                logger.warning("Diarisierung angefordert, keine Sprecher geliefert.")
+            elif outcome == "single":
+                logger.info("Diarisierung: ein Sprecher, Fließtext.")
             return format_diarized_transcript(utterances, plain_transcript)
 
         except Exception as e:

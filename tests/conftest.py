@@ -20,8 +20,10 @@ imported, because both happen during ``app.py`` module load:
    container-internal ``os.makedirs('/app/data', exist_ok=True)`` line
    does not fail on macOS / Linux dev boxes.
 """
+import atexit
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -59,13 +61,46 @@ _install_module_stubs()
 
 # --- Env required by `import app` ---
 
-_TEST_DB_FILE = Path(tempfile.gettempdir()) / 'converter-test.db'
-# SYNC-FREEZE: the app switches SQLite to WAL, which keeps '-wal'/'-shm'
-# side files next to the database — drop them with it so a previous run's
-# journal can never be replayed into a fresh test database.
-for _stale in (_TEST_DB_FILE, Path(f'{_TEST_DB_FILE}-wal'), Path(f'{_TEST_DB_FILE}-shm')):
-    if _stale.exists():
-        _stale.unlink()
+# ARCH-BUILD: one database file PER PROCESS. The fixed name
+# '<tempdir>/converter-test.db' made two concurrent pytest runs on one
+# machine destroy each other's fixtures (measured 2026-10-05: 279 passed /
+# 1359 errors in parallel, 1639 + 1 alone). The pid in the name keeps the
+# runs apart; leftovers of a crashed run are swept only once their process
+# is gone, the own file is removed at exit.
+_TEST_DB_DIR = Path(tempfile.gettempdir())
+_TEST_DB_FILE = _TEST_DB_DIR / f'converter-test-{os.getpid()}.db'
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # alive, someone else's
+    return True
+
+
+def _remove_test_db(path):
+    # SYNC-FREEZE: the app switches SQLite to WAL, which keeps '-wal'/'-shm'
+    # side files next to the database — drop them with it so a previous run's
+    # journal can never be replayed into a fresh test database. The schema
+    # bootstrap's flock file ('.startup.lock', app_pkg/__init__.py) sits
+    # there too.
+    for stale in (Path(path), Path(f'{path}-wal'), Path(f'{path}-shm'),
+                  Path(f'{path}.startup.lock')):
+        if stale.exists():
+            stale.unlink()
+
+
+_LEFTOVER_RE = re.compile(r'converter-test-(\d+)\.db(?:$|[.-])')
+for _leftover in _TEST_DB_DIR.glob('converter-test-*.db*'):
+    _match = _LEFTOVER_RE.match(_leftover.name)
+    if _match and int(_match.group(1)) != os.getpid() and not _pid_alive(int(_match.group(1))):
+        _leftover.unlink()
+_remove_test_db(_TEST_DB_DIR / 'converter-test.db')  # the pre-ARCH-BUILD fixed name
+_remove_test_db(_TEST_DB_FILE)
+atexit.register(_remove_test_db, _TEST_DB_FILE)
 
 os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 os.environ.setdefault('DATABASE_URL', f'sqlite:///{_TEST_DB_FILE}')
@@ -241,6 +276,8 @@ def mock_redis_queue(app):
 # --- SEC-SOCKET: the mineru launcher, real HTTP, faked docker CLI ---
 
 def _docker_call_kind(argv):
+    if argv[:3] == ['docker', 'image', 'inspect']:
+        return 'image_inspect'
     if argv[:3] == ['docker', 'rm', '-f']:
         return 'kill'
     if argv[:3] == ['docker', 'volume', 'rm']:
@@ -297,6 +334,9 @@ def fake_launcher(monkeypatch, tmp_path):
         kind = _docker_call_kind(argv)
         state['calls'].append({'kind': kind, 'cmd': argv, 'timeout': timeout})
         ok = SimpleNamespace(returncode=0, stdout='', stderr='')
+        if kind == 'image_inspect':  # ARCH-BUILD: the launcher's start-up identity line
+            return SimpleNamespace(returncode=0, stderr='',
+                                   stdout='sha256:fake 2026-01-01T00:00:00.000000000Z\n')
         if kind == 'kill':
             return ok
         if kind == 'volume_rm':

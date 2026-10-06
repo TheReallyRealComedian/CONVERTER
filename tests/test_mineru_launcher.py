@@ -45,6 +45,7 @@ from services.mineru_invocation import (
     COPY_IN_TIMEOUT_SECONDS,
     COPY_OUT_TIMEOUT_SECONDS,
     HELPER_IMAGE,
+    IMAGE_INSPECT_TIMEOUT_SECONDS,
     KILL_TIMEOUT_SECONDS,
     MINERU_MAX_PAGES,
     VOLUME_RM_TIMEOUT_SECONDS,
@@ -420,6 +421,57 @@ def test_routes(fake_launcher):
     assert _request(url, 'PUT', '/run', json.dumps(GOOD).encode(), JSON)[0] == 501
     assert _request(url, 'DELETE', '/run')[0] == 501
     assert fake_launcher['calls'] == []
+
+
+# --- 4b. the image behind the tag (ARCH-BUILD, W-6a) --------------------------------
+
+INSPECT_ARGV = ['docker', 'image', 'inspect', '--format', '{{.Id}} {{.Created}}']
+
+
+def _inspect_answering(stdout='', stderr='', returncode=0, calls=None):
+    def fake(argv, **kwargs):
+        if calls is not None:
+            calls.append((list(argv), kwargs.get('timeout')))
+        return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
+    return fake
+
+
+def test_startup_logs_the_identity_behind_the_image_tag(fake_launcher, monkeypatch, caplog):
+    monkeypatch.setenv('MINERU_IMAGE', 'mineru:3.4.4')
+    calls = []
+    monkeypatch.setattr(mineru_launcher.subprocess, 'run', _inspect_answering(
+        stdout='sha256:6cc9e57ff5bd0123 2026-08-15T10:11:12.123456789Z\n', calls=calls))
+    with caplog.at_level(logging.INFO, logger='mineru_launcher'):
+        mineru_launcher._log_config_state()
+    assert calls == [(INSPECT_ARGV + ['mineru:3.4.4'], IMAGE_INSPECT_TIMEOUT_SECONDS)]
+    messages = [(r.levelno, r.getMessage()) for r in caplog.records]
+    assert (logging.INFO, 'Image mineru:3.4.4 = sha256:6cc9e57ff5bd0123, '
+            'erstellt 2026-08-15T10:11:12.123456789Z') in messages
+    assert not [m for level, m in messages if level >= logging.WARNING], messages
+
+
+def test_missing_image_is_one_warning_and_the_service_keeps_answering(fake_launcher,
+                                                                         monkeypatch, caplog):
+    monkeypatch.setenv('MINERU_IMAGE', 'mineru:9.9.9')
+    monkeypatch.setattr(mineru_launcher.subprocess, 'run', _inspect_answering(
+        returncode=1, stderr='Error response from daemon: No such image: mineru:9.9.9\n'))
+    with caplog.at_level(logging.INFO, logger='mineru_launcher'):
+        mineru_launcher._log_config_state()
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1, warnings
+    assert warnings[0].startswith('Image mineru:9.9.9 nicht vorhanden') and 'No such image' in warnings[0]
+    assert 'Textebene' in warnings[0]
+    assert _request(fake_launcher['url'], 'GET', '/health') == (200, {'status': 'ok', 'busy': False})
+
+
+def test_unreadable_identity_is_a_warning_not_a_crash(fake_launcher, monkeypatch, caplog):
+    def no_cli(argv, **kwargs):
+        raise FileNotFoundError(2, 'No such file or directory', 'docker')
+    monkeypatch.setattr(mineru_launcher.subprocess, 'run', no_cli)
+    with caplog.at_level(logging.INFO, logger='mineru_launcher'):
+        mineru_launcher._log_config_state()
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and 'nicht lesbar' in warnings[0], warnings
 
 
 # --- 5. minimal surface -----------------------------------------------------------

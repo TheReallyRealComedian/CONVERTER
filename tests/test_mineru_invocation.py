@@ -18,11 +18,13 @@ from services.mineru_invocation import (
     COPY_IN_TIMEOUT_SECONDS,
     COPY_OUT_TIMEOUT_SECONDS,
     HELPER_IMAGE,
+    IMAGE_INSPECT_TIMEOUT_SECONDS,
     KILL_TIMEOUT_SECONDS,
     LAUNCHER_REPLY_MARGIN_SECONDS,
     VOLUME_RM_TIMEOUT_SECONDS,
     build_copy_in_argv,
     build_copy_out_argv,
+    build_image_inspect_argv,
     build_kill_argv,
     build_run_argv,
     build_volume_rm_argv,
@@ -113,6 +115,13 @@ def test_copy_helpers_mount_only_the_exchange_root():
 
 def test_kill_argv():
     assert build_kill_argv(JOB) == ['docker', 'rm', '-f', JOB]
+
+
+def test_image_inspect_argv():
+    # ARCH-BUILD: the launcher logs the Id behind the configured tag at start.
+    assert build_image_inspect_argv('mineru:3.4.4') == [
+        'docker', 'image', 'inspect', '--format', '{{.Id}} {{.Created}}', 'mineru:3.4.4']
+    assert IMAGE_INSPECT_TIMEOUT_SECONDS == 30
 
 
 def test_deadline_curve_and_the_reply_margin():

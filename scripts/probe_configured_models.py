@@ -20,6 +20,14 @@ wie die Produktion —
   dem Modell aus ``services.pdf_cloud``, ein Satz statt einer PDF-Seite
   (``max_output_tokens=256`` — Thinking-Modelle verbrauchen einen Teil davon fürs Denken) — ein totes Modell ist ein 404 im Aufruf, dafür
   braucht es keine Seite.
+* **Transkription / Deepgram** (ARCH-BUILD): ein echter Datei-Request an
+  ``DEEPGRAM_MODEL`` aus ``services.deepgram_service`` mit **genau der
+  Parameterform des Dienstes** — ``diarize_model=v2`` als Query-Parameter,
+  nie ``diarize=true`` daneben (DIARIZE-Regel; Sentinel in
+  tests/test_probe_configured_models.py). Nutzlast ist ein 2-s-Sinus als
+  WAV aus der Stdlib (``wave``) — geprüft wird, dass Deepgram Modell und
+  Parameter **annimmt**, nicht der Inhalt; ein weggefallener Parameter wäre
+  ein 400. Ein Versuch, keine SDK-Retries.
 
 Die Namen kommen aus der **Konfiguration**, nie aus einer Literalliste: aus
 den Modul-Konstanten ``DEFAULT_NARRATION_MODEL`` / ``DEFAULT_CLOUD_PDF_MODEL``,
@@ -27,9 +35,9 @@ die ihrerseits Env (``NARRATION_TTS_MODEL`` / ``PDF_VISION_MODEL``) oder
 Code-Default sind. Nach einem Modellwechsel prüft das Skript also automatisch
 das Richtige; die Ausgabe nennt die Quelle des Namens mit.
 
-Laufen lassen (Mintbox, im **Worker** — er hat beide Zugangsdaten; Kosten: ein
-~1-s-TTS-Synth + ein winziger Gemini-Call, Bruchteile eines Cents; kein
-DB-Zugriff, nichts bleibt liegen)::
+Laufen lassen (Mintbox, im **Worker** — er hat alle drei Zugangsdaten; Kosten:
+ein ~1-s-TTS-Synth + ein winziger Gemini-Call + 2 s Deepgram-Audio, Bruchteile
+eines Cents; kein DB-Zugriff, nichts bleibt liegen)::
 
     docker cp scripts/probe_configured_models.py markdown-converter-worker:/tmp/probe_models.py
     docker exec markdown-converter-worker python /tmp/probe_models.py
@@ -52,6 +60,7 @@ import sys
 import time
 
 DEFAULT_TIMEOUT_SECONDS = 60.0
+PROBE_AUDIO_SECONDS = 2  # the Deepgram payload: a sine this long, as WAV
 
 
 class ProbeSetupError(RuntimeError):
@@ -69,9 +78,12 @@ def configured_models():
     call them (import at call time, so env/monkeypatching is honoured)."""
     from services.narration_render import DEFAULT_NARRATION_MODEL
     from services.pdf_cloud import DEFAULT_CLOUD_PDF_MODEL
+    from services.deepgram_service import DEEPGRAM_MODEL
     return [
         ('Narration / Cloud TTS', DEFAULT_NARRATION_MODEL, _source('NARRATION_TTS_MODEL'), probe_cloud_tts),
         ('PDF-Vision / Gemini API', DEFAULT_CLOUD_PDF_MODEL, _source('PDF_VISION_MODEL'), probe_gemini),
+        # no env override exists for the transcription model — the name is the service's constant
+        ('Transkription / Deepgram', DEEPGRAM_MODEL, 'Code-Default', probe_deepgram),
     ]
 
 
@@ -123,6 +135,58 @@ def probe_gemini(model_name, timeout):
     usage = getattr(response, 'usage_metadata', None)
     total = getattr(usage, 'total_token_count', None)
     return f'Antwort {text!r}, {total} Tokens'
+
+
+def _sine_wav(seconds=PROBE_AUDIO_SECONDS, rate=16000, frequency=440.0):
+    """A tiny mono 16-bit WAV from the stdlib — the request must be accepted,
+    its content is irrelevant, so no ffmpeg and no fixture file."""
+    import io
+    import math
+    import struct
+    import wave
+
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(rate)
+        wav.writeframes(b''.join(
+            struct.pack('<h', int(12000 * math.sin(2 * math.pi * frequency * i / rate)))
+            for i in range(rate * seconds)))
+    return buffer.getvalue()
+
+
+def probe_deepgram(model_name, timeout):
+    """One real file request in the service's parameter form (DIARIZE):
+    ``diarize_model=v2`` as a query parameter, never ``diarize=true`` next to
+    it. Deepgram answers an unknown or doubled parameter with 400 — the
+    accepted request is the evidence. One attempt, the caller's deadline."""
+    api_key = os.environ.get('DEEPGRAM_API_KEY')
+    if not api_key:
+        raise ProbeSetupError('DEEPGRAM_API_KEY nicht gesetzt')
+    try:
+        from services.deepgram_service import DIARIZE_QUERY_PARAMS, DeepgramService
+    except ImportError as exc:
+        raise ProbeSetupError(f'Import: {exc}') from exc
+    client = DeepgramService(api_key).client  # the production client construction
+    response = client.listen.v1.media.transcribe_file(
+        request=_sine_wav(),
+        model=model_name,
+        language='de',
+        request_options={
+            'timeout_in_seconds': timeout,
+            'max_retries': 0,
+            'additional_query_parameters': dict(DIARIZE_QUERY_PARAMS),
+        },
+    )
+    channels = getattr(getattr(response, 'results', None), 'channels', None)
+    if not channels:
+        raise RuntimeError('Antwort ohne results.channels')
+    metadata = getattr(response, 'metadata', None)
+    duration = getattr(metadata, 'duration', None)
+    request_id = getattr(metadata, 'request_id', None)
+    return (f'{PROBE_AUDIO_SECONDS}-s-Sinus angenommen mit diarize_model=v2, '
+            f'Audio {duration} s, request_id {request_id}')
 
 
 def run(probes, timeout=DEFAULT_TIMEOUT_SECONDS, out=sys.stdout):

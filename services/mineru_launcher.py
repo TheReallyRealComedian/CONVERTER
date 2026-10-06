@@ -43,7 +43,9 @@ Environment (moved here from the worker)::
     EXCHANGE_OWNER               <uid>:<gid> the output is written as — the
                                  WORKER's ids (required; 0:0 while the
                                  worker runs as root, SEC-NONROOT changes it)
-    MINERU_IMAGE                 default mineru:latest (compose pins 3.4.4)
+    MINERU_IMAGE                 default mineru:latest (compose pins 3.4.4);
+                                 at start one INFO line names the Id and
+                                 creation time behind the tag (ARCH-BUILD)
     MINERU_MODELS_DIR            host path of the HF cache, empty = no mount
     MINERU_TIMEOUT_BASE_SECONDS  can only SHORTEN the deadline base (the
                                  kill probe); never lengthens it
@@ -71,6 +73,7 @@ from typing import NamedTuple
 from services.mineru_invocation import (
     COPY_IN_TIMEOUT_SECONDS,
     COPY_OUT_TIMEOUT_SECONDS,
+    IMAGE_INSPECT_TIMEOUT_SECONDS,
     KILL_TIMEOUT_SECONDS,
     LAUNCHER_PORT,
     MINERU_DEFAULT_IMAGE,
@@ -79,6 +82,7 @@ from services.mineru_invocation import (
     VOLUME_RM_TIMEOUT_SECONDS,
     build_copy_in_argv,
     build_copy_out_argv,
+    build_image_inspect_argv,
     build_kill_argv,
     build_run_argv,
     build_volume_rm_argv,
@@ -88,6 +92,8 @@ from services.mineru_invocation import (
 )
 
 logger = logging.getLogger('mineru_launcher')
+# ARCH-BUILD: the worker (worker.py) logs in the same shape.
+LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
 
 MAX_BODY_BYTES = 4096
 TAIL_CHARS = 800
@@ -432,6 +438,26 @@ def _terminate(_signum, _frame):
     raise SystemExit(0)
 
 
+def _log_image_identity(image):
+    """One INFO line naming the Id behind the configured tag (ARCH-BUILD,
+    W-6a): the tag is a name, the Id is the thing. A missing image or an
+    unreadable daemon is a WARNING, never an abort — runs then fail per
+    request and the worker falls back to the text layer, as before."""
+    try:
+        proc = subprocess.run(build_image_inspect_argv(image), capture_output=True,
+                              text=True, timeout=IMAGE_INSPECT_TIMEOUT_SECONDS)
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.warning('Image %s: Identität nicht lesbar (%s) — Läufe würden auf '
+                       'die Textebene fallen.', image, e)
+        return
+    if proc.returncode != 0:
+        logger.warning('Image %s nicht vorhanden: %s — jeder Lauf scheitert, der '
+                       'Worker fällt auf die Textebene.', image, _tail(proc.stderr).strip())
+        return
+    image_id, _, created = proc.stdout.strip().partition(' ')
+    logger.info('Image %s = %s, erstellt %s', image, image_id, created)
+
+
 def _log_config_state():
     try:
         config = read_config()
@@ -441,11 +467,11 @@ def _log_config_state():
     logger.info('Konfiguration: Image %s, Austausch %s, Modelle %s, Eigentümer %s, '
                 'Frist-Basis %d s', config.image, config.exchange_host,
                 config.models_dir_host or '—', config.owner, config.timeout_base)
+    _log_image_identity(config.image)
 
 
 def main():
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     signal.signal(signal.SIGTERM, _terminate)
     server = make_server()
     _log_config_state()

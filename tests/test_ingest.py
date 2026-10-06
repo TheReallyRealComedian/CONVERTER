@@ -248,7 +248,7 @@ def test_ingest_missing_or_unparseable_report_date_defaults_to_now(app, client, 
     # Unparseable report_date.
     client.post(URL, headers=_auth(), json=_newsletter(source_id='bad-date',
                                                         report_date='not-a-date'))
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC like created_at
     with app.app_context():
         for c in Conversion.query.filter_by(user_id=uid).all():
             assert c.created_at is not None

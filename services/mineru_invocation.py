@@ -91,6 +91,7 @@ COPY_IN_TIMEOUT_SECONDS = 60
 COPY_OUT_TIMEOUT_SECONDS = 90
 KILL_TIMEOUT_SECONDS = 30          # docker rm -f of a container past its deadline
 VOLUME_RM_TIMEOUT_SECONDS = 30
+IMAGE_INSPECT_TIMEOUT_SECONDS = 30  # docker image inspect at launcher start (ARCH-BUILD)
 
 # Everything the launcher may do besides the deadline itself, plus slack for
 # the HTTP round trip. The worker waits this much longer than the deadline,
@@ -170,3 +171,13 @@ def build_kill_argv(container_name):
 
 def build_volume_rm_argv(*volumes):
     return ['docker', 'volume', 'rm', *volumes]
+
+
+def build_image_inspect_argv(image):
+    """Identity behind a tag: ``<Id> <Created>`` (ARCH-BUILD, W-6a).
+
+    A tag is a name — ``mineru:3.4.4`` and ``mineru:latest`` pointed at ONE
+    Id (``6cc9e57ff5bd``) on 2026-10-05; a rebuild moves a tag silently, the
+    Id does not. The launcher logs this once at start.
+    """
+    return ['docker', 'image', 'inspect', '--format', '{{.Id}} {{.Created}}', image]
