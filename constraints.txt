@@ -30,7 +30,8 @@ unstructured-inference==1.2.0
 
 # ARCH-BUILD (2026-10-06): CVE-Pin auf eine Transitive von unstructured
 # (0 direkte Importe im Repo) — aus requirements.txt hierher, wo Transitive
-# hingehoeren. Wirkt nur, solange etwas pdfminer.six verlangt (unstructured
-# [all-docs] tut es); verlangt es niemand mehr, faellt das Paket aus dem
-# Freeze — gewollt, der Diff zeigt es.
+# hingehoeren. Wirkt nur, solange etwas pdfminer.six verlangt — im Image
+# f9cd92dd81ac ist das genau unstructured-inference 1.2.0 (`pip show`:
+# Required-by), das unstructured[all-docs] zieht; verlangt es niemand mehr,
+# faellt das Paket aus dem Freeze — gewollt, der Diff zeigt es.
 pdfminer.six==20251230
