@@ -25,6 +25,7 @@ from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from markupsafe import Markup
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.schema import CreateIndex
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app_pkg.config import SQLITE_BUSY_TIMEOUT_SECONDS
@@ -381,14 +382,9 @@ def _run_pending_migrations(app):
             db.session.execute(text('ALTER TABLE card ADD COLUMN context_heading TEXT'))
             db.session.commit()
             app.logger.info("LERN-TEXT: card.context_heading column added via ALTER TABLE")
-        # The index create_all declares (index=True) exists only on files the
-        # column was CREATED with; an ALTERed file needs it made explicitly.
-        if not any(ix['name'] == 'ix_card_context_conversion_id'
-                   for ix in inspector.get_indexes('card')):
-            db.session.execute(text('CREATE INDEX IF NOT EXISTS ix_card_context_conversion_id '
-                                    'ON card (context_conversion_id)'))
-            db.session.commit()
-            app.logger.info("LERN-TEXT: ix_card_context_conversion_id created")
+        # ix_card_context_conversion_id (index=True on the ALTERed column) is
+        # made by _reconcile_model_indexes below, like every other model index
+        # an ALTERed file lacks — ARCH-FACTORY replaced the one-off step here.
     if 'review' in inspector.get_table_names():
         cols = {c['name'] for c in inspector.get_columns('review')}
         if 'version' not in cols:
@@ -401,7 +397,52 @@ def _run_pending_migrations(app):
                 'ALTER TABLE review ADD COLUMN version INTEGER NOT NULL DEFAULT 1'))
             db.session.commit()
             app.logger.info("LOST-UPDATE: review.version column added via ALTER TABLE")
+    _reconcile_model_indexes(app)
     _migrate_conversion_tags_csv_to_junction(app)
+
+
+def _reconcile_model_indexes(app):
+    """ARCH-FACTORY (audit W-7): create the model indexes an ALTERed file lacks.
+
+    ``db.create_all()`` makes a table's indexes only together with the table;
+    a column that reaches an EXISTING table through one of the ALTERs above
+    arrives without the index its model declares (``index=True``). Measured
+    on the Prod file 2026-10-07: 17 indexes against the 20 of a fresh
+    create_all — ``ix_conversion_lifecycle_status``,
+    ``ix_conversion_queue_position`` and ``ix_tag_parent_id`` missing (the
+    LERN-TEXT one-off for ``ix_card_context_conversion_id`` was the only step
+    that knew about this). So, after the ALTERs: every index ``db.metadata``
+    declares and the live table lacks (by name) is created from the model's
+    own ``Index`` object — same name, same columns, one DDL
+    (``CREATE INDEX IF NOT EXISTS``), nothing to keep in step by hand.
+    Nothing is dropped or renamed. A log line per created index.
+
+    A missing UNIQUE index is refused, not built: over existing rows it is a
+    correctness question (which duplicates lose?), not a migration step — it
+    is logged as a WARNING and left to a deliberate migration. The model's
+    one UNIQUE index today, ``ix_review_card_id``, was created with its table
+    and is present on every file, so the refusal fires for nothing today.
+    """
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    for table in db.metadata.sorted_tables:
+        if table.name not in existing:
+            continue
+        present = {ix['name'] for ix in inspector.get_indexes(table.name)}
+        for index in sorted(table.indexes, key=lambda ix: ix.name or ''):
+            if index.name in present:
+                continue
+            columns = ', '.join(c.name for c in index.columns)
+            if index.unique:
+                app.logger.warning(
+                    f"ARCH-FACTORY: UNIQUE index {index.name} on {table.name} ({columns}) "
+                    f"is missing and was NOT created — uniqueness over existing rows "
+                    f"needs a deliberate migration")
+                continue
+            db.session.execute(CreateIndex(index, if_not_exists=True))
+            db.session.commit()
+            app.logger.info(
+                f"ARCH-FACTORY: index {index.name} created on {table.name} ({columns})")
 
 
 def _migrate_conversion_tags_csv_to_junction(app):
