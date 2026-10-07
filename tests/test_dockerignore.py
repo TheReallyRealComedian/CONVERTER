@@ -55,6 +55,9 @@ MUST_EXCLUDE = ANYWHERE + (
     # corpus/ alone is 6.5 GB and once made the COPY layer 7.08 GB; pytest
     # runs on the Mac or with the tree streamed in, never from the image.
     'corpus/', 'tests/', 'docs/',
+    # ARCH-BUILD wrap: the diff-driver config has no runtime reader — it was
+    # measured in the image after the deploy (16 entries under /app, not 15).
+    '.gitattributes',
 )
 
 # ARCH-BUILD: the two root diagnostics of May 2026 (0 readers; the Redis one

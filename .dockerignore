@@ -10,6 +10,9 @@ docker-compose*.yml
 # Git and version control
 .git
 .gitignore
+# ARCH-BUILD: vier Zeilen Diff-Konfiguration ohne Laufzeit-Leser — lag nach
+# dem Deploy 495bc81391aa im Image (`ls -A /app`), seit dem Wrap draussen.
+.gitattributes
 
 # Python virtual environments and cache
 # IMG-CONTEXT: `**/` = in jeder Tiefe, die Wurzel eingeschlossen — ohne

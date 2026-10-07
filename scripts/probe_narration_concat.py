@@ -32,10 +32,13 @@ out of the retired ``services/gemini`` package:
 7. ``DELETE`` the probe row strictly by its id and check that row, artifact
    and job render are gone.
 
-⚠️ **Why the branch is read off the artifact and not off the worker log:** the
-worker process has no logging configuration (root logger without handler,
-level WARNING — measured 2026-10-02), so every ``logger.info`` from ``tasks``
-and ``services.*`` is dropped there, ``Concatenating … with PyDub`` included.
+**Why the branch is read off the artifact and not off the worker log:** until
+ARCH-BUILD the worker process had no logging configuration (root logger
+without handler, level WARNING — measured 2026-10-02), so every ``logger.info``
+from ``tasks`` and ``services.*`` was dropped there. Since 2026-10-07
+``docker logs markdown-converter-worker`` does show ``Concatenating … with
+PyDub`` (``worker.configure_logging``); the artifact stays the primary
+evidence — it is what gets served, and it holds after the log has rotated.
 
 ⚠️ **This probe creates a credential on the target account, and here is why.**
 ``NARRATION_TOKEN`` is a write-only, identity-less token: it can create the
