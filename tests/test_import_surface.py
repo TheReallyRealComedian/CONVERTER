@@ -27,12 +27,14 @@ from app_pkg.decorators import require_service
 REPO = Path(__file__).resolve().parents[1]
 
 # ``tasks`` runs ``os.makedirs('/app/output_podcasts')`` at import — a no-op
-# on a dev box where /app is not writable (same wrap as conftest.py).
+# on a dev box where /app is not writable (the same ONE path as conftest.py;
+# since ARCH-FACTORY the factory derives its directory from the DB URI, so
+# nothing else may need this).
 _PRELUDE = '''
 import json, os, sys
 _real_makedirs = os.makedirs
 def _safe_makedirs(path, *args, **kwargs):
-    if str(path).startswith('/app'):
+    if str(path) == '/app/output_podcasts':
         return
     return _real_makedirs(path, *args, **kwargs)
 os.makedirs = _safe_makedirs
@@ -135,6 +137,68 @@ sys.modules['playwright.async_api'] = playwright_async
 import app
 assert app.deepgram_service is not None
 '''
+
+
+# --- ARCH-FACTORY: whoever wants config gets config, not the web app ---------
+#
+# ``app_pkg/__init__.py`` was the factory: every ``from app_pkg.config import``
+# in the worker, the launcher's neighbours and six service modules ran it and
+# loaded Flask, Flask-WTF, SQLAlchemy, click and ``models`` into a process
+# that never builds a web app (measured at the pin before P2: ``import
+# worker`` 622 modules, flask + sqlalchemy + models loaded). Since P2 the init
+# is a PEP-562 loader for six names and imports nothing itself.
+
+WEB_APP = ('flask', 'sqlalchemy', 'models')
+
+SIX_NAMES = {
+    'create_app': '.factory',
+    '_run_pending_migrations': '.migrations',
+    '_migrate_conversion_tags_csv_to_junction': '.migrations',
+    '_startup_lock': '.db_runtime',
+    '_startup_lock_path': '.db_runtime',
+    'HttpsOnlySecureSessionInterface': '.security',
+}
+
+
+@pytest.mark.parametrize('module', [
+    'app_pkg.config',
+    'worker',
+    'services.narration_library',
+    'tasks',  # heavy by design (renderers, SDKs) — but no web app in it
+])
+def test_import_does_not_load_the_web_app(module):
+    modules = _modules_after(f'import {module}\n')
+    assert module in modules  # positive control: the import happened
+    loaded = [name for name in WEB_APP if _loaded(modules, name)]
+    assert loaded == [], f'{module} loads {loaded}'
+
+
+def test_the_web_app_check_can_fire():
+    # Positive control for the matcher: the factory IS the web app — importing
+    # it alone loads all three.
+    modules = _modules_after('import app_pkg.factory\n')
+    assert [name for name in WEB_APP if _loaded(modules, name)] == list(WEB_APP)
+
+
+def test_package_init_is_a_lazy_loader_for_exactly_six_names():
+    import app_pkg
+    from importlib import import_module
+
+    assert app_pkg._LAZY == SIX_NAMES
+    assert app_pkg.__all__ == list(SIX_NAMES)
+    for name, module in SIX_NAMES.items():
+        # each name is the object its home module defines, not a copy
+        assert getattr(app_pkg, name) is getattr(import_module(module, 'app_pkg'), name)
+    with pytest.raises(AttributeError):
+        app_pkg.no_such_name  # noqa: B018 — the loader must raise, not import
+    # ``from app_pkg import <submodule>`` keeps working through that AttributeError
+    from app_pkg import config  # noqa: F401
+    # … and the init itself imports nothing of the project: a fresh process
+    # that imports only the package holds the package and nothing else of ours.
+    modules = _modules_after('import app_pkg\n')
+    project = {m for m in modules if m.split('.')[0] in ('app_pkg', 'services', 'models')}
+    assert project == {'app_pkg'}
+    assert not any(_loaded(modules, name) for name in WEB_APP)
 
 
 def test_import_app_needs_no_key_file_and_loads_no_genai(tmp_path):
