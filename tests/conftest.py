@@ -16,9 +16,12 @@ imported, because both happen during ``app.py`` module load:
    lazy-imports ``partition`` at call time — there is no ``app.partition``
    singleton anymore), so a lightweight stub is sufficient and keeps the
    dev-machine install footprint small.
-2. ``os.makedirs`` is wrapped to no-op for ``/app/*`` paths so the
-   container-internal ``os.makedirs('/app/data', exist_ok=True)`` line
-   does not fail on macOS / Linux dev boxes.
+2. ``os.makedirs`` is wrapped to no-op for exactly ``/app/output_podcasts``:
+   ``tasks.py`` creates ``OUTPUT_DIR`` at import, the web imports ``tasks``,
+   and ``/app`` is not writable on a dev box. Nothing else may lean on this
+   — since ARCH-FACTORY the factory derives the SQLite directory from the DB
+   URI (``app_pkg.db_runtime._ensure_sqlite_dir``), so any other ``/app``
+   path a module tried to create fails here as it should.
 """
 import atexit
 import json
@@ -114,13 +117,21 @@ os.environ.setdefault('NOTION_TOKEN', '')
 # fails fast with "connection refused". ``fake_launcher`` overrides it.
 os.environ.setdefault('MINERU_LAUNCHER_URL', 'http://127.0.0.1:9')
 
-# Production code does `os.makedirs('/app/data', exist_ok=True)` at module
-# load — silently no-op on the dev box where /app is not writable.
+# tasks.py runs `os.makedirs(OUTPUT_DIR, exist_ok=True)` (OUTPUT_DIR =
+# '/app/output_podcasts', app_pkg/config.py) at import, and app.py's route
+# modules import tasks. On a dev box /app does not exist and / is read-only
+# (measured 2026-10-07: `import app` dies in tasks.py with OSError [Errno 30]),
+# so that ONE path is a no-op here. Exactly that path: before ARCH-FACTORY the
+# wrap swallowed every '/app*' and thereby hid the factory's hard-coded
+# os.makedirs('/app/data'); the factory now derives the directory from the DB
+# URI (app_pkg.db_runtime._ensure_sqlite_dir), and a second hard-coded /app
+# path would fail loudly instead of passing. Follow-up (audit V-2, XS): move
+# the tasks.py call into the task functions, then delete this block.
 _real_makedirs = os.makedirs
 
 
 def _safe_makedirs(path, *args, **kwargs):
-    if str(path).startswith('/app'):
+    if str(path) == '/app/output_podcasts':
         return
     return _real_makedirs(path, *args, **kwargs)
 
