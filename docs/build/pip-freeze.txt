@@ -1,6 +1,6 @@
 # docs/build/pip-freeze.txt — pip freeze des deployten Images (ARCH-BUILD).
-# Image-Id: sha256:fa1eda8aac0777804f63c718c883a5895bb492d786a72100b6e945d9ced65011
-# Image erstellt: 2026-10-07T19:26:23.361661311+02:00
+# Image-Id: sha256:b9c49279994cd5f5935a4bd71422be70c8041314fb9febd70acadfd1eaf16084
+# Image erstellt: 2026-10-08T20:47:00.607742009+02:00
 # Erzeugt mit: scripts/freeze_image.sh <tag>  (= docker run --rm --network none --entrypoint pip converter-app:<tag> freeze, LC_ALL=C sortiert)
 EbookLib==0.20
 Flask-Login==0.6.3
