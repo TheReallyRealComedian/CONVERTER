@@ -8,8 +8,11 @@
    from (lifecycle_status, queue_position) right here (precedence: archive >
    queued > inbox > neutral shelf). rank=None hides the Lese-Liste reorder rail.
    Explicit parameters instead of context lookups — Jinja macros don't see
-   block-local variables. #}
-{% macro conversion_card(conv, rank=None, edge_first=False, edge_last=False) %}
+   block-local variables. ``preview`` is the row's list preview from the route
+   (ARCH-LIBRARY-KLEIN: cut from the MEDIA-FREE text by the same helper as the
+   JSON list — a document that opens with a figure previews as prose; the
+   "..." follows the media-free length, not the raw one). #}
+{% macro conversion_card(conv, preview, rank=None, edge_first=False, edge_last=False) %}
 {% set place_key = 'archiv' if conv.lifecycle_status == 'archive'
    else ('leseliste' if conv.queue_position is not none
    else ('inbox' if conv.lifecycle_status == 'inbox' else 'bibliothek')) %}
@@ -32,9 +35,15 @@
     {% endif %}
     <div class="flex justify-between items-center px-4 pt-3">
         <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+            {# One label per allowed conversion_type — the same chain as
+               library_detail.html; tests/test_conversion_types.py renders both
+               for every type in ALLOWED_CONVERSION_TYPES and fails on a raw
+               type string, a missing .type-<typ> tone rule or a missing
+               filter path (ARCH-LIBRARY-KLEIN). #}
             <span class="type-badge type-{{ conv.conversion_type }}">
                 {% if conv.conversion_type in ('document_to_markdown', 'document_conversion') %}Dokument
                 {% elif conv.conversion_type == 'audio_transcription' %}Audio
+                {% elif conv.conversion_type == 'audio_narration' %}Vertonung
                 {% elif conv.conversion_type == 'dialogue_formatting' %}Dialog
                 {% elif conv.conversion_type == 'markdown_input' %}Markdown
                 {% elif conv.conversion_type == 'ai_newsletter' %}AI-Newsletter
@@ -47,7 +56,7 @@
         {% if conv.source_filename %}
         <div class="text-xs text-neo-faint mb-1.5">{{ conv.source_filename }}</div>
         {% endif %}
-        <p class="text-xs text-neo-muted leading-relaxed line-clamp-3">{{ conv.content[:200] }}{% if conv.content|length > 200 %}...{% endif %}</p>
+        <p class="text-xs text-neo-muted leading-relaxed line-clamp-3">{{ preview.text }}{% if preview.truncated %}...{% endif %}</p>
     </a>
     <div class="px-4 py-2.5 neo-separator-top flex items-center gap-2 flex-wrap">
         <span class="text-[11px] text-neo-faint" title="{{ conv.created_at.strftime('%Y-%m-%d %H:%M') }}">
@@ -124,6 +133,7 @@
                     <option value="">Alle Typen</option>
                     <option value="document_to_markdown" {% if current_type == 'document_to_markdown' %}selected{% endif %}>Dokument</option>
                     <option value="audio_transcription" {% if current_type == 'audio_transcription' %}selected{% endif %}>Audio</option>
+                    <option value="audio_narration" {% if current_type == 'audio_narration' %}selected{% endif %}>Vertonung</option>
                     <option value="dialogue_formatting" {% if current_type == 'dialogue_formatting' %}selected{% endif %}>Dialog</option>
                     <option value="markdown_input" {% if current_type == 'markdown_input' %}selected{% endif %}>Markdown</option>
                     <option value="ai_newsletter" {% if current_type == 'ai_newsletter' %}selected{% endif %}>AI-Newsletter</option>
@@ -215,12 +225,12 @@
         <div class="grid grid-cols-1 {% if current_view != 'leseliste' %}md:grid-cols-2 xl:grid-cols-3{% endif %} gap-8">
             {% for conv in conversions %}
             {% if current_view == 'leseliste' %}
-            {{ conversion_card(conv,
+            {{ conversion_card(conv, previews[conv.id],
                                rank=(pagination.page - 1) * current_per_page + loop.index,
                                edge_first=loop.first and not pagination.has_prev,
                                edge_last=loop.last and not pagination.has_next) }}
             {% else %}
-            {{ conversion_card(conv) }}
+            {{ conversion_card(conv, previews[conv.id]) }}
             {% endif %}
             {% endfor %}
         </div>

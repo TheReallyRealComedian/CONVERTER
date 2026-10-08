@@ -6,8 +6,12 @@ that create / update / delete conversions write to the DB, and a non-owner
 cannot read another user's conversion (404).
 """
 import json
+import re
 
-from models import db, User, Conversion
+from markupsafe import escape
+
+from models import db, User, Conversion, Tag
+from services.doc_media import strip_media_for_preview
 
 
 def _make_conversion(app, user_id, **overrides):
@@ -88,9 +92,40 @@ def test_api_create_conversion_persists(app, authenticated_client, test_user):
     data = resp.get_json()
     assert data['title'] == 'Recorded meeting'
     assert data['conversion_type'] == 'audio_transcription'
+    # ARCH-LIBRARY-KLEIN: a ``tags`` string in the body is not read any more —
+    # it used to land in the dead CSV column (and became real tags only at
+    # the next boot, through the CSV migration). No tag, no column value.
+    assert data['tag_refs'] == []
+    assert not data['tags']
     with app.app_context():
         rows = Conversion.query.filter_by(user_id=test_user['id']).all()
-    assert len(rows) == 1
+        assert len(rows) == 1
+        assert not rows[0].tags
+        assert Tag.query.count() == 0
+
+
+def test_api_create_conversion_ignores_tags_list(app, authenticated_client, test_user):
+    """ARCH-LIBRARY-KLEIN: ``tags`` as a LIST used to die in the dead CSV
+    column (sqlite3.ProgrammingError → 500). The field is not read: 201,
+    no tag refs, column empty. No 400 either — no known client sends the
+    field, a hard error would protect nothing."""
+    resp = authenticated_client.post(
+        '/api/conversions',
+        json={
+            'conversion_type': 'markdown_input',
+            'title': 'With a tags list',
+            'content': 'Body.',
+            'tags': ['alpha', 'beta'],
+        },
+    )
+    assert resp.status_code == 201
+    data = resp.get_json()
+    assert data['tag_refs'] == []
+    assert not data['tags']
+    with app.app_context():
+        row = Conversion.query.filter_by(user_id=test_user['id']).one()
+        assert not row.tags
+        assert Tag.query.count() == 0
 
 
 def test_api_create_conversion_accepts_ai_newsletter(app, authenticated_client, test_user):
@@ -421,3 +456,70 @@ def test_library_dokument_filter_covers_service_rows(app, authenticated_client, 
     # The JSON API stays exact — a service asking for one type gets that type.
     data = authenticated_client.get('/api/conversions?type=document_to_markdown').get_json()
     assert [it['title'] for it in data['items']] == ['Saved doc']
+
+
+# --- ARCH-LIBRARY-KLEIN: one truth for the list preview ----------------------
+
+_PREVIEW_RE = re.compile(
+    r'<p class="text-xs text-neo-muted leading-relaxed line-clamp-3">(.*?)</p>', re.S)
+
+# A closed figure longer than the 200-character cut: a raw preview of a
+# document that opens with it is SVG source from the first character on.
+_FIGURE_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">'
+               '<rect x="4" y="4" width="312" height="72" fill="#eef" stroke="#336" stroke-width="2"/>'
+               '<rect x="20" y="20" width="60" height="40" fill="#99c"/>'
+               '<rect x="100" y="20" width="60" height="40" fill="#9c9"/>'
+               '</svg>')
+assert len(_FIGURE_SVG) > 200
+
+
+def _list_preview(client, cid):
+    """The inner HTML of the row's preview <p> — the ONE place the list
+    shows content text (the data-content attribute carries the raw body)."""
+    page = client.get('/library?view=inbox').get_data(as_text=True)
+    card = re.search(rf'<div class="c-card flex flex-col" data-id="{cid}".*?</p>', page, re.S)
+    assert card is not None, 'the row is on the Inbox tab'
+    m = _PREVIEW_RE.search(card.group(0))
+    assert m is not None, 'the row has a preview paragraph'
+    return m.group(1)
+
+
+def test_library_preview_of_figure_document_is_prose(app, authenticated_client, test_user):
+    """A document that BEGINS with a figure previews as the prose after it —
+    the same media-free text the JSON list (``content_preview``) already
+    cut, not 200 characters of SVG source. The ellipsis follows the
+    media-free length: raw content is over 200 characters, the prose is
+    not, so there is no "..." (measured on HEAD: 203 = 200 + "...")."""
+    prose = 'Kurz nach der Figur.'
+    cid = _make_conversion(app, test_user['id'], lifecycle_status='inbox',
+                           content=_FIGURE_SVG + '\n\n' + prose + '\n')
+    preview = _list_preview(authenticated_client, cid)
+    assert '&lt;svg' not in preview and '<svg' not in preview
+    assert prose in preview
+    assert not preview.rstrip().endswith('...')
+
+
+def test_library_preview_ellipsis_follows_media_free_length(app, authenticated_client, test_user):
+    """Figure + long prose: the preview is the first 200 characters of the
+    media-free text plus "..." — cut AFTER the media are removed, the
+    order of the JSON list."""
+    content = _FIGURE_SVG + '\n\n' + 'Lang. ' * 60 + '\n'
+    cid = _make_conversion(app, test_user['id'], lifecycle_status='inbox', content=content)
+    stripped = strip_media_for_preview(content)
+    assert len(stripped) > 200 and '<svg' not in stripped
+    preview = _list_preview(authenticated_client, cid)
+    assert preview == str(escape(stripped[:200])) + '...'
+
+
+def test_library_preview_of_plain_document_is_unchanged(app, authenticated_client, test_user):
+    """A document without media previews byte-identically to before: its
+    first 200 characters and the "..." when the content is longer. (The
+    helper returns the SAME string for media-free text.)"""
+    content = 'Nur Prosa, kein Bild, keine Figur. ' * 10          # 350 chars
+    cid = _make_conversion(app, test_user['id'], lifecycle_status='inbox', content=content)
+    assert strip_media_for_preview(content) == content
+    preview = _list_preview(authenticated_client, cid)
+    assert preview == str(escape(content[:200])) + '...'
+    short = 'Kurz.'
+    cid2 = _make_conversion(app, test_user['id'], lifecycle_status='inbox', content=short)
+    assert _list_preview(authenticated_client, cid2) == short

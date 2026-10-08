@@ -55,6 +55,20 @@ DEFAULT_PLACE = 'bibliothek'
 ALLOWED_PER_PAGE = (20, 50, 100)
 DEFAULT_PER_PAGE = 20
 
+# ARCH-LIBRARY-KLEIN: the HTML list's preview is cut from the MEDIA-FREE text
+# by the same helper as the JSON list's ``content_preview`` (300 chars there)
+# — one truth for "what does this row say"; the template used to slice the
+# raw content and showed 200 characters of SVG source for a document that
+# opens with a figure.
+LIST_PREVIEW_CHARS = 200
+
+
+def _list_preview(content):
+    """{text, truncated} for the list card — strip media FIRST, then cut, so
+    the "..." follows the media-free length."""
+    text = strip_media_for_preview(content or '')
+    return {'text': text[:LIST_PREVIEW_CHARS], 'truncated': len(text) > LIST_PREVIEW_CHARS}
+
 
 def pagination_args(page, conversion_type, search, sort, per_page, tag='', view=''):
     """Build the **kwargs for url_for('library', …) so the default per_page, an
@@ -392,8 +406,11 @@ def register(app):
             .all()
         )
 
+        previews = {conv.id: _list_preview(conv.content) for conv in pagination.items}
+
         return render_template('library.html',
                                conversions=pagination.items,
+                               previews=previews,
                                pagination=pagination,
                                inbox_count=inbox_count,
                                current_type=conversion_type,
@@ -593,7 +610,13 @@ def register(app):
             source_mimetype=data.get('source_mimetype'),
             source_size_bytes=data.get('source_size_bytes'),
             metadata_json=json.dumps(metadata),
-            tags=data.get('tags', ''),
+            # ARCH-LIBRARY-KLEIN: a ``tags`` field in the body is NOT read.
+            # It used to be written into the dead CSV column ``Conversion.tags``
+            # (a string became real tags only at the next boot, through the
+            # CSV→junction migration; a list died with a ProgrammingError).
+            # No client sends it — iOS, the three JS callers and the
+            # converter-mcp (via Ingest) don't — so it is ignored, not a 400.
+            # Tags are attached through /api/conversions/<id>/tags.
         )
         db.session.add(conversion)
         db.session.commit()

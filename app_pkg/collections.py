@@ -73,10 +73,14 @@ def register(app):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
-        name = data.get('name')
-        if not isinstance(name, str) or not name.strip():
+        # ARCH-LIBRARY-KLEIN: the ONE normalisation (trim + collapse inner
+        # whitespace, case kept) — the same Collection.normalize_name the
+        # agent path runs in get_or_create. A bare strip() here made "Chemie
+        # Basics" with two spaces one collection through the UI and another
+        # through the agent. '' for a non-string or a blank name.
+        name = Collection.normalize_name(data.get('name'))
+        if not name:
             return jsonify({'error': 'Name fehlt.'}), 400
-        name = name.strip()
         if len(name) > Collection.MAX_NAME_LEN:
             return jsonify({
                 'error': f'Name zu lang (max {Collection.MAX_NAME_LEN} Zeichen).'
@@ -106,10 +110,10 @@ def register(app):
             return jsonify({'error': 'Ungültiger Request-Body. JSON-Objekt erwartet.'}), 400
 
         if 'name' in data:
-            name = data.get('name')
-            if not isinstance(name, str) or not name.strip():
+            # Same normalisation as POST and the agent path (see above).
+            name = Collection.normalize_name(data.get('name'))
+            if not name:
                 return jsonify({'error': 'Name fehlt.'}), 400
-            name = name.strip()
             if len(name) > Collection.MAX_NAME_LEN:
                 return jsonify({
                     'error': f'Name zu lang (max {Collection.MAX_NAME_LEN} Zeichen).'

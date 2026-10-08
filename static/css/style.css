@@ -1771,7 +1771,11 @@ body.reader-active .sidebar-toggle-floater--global {
     border: none;
 }
 
-.type-document_to_markdown { background: var(--nm-tone-info);    color: var(--nm-tone-info-ink); }
+/* One tone rule per allowed conversion_type (ARCH-LIBRARY-KLEIN) — the
+   sentinel tests/test_conversion_types.py fails on a type without one; the
+   two document types share the Dokument tone because they share the label. */
+.type-document_to_markdown,
+.type-document_conversion  { background: var(--nm-tone-info);    color: var(--nm-tone-info-ink); }
 .type-audio_transcription  { background: var(--nm-tone-success); color: var(--nm-tone-success-ink); }
 .type-audio_narration      { background: var(--nm-tone-slate);   color: var(--nm-tone-slate-ink); }
 .type-dialogue_formatting  { background: var(--nm-tone-purple);  color: var(--nm-tone-purple-ink); }

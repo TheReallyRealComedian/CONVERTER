@@ -475,3 +475,85 @@ def test_uncollected_ignores_other_users(app, authenticated_client, test_user):
     assert [c['id'] for c in body['due_cards']] == [mine]
     assert foreign not in [c['id'] for c in body['due_cards']]
     assert body['uncollected_count'] == 1
+
+
+# --- ARCH-LIBRARY-KLEIN: ONE normalisation for collection names --------------
+# The UI routes (POST/PATCH /api/collections) only trimmed; the agent path
+# (POST/PATCH /api/cards with collections: [name]) runs Collection.get_or_create
+# → Collection.normalize_name (trim AND collapse inner whitespace). "Chemie
+# Basics" with two spaces was one collection through the UI and another
+# through the agent. Both ways go through normalize_name now.
+
+_CARD_TOKEN = 'alk-test-card-token-4c1d'
+
+
+def _agent_card_with_collection(client, name):
+    return client.post('/api/cards',
+                       headers={'Authorization': f'Bearer {_CARD_TOKEN}'},
+                       json={'type': 'atomic', 'front': 'F', 'back': 'B',
+                             'collections': [name]})
+
+
+def test_create_collection_normalizes_inner_whitespace(app, authenticated_client, test_user, monkeypatch):
+    """UI first, then the agent: 'Chemie  Basics' (two spaces) is stored as
+    'Chemie Basics' and the agent's card lands in THAT collection — one row."""
+    monkeypatch.setenv('CARD_TOKEN', _CARD_TOKEN)
+    uid = test_user['id']
+    r = authenticated_client.post('/api/collections', json={'name': 'Chemie  Basics'})
+    assert r.status_code == 201
+    assert r.get_json()['name'] == 'Chemie Basics'
+    ui_id = r.get_json()['id']
+
+    r = _agent_card_with_collection(authenticated_client, 'Chemie  Basics')
+    assert r.status_code == 201
+    assert [c['id'] for c in r.get_json()['collections']] == [ui_id]
+    with app.app_context():
+        assert Collection.query.filter_by(user_id=uid).count() == 1
+        assert Collection.query.get(ui_id).name == 'Chemie Basics'
+
+
+def test_create_collection_agent_first_then_ui_is_the_same_row(app, authenticated_client, test_user, monkeypatch):
+    """Agent first, then the UI with the two-space spelling: the UI sees the
+    existing collection (409 'Sammlung existiert bereits.'), count stays 1."""
+    monkeypatch.setenv('CARD_TOKEN', _CARD_TOKEN)
+    uid = test_user['id']
+    r = _agent_card_with_collection(authenticated_client, 'Chemie  Basics')
+    assert r.status_code == 201
+    assert [c['name'] for c in r.get_json()['collections']] == ['Chemie Basics']
+
+    r = authenticated_client.post('/api/collections', json={'name': 'Chemie  Basics'})
+    assert r.status_code == 409
+    assert r.get_json()['error'] == 'Sammlung existiert bereits.'
+    with app.app_context():
+        assert Collection.query.filter_by(user_id=uid).count() == 1
+
+
+def test_rename_collection_normalizes_inner_whitespace(app, authenticated_client, test_user):
+    uid = test_user['id']
+    colid = _make_collection(app, uid, 'Alt')
+    r = authenticated_client.patch(f'/api/collections/{colid}',
+                                   json={'name': '  Plant   &  Process  '})
+    assert r.status_code == 200
+    assert r.get_json()['name'] == 'Plant & Process'
+    with app.app_context():
+        assert Collection.query.get(colid).name == 'Plant & Process'
+
+
+def test_rename_collection_clash_is_checked_on_the_normalized_name(app, authenticated_client, test_user):
+    uid = test_user['id']
+    _make_collection(app, uid, 'Chemie Basics')
+    colid_b = _make_collection(app, uid, 'B')
+    r = authenticated_client.patch(f'/api/collections/{colid_b}', json={'name': 'Chemie  Basics'})
+    assert r.status_code == 409
+    with app.app_context():
+        assert Collection.query.get(colid_b).name == 'B'
+
+
+def test_collection_name_blank_after_normalization_400(app, authenticated_client, test_user):
+    """Whitespace-only stays a 400 on both routes — as today."""
+    uid = test_user['id']
+    colid = _make_collection(app, uid, 'Alt')
+    assert authenticated_client.post('/api/collections', json={'name': ' \t '}).status_code == 400
+    assert authenticated_client.patch(f'/api/collections/{colid}', json={'name': '\n'}).status_code == 400
+    with app.app_context():
+        assert Collection.query.get(colid).name == 'Alt'
