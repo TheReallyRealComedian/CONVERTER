@@ -88,6 +88,24 @@ def create_app(import_name='app'):
     app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    # CSRF-REFRESH: the CSRF token lives as long as the session — no hour
+    # limit (Flask-WTF's default is 3600 s). What the age limit guards against
+    # is the REUSE of a token an attacker already captured; here that attacker
+    # would also need the cookie session the token is bound to
+    # (``session['csrf_token']`` is the raw value every signed token is
+    # checked against), and the session is already fenced: ``SameSite=Lax``,
+    # ``Secure`` behind HTTPS, ``HttpOnly``, plus Flask-WTF's SSL-strict
+    # same-origin Referer check on every cookie-session write behind nginx
+    # (ProxyFix above). With the session gone the token is dead too ("The
+    # CSRF session token is missing."). What the limit DID do was lose data:
+    # the first mutation on a page left standing for more than an hour (a
+    # finished transcript over night, a half-written note) died with
+    # ``csrf_expired``, and the reload threw away what only lived in the
+    # browser. ⚠️ Flask-WTF 1.2.1 reads this via ``config.get(name, 3600)`` —
+    # a SET None comes through as None (``max_age=None``, itsdangerous checks
+    # no age); DELETING the key would restore the hour. Sentinel + aged-token
+    # test: tests/test_csrf_refresh.py.
+    app.config['WTF_CSRF_TIME_LIMIT'] = None
     app.session_interface = HttpsOnlySecureSessionInterface()
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
         'DATABASE_URL', 'sqlite:////app/data/converter.db'
