@@ -133,19 +133,71 @@
     {% block scripts %}{% endblock %}
 
     <script>
-        /* CSRF token helper for fetch calls */
+        /* CSRF token helper for fetch calls — and, since CSRF-REFRESH, ONE
+           refresh-and-retry: a page left standing can hold a token the server
+           no longer accepts (the session ended and the remember cookie minted
+           a new one without a csrf_token). When a mutating call comes back
+           400 {"error": "csrf_expired"} (the handler in app_pkg/security.py
+           answers JSON to every request that carried the header, /api/ or
+           not), the wrapper fetches a fresh token from /api/csrf-token
+           through _originalFetch (never window.fetch — no recursion), sets
+           window.CSRF_TOKEN, OVERWRITES the header and sends the same url +
+           options once more. The second answer is returned unchanged — a
+           second 400 reaches the caller exactly as before, with the page's
+           existing messages. If the refresh fails (not ok, no token, network
+           error, HTML instead of JSON) the caller gets the FIRST 400, no
+           exception. Only the clone is ever consumed; the response handed
+           out is never a read one. Safe to repeat: the CSRF check runs in
+           before_request, the view never saw the first attempt. The retry
+           is structural — one refresh, one resend per call, no counter, no
+           state beyond window.CSRF_TOKEN. Not retried: a ReadableStream body
+           (not replayable; no caller sends one). Known property: a keepalive
+           fetch fired while the page unloads cannot wait for the retry. */
         window.CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         const _originalFetch = window.fetch;
-        window.fetch = function(url, options = {}) {
-            const method = (options.method || 'GET').toUpperCase();
-            if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-                options.headers = options.headers || {};
-                if (options.headers instanceof Headers) {
-                    if (!options.headers.has('X-CSRFToken')) options.headers.set('X-CSRFToken', window.CSRF_TOKEN);
-                } else {
-                    if (!options.headers['X-CSRFToken']) options.headers['X-CSRFToken'] = window.CSRF_TOKEN;
-                }
+        const _CSRF_METHODS = ['POST', 'PUT', 'DELETE', 'PATCH'];
+
+        function _setCsrfHeader(options, overwrite) {
+            options.headers = options.headers || {};
+            if (options.headers instanceof Headers) {
+                if (overwrite || !options.headers.has('X-CSRFToken')) options.headers.set('X-CSRFToken', window.CSRF_TOKEN);
+            } else {
+                if (overwrite || !options.headers['X-CSRFToken']) options.headers['X-CSRFToken'] = window.CSRF_TOKEN;
             }
+        }
+
+        async function _isCsrfExpired(response) {
+            if (response.status !== 400) return false;
+            try {
+                const body = await response.clone().json();
+                return !!body && body.error === 'csrf_expired';
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function _refreshCsrfToken() {
+            try {
+                const r = await _originalFetch.call(window, '/api/csrf-token', {cache: 'no-store', credentials: 'same-origin'});
+                if (!r.ok) return false;
+                const data = await r.json();
+                if (!data || !data.csrf_token) return false;
+                window.CSRF_TOKEN = data.csrf_token;
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        window.fetch = async function(url, options = {}) {
+            const method = (options.method || 'GET').toUpperCase();
+            if (!_CSRF_METHODS.includes(method)) return _originalFetch.call(this, url, options);
+            _setCsrfHeader(options, false);
+            const response = await _originalFetch.call(this, url, options);
+            const replayable = !(typeof ReadableStream !== 'undefined' && options.body instanceof ReadableStream);
+            if (!replayable || !(await _isCsrfExpired(response))) return response;
+            if (!(await _refreshCsrfToken())) return response;
+            _setCsrfHeader(options, true);
             return _originalFetch.call(this, url, options);
         };
     </script>

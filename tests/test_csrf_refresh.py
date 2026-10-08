@@ -19,7 +19,23 @@ Teil (a) — ``WTF_CSRF_TIME_LIMIT = None`` in ``create_app``:
   (iii) positive control: the same flow with the hour limit restored in the
         test is rejected as expired — proof the patch really ages the stamp.
 (i) and (ii) are red against HEAD, (iii) green.
+
+Teil (b) — the server side the fetch wrapper (templates/base.html) stands on:
+  (iv)  the CSRFError handler answers JSON ``csrf_expired`` as soon as the
+        token came as the ``X-CSRFToken`` HEADER — even outside ``/api/``
+        and without ``Accept: application/json`` (``POST /transform-document``
+        is the one mutating target outside ``/api/``; the wrapper is the only
+        sender of that header, forms send the field). Red against HEAD: there
+        the answer is the HTML "Session expired" page;
+  (v)   belt: without the header and without Accept it STAYS that HTML page
+        with the meta refresh onto the Referer (the two forms' path);
+  (vi)  belt for the retry: a session minted from the remember cookie has no
+        ``csrf_token`` — the page's old token dies with "The CSRF session
+        token is missing.", ``GET /api/csrf-token`` answers 200 AND sets the
+        ``session`` cookie, the new token writes. The wrapper's refresh is
+        this sequence; it is pinned here, not built.
 """
+import io
 import time
 from unittest.mock import patch
 
@@ -123,3 +139,75 @@ def test_with_the_hour_limit_the_same_old_token_is_rejected_as_expired(
     assert 'expired' in body['message']
     with app.app_context():
         assert db.session.get(Conversion, cid).title == 'doc'
+
+
+# --- Teil (b), server: the handler answers JSON to the wrapper -------------
+
+def _multipart_probe():
+    # What the document converter sends on /transform-document (non-PDF
+    # path); the CSRF check runs in before_request, the view never sees it.
+    return {'document_file': (io.BytesIO(b'CSRF-REFRESH Probe, kein Dokument'), 'probe.txt')}
+
+
+def test_csrf_error_with_token_header_is_json_even_outside_api(app, test_user,
+                                                               authenticated_client,
+                                                               csrf_enabled):
+    # Like the browser: the page's session holds a csrf_token (the form login
+    # above ran with CSRF off, so mint one) and the header carries a stale value.
+    assert authenticated_client.get('/api/csrf-token').status_code == 200
+    resp = authenticated_client.post('/transform-document', data=_multipart_probe(),
+                                     headers={'X-CSRFToken': 'stale'})
+    assert resp.status_code == 400
+    assert resp.content_type.startswith('application/json'), resp.content_type
+    body = resp.get_json()
+    assert body['error'] == 'csrf_expired'
+    assert body['message'] == 'The CSRF token is invalid.'
+
+
+def test_csrf_error_without_token_header_stays_the_html_page(app, test_user,
+                                                             authenticated_client,
+                                                             csrf_enabled):
+    referer = 'http://localhost.test/document-converter'
+    resp = authenticated_client.post('/transform-document', data=_multipart_probe(),
+                                     headers={'Referer': referer})
+    assert resp.status_code == 400
+    assert resp.content_type.startswith('text/html'), resp.content_type
+    text = resp.get_data(as_text=True)
+    assert 'Session expired' in text
+    assert f'<meta http-equiv="refresh" content="2;url={referer}">' in text
+
+
+# --- Teil (b), belt for the retry: a session minted from the remember cookie --
+
+def test_remember_minted_session_refreshes_its_token_through_the_endpoint(
+        app, test_user, authenticated_client, csrf_enabled):
+    domain = app.config['SERVER_NAME']          # the test client's cookie domain
+    cid = _make_conversion(app, test_user['id'])
+    old = authenticated_client.get('/api/csrf-token').get_json()['csrf_token']
+
+    # The form login set remember_token (login_user(..., remember=True)).
+    # Drop ONLY the session cookie — the browser's "session ended" case.
+    assert authenticated_client.get_cookie('remember_token', domain=domain) is not None
+    assert authenticated_client.get_cookie('session', domain=domain) is not None
+    authenticated_client.delete_cookie('session', domain=domain)
+    assert authenticated_client.get_cookie('session', domain=domain) is None
+
+    stale = authenticated_client.put(f'/api/conversions/{cid}', json={'title': 'alt'},
+                                     headers={'X-CSRFToken': old})
+    assert stale.status_code == 400
+    assert stale.get_json() == {'error': 'csrf_expired',
+                                'message': 'The CSRF session token is missing.'}
+
+    fresh = authenticated_client.get('/api/csrf-token')
+    assert fresh.status_code == 200
+    assert any(h.startswith('session=') for h in fresh.headers.getlist('Set-Cookie')), \
+        fresh.headers.getlist('Set-Cookie')
+    assert authenticated_client.get_cookie('session', domain=domain) is not None
+    new = fresh.get_json()['csrf_token']
+    assert new and new != old
+
+    done = authenticated_client.put(f'/api/conversions/{cid}', json={'title': 'neu'},
+                                    headers={'X-CSRFToken': new})
+    assert done.status_code == 200
+    with app.app_context():
+        assert db.session.get(Conversion, cid).title == 'neu'

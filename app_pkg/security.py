@@ -93,7 +93,18 @@ def _register_error_handlers(app):
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(error):
-        if request.accept_mimetypes.best == 'application/json' or request.path.startswith('/api/'):
+        # CSRF-REFRESH: a request that carried the token as the X-CSRFToken
+        # HEADER came from the fetch wrapper in templates/base.html (forms
+        # send the field) — it gets the JSON answer the wrapper's one
+        # refresh-and-retry reads, wherever it was aimed: /transform-document
+        # is the one mutating target outside /api/ and sends no Accept. The
+        # HTML page with the meta refresh stays for the two forms (login,
+        # markdown converter). One code for every Flask-WTF reason (missing,
+        # session token missing, expired, invalid, mismatch); the reason
+        # travels in ``message``.
+        if (request.accept_mimetypes.best == 'application/json'
+                or request.path.startswith('/api/')
+                or 'X-CSRFToken' in request.headers):
             return jsonify({'error': 'csrf_expired', 'message': str(error.description)}), 400
         reload_url = request.referrer or url_for('markdown_converter')
         html = (
